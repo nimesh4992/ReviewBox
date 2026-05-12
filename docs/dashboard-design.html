@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReviewIQ — Dashboard Design</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+* { font-family: 'Inter', sans-serif; box-sizing: border-box; }
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 4px; }
+@keyframes livePulse { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.4; transform:scale(0.8); } }
+.live-dot { animation: livePulse 2s ease-in-out infinite; }
+</style>
+</head>
+<body class="bg-[#F4F6FA] text-gray-900 overflow-hidden">
+
+<div class="flex h-screen">
+
+  <!-- ══════════════════════════════
+       SIDEBAR
+  ══════════════════════════════ -->
+  <aside class="w-[240px] shrink-0 flex flex-col bg-[#0D0F14] overflow-y-auto">
+
+    <!-- Logo -->
+    <div class="px-4 pt-5 pb-4 border-b border-white/[0.06]">
+      <div class="flex items-center gap-2.5">
+        <div class="w-7 h-7 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-bold text-xs shrink-0">IQ</div>
+        <div>
+          <div class="text-white font-semibold text-sm leading-none">ReviewIQ</div>
+          <div class="text-white/40 text-[11px] mt-0.5">Review Intelligence</div>
+        </div>
+      </div>
+      <!-- App selector -->
+      <button class="mt-3 w-full flex items-center justify-between px-2.5 h-8 rounded-md border border-white/[0.08] bg-white/[0.04] text-xs text-white/70">
+        <span>ReviewIQ Mobile</span>
+        <svg class="w-3.5 h-3.5 text-white/30" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+      </button>
+    </div>
+
+    <!-- Nav -->
+    <nav class="flex-1 px-3 py-3 space-y-0.5">
+
+      <!-- Dashboard active -->
+      <a href="#" class="relative flex items-center justify-between h-8 px-2.5 rounded-md bg-indigo-600/20 text-white text-sm">
+        <span class="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-indigo-400"></span>
+        <span class="flex items-center gap-2.5 pl-0.5">
+          <svg class="w-4 h-4 text-indigo-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1" stroke-width="2"/><rect x="14" y="3" width="7" height="7" rx="1" stroke-width="2"/><rect x="3" y="14" width="7" height="7" rx="1" stroke-width="2"/><rect x="14" y="14" width="7" height="7" rx="1" stroke-width="2"/></svg>
+          Dashboard
+        </span>
+      </a>
+
+      <!-- Reviews -->
+      <a href="#" class="flex items-center justify-between h-8 px-2.5 rounded-md text-white/50 hover:bg-white/[0.06] hover:text-white/80 text-sm">
+        <span class="flex items-center gap-2.5">
+          <svg class="w-4 h-4 text-white/40 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+          Reviews
+        </span>
+        <span class="bg-red-500/20 text-red-400 text-[10px] font-semibold px-1.5 h-5 flex items-center rounded">127</span>
+      </a>
+
+      <!-- Incidents -->
+      <a href="#" class="flex items-center justify-between h-8 px-2.5 rounded-md text-white/50 hover:bg-white/[0.06] hover:text-white/80 text-sm">
+        <span class="flex items-center gap-2.5">
+          <svg class="w-4 h-4 text-white/40 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          Incidents
+        </span>
+        <span class="bg-red-500/20 text-red-400 text-[10px] font-semibold px-1.5 h-5 flex items-center rounded">2</span>
+      </a>
+
+      <!-- Releases -->
+      <a href="#" class="flex items-center h-8 px-2.5 rounded-md text-white/50 hover:bg-white/[0.06] hover:text-white/80 text-sm gap-2.5">
+        <svg class="w-4 h-4 text-white/40 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        Releases
+      </a>
+
+      <!-- Settings -->
+      <a href="#" class="flex items-center h-8 px-2.5 rounded-md text-white/50 hover:bg-white/[0.06] hover:text-white/80 text-sm gap-2.5">
+        <svg class="w-4 h-4 text-white/40 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        Settings
+      </a>
+    </nav>
+
+    <!-- AI Triage -->
+    <div class="p-3 border-t border-white/[0.06]">
+      <div class="rounded-xl border border-white/[0.06] bg-white/[0.03] p-3">
+        <div class="flex items-center justify-between mb-3">
+          <span class="flex items-center gap-1.5 text-xs font-semibold text-white/70">
+            <svg class="w-3.5 h-3.5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+            AI triage
+          </span>
+          <span class="flex items-center gap-1 text-[10px] font-semibold text-emerald-400 bg-emerald-500/10 rounded-full px-1.5 py-0.5">
+            <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 live-dot inline-block"></span>
+            live
+          </span>
+        </div>
+        <div class="space-y-2.5 text-xs">
+          <div class="flex items-center justify-between">
+            <span class="text-white/40 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span>Crash cluster
+            </span>
+            <span class="font-semibold text-white/70">21</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-white/40 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-amber-400 shrink-0"></span>Needs reply
+            </span>
+            <span class="font-semibold text-white/70">46</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-white/40 flex items-center gap-1.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0"></span>SLA window
+            </span>
+            <span class="font-semibold text-amber-400">2h 14m</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </aside>
+
+  <!-- ══════════════════════════════
+       MAIN
+  ══════════════════════════════ -->
+  <div class="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+    <!-- Top bar -->
+    <header class="h-14 shrink-0 flex items-center justify-between px-5 bg-white border-b border-gray-200 z-20">
+      <div class="flex items-center gap-2 bg-red-50 border border-red-200 rounded-lg px-3 py-1.5">
+        <svg class="w-3.5 h-3.5 text-red-500 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+        <span class="text-xs font-semibold text-red-700">Release damage alert</span>
+        <span class="text-xs font-mono font-semibold text-red-500">5.42.0</span>
+      </div>
+
+      <div class="relative flex-1 max-w-md mx-5">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input class="w-full h-8 pl-9 pr-16 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-700 placeholder-gray-400 focus:outline-none focus:border-indigo-300 focus:bg-white" placeholder="Search reviews, versions, tags…" readonly>
+        <kbd class="absolute right-2.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5 text-[10px] text-gray-400 bg-white border border-gray-200 rounded px-1.5 py-0.5">⌘K</kbd>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center h-6 px-2.5 rounded-full bg-gray-100 border border-gray-200 text-xs font-medium text-gray-600">Production</span>
+        <button class="relative w-8 h-8 flex items-center justify-center rounded-lg text-gray-500 hover:bg-gray-100">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          <span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500"></span>
+        </button>
+        <div class="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white text-xs font-bold">NS</div>
+      </div>
+    </header>
+
+    <!-- Page header -->
+    <div class="shrink-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between">
+      <div>
+        <div class="text-[11px] font-bold uppercase tracking-widest text-indigo-600 mb-1">Command center</div>
+        <h1 class="text-xl font-bold text-gray-900 leading-tight">Review Operations</h1>
+        <p class="text-sm text-gray-400 mt-0.5">Live · Updated 2 min ago · Google Play + App Store · May 9, 2026</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button class="flex items-center gap-1.5 h-8 px-3.5 rounded-lg border border-gray-200 bg-white text-xs font-semibold text-gray-600 hover:bg-gray-50">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          Export
+        </button>
+        <button class="flex items-center gap-1.5 h-8 px-3.5 rounded-lg bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 10h10a8 8 0 018 8v2M3 10l6 6m-6-6l6-6"/></svg>
+          Reply queue
+        </button>
+      </div>
+    </div>
+
+    <!-- Scrollable body -->
+    <div class="flex-1 overflow-y-auto p-5 space-y-4">
+
+      <!-- ── INCIDENT BANNER ── -->
+      <div class="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start justify-between gap-4">
+        <div class="flex gap-3 min-w-0">
+          <div class="w-9 h-9 rounded-xl border border-red-200 bg-white shadow-sm flex items-center justify-center shrink-0 mt-0.5">
+            <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2 mb-1">
+              <span class="bg-red-100 text-red-700 text-[10px] font-bold uppercase tracking-wider rounded-full px-2 py-0.5">Critical incident</span>
+              <span class="text-xs text-red-400">Detected 18 min ago</span>
+            </div>
+            <p class="text-sm font-semibold text-red-900">Release 5.42.0 is damaging ratings</p>
+            <p class="text-sm text-red-700/70 mt-0.5 leading-5">1-star reviews up 38% since rollout hit 45%. Crash + login complaints concentrated on Android 14.</p>
+            <div class="flex gap-2 mt-2">
+              <span class="text-xs bg-white border border-red-200 text-red-600 font-semibold rounded-full px-2.5 py-1">Mobile Platform</span>
+              <span class="text-xs bg-white border border-red-200 text-red-600 font-semibold rounded-full px-2.5 py-1">Support Ops</span>
+            </div>
+          </div>
+        </div>
+        <button class="shrink-0 flex items-center gap-1.5 h-8 px-3.5 rounded-lg bg-red-600 text-xs font-semibold text-white hover:bg-red-700 whitespace-nowrap">
+          Open incident
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+
+      <!-- ── KPI CARDS ── -->
+      <div class="grid grid-cols-5 gap-3">
+
+        <!-- Avg Rating -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Avg. Rating</span>
+            <svg class="w-4 h-4 text-amber-400 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+          </div>
+          <div class="text-[30px] font-bold tracking-tight text-gray-900 leading-none">3.8</div>
+          <div class="text-xs text-red-500 font-semibold mt-1.5 flex items-center gap-1">
+            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M17 7l-10 10M7 7h10v10"/></svg>
+            ↓ 0.4 since v5.42.0
+          </div>
+          <svg viewBox="0 0 80 28" class="w-full h-7 mt-2" preserveAspectRatio="none">
+            <defs><linearGradient id="g1" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#EF4444" stop-opacity="0.2"/><stop offset="100%" stop-color="#EF4444" stop-opacity="0"/></linearGradient></defs>
+            <polygon points="0,4 13,6 26,10 39,15 52,18 67,22 80,23 80,28 0,28" fill="url(#g1)"/>
+            <polyline points="0,4 13,6 26,10 39,15 52,18 67,22 80,23" fill="none" stroke="#EF4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <!-- Unresolved -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Unresolved</span>
+            <svg class="w-4 h-4 text-amber-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z"/></svg>
+          </div>
+          <div class="text-[30px] font-bold tracking-tight text-gray-900 leading-none">127</div>
+          <div class="text-xs text-amber-600 font-semibold mt-1.5">↑ 18 since 09:00</div>
+          <svg viewBox="0 0 80 28" class="w-full h-7 mt-2" preserveAspectRatio="none">
+            <defs><linearGradient id="g2" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#F59E0B" stop-opacity="0.2"/><stop offset="100%" stop-color="#F59E0B" stop-opacity="0"/></linearGradient></defs>
+            <polygon points="0,22 13,24 26,19 39,14 52,12 67,9 80,8 80,28 0,28" fill="url(#g2)"/>
+            <polyline points="0,22 13,24 26,19 39,14 52,12 67,9 80,8" fill="none" stroke="#F59E0B" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </div>
+
+        <!-- Critical Spikes -->
+        <div class="bg-white rounded-2xl border border-red-100 p-4 shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Critical Spikes</span>
+            <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/></svg>
+          </div>
+          <div class="text-[30px] font-bold tracking-tight text-red-600 leading-none">3</div>
+          <div class="text-xs text-gray-400 font-medium mt-1.5">crash · login · billing</div>
+          <div class="flex gap-1 mt-3">
+            <div class="flex-1 h-1.5 rounded-full bg-red-500"></div>
+            <div class="flex-1 h-1.5 rounded-full bg-orange-400"></div>
+            <div class="flex-1 h-1.5 rounded-full bg-amber-400"></div>
+            <div class="flex-1 h-1.5 rounded-full bg-gray-100"></div>
+            <div class="flex-1 h-1.5 rounded-full bg-gray-100"></div>
+          </div>
+        </div>
+
+        <!-- Response SLA -->
+        <div class="bg-white rounded-2xl border border-orange-100 p-4 shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Response SLA</span>
+            <svg class="w-4 h-4 text-orange-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          </div>
+          <div class="text-[30px] font-bold tracking-tight text-gray-900 leading-none">82%</div>
+          <div class="text-xs text-red-500 font-semibold mt-1.5">9 urgent overdue</div>
+          <div class="mt-3">
+            <div class="h-1.5 rounded-full bg-gray-100 overflow-hidden">
+              <div class="h-full rounded-full bg-orange-500" style="width:82%"></div>
+            </div>
+            <div class="flex justify-between mt-1">
+              <span class="text-[10px] text-gray-400">Target 95%</span>
+              <span class="text-[10px] text-orange-500 font-semibold">−13%</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Open Incidents -->
+        <div class="bg-white rounded-2xl border border-red-100 p-4 shadow-sm">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-[10px] font-bold uppercase tracking-widest text-gray-400">Open Incidents</span>
+            <svg class="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"/></svg>
+          </div>
+          <div class="text-[30px] font-bold tracking-tight text-red-600 leading-none">2</div>
+          <div class="text-xs text-gray-400 font-medium mt-1.5">1 critical · 1 high</div>
+          <div class="space-y-1.5 mt-3">
+            <div class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"></span><span class="text-[11px] text-gray-500 truncate">v5.42.0 rating damage</span></div>
+            <div class="flex items-center gap-1.5"><span class="w-1.5 h-1.5 rounded-full bg-orange-500 shrink-0"></span><span class="text-[11px] text-gray-500 truncate">Reply SLA at risk</span></div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- ── PLATFORM HEALTH ── -->
+      <div class="grid grid-cols-2 gap-3">
+
+        <!-- Google Play -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style="background:linear-gradient(135deg,#34A853,#0F9D58)">
+                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+              </div>
+              <div>
+                <div class="text-sm font-bold text-gray-900">Google Play</div>
+                <div class="text-xs text-gray-400 mt-0.5">Android · 42 reviews today</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold text-gray-900">3.8</div>
+              <div class="flex items-center gap-0.5 justify-end mt-0.5">
+                <svg class="w-3 h-3 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <svg class="w-3 h-3 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <svg class="w-3 h-3 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <svg class="w-3 h-3 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <svg class="w-3 h-3 fill-gray-200" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mb-4">
+            <div class="text-center p-2.5 bg-gray-50 rounded-xl">
+              <div class="text-sm font-bold text-gray-900">78%</div>
+              <div class="text-[10px] text-gray-400 mt-0.5 font-medium">Response</div>
+            </div>
+            <div class="text-center p-2.5 bg-red-50 rounded-xl">
+              <div class="text-sm font-bold text-red-600">−0.4</div>
+              <div class="text-[10px] text-gray-400 mt-0.5 font-medium">7d rating</div>
+            </div>
+            <div class="text-center p-2.5 bg-gray-50 rounded-xl">
+              <div class="text-sm font-bold text-gray-900">89</div>
+              <div class="text-[10px] text-gray-400 mt-0.5 font-medium">Pending</div>
+            </div>
+          </div>
+          <svg viewBox="0 0 240 36" class="w-full h-9" preserveAspectRatio="none">
+            <defs><linearGradient id="gp" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#EF4444" stop-opacity="0.15"/><stop offset="100%" stop-color="#EF4444" stop-opacity="0"/></linearGradient></defs>
+            <polygon points="0,8 34,10 68,14 102,19 136,23 170,28 204,31 240,33 240,36 0,36" fill="url(#gp)"/>
+            <polyline points="0,8 34,10 68,14 102,19 136,23 170,28 204,31 240,33" fill="none" stroke="#EF4444" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="2" y="35" font-size="8" fill="#9CA3AF" font-family="Inter">Mon</text>
+            <text x="36" y="35" font-size="8" fill="#9CA3AF" font-family="Inter">Tue</text>
+            <text x="70" y="35" font-size="8" fill="#9CA3AF" font-family="Inter">Wed</text>
+            <text x="104" y="35" font-size="8" fill="#9CA3AF" font-family="Inter">Thu</text>
+            <text x="138" y="35" font-size="8" fill="#9CA3AF" font-family="Inter">Fri</text>
+            <text x="172" y="35" font-size="8" fill="#9CA3AF" font-family="Inter">Sat</text>
+            <text x="206" y="35" font-size="8" fill="#9CA3AF" font-family="Inter">Sun</text>
+          </svg>
+        </div>
+
+        <!-- App Store -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-4 shadow-sm">
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-3">
+              <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style="background:linear-gradient(135deg,#5B8BF5,#3B5BDB)">
+                <svg class="w-5 h-5 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z"/></svg>
+              </div>
+              <div>
+                <div class="text-sm font-bold text-gray-900">App Store</div>
+                <div class="text-xs text-gray-400 mt-0.5">iOS · 19 reviews today</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-2xl font-bold text-gray-900">4.1</div>
+              <div class="flex items-center gap-0.5 justify-end mt-0.5">
+                <svg class="w-3 h-3 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <svg class="w-3 h-3 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <svg class="w-3 h-3 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <svg class="w-3 h-3 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                <svg class="w-3 h-3 fill-amber-400 opacity-30" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+              </div>
+            </div>
+          </div>
+          <div class="grid grid-cols-3 gap-2 mb-4">
+            <div class="text-center p-2.5 bg-emerald-50 rounded-xl">
+              <div class="text-sm font-bold text-emerald-600">91%</div>
+              <div class="text-[10px] text-gray-400 mt-0.5 font-medium">Response</div>
+            </div>
+            <div class="text-center p-2.5 bg-gray-50 rounded-xl">
+              <div class="text-sm font-bold text-gray-700">+0.1</div>
+              <div class="text-[10px] text-gray-400 mt-0.5 font-medium">7d rating</div>
+            </div>
+            <div class="text-center p-2.5 bg-gray-50 rounded-xl">
+              <div class="text-sm font-bold text-gray-900">38</div>
+              <div class="text-[10px] text-gray-400 mt-0.5 font-medium">Pending</div>
+            </div>
+          </div>
+          <svg viewBox="0 0 240 36" class="w-full h-9" preserveAspectRatio="none">
+            <defs><linearGradient id="as" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#10B981" stop-opacity="0.15"/><stop offset="100%" stop-color="#10B981" stop-opacity="0"/></linearGradient></defs>
+            <polygon points="0,22 34,20 68,24 102,18 136,15 170,17 204,12 240,10 240,36 0,36" fill="url(#as)"/>
+            <polyline points="0,22 34,20 68,24 102,18 136,15 170,17 204,12 240,10" fill="none" stroke="#10B981" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+            <text x="2" y="35" font-size="8" fill="#9CA3AF" font-family="Inter">Mon</text>
+            <text x="36" y="35" font-size="8" fill="#9CA3AF" font-family="Inter">Tue</text>
+            <text x="70" y="35" font-size="8" fill="#9CA3AF" font-family="Inter">Wed</text>
+            <text x="104" y="35" font-size="8" fill="#9CA3AF" font-family="Inter">Thu</text>
+            <text x="138" y="35" font-size="8" fill="#9CA3AF" font-family="Inter">Fri</text>
+            <text x="172" y="35" font-size="8" fill="#9CA3AF" font-family="Inter">Sat</text>
+            <text x="206" y="35" font-size="8" fill="#9CA3AF" font-family="Inter">Sun</text>
+          </svg>
+        </div>
+
+      </div>
+
+      <!-- ── REVIEW QUEUE + SIDEBAR ── -->
+      <div class="grid gap-3" style="grid-template-columns: 1fr 292px;">
+
+        <!-- Review Queue -->
+        <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+          <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+            <div class="flex items-center gap-2">
+              <h2 class="text-sm font-bold text-gray-900">Urgent review queue</h2>
+              <span class="bg-red-100 text-red-700 text-[10px] font-bold px-2 py-0.5 rounded-full">4 urgent</span>
+            </div>
+            <div class="flex bg-gray-100 p-0.5 rounded-lg">
+              <button class="px-2.5 py-1 rounded-md bg-white shadow-sm text-xs font-semibold text-gray-800">Attention</button>
+              <button class="px-2.5 py-1 rounded-md text-xs text-gray-400 hover:text-gray-600">Critical</button>
+              <button class="px-2.5 py-1 rounded-md text-xs text-gray-400 hover:text-gray-600">AI drafts</button>
+            </div>
+          </div>
+
+          <div class="divide-y divide-gray-100">
+
+            <!-- Review 1 -->
+            <div class="flex hover:bg-gray-50/60 transition-colors">
+              <div class="w-[3px] bg-red-500 shrink-0 rounded-l-sm my-0"></div>
+              <div class="flex-1 px-4 py-3.5">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex gap-2.5 min-w-0">
+                    <div class="w-8 h-8 rounded-full bg-violet-100 text-violet-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">PS</div>
+                    <div class="min-w-0">
+                      <div class="flex flex-wrap items-center gap-1.5 mb-1.5">
+                        <span class="text-sm font-semibold text-gray-900">Priya S.</span>
+                        <span class="text-xs text-gray-400">🇮🇳</span>
+                        <span class="bg-[#E8F5E9] text-[#2E7D32] text-[10px] font-bold px-1.5 py-0.5 rounded-full">Google Play</span>
+                        <span class="text-xs text-gray-400">12 min ago</span>
+                        <span class="bg-red-100 text-red-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full tracking-wide">URGENT</span>
+                      </div>
+                      <div class="flex items-center gap-0.5 mb-2">
+                        <svg class="w-3.5 h-3.5 fill-red-500" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3.5 h-3.5 fill-gray-200" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3.5 h-3.5 fill-gray-200" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3.5 h-3.5 fill-gray-200" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3.5 h-3.5 fill-gray-200" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <span class="ml-1.5 text-xs text-gray-400 font-medium">v5.42.0 · Pixel 8</span>
+                      </div>
+                      <p class="text-sm text-gray-600 leading-5 line-clamp-2">App keeps closing after the latest update when I open payments. I cannot complete my subscription renewal.</p>
+                      <div class="flex gap-1 mt-2">
+                        <span class="text-[10px] bg-gray-100 border border-gray-200 text-gray-600 font-medium px-1.5 py-0.5 rounded">crash</span>
+                        <span class="text-[10px] bg-gray-100 border border-gray-200 text-gray-600 font-medium px-1.5 py-0.5 rounded">billing</span>
+                        <span class="text-[10px] bg-gray-100 border border-gray-200 text-gray-600 font-medium px-1.5 py-0.5 rounded">release-regression</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex gap-1 shrink-0">
+                    <button class="flex items-center gap-1 h-7 px-2 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold hover:bg-indigo-100">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                      AI Draft
+                    </button>
+                    <button class="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Review 2: App Store urgent -->
+            <div class="flex hover:bg-gray-50/60 transition-colors">
+              <div class="w-[3px] bg-red-500 shrink-0"></div>
+              <div class="flex-1 px-4 py-3.5">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex gap-2.5 min-w-0">
+                    <div class="w-8 h-8 rounded-full bg-sky-100 text-sky-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">JT</div>
+                    <div class="min-w-0">
+                      <div class="flex flex-wrap items-center gap-1.5 mb-1.5">
+                        <span class="text-sm font-semibold text-gray-900">James T.</span>
+                        <span class="text-xs text-gray-400">🇺🇸</span>
+                        <span class="bg-blue-50 text-blue-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full border border-blue-200">App Store</span>
+                        <span class="text-xs text-gray-400">1h ago</span>
+                        <span class="bg-red-100 text-red-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full tracking-wide">URGENT</span>
+                      </div>
+                      <div class="flex items-center gap-0.5 mb-2">
+                        <svg class="w-3.5 h-3.5 fill-red-500" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3.5 h-3.5 fill-gray-200" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3.5 h-3.5 fill-gray-200" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3.5 h-3.5 fill-gray-200" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3.5 h-3.5 fill-gray-200" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <span class="ml-1.5 text-xs text-gray-400 font-medium">v3.9.1 · iPhone 15 Pro</span>
+                      </div>
+                      <p class="text-sm text-gray-600 leading-5 line-clamp-2">Paid for premium and the app crashes every time I try to access my content. Total waste of money.</p>
+                      <div class="flex gap-1 mt-2">
+                        <span class="text-[10px] bg-gray-100 border border-gray-200 text-gray-600 font-medium px-1.5 py-0.5 rounded">crash</span>
+                        <span class="text-[10px] bg-gray-100 border border-gray-200 text-gray-600 font-medium px-1.5 py-0.5 rounded">billing</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex gap-1 shrink-0">
+                    <button class="flex items-center gap-1 h-7 px-2 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold hover:bg-indigo-100">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                      AI Draft
+                    </button>
+                    <button class="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Review 3: High -->
+            <div class="flex hover:bg-gray-50/60 transition-colors">
+              <div class="w-[3px] bg-orange-400 shrink-0"></div>
+              <div class="flex-1 px-4 py-3.5">
+                <div class="flex items-start justify-between gap-3">
+                  <div class="flex gap-2.5 min-w-0">
+                    <div class="w-8 h-8 rounded-full bg-rose-100 text-rose-700 text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">MF</div>
+                    <div class="min-w-0">
+                      <div class="flex flex-wrap items-center gap-1.5 mb-1.5">
+                        <span class="text-sm font-semibold text-gray-900">M. Fischer</span>
+                        <span class="text-xs text-gray-400">🇩🇪</span>
+                        <span class="bg-[#E8F5E9] text-[#2E7D32] text-[10px] font-bold px-1.5 py-0.5 rounded-full">Google Play</span>
+                        <span class="text-xs text-gray-400">31 min ago</span>
+                        <span class="bg-orange-100 text-orange-700 text-[10px] font-bold px-1.5 py-0.5 rounded-full tracking-wide">HIGH</span>
+                        <span class="bg-indigo-50 border border-indigo-200 text-indigo-600 text-[10px] font-semibold px-1.5 py-0.5 rounded-full">Draft ready</span>
+                      </div>
+                      <div class="flex items-center gap-0.5 mb-2">
+                        <svg class="w-3.5 h-3.5 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3.5 h-3.5 fill-amber-400" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3.5 h-3.5 fill-gray-200" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3.5 h-3.5 fill-gray-200" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <svg class="w-3.5 h-3.5 fill-gray-200" viewBox="0 0 24 24"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>
+                        <span class="ml-1.5 text-xs text-gray-400 font-medium">v5.42.0 · Galaxy S23</span>
+                      </div>
+                      <p class="text-sm text-gray-600 leading-5 line-clamp-2">Since 5.42 the login screen loops forever. Clearing cache helps for one session only.</p>
+                      <div class="flex gap-1 mt-2">
+                        <span class="text-[10px] bg-gray-100 border border-gray-200 text-gray-600 font-medium px-1.5 py-0.5 rounded">login</span>
+                        <span class="text-[10px] bg-gray-100 border border-gray-200 text-gray-600 font-medium px-1.5 py-0.5 rounded">release-regression</span>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="flex gap-1 shrink-0">
+                    <button class="flex items-center gap-1 h-7 px-2 rounded-lg bg-indigo-50 border border-indigo-200 text-indigo-700 text-xs font-semibold hover:bg-indigo-100">
+                      <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                      AI Draft
+                    </button>
+                    <button class="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center text-gray-400 hover:bg-gray-50">
+                      <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"/></svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Footer -->
+            <div class="px-4 py-3 bg-gray-50 flex items-center justify-between">
+              <span class="text-xs text-gray-400">Showing 3 of 127 reviews</span>
+              <button class="text-xs font-semibold text-indigo-600 hover:text-indigo-700 flex items-center gap-1">
+                View all reviews
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+              </button>
+            </div>
+
+          </div>
+        </div>
+
+        <!-- Right sidebar -->
+        <div class="space-y-3">
+
+          <!-- AI Insights -->
+          <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div class="w-6 h-6 rounded-lg bg-indigo-50 flex items-center justify-center shrink-0">
+                  <svg class="w-3.5 h-3.5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                </div>
+                <span class="text-sm font-bold text-gray-900">AI insights</span>
+              </div>
+              <span class="text-[10px] font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">beta</span>
+            </div>
+            <div class="p-3 space-y-2">
+              <div class="p-3 bg-red-50 rounded-xl border border-red-100">
+                <div class="flex items-center justify-between mb-1"><span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Top cluster</span><span class="text-xs font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">Payment crash</span></div>
+                <p class="text-xs text-gray-600 leading-4">21 reviews mention renewal failure after tapping payment method.</p>
+              </div>
+              <div class="p-3 bg-amber-50 rounded-xl border border-amber-100">
+                <div class="flex items-center justify-between mb-1"><span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Sentiment shift</span><span class="text-xs font-bold text-amber-600 bg-amber-100 px-1.5 py-0.5 rounded-full">−14 pts</span></div>
+                <p class="text-xs text-gray-600 leading-4">Negative sentiment accelerating in India and Germany.</p>
+              </div>
+              <div class="p-3 bg-red-50 rounded-xl border border-red-100">
+                <div class="flex items-center justify-between mb-1"><span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Release impact</span><span class="text-xs font-bold text-red-600 bg-red-100 px-1.5 py-0.5 rounded-full">v5.42.0</span></div>
+                <p class="text-xs text-gray-600 leading-4">Regression language in 64% of urgent reviews.</p>
+              </div>
+              <div class="p-3 bg-gray-50 rounded-xl border border-gray-200">
+                <div class="flex items-center justify-between mb-1"><span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider">Feature trend</span><span class="text-xs font-medium text-gray-600 bg-gray-100 px-1.5 py-0.5 rounded-full">Saved filters</span></div>
+                <p class="text-xs text-gray-600 leading-4">12 requests this week from power users.</p>
+              </div>
+            </div>
+            <div class="px-3 pb-3">
+              <button class="w-full h-8 rounded-xl bg-indigo-50 border border-indigo-200 text-xs font-bold text-indigo-700 hover:bg-indigo-100 flex items-center justify-center gap-1.5">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+                Prepare triage brief
+              </button>
+            </div>
+          </div>
+
+          <!-- Release Health -->
+          <div class="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+              <span class="text-sm font-bold text-gray-900">Release health</span>
+              <button class="text-xs font-semibold text-indigo-600 hover:text-indigo-700">All →</button>
+            </div>
+            <div class="divide-y divide-gray-100">
+              <div class="flex items-center gap-3 px-4 py-3">
+                <div class="w-2 h-2 rounded-full bg-red-500 shrink-0"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between"><span class="font-mono text-sm font-bold text-gray-900">5.42.0</span><span class="text-xs font-bold text-red-600">−0.34 ★</span></div>
+                  <div class="flex items-center gap-2 mt-1"><div class="flex-1 h-1 rounded-full bg-gray-100 overflow-hidden"><div class="h-full bg-red-400 rounded-full" style="width:45%"></div></div><span class="text-[10px] text-gray-400 shrink-0">45%</span></div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 px-4 py-3">
+                <div class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between"><span class="font-mono text-sm font-bold text-gray-900">5.41.2</span><span class="text-xs font-bold text-emerald-600">+0.03 ★</span></div>
+                  <div class="flex items-center gap-2 mt-1"><div class="flex-1 h-1 rounded-full bg-gray-100 overflow-hidden"><div class="h-full bg-emerald-400 rounded-full" style="width:100%"></div></div><span class="text-[10px] text-gray-400 shrink-0">100%</span></div>
+                </div>
+              </div>
+              <div class="flex items-center gap-3 px-4 py-3">
+                <div class="w-2 h-2 rounded-full bg-amber-400 shrink-0"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between"><span class="font-mono text-sm font-bold text-gray-900">5.41.0</span><span class="text-xs font-bold text-amber-600">−0.07 ★</span></div>
+                  <div class="flex items-center gap-2 mt-1"><div class="flex-1 h-1 rounded-full bg-gray-100 overflow-hidden"><div class="h-full bg-amber-400 rounded-full" style="width:100%"></div></div><span class="text-[10px] text-gray-400 shrink-0">100%</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+</body>
+</html>

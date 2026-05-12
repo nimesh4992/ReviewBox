@@ -1,0 +1,249 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import { Plus, Info, Trash2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+
+type KbCategory = "product" | "known_issue" | "faq" | "roadmap";
+
+// Shape returned from the API (snake_case from Supabase)
+interface ApiKbEntry {
+  id: string;
+  title: string;
+  content: string;
+  category: KbCategory;
+  created_at: string;
+}
+
+const CATEGORY_CONFIG: Record<KbCategory, { label: string; className: string }> = {
+  product: { label: "Product", className: "bg-blue-50 text-blue-600" },
+  known_issue: { label: "Known issue", className: "bg-red-50 text-red-600" },
+  faq: { label: "FAQ", className: "bg-amber-50 text-amber-600" },
+  roadmap: { label: "Roadmap", className: "bg-indigo-50 text-indigo-600" },
+};
+
+const CATEGORIES: KbCategory[] = ["product", "known_issue", "faq", "roadmap"];
+
+function EntryCard({
+  entry,
+  onDelete,
+}: {
+  entry: ApiKbEntry;
+  onDelete: (id: string) => void;
+}) {
+  const config = CATEGORY_CONFIG[entry.category];
+  const [deleting, setDeleting] = useState(false);
+
+  async function handleDelete() {
+    setDeleting(true);
+    try {
+      await fetch(`/api/reply-kit/knowledge-base/${entry.id}`, { method: "DELETE" });
+      onDelete(entry.id);
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  return (
+    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+      {/* Top row: title + category badge */}
+      <div className="flex items-start justify-between gap-3">
+        <span className="text-sm font-semibold text-gray-900">{entry.title}</span>
+        <span
+          className={cn(
+            "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
+            config.className,
+          )}
+        >
+          {config.label}
+        </span>
+      </div>
+
+      {/* Content */}
+      <p className="mt-2 text-sm text-gray-500">{entry.content}</p>
+
+      {/* Footer */}
+      <div className="mt-3 flex items-center">
+        <span className="text-[11px] text-gray-400">
+          Added {new Date(entry.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
+        </span>
+        <div className="ml-auto flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            disabled={deleting}
+            onClick={handleDelete}
+            className="text-gray-400 hover:text-red-500"
+          >
+            <Trash2 strokeWidth={1.5} className="size-3.5" />
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+interface NewEntryForm {
+  title: string;
+  content: string;
+  category: KbCategory;
+}
+
+export function KnowledgeBaseTab() {
+  const [entries, setEntries] = useState<ApiKbEntry[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState<NewEntryForm>({ title: "", content: "", category: "product" });
+  const [submitting, setSubmitting] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    fetch("/api/reply-kit/knowledge-base")
+      .then((r) => r.json())
+      .then((data: { entries: ApiKbEntry[] }) => {
+        setEntries(data.entries ?? []);
+      })
+      .catch(console.error)
+      .finally(() => setLoading(false));
+  }, []);
+
+  function handleDelete(id: string) {
+    setEntries((prev) => prev.filter((e) => e.id !== id));
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.title.trim() || !form.content.trim()) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch("/api/reply-kit/knowledge-base", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: form.title, content: form.content, category: form.category }),
+      });
+      const data = (await res.json()) as { entry: ApiKbEntry };
+      setEntries((prev) => [data.entry, ...prev]);
+      setForm({ title: "", content: "", category: "product" });
+      setShowAdd(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div>
+      {/* Header */}
+      <div className="mb-4 flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-base font-semibold text-gray-900">Knowledge base</h2>
+          <p className="mt-1 text-sm text-gray-500">
+            Add context about your product so AI replies are accurate and specific.
+          </p>
+        </div>
+        <Button
+          size="sm"
+          className="shrink-0 bg-[#5B5BD6] text-white hover:bg-[#4f4fbf]"
+          onClick={() => setShowAdd((v) => !v)}
+        >
+          <Plus strokeWidth={1.5} className="size-4" />
+          Add entry
+        </Button>
+      </div>
+
+      {/* Info banner */}
+      <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-[#5B5BD6]/20 bg-[#5B5BD6]/5 p-4 text-sm text-[#5B5BD6]">
+        <Info strokeWidth={1.5} className="mt-0.5 size-4 shrink-0" />
+        <span>
+          This content is injected into every AI reply as context. Keep it concise and factual.
+        </span>
+      </div>
+
+      {/* Inline add form */}
+      {showAdd && (
+        <form
+          onSubmit={handleSubmit}
+          className="mb-4 rounded-2xl border border-[#5B5BD6]/30 bg-[#5B5BD6]/5 p-5 space-y-3"
+        >
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-600">Title</label>
+            <input
+              type="text"
+              value={form.title}
+              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
+              placeholder="e.g. Current known issues"
+              required
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-600">Content</label>
+            <textarea
+              value={form.content}
+              onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+              placeholder="Describe the product info, known issue, FAQ, or roadmap item…"
+              required
+              rows={4}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30 resize-none"
+            />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs font-medium text-gray-600">Category</label>
+            <select
+              value={form.category}
+              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as KbCategory }))}
+              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30"
+            >
+              {CATEGORIES.map((c) => (
+                <option key={c} value={c}>{CATEGORY_CONFIG[c].label}</option>
+              ))}
+            </select>
+          </div>
+          <div className="flex items-center gap-2 pt-1">
+            <Button
+              type="submit"
+              size="sm"
+              disabled={submitting}
+              className="bg-[#5B5BD6] text-white hover:bg-[#4f4fbf] disabled:opacity-50"
+            >
+              {submitting ? "Saving…" : "Save entry"}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowAdd(false)}
+              className="text-gray-500"
+            >
+              Cancel
+            </Button>
+          </div>
+        </form>
+      )}
+
+      {/* Entries */}
+      <div className="space-y-3">
+        {loading ? (
+          <>
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="h-28 animate-pulse rounded-2xl border border-gray-200 bg-gray-100"
+              />
+            ))}
+          </>
+        ) : entries.length > 0 ? (
+          entries.map((entry) => (
+            <EntryCard key={entry.id} entry={entry} onDelete={handleDelete} />
+          ))
+        ) : (
+          <p className="py-8 text-center text-sm text-gray-400">
+            No entries yet. Add your first one above.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
