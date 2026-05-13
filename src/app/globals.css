@@ -3,10 +3,35 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ── Design system semantic tokens ───────────────────────────────────────── */
 :root {
-  /* Brand — #5B5BD6 indigo */
-  --brand: #5B5BD6;
-  --brand-rgb: 91 91 214;
+  --brand: #0A84FF;
+  --brand-rgb: 10 132 255;
+
+  /* Foreground — light */
+  --rb-fg-1: #1D1D1F;
+  --rb-fg-2: #48484D;
+  --rb-fg-3: #86868B;
+  --rb-fg-4: #B0B0B8;
+
+  /* Background — light */
+  --rb-bg-canvas:      #F5F5F7;
+  --rb-bg-surface:     #FFFFFF;
+  --rb-bg-raised:      #FFFFFF;
+  --rb-bg-sunken:      #FAFAFA;
+  --rb-bg-selected:    #EBF4FF;
+  --rb-bg-accent-soft: #EBF4FF;
+  --rb-bg-hover:       rgba(0,0,0,0.04);
+
+  /* Borders */
+  --rb-border-1: rgba(0,0,0,0.06);
+  --rb-border-2: rgba(0,0,0,0.10);
+  --rb-border-3: rgba(0,0,0,0.16);
+
+  /* Shadows */
+  --rb-shadow-xs: 0 1px 1px rgba(15,23,42,0.04);
+  --rb-shadow-sm: 0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04);
+  --rb-shadow-md: 0 4px 12px rgba(15,23,42,0.08), 0 2px 4px rgba(15,23,42,0.04);
 
   --background: oklch(0.979 0.003 240);
   --foreground: oklch(0.145 0.028 260);
@@ -14,8 +39,8 @@
   --card-foreground: oklch(0.145 0.028 260);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0.028 260);
-  /* Primary wired to brand */
-  --primary: oklch(0.506 0.222 275);
+  /* Primary wired to brand (#0A84FF) */
+  --primary: oklch(0.590 0.196 254);
   --primary-foreground: oklch(1 0 0);
   --secondary: oklch(0.961 0.005 240);
   --secondary-foreground: oklch(0.145 0.028 260);
@@ -28,11 +53,55 @@
   --border: oklch(0.920 0.006 250);
   --input: oklch(0.920 0.006 250);
   /* Ring wired to brand */
-  --ring: oklch(0.506 0.222 275);
+  --ring: oklch(0.590 0.196 254);
   --radius: 0.625rem;
   --success: oklch(0.502 0.15 155);
   --warning: oklch(0.602 0.17 55);
   --critical: oklch(0.552 0.22 25);
+}
+
+/* ── Dark mode ──────────────────────────────────────────────────────────── */
+.dark {
+  --rb-fg-1: #F5F5F7;
+  --rb-fg-2: #C7C7CC;
+  --rb-fg-3: #8E8E93;
+  --rb-fg-4: #636366;
+
+  --rb-bg-canvas:      #0B0B0E;
+  --rb-bg-surface:     #161618;
+  --rb-bg-raised:      #1F1F22;
+  --rb-bg-sunken:      #0E0E11;
+  --rb-bg-selected:    rgba(10,132,255,0.18);
+  --rb-bg-accent-soft: rgba(10,132,255,0.16);
+  --rb-bg-hover:       rgba(255,255,255,0.06);
+
+  --rb-border-1: rgba(255,255,255,0.06);
+  --rb-border-2: rgba(255,255,255,0.10);
+  --rb-border-3: rgba(255,255,255,0.16);
+
+  --rb-shadow-xs: 0 1px 1px rgba(0,0,0,0.50);
+  --rb-shadow-sm: 0 1px 2px rgba(0,0,0,0.60);
+  --rb-shadow-md: 0 4px 12px rgba(0,0,0,0.50);
+
+  --background: oklch(0.09 0.01 260);
+  --foreground: oklch(0.96 0.003 240);
+  --card: oklch(0.12 0.01 260);
+  --card-foreground: oklch(0.96 0.003 240);
+  --popover: oklch(0.12 0.01 260);
+  --popover-foreground: oklch(0.96 0.003 240);
+  --primary: oklch(0.590 0.196 254);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.16 0.01 260);
+  --secondary-foreground: oklch(0.96 0.003 240);
+  --muted: oklch(0.16 0.01 260);
+  --muted-foreground: oklch(0.60 0.02 250);
+  --accent: oklch(0.16 0.01 260);
+  --accent-foreground: oklch(0.96 0.003 240);
+  --destructive: oklch(0.52 0.22 25);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.22 0.01 260);
+  --input: oklch(0.22 0.01 260);
+  --ring: oklch(0.590 0.196 254);
 }
 
 @theme inline {
@@ -63,14 +132,22 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+
+  /* Semantic design tokens — auto-swap in dark mode */
+  --color-surface:   var(--rb-bg-surface);
+  --color-canvas:    var(--rb-bg-canvas);
+  --color-raised:    var(--rb-bg-raised);
+  --color-sunken:    var(--rb-bg-sunken);
+  --color-fg-1:      var(--rb-fg-1);
+  --color-fg-2:      var(--rb-fg-2);
+  --color-fg-3:      var(--rb-fg-3);
+  --color-fg-4:      var(--rb-fg-4);
 }
 
-* {
-  border-color: var(--border);
-}
+* { border-color: var(--border); }
 
 html {
-  background: #f9fafb;
+  background: var(--rb-bg-canvas);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   text-rendering: optimizeLegibility;
@@ -78,8 +155,8 @@ html {
 
 body {
   min-height: 100vh;
-  background: #f9fafb;
-  color: var(--foreground);
+  background: var(--rb-bg-canvas);
+  color: var(--rb-fg-1);
   font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
 }
 
@@ -103,7 +180,7 @@ textarea {
 }
 
 ::selection {
-  background: rgba(91, 91, 214, 0.15);
+  background: rgba(10, 132, 255, 0.15);
 }
 
 .scrollbar-quiet {

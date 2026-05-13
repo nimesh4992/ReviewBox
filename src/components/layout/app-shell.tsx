@@ -10,7 +10,7 @@ export function AppShell({ children }: { children: ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="flex h-screen overflow-hidden bg-[#F5F5F7] dark:bg-[#0B0B0E]">
       {/* Desktop sidebar — sticky, full height, independent scroll */}
       <Sidebar className="hidden md:flex" />
 

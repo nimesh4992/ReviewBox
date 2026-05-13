@@ -3,17 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
+import { useUser } from "@clerk/nextjs";
 import {
   Activity,
   AlertTriangle,
+  BarChart2,
   BookOpen,
   Bug,
   ChevronDown,
+  ChevronUp,
+  FileBarChart,
   Gauge,
   Inbox,
   MessageSquareReply,
   Rocket,
+  Search,
   Settings,
+  Trophy,
   Workflow,
   Zap,
 } from "lucide-react";
@@ -52,18 +58,27 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Reviews",
+    label: "Inbox",
     items: [
-      { name: "Reviews feed",  href: "/reviews",     icon: Inbox,     signal: "127" },
-      { name: "Automations",   href: "/automations", icon: Workflow,   signal: null  },
-      { name: "Reply Kit",     href: "/reply-kit",   icon: BookOpen,   signal: null  },
+      { name: "Reviews",    href: "/reviews",     icon: Inbox,    signal: "127" },
+      { name: "Automations", href: "/automations", icon: Workflow,  signal: null  },
+      { name: "Reply Kit",   href: "/reply-kit",   icon: BookOpen,  signal: null  },
+    ],
+  },
+  {
+    label: "Insights",
+    items: [
+      { name: "Sentiment",   href: "/sentiment",   icon: BarChart2,    signal: null },
+      { name: "Competitors", href: "/competitors", icon: Trophy,       signal: null },
+      { name: "ASO",         href: "/aso",         icon: Search,       signal: null },
+      { name: "Reports",     href: "/reports",     icon: FileBarChart, signal: null },
     ],
   },
   {
     label: "Monitor",
     items: [
       { name: "Incidents", href: "/incidents", icon: AlertTriangle, signal: "2" },
-      { name: "Releases", href: "/releases", icon: Rocket, signal: null },
+      { name: "Releases",  href: "/releases",  icon: Rocket,        signal: null },
     ],
   },
   {
@@ -91,18 +106,18 @@ function SidebarNavItem({
         "group relative flex h-9 items-center justify-between rounded-md px-2.5 text-sm transition-colors duration-150",
         indent && "ml-3",
         isActive
-          ? "bg-[#5B5BD6]/10 text-white"
-          : "text-white/50 hover:bg-white/[0.05] hover:text-white/80",
+          ? "bg-[#0A84FF]/10 text-[#0058B3] dark:bg-[#0A84FF]/20 dark:text-[#4592FF]"
+          : "text-[#48484D] hover:bg-black/[0.04] hover:text-[#1D1D1F] dark:text-[#8E8E93] dark:hover:bg-white/[0.06] dark:hover:text-[#F5F5F7]",
       )}
     >
       {isActive && (
-        <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-[#5B5BD6]" />
+        <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-[#0A84FF]" />
       )}
       <span className="flex min-w-0 items-center gap-2.5 pl-0.5">
         <Icon
           className={cn(
             "size-4 shrink-0",
-            isActive ? "text-[#5B5BD6]" : "text-white/30 group-hover:text-white/50",
+            isActive ? "text-[#0A84FF]" : "text-[#86868B] group-hover:text-[#48484D] dark:group-hover:text-[#F5F5F7]",
           )}
           strokeWidth={1.5}
         />
@@ -112,7 +127,9 @@ function SidebarNavItem({
         <span
           className={cn(
             "rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
-            isActive ? "bg-white/10 text-white/70" : "bg-white/[0.05] text-white/30",
+            isActive
+              ? "bg-[#0A84FF]/15 text-[#0A84FF]"
+              : "bg-black/[0.06] text-[#86868B] dark:bg-white/[0.08]",
           )}
         >
           {signal}
@@ -152,7 +169,9 @@ function SidebarNavGroup({
         onClick={() => setOpen((v) => !v)}
         className={cn(
           "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left transition-colors",
-          hasActive ? "text-white/60" : "text-white/25 hover:text-white/45",
+          hasActive
+            ? "text-[#48484D] dark:text-[#C7C7CC]"
+            : "text-[#86868B] hover:text-[#48484D] dark:hover:text-[#C7C7CC]",
         )}
       >
         <span className="text-[10px] font-semibold uppercase tracking-widest">{label}</span>
@@ -187,6 +206,7 @@ interface App { id: string; name: string; platform: string }
 
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
+  const { user } = useUser();
   const { selectedApp, setSelectedApp, environment, setEnvironment } = useWorkspaceStore();
   const [apps, setApps] = useState<App[]>([]);
 
@@ -198,25 +218,38 @@ export function Sidebar({ className }: { className?: string }) {
           setApps(data.apps);
         }
       })
-      .catch(() => null); // fail silently — mock data still shows
-  }, []); // run once on mount
+      .catch(() => null);
+  }, []);
+
+  const initials =
+    user?.firstName && user?.lastName
+      ? `${user.firstName[0]}${user.lastName[0]}`
+      : user?.firstName?.[0]?.toUpperCase() ??
+        user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ??
+        "U";
+
+  const displayName =
+    user?.fullName ??
+    user?.firstName ??
+    user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] ??
+    "User";
 
   return (
     <aside
       className={cn(
-        "flex h-screen w-[220px] shrink-0 flex-col bg-[#0d0f14]",
+        "flex h-screen w-[220px] shrink-0 flex-col bg-[#F5F5F7] border-r border-black/[0.06] dark:bg-[#0E0E11] dark:border-white/[0.06]",
         className,
       )}
     >
-      {/* Logo — flush to top */}
+      {/* Logo */}
       <div className="px-4 pt-4 pb-3">
         <div className="flex items-center gap-2.5">
-          <div className="flex size-7 items-center justify-center rounded-lg bg-[#5B5BD6] text-[11px] font-bold text-white tracking-tight">
+          <div className="flex size-7 items-center justify-center rounded-lg bg-[#0A84FF] text-[11px] font-bold text-white tracking-tight">
             R
           </div>
           <div className="min-w-0">
-            <div className="text-[13px] font-semibold text-white tracking-tight">Revi</div>
-            <div className="text-[10px] text-white/30">Review Intelligence</div>
+            <div className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] tracking-tight">Revi</div>
+            <div className="text-[10px] text-[#86868B]">Review Intelligence</div>
           </div>
         </div>
       </div>
@@ -227,41 +260,41 @@ export function Sidebar({ className }: { className?: string }) {
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="h-8 w-full justify-between rounded-md border border-white/[0.07] bg-white/[0.03] px-2.5 text-left text-xs text-white/60 hover:bg-white/[0.07] hover:text-white/80"
+              className="h-8 w-full justify-between rounded-md border border-black/[0.07] bg-black/[0.02] px-2.5 text-left text-xs text-[#48484D] hover:bg-black/[0.04] hover:text-[#1D1D1F] dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-[#8E8E93] dark:hover:bg-white/[0.06] dark:hover:text-[#F5F5F7]"
             >
               <span className="min-w-0 truncate">{selectedApp}</span>
-              <ChevronDown className="size-3 shrink-0 text-white/20" strokeWidth={1.5} />
+              <ChevronDown className="size-3 shrink-0 text-[#86868B]" strokeWidth={1.5} />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="start"
-            className="w-52 border-white/10 bg-[#1a1d27] text-white"
+            className="w-52 border-black/[0.08] bg-white text-[#1D1D1F] shadow-lg dark:bg-[#1F1F22] dark:border-white/[0.08] dark:text-[#F5F5F7]"
           >
-            <DropdownMenuLabel className="text-[11px] text-white/30">
+            <DropdownMenuLabel className="text-[11px] text-[#86868B]">
               Workspace apps
             </DropdownMenuLabel>
             {apps.length > 0 ? apps.map((app) => (
               <DropdownMenuItem
                 key={app.id}
-                className="text-white/70 focus:bg-white/10 focus:text-white"
+                className="text-[#48484D] focus:bg-black/[0.04] focus:text-[#1D1D1F]"
                 onClick={() => setSelectedApp(app.name)}
               >
                 <span className="truncate">{app.name}</span>
                 {selectedApp === app.name && (
-                  <span className="ml-auto text-[#5B5BD6]">✓</span>
+                  <span className="ml-auto text-[#0A84FF]">✓</span>
                 )}
               </DropdownMenuItem>
             )) : (
               <DropdownMenuItem
-                className="text-white/40 focus:bg-white/10"
+                className="text-[#86868B] focus:bg-black/[0.04]"
                 onClick={() => {}}
               >
                 No apps connected
               </DropdownMenuItem>
             )}
-            <DropdownMenuSeparator className="bg-white/[0.06]" />
+            <DropdownMenuSeparator className="bg-black/[0.06]" />
             <DropdownMenuItem
-              className="text-white/70 focus:bg-white/10 focus:text-white"
+              className="text-[#48484D] focus:bg-black/[0.04] focus:text-[#1D1D1F]"
               onClick={() =>
                 setEnvironment(environment === "production" ? "staging" : "production")
               }
@@ -272,7 +305,7 @@ export function Sidebar({ className }: { className?: string }) {
         </DropdownMenu>
       </div>
 
-      <div className="mx-3 h-px bg-white/[0.05]" />
+      <div className="mx-3 h-px bg-black/[0.06] dark:bg-white/[0.06]" />
 
       {/* Navigation */}
       <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
@@ -286,44 +319,58 @@ export function Sidebar({ className }: { className?: string }) {
         ))}
       </nav>
 
-      <div className="mx-3 h-px bg-white/[0.05]" />
+      <div className="mx-3 h-px bg-black/[0.06] dark:bg-white/[0.06]" />
 
       {/* AI triage panel */}
       <div className="p-3">
-        <div className="rounded-lg border border-white/[0.05] bg-white/[0.02] p-3">
+        <div className="rounded-lg border border-black/[0.06] bg-black/[0.02] p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
           <div className="mb-2.5 flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[11px] font-medium text-white/50">
-              <Zap className="size-3 text-[#5B5BD6]" strokeWidth={1.5} />
+            <span className="flex items-center gap-1.5 text-[11px] font-medium text-[#48484D] dark:text-[#C7C7CC]">
+              <Zap className="size-3 text-[#0A84FF]" strokeWidth={1.5} />
               AI triage
             </span>
-            <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-400">
-              <span className="size-1.5 rounded-full bg-emerald-400" />
+            <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-600">
+              <span className="size-1.5 rounded-full bg-emerald-500" />
               live
             </span>
           </div>
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2 text-[11px]">
-              <span className="flex items-center gap-1.5 text-white/30">
-                <Bug className="size-3 text-red-400" strokeWidth={1.5} />
+              <span className="flex items-center gap-1.5 text-[#86868B]">
+                <Bug className="size-3 text-red-500" strokeWidth={1.5} />
                 Crash cluster
               </span>
-              <span className="font-medium text-white/60">21</span>
+              <span className="font-medium text-[#48484D] dark:text-[#C7C7CC]">21</span>
             </div>
             <div className="flex items-center justify-between gap-2 text-[11px]">
-              <span className="flex items-center gap-1.5 text-white/30">
-                <MessageSquareReply className="size-3 text-amber-400" strokeWidth={1.5} />
+              <span className="flex items-center gap-1.5 text-[#86868B]">
+                <MessageSquareReply className="size-3 text-amber-500" strokeWidth={1.5} />
                 Needs reply
               </span>
-              <span className="font-medium text-white/60">46</span>
+              <span className="font-medium text-[#48484D] dark:text-[#C7C7CC]">46</span>
             </div>
             <div className="flex items-center justify-between gap-2 text-[11px]">
-              <span className="flex items-center gap-1.5 text-white/30">
-                <Activity className="size-3 text-indigo-400" strokeWidth={1.5} />
+              <span className="flex items-center gap-1.5 text-[#86868B]">
+                <Activity className="size-3 text-indigo-500" strokeWidth={1.5} />
                 SLA window
               </span>
-              <span className="font-medium text-amber-400">2h 14m</span>
+              <span className="font-medium text-amber-600">2h 14m</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* User profile */}
+      <div className="border-t border-black/[0.06] px-3 py-2.5 dark:border-white/[0.06]">
+        <div className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.06]">
+          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#4592FF] to-[#0058B3] text-[11px] font-bold text-white">
+            {initials}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-[12px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">{displayName}</div>
+            <div className="text-[10px] text-[#86868B]">Pro Plan</div>
+          </div>
+          <ChevronUp className="size-3.5 shrink-0 text-[#86868B]" strokeWidth={1.5} />
         </div>
       </div>
     </aside>

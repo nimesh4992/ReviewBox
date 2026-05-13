@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Bell, CheckCircle, Menu, Search } from "lucide-react";
+import Link from "next/link";
+import { Bell, CheckCircle, Menu, Moon, Plus, Search, Sun } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -17,6 +18,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
+import { useWorkspaceStore } from "@/store/use-workspace-store";
 
 // ── Notification data ─────────────────────────────────────────────────────────
 
@@ -73,6 +75,7 @@ interface TopNavigationProps {
 export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
   const [notifOpen, setNotifOpen] = useState(false);
   const router = useRouter();
+  const { theme, toggleTheme } = useWorkspaceStore();
 
   function handleNotifClick(href: string) {
     setNotifOpen(false);
@@ -80,7 +83,7 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-13 items-center justify-between gap-3 border-b border-gray-100/80 bg-white/80 px-4 backdrop-blur-xl md:px-6">
+    <header className="sticky top-0 z-30 flex h-13 items-center justify-between gap-3 border-b border-black/[0.06] bg-white/70 px-4 backdrop-blur-xl backdrop-saturate-150 md:px-6 dark:border-white/[0.06] dark:bg-[#0B0B0E]/80">
       {/* Left — mobile menu trigger */}
       <div className="flex shrink-0 items-center">
         <Button
@@ -94,29 +97,47 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
         </Button>
       </div>
 
-      {/* Centre — search pill */}
-      <div className="mx-auto w-full max-w-sm">
-        <label className="relative flex items-center">
-          <Search
-            className="pointer-events-none absolute left-3.5 size-3.5 text-gray-400"
-            strokeWidth={1.5}
-          />
-          <input
-            type="search"
-            placeholder="Search reviews, versions, tags…"
-            className="h-9 w-full rounded-full border border-gray-200 bg-gray-50 pl-9 pr-14 text-sm text-gray-800 placeholder:text-gray-400 transition-colors duration-150 focus:border-[#5B5BD6]/30 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#5B5BD6]/20"
-          />
-          <kbd className="pointer-events-none absolute right-3 hidden items-center gap-0.5 rounded border border-gray-200 bg-white px-1.5 py-0.5 font-mono text-[10px] text-gray-400 shadow-sm sm:flex">
-            <span className="text-[11px]">⌘</span>K
-          </kbd>
-        </label>
+      {/* Centre — search box */}
+      <div className="mx-auto hidden w-[280px] items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 h-8 md:flex dark:border-white/[0.08] dark:bg-white/[0.04]">
+        <Search className="size-3.5 shrink-0 text-gray-400" strokeWidth={1.5} />
+        <input
+          type="search"
+          placeholder="Search reviews, apps, tags…"
+          className="flex-1 border-0 bg-transparent text-[13px] text-gray-800 placeholder:text-gray-400 outline-none dark:text-[#F5F5F7] dark:placeholder:text-[#636366]"
+        />
+        <kbd className="hidden items-center gap-0.5 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 font-mono text-[10px] text-gray-400 shadow-sm sm:flex dark:border-white/[0.08] dark:bg-white/[0.04]">
+          <span className="text-[11px]">⌘</span>K
+        </kbd>
       </div>
 
-      {/* Right — env badge, notifications, avatar */}
+      {/* Right — Connect app CTA, notifications, avatar */}
       <div className="flex shrink-0 items-center gap-2">
-        <span className="hidden rounded-full border border-gray-200 bg-gray-50 px-3 py-1 text-[11px] font-medium text-gray-500 transition-colors duration-150 hover:bg-gray-100 lg:inline-flex">
-          Production
-        </span>
+        <Link href="/settings">
+          <button className="flex h-8 items-center gap-1.5 rounded-lg bg-[#0A84FF] px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#006EE0]">
+            <Plus className="size-3.5" strokeWidth={2.5} />
+            <span className="hidden sm:inline">Connect app</span>
+          </button>
+        </Link>
+
+        {/* Dark mode toggle */}
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-[#C7C7CC]"
+              aria-label="Toggle dark mode"
+              onClick={toggleTheme}
+            >
+              {theme === "dark" ? (
+                <Sun className="size-4" strokeWidth={1.5} />
+              ) : (
+                <Moon className="size-4" strokeWidth={1.5} />
+              )}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>{theme === "dark" ? "Light mode" : "Dark mode"}</TooltipContent>
+        </Tooltip>
 
         {/* Bell — opens notification sheet */}
         <Tooltip>
