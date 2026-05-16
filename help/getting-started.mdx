@@ -1,0 +1,100 @@
+---
+title: "Getting Started"
+description: "Set up your ReviewBox workspace, connect your first app, and reply to a review in under 10 minutes."
+icon: "rocket"
+---
+
+Welcome to ReviewBox. This guide walks you through the first run — from sign-up
+to publishing your first AI-assisted reply.
+
+## What you'll need
+
+- A Google Play Console account with at least one published app *(App Store
+  Connect support is rolling out — see the [FAQ](/faq))*
+- 5–10 minutes
+- Your team's preferred reply tone (you can change this later)
+
+## 1. Create your account
+
+Head to [app.tryreviewbox.com/sign-up](https://app.tryreviewbox.com/sign-up)
+and sign up with email or Google. You'll be taken straight to your dashboard.
+
+<Tip>
+  ReviewBox is free for 14 days — no card required. You won't be asked for
+  billing details until you decide to keep going.
+</Tip>
+
+## 2. Set up your workspace
+
+The first time you log in, a setup card appears with two fields:
+
+1. **Workspace name** — usually your company or team name
+2. **App name** — what your team calls the app internally
+
+Your workspace URL slug is generated automatically from the workspace name.
+You can rename either field later under **Settings → Workspace**.
+
+## 3. Connect Google Play
+
+Click **Connect Google Play** on the dashboard. We walk you through:
+
+1. Creating a service account in Google Cloud
+2. Granting the service account permission in Play Console
+3. Pasting the credentials into ReviewBox
+
+Step-by-step instructions live in
+[Connect Google Play](/connect-google-play). It takes about 5 minutes the
+first time.
+
+<Note>
+  ReviewBox stores Google Play credentials encrypted at rest. We only request
+  the minimum permissions needed to read reviews and post replies.
+</Note>
+
+## 4. Watch your first sync
+
+Within a few minutes of connecting, ReviewBox pulls your last 60 days of
+reviews and runs them through the AI triage pipeline:
+
+- **Sentiment** — critical, negative, mixed, or positive
+- **Priority** — urgent, high, normal, or low
+- **Issue tags** — crash, billing, login, performance, feature request, and more
+
+The sidebar shows a live count of reviews waiting on you. After the initial
+backfill, ReviewBox re-syncs automatically every 4 hours.
+
+## 5. Reply to a review
+
+Open the **Reviews** tab in the sidebar. Each card shows the review text,
+rating, device, country, and the AI-detected tags.
+
+To reply:
+
+1. Click any review card to expand it
+2. Hit **Draft with AI** — a reply is generated in 1–2 seconds
+3. Edit if you'd like, then click **Publish**
+
+The reply is posted to Google Play via the official API. It typically appears
+on the store within 1–4 hours.
+
+<Tip>
+  Set up reply templates and a knowledge base under **Reply Kit** for faster,
+  more on-brand replies. See [AI Replies](/ai-replies) for details.
+</Tip>
+
+## 6. Configure alerts
+
+Under **Settings → Alerts**, choose when ReviewBox should email you:
+
+- Rating spike — 5+ reviews rated 1–2★ on the same app version in 24h
+- Unreplied reminders — reviews sitting more than 48 hours
+- Weekly digest — summary of last week's review activity, every Monday morning
+
+## What's next?
+
+- [Connect Google Play](/connect-google-play) — full setup walkthrough
+- [AI Replies](/ai-replies) — train ReviewBox to sound like your team
+- [FAQ](/faq) — pricing, security, and common questions
+
+Still stuck? Email [hello@tryreviewbox.com](mailto:hello@tryreviewbox.com) and
+we'll get back to you within one business day.

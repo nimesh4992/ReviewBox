@@ -30,6 +30,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url("/help/ai-replies",                0.6, "monthly"),
     url("/help/automation",                0.6, "monthly"),
 
+    // Blog
+    url("/blog/ai-cost-reduction",         0.7, "monthly"),
+
     // Case studies
     url("/customers/acme-banking",         0.6, "monthly"),
 

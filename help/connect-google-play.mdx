@@ -1,0 +1,126 @@
+---
+title: "Connect Google Play"
+description: "Authorize ReviewBox to read reviews and post replies for your Google Play apps."
+icon: "google-play"
+---
+
+ReviewBox uses the official [Google Play Android Publisher
+API](https://developers.google.com/android-publisher) — the same API Google
+recommends for partner integrations. You'll create a Google Cloud service
+account, grant it limited access to your Play Console, and paste the
+credentials into ReviewBox.
+
+The full process takes about 5 minutes.
+
+## What you'll need
+
+- Admin access to your Google Play Console
+- Permission to create resources in a Google Cloud project (your own or your
+  organization's)
+
+## Step 1 — Create or pick a Google Cloud project
+
+1. Go to the [Google Cloud Console](https://console.cloud.google.com)
+2. Click the project picker in the top bar
+3. Either **New Project** or select an existing one your team uses for app
+   tooling
+
+Make a note of the project ID — you'll need it in the next step.
+
+## Step 2 — Enable the Android Publisher API
+
+1. In Cloud Console, open **APIs & Services → Library**
+2. Search for **Google Play Android Developer API**
+3. Click **Enable**
+
+<Note>
+  This is a free Google API. There is no per-call charge for review fetch or
+  reply operations.
+</Note>
+
+## Step 3 — Create a service account
+
+1. Open **APIs & Services → Credentials**
+2. **Create credentials → Service account**
+3. Name it something like `reviewbox-sync`
+4. Skip the optional role grants — we'll handle permissions in Play Console
+5. Click **Done**
+
+Open the new service account and go to the **Keys** tab:
+
+1. **Add key → Create new key**
+2. Choose **JSON**
+3. Download and keep the file safe — Google will only show this key once
+
+You'll paste two values from this JSON into ReviewBox:
+
+- `client_email`
+- `private_key`
+
+## Step 4 — Grant access in Play Console
+
+1. Open [Play Console → Users and permissions](https://play.google.com/console/users-and-permissions)
+2. **Invite new user**
+3. Paste the service account's `client_email` as the email address
+4. Under **App permissions**, add the apps you want ReviewBox to manage
+5. For each app, grant:
+   - **View app information and download bulk reports**
+   - **Reply to reviews**
+6. Click **Invite user**
+
+<Warning>
+  Don't grant **Admin (all permissions)** to the service account. ReviewBox
+  only needs the two permissions above. Anything broader exposes more than
+  necessary.
+</Warning>
+
+## Step 5 — Paste credentials into ReviewBox
+
+1. In ReviewBox, open **Settings → Integrations**
+2. Click **Connect Google Play**
+3. Paste the `client_email` and `private_key` from the JSON file
+4. Enter the package name for each app you want to sync (e.g.
+   `com.yourcompany.yourapp`)
+5. Click **Save and sync**
+
+The first sync pulls reviews from the last 60 days. You'll see them appear in
+the **Reviews** tab within a few minutes.
+
+## How sync works after setup
+
+After the first sync, ReviewBox automatically re-syncs every 4 hours. Each
+sync:
+
+1. Fetches new reviews from Google Play
+2. Runs them through the AI triage pipeline (sentiment, priority, tags)
+3. Checks rate spike thresholds and fires an email alert if triggered
+4. Auto-drafts replies for any reviews matching your saved automation rules
+
+You can also trigger a manual sync from **Settings → Integrations → Sync now**.
+
+## Troubleshooting
+
+**"Permission denied" on first sync**
+Wait 5–10 minutes. Google Play permissions can take a few minutes to
+propagate after inviting the service account.
+
+**Reviews stopped syncing**
+Open **Settings → Integrations**. If you see a red "Auth failed" badge, the
+service account key may have been rotated. Generate a new key in Cloud
+Console and re-paste it.
+
+**Some apps aren't appearing**
+Confirm the service account was granted access to those specific apps in
+Play Console — not just the developer account. Per-app permissions are
+required.
+
+**Reply didn't appear on the store**
+Replies typically take 1–4 hours to surface publicly. If a reply still hasn't
+appeared after 24 hours, check **Reviews → [the review]** for an error
+status, then contact us.
+
+## Need help?
+
+Email [hello@tryreviewbox.com](mailto:hello@tryreviewbox.com) with your
+workspace ID (Settings → Workspace) and the app's package name. We typically
+respond within one business day.

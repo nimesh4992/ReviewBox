@@ -1,0 +1,80 @@
+{
+  "$schema": "https://mintlify.com/schema.json",
+  "name": "ReviewBox",
+  "logo": {
+    "dark": "/logo/dark.svg",
+    "light": "/logo/light.svg"
+  },
+  "favicon": "/favicon.svg",
+  "colors": {
+    "primary": "#0A84FF",
+    "light": "#3B9EFF",
+    "dark": "#0066CC",
+    "anchors": {
+      "from": "#0A84FF",
+      "to": "#3B9EFF"
+    }
+  },
+  "topbarLinks": [
+    {
+      "name": "Support",
+      "url": "mailto:hello@tryreviewbox.com"
+    }
+  ],
+  "topbarCtaButton": {
+    "name": "Open ReviewBox",
+    "url": "https://app.tryreviewbox.com"
+  },
+  "anchors": [
+    {
+      "name": "Main App",
+      "icon": "browser",
+      "url": "https://app.tryreviewbox.com"
+    },
+    {
+      "name": "Status",
+      "icon": "signal-stream",
+      "url": "https://status.tryreviewbox.com"
+    },
+    {
+      "name": "Changelog",
+      "icon": "list",
+      "url": "https://tryreviewbox.com/changelog"
+    }
+  ],
+  "navigation": [
+    {
+      "group": "Get started",
+      "pages": [
+        "index",
+        "getting-started",
+        "connect-google-play"
+      ]
+    },
+    {
+      "group": "Using ReviewBox",
+      "pages": [
+        "ai-replies",
+        "faq"
+      ]
+    }
+  ],
+  "footerSocials": {
+    "x": "https://x.com/tryreviewbox",
+    "linkedin": "https://www.linkedin.com/company/tryreviewbox"
+  },
+  "feedback": {
+    "thumbsRating": true,
+    "suggestEdit": true
+  },
+  "analytics": {
+    "posthog": {
+      "apiKey": "phc_BFZVTiMCD2gRWWa9Mx6NyRJGNEUrwXPNzZPezay3UDHB",
+      "apiHost": "https://us.i.posthog.com"
+    }
+  },
+  "metadata": {
+    "og:image": "https://tryreviewbox.com/og-image.png",
+    "og:site_name": "ReviewBox Help"
+  }
+}

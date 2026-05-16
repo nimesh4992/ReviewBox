@@ -1,0 +1,207 @@
+---
+title: "FAQ"
+description: "Pricing, security, supported stores, data retention, and common questions about ReviewBox."
+icon: "circle-question"
+---
+
+Quick answers to the questions we hear most often. Don't see yours? Email
+[hello@tryreviewbox.com](mailto:hello@tryreviewbox.com).
+
+## Pricing
+
+<AccordionGroup>
+  <Accordion title="How much does ReviewBox cost?">
+    Three plans:
+
+    - **Starter** — $49/mo · 1 app · 250 AI calls/mo · email support
+    - **Pro** — $99/mo · 3 apps · 2,000 AI calls/mo · automations, knowledge
+      base, priority support
+    - **Team** — $199/mo · 10 apps · unlimited AI calls · auto-reply, team
+      seats, custom tone
+
+    All plans include a 14-day free trial — no card required up front.
+  </Accordion>
+
+  <Accordion title="Do you offer annual plans?">
+    Yes, annual plans save 20%. Contact
+    [hello@tryreviewbox.com](mailto:hello@tryreviewbox.com) to switch — we'll
+    swap your subscription and prorate the difference.
+  </Accordion>
+
+  <Accordion title="Can I change plans later?">
+    Anytime. **Settings → Billing → Change plan**. Upgrades take effect
+    immediately and are prorated. Downgrades take effect at the next renewal.
+  </Accordion>
+
+  <Accordion title="What happens when the trial ends?">
+    Your workspace becomes read-only — you can view reviews and replies but
+    you can't sync new reviews or publish replies until you pick a plan. No
+    data is deleted.
+  </Accordion>
+
+  <Accordion title="Do you have a free plan?">
+    Not currently. The 14-day trial is meant to give you enough time to
+    decide. Solo developers with a single small app can email us — we
+    occasionally grant extended trials.
+  </Accordion>
+</AccordionGroup>
+
+## Supported stores
+
+<AccordionGroup>
+  <Accordion title="Which app stores do you support?">
+    - **Google Play** — full support: review sync, AI triage, reply
+      publishing
+    - **Apple App Store** — full support: review sync, AI triage, reply
+      publishing (via App Store Connect API)
+    - Other stores (Amazon, Galaxy Store, Huawei) — not currently on the
+      roadmap
+  </Accordion>
+
+  <Accordion title="How recent are the reviews you sync?">
+    On first connect, ReviewBox pulls the last 60 days. After that, a sync
+    runs every 4 hours and pulls anything new since the last run. Manual
+    sync is available under **Settings → Integrations**.
+  </Accordion>
+
+  <Accordion title="Can I sync historical reviews older than 60 days?">
+    Not currently. Google Play's API only exposes the most recent week
+    reliably — we extend coverage by deduping across syncs and storing
+    everything we've ever seen, so over time your history grows. App Store
+    Connect exposes more history; we backfill what's available on connect.
+  </Accordion>
+</AccordionGroup>
+
+## Security and privacy
+
+<AccordionGroup>
+  <Accordion title="How are my Google Play / App Store credentials stored?">
+    Encrypted at rest in our database, with separate access controls from
+    review data. Credentials are only decrypted in-memory when a sync runs
+    and are never logged.
+  </Accordion>
+
+  <Accordion title="What permissions does ReviewBox require?">
+    The minimum needed: **View app information** and **Reply to reviews**.
+    Nothing else. We never request access to financials, releases, or any
+    write capabilities outside the reply scope.
+  </Accordion>
+
+  <Accordion title="Where is my data stored?">
+    PostgreSQL hosted on Supabase (US East and EU West regions). All data is
+    encrypted at rest and in transit. Reviews data is segregated per
+    workspace using row-level security.
+  </Accordion>
+
+  <Accordion title="Do you use my data to train AI models?">
+    No. Reviews and replies are never used to train third-party models.
+    We use Groq (Llama 3.3) for inference, and per their policy, prompts
+    aren't retained.
+  </Accordion>
+
+  <Accordion title="Are you SOC 2 / GDPR compliant?">
+    GDPR: yes — we offer data export and deletion under **Settings → Privacy**
+    and via [hello@tryreviewbox.com](mailto:hello@tryreviewbox.com). SOC 2:
+    we're targeting Type 1 in 2026 H2. Enterprise customers can request our
+    current security overview.
+  </Accordion>
+</AccordionGroup>
+
+## AI and replies
+
+<AccordionGroup>
+  <Accordion title="Which AI model do you use?">
+    Llama 3.3 70B via Groq for live drafts. We're moving heavier workspaces
+    to Claude Haiku 3.5 in 2026 — no change to your experience, just
+    higher-quality replies at similar latency.
+  </Accordion>
+
+  <Accordion title="Will AI replies sound generic?">
+    The knowledge base and reply tones are designed to prevent that. Loading
+    even 3–4 knowledge base entries about your product makes a dramatic
+    difference. Workspaces on the Team plan can request a custom tone built
+    from samples of their existing replies.
+  </Accordion>
+
+  <Accordion title="Can I auto-reply without reviewing each draft?">
+    Yes, on the Team plan. Auto-reply is opt-in per automation rule. We
+    recommend running rules in auto-draft mode for 1–2 weeks before flipping
+    them to auto-reply.
+  </Accordion>
+
+  <Accordion title="What languages do you support?">
+    AI drafts in 12 languages: English, Spanish, French, German, Portuguese,
+    Italian, Dutch, Japanese, Korean, Chinese (simplified), Arabic, and
+    Hindi. Reply templates can be written in any language.
+  </Accordion>
+
+  <Accordion title="Why did my AI reply get flagged?">
+    We run safety checks on every draft. The most common flags are: quoting
+    a price not in your knowledge base, promising a refund, or claiming a
+    fix ETA. Drafts that trip these checks are returned with a warning and
+    a sanitized version. Hit **Report this draft** if you ever see one
+    that's wrong.
+  </Accordion>
+</AccordionGroup>
+
+## Account and team
+
+<AccordionGroup>
+  <Accordion title="Can I invite teammates?">
+    Yes. On Pro and Team plans, invite via **Settings → Team**. Pro includes
+    3 seats, Team includes 10. Each member sees the same workspace data and
+    shared knowledge base.
+  </Accordion>
+
+  <Accordion title="How do I cancel?">
+    **Settings → Billing → Cancel subscription**. You keep full access until
+    the end of the current billing period, then drop to read-only. Your data
+    is preserved for 90 days in case you want to come back.
+  </Accordion>
+
+  <Accordion title="How do I delete my account?">
+    Email [hello@tryreviewbox.com](mailto:hello@tryreviewbox.com) from your
+    account email and we'll permanently delete your workspace and all
+    associated data within 7 days, per our GDPR commitment.
+  </Accordion>
+
+  <Accordion title="Can I export my data?">
+    Yes. **Settings → Privacy → Export data** generates a ZIP with all your
+    reviews, replies, templates, knowledge base, and automation rules in
+    JSON. Available on every plan.
+  </Accordion>
+</AccordionGroup>
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="My reply didn't appear on the store">
+    Google Play replies typically take 1–4 hours to surface publicly. App
+    Store Connect replies can take up to 24 hours. If a reply still isn't
+    visible after that window, check the review's status in ReviewBox — a
+    red badge indicates an API error we couldn't auto-recover.
+  </Accordion>
+
+  <Accordion title="Reviews stopped syncing">
+    Check **Settings → Integrations**. If you see "Auth failed", rotate your
+    service account key (Google Play) or API key (App Store Connect) and
+    re-paste the new credentials.
+  </Accordion>
+
+  <Accordion title="I'm getting too many rating spike alerts">
+    Adjust the threshold under **Settings → Alerts**. Default is 5 reviews
+    rated 1–2★ on the same version in 24 hours — you can raise the count or
+    extend the window.
+  </Accordion>
+
+  <Accordion title="The AI is missing context about a known bug">
+    Add it to the knowledge base under **Reply Kit → Knowledge Base**.
+    Future drafts that mention the bug will reference your fix info
+    automatically.
+  </Accordion>
+</AccordionGroup>
+
+## Anything else?
+
+Email [hello@tryreviewbox.com](mailto:hello@tryreviewbox.com) — we read
+every message and reply within one business day.

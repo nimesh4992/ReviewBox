@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
+import { Analytics } from "@vercel/analytics/next";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { CookieBanner } from "@/components/layout/cookie-banner";
@@ -60,6 +61,7 @@ export default function RootLayout({
             </PostHogProvider>
           </QueryProvider>
           <CookieBanner />
+          <Analytics />
         </body>
       </html>
     </ClerkProvider>

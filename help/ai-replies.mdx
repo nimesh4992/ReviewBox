@@ -1,0 +1,148 @@
+---
+title: "AI Replies"
+description: "How ReviewBox drafts on-brand replies, and how to tune the output for your team."
+icon: "sparkles"
+---
+
+ReviewBox uses a three-tier reply pipeline that's optimized for speed, cost,
+and brand consistency. This page explains how it works and how to make the
+output sound exactly like your team.
+
+## The 3-tier pipeline
+
+When you click **Draft with AI** on a review, ReviewBox tries each tier in
+order and stops at the first match:
+
+<Steps>
+  <Step title="Template match">
+    If the review's tag and rating match one of your saved reply templates,
+    ReviewBox uses that template directly. Zero AI calls, instant response.
+  </Step>
+  <Step title="Cache hit">
+    If a similar review has been replied to in the last 7 days, the cached
+    reply is served. Replies are keyed by a SHA-256 hash of the compressed
+    review text, so near-duplicates share a cached draft.
+  </Step>
+  <Step title="Live generation">
+    Otherwise, ReviewBox compresses the review (~30 filler phrases stripped,
+    73% fewer tokens) and sends it to the AI provider with your knowledge
+    base context and chosen tone.
+  </Step>
+</Steps>
+
+Most workspaces see 60–80% of drafts served from tiers 1 or 2, which is why
+ReviewBox stays inside the AI free tier well past launch.
+
+## Reply tones
+
+Pick a default tone under **Reply Kit → AI Styles**. Four built-in styles
+ship with every workspace:
+
+| Style | When to use | Example |
+| --- | --- | --- |
+| **Professional** | Default for most B2B apps | "Thank you for bringing this to our attention. We sincerely apologize for the inconvenience. Our engineering team is actively investigating this issue and a fix will be released shortly." |
+| **Empathetic** | Apps with personal/emotional users (health, finance, dating) | "We're really sorry this is happening — that sounds incredibly frustrating. Our team is on it and we'll have this fixed as soon as possible." |
+| **Direct** | Power-user apps where short is better | "Sorry for the crash. Fix shipping next update. Email hello@tryreviewbox.com if urgent." |
+| **Casual** | Consumer apps with a playful brand | "Ugh, so sorry about that! We know crashes are the worst. Our team is already on it — update should be out soon. Hang tight!" |
+
+You can override the default style per-reply with the dropdown in the draft
+editor.
+
+<Tip>
+  Send us a sample of 5–10 hand-written replies and we'll build you a custom
+  tone that mirrors your voice. Email
+  [hello@tryreviewbox.com](mailto:hello@tryreviewbox.com).
+</Tip>
+
+## Knowledge base
+
+The knowledge base teaches ReviewBox about your product so drafts don't
+hallucinate facts. Under **Reply Kit → Knowledge Base**, add entries in
+four categories:
+
+- **Known issues** — current bugs, workarounds, ETAs for fixes
+- **Product** — what the app does, key features, positioning
+- **FAQs** — pricing, cancellation, supported platforms
+- **Roadmap** — upcoming features users frequently ask about
+
+<Note>
+  Keep entries short and factual. ReviewBox includes the most relevant
+  knowledge base snippets in each prompt — long entries crowd out the
+  signal.
+</Note>
+
+**Example known issue entry:**
+
+> v5.42.0 crash on Android 14: fix ships in v5.42.1 (ETA: Monday). Login
+> loop on Samsung S-series: workaround is clearing cache.
+
+When a reviewer mentions a v5.42.0 crash, that entry surfaces and the draft
+references the fix timing automatically.
+
+## Reply templates
+
+Templates are exact-match replies that bypass AI entirely. Use them when:
+
+- You always reply the same way to a specific tag + rating combination
+- You need legally-reviewed wording for billing or refund replies
+- You want to keep AI tokens free for the harder cases
+
+Each template defines:
+
+- A **tag filter** (e.g. `crash`, `billing`, `feature-request`)
+- A **rating range** (e.g. 1–2 stars)
+- A **language** (English, Spanish, French, German, Portuguese, and more)
+- The **reply body**
+
+Templates ship pre-loaded with sensible defaults — edit or replace them under
+**Reply Kit → Templates**.
+
+## Auto-draft (automation rules)
+
+Save trips into the dashboard by drafting replies automatically. Under
+**Automations**, create rules like:
+
+- "All 5-star reviews tagged `satisfied-user` → auto-draft with **Casual**
+  style"
+- "All `crash` reviews on v5.42.x → auto-draft with **Empathetic** style,
+  reference the current known issue"
+
+Auto-drafted replies sit in **draft_ready** status — a human still clicks
+**Publish**. Workspaces on the Team plan can opt into **auto-reply** for
+specific rules (no human in the loop).
+
+<Warning>
+  Auto-reply is opt-in per rule and per workspace. We strongly recommend
+  starting in auto-draft mode for 1–2 weeks and reviewing the queue before
+  enabling auto-reply.
+</Warning>
+
+## What the AI does *not* do
+
+- It never invents a refund, a release date, or a contact promise that isn't
+  in your knowledge base
+- It never quotes pricing — drafts route the user to your pricing page or
+  support email instead
+- It will not reply in a language you haven't enabled for that template
+- It will not exceed 120 words
+
+If a draft ever crosses a line, click **Report this draft** in the editor.
+We review every report and tighten the prompt.
+
+## Costs
+
+| Plan | AI calls included | Overage |
+| --- | --- | --- |
+| Starter | 250 / month | $0.02 per call |
+| Pro | 2,000 / month | $0.01 per call |
+| Team | Unlimited | — |
+
+Most workspaces stay inside their included quota because of the
+template + cache tiers. The dashboard shows your current month's usage under
+**Settings → Billing**.
+
+## Want a deeper walkthrough?
+
+- [Getting Started](/getting-started) — first replies, end to end
+- [Connect Google Play](/connect-google-play) — credentials setup
+- [FAQ](/faq) — pricing, data privacy, supported languages
