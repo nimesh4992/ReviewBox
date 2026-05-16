@@ -1,9 +1,12 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import Link from "next/link";
+import { MarketingShell } from "@/components/layout/marketing-shell";
+import { MarketingNav } from "@/components/layout/marketing-nav";
+import { MarketingFooter } from "@/components/layout/marketing-footer";
 
-// ─── Design-system data ───────────────────────────────────────────────────────
+// â”€â”€â”€ Design-system data â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const PILLARS = [
   {
@@ -16,12 +19,12 @@ const PILLARS = [
     id: "ai",
     title: "AI replies, not AI slop",
     body: "Drafts that read your KB, your templates, your last reply. You edit. You ship. The reply rate climbs.",
-    bullets: ["Tone trained on your past replies", "KB-grounded — no hallucinated promises", "Streaming drafts, 2-3 seconds end-to-end"],
+    bullets: ["Tone trained on your past replies", "KB-grounded â€” no hallucinated promises", "Streaming drafts, 2-3 seconds end-to-end"],
   },
   {
     id: "incidents",
     title: "Incident detection",
-    body: "Crash spikes, billing churn, login regressions — surfaced from review patterns before your Sentry dashboard wakes up.",
+    body: "Crash spikes, billing churn, login regressions â€” surfaced from review patterns before your Sentry dashboard wakes up.",
     bullets: ["Auto-pages your Slack on-call", "Correlates to the suspect release", "Time-to-detect: median 11 minutes"],
   },
   {
@@ -47,9 +50,9 @@ const ROLES = [
     label: "Product",
     kicker: "For the PM who reads every 1-star",
     h: "See which feature ship is quietly dragging your rating.",
-    body: "AI clusters reviews by topic — auth, onboarding, paywall — and tracks each as its own sentiment line.",
+    body: "AI clusters reviews by topic â€” auth, onboarding, paywall â€” and tracks each as its own sentiment line.",
     bullets: ["Topic clusters with sentiment over time", "Linear / Jira ticket creation from any review", "Weekly digest of the top 5 emerging issues"],
-    metric: { v: "−14 days", l: "Faster from 'we hear you' to fix shipped" },
+    metric: { v: "âˆ’14 days", l: "Faster from 'we hear you' to fix shipped" },
   },
   {
     id: "release",
@@ -63,8 +66,8 @@ const ROLES = [
 ];
 
 const INTEGRATIONS = [
-  { n: "Google Play",       g: "GP", note: "Reply API · live" },
-  { n: "App Store Connect", g: "AS", note: "Read-only · reply Q3" },
+  { n: "Google Play",       g: "GP", note: "Reply API Â· live" },
+  { n: "App Store Connect", g: "AS", note: "Read-only Â· reply Q3" },
   { n: "Slack",             g: "Sl", note: "Alerts + DM" },
   { n: "Linear",            g: "Ln", note: "Ticket from review" },
   { n: "Jira",              g: "Ji", note: "Ticket from review" },
@@ -77,14 +80,14 @@ const FREE_TOOLS = [
   { n: "Review sentiment analyzer", d: "Paste 100 reviews, get sentiment + topic clusters in 30 seconds.", k: "no sign-up" },
   { n: "AI reply generator",        d: "The same drafter that ships with ReviewBox, on a single review.", k: "no sign-up" },
   { n: "ASO keyword density",       d: "Score your store listing's keyword coverage against your competitors.", k: "free forever" },
-  { n: "Rating impact calculator",  d: "What −0.3★ actually costs you in installs and ARR per quarter.", k: "free forever" },
+  { n: "Rating impact calculator",  d: "What âˆ’0.3â˜… actually costs you in installs and ARR per quarter.", k: "free forever" },
   { n: "App review benchmarks",     d: "Median rating, reply rate, and reply-time benchmarks for your category.", k: "no sign-up" },
 ];
 
 const FAQ_ITEMS = [
   {
     q: "Does ReviewBox actually post replies back to the App Store and Play Store?",
-    a: "Google Play, yes — replies post back through the official Play Console API the moment you hit send. App Store Connect is coming Q3; today we draft and stage, you copy-paste.",
+    a: "Google Play, yes â€” replies post back through the official Play Console API the moment you hit send. App Store Connect is coming Q3; today we draft and stage, you copy-paste.",
   },
   {
     q: "How is the AI different from ChatGPT-with-a-prompt?",
@@ -96,25 +99,25 @@ const FAQ_ITEMS = [
   },
   {
     q: "Is this just AppFollow with a fresh coat of paint?",
-    a: "AppFollow is great if you're an enterprise mobile agency staffed for it. ReviewBox is for product teams who want the work done — AI replies that ship, incident detection that pages on call, and a price tag that doesn't require procurement.",
+    a: "AppFollow is great if you're an enterprise mobile agency staffed for it. ReviewBox is for product teams who want the work done â€” AI replies that ship, incident detection that pages on call, and a price tag that doesn't require procurement.",
   },
   {
-    q: "Will my reviews — and my customers' data — leave the EU?",
+    q: "Will my reviews â€” and my customers' data â€” leave the EU?",
     a: "EU customers run on EU-hosted Supabase. Reviews are encrypted at rest, AI prompts route through Anthropic with no training opt-in, and our DPA + SOC 2 (Type II, in progress) are linked from the security page.",
   },
   {
     q: "Can I just track reviews and not reply through ReviewBox?",
-    a: "Yes. Roughly 30% of customers use us as a read-only signal layer — incident alerts, release health, sentiment trends — and reply somewhere else.",
+    a: "Yes. Roughly 30% of customers use us as a read-only signal layer â€” incident alerts, release health, sentiment trends â€” and reply somewhere else.",
   },
 ];
 
 const SAMPLE_REVIEWS = [
   { rating: 1, title: "Crashes on iPad", body: "App crashes every single time I switch accounts on iPad. Started after the 4.2.1 update. Face ID feels slower too. Super frustrating because I rely on this app daily for my small business.", author: "@kthompson", app: "Acme Banking", version: "4.2.1" },
-  { rating: 2, title: "Where did the budgets tab go?", body: "The new design hid budgets behind two menus. Also can't find recurring transfers anymore — that used to be one tap from the home screen. Please bring it back.", author: "@mariejean", app: "Acme Banking", version: "4.2.1" },
+  { rating: 2, title: "Where did the budgets tab go?", body: "The new design hid budgets behind two menus. Also can't find recurring transfers anymore â€” that used to be one tap from the home screen. Please bring it back.", author: "@mariejean", app: "Acme Banking", version: "4.2.1" },
   { rating: 1, title: "Charged twice this month", body: "Got billed twice for the Pro upgrade. Support hasn't responded in 4 days. About to dispute with my bank if I don't hear back today.", author: "@runner_max", app: "Trailhead", version: "2.8.0" },
 ];
 
-const HERO_DRAFT = `Thanks for flagging the iPad budgets crash on 4.2.1 — we caught it this morning and a fix is rolling out this week. In the meantime, force-quit and reopen restores the session. We'll DM you the moment 4.2.2 lands so you can verify.`;
+const HERO_DRAFT = `Thanks for flagging the iPad budgets crash on 4.2.1 â€” we caught it this morning and a fix is rolling out this week. In the meantime, force-quit and reopen restores the session. We'll DM you the moment 4.2.2 lands so you can verify.`;
 
 const PRICING = [
   { name: "Starter", price: "$49", body: "Solo Android devs and 1-app teams.", cta: "Start free", features: ["2 apps", "5K reviews / mo", "50 AI drafts / day", "Google Play replies", "Email alerts", "1 seat"] },
@@ -122,25 +125,8 @@ const PRICING = [
   { name: "Team",    price: "$199", body: "App portfolios and global support orgs.", cta: "Start free", features: ["Unlimited apps", "Unlimited reviews", "1,000 drafts / day", "SSO + audit log", "Custom retention", "Dedicated CSM", "Unlimited seats"] },
 ];
 
-// ─── Primitive components ─────────────────────────────────────────────────────
+// â”€â”€â”€ Primitive components â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-
-const LogoMark = ({ size = 22 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 64 64" style={{ display: "block" }}>
-    <defs>
-      <linearGradient id="rb-logo-grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-        <stop offset="0" stopColor="#4592FF" />
-        <stop offset="1" stopColor="#0058B3" />
-      </linearGradient>
-    </defs>
-    <path d="M14 8 H50 A8 8 0 0 1 58 16 V40 A8 8 0 0 1 50 48 H28 L18 58 V48 H14 A8 8 0 0 1 6 40 V16 A8 8 0 0 1 14 8 Z" fill="url(#rb-logo-grad)" />
-    <rect x="14" y="32" width="6" height="8"  rx="3" fill="#fff" fillOpacity="0.97" />
-    <rect x="23" y="29" width="6" height="11" rx="3" fill="#fff" fillOpacity="0.97" />
-    <rect x="32" y="26" width="6" height="14" rx="3" fill="#fff" fillOpacity="0.97" />
-    <rect x="41" y="23" width="6" height="17" rx="3" fill="#fff" fillOpacity="0.97" />
-    <rect x="50" y="20" width="6" height="20" rx="3" fill="#fff" fillOpacity="0.97" />
-  </svg>
-);
 
 const Arrow = ({ size = 13 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
@@ -204,7 +190,7 @@ const Btn = ({
   return <button onClick={onClick} disabled={disabled} style={merged}>{children}</button>;
 };
 
-// ─── Animation utilities ──────────────────────────────────────────────────────
+// â”€â”€â”€ Animation utilities â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function useInView(threshold = 0.15) {
   const ref = useRef<HTMLDivElement>(null);
@@ -263,66 +249,9 @@ const Streaming = ({ text, speed = 14, play, onDone }: { text: string; speed?: n
   return <>{text.slice(0, pos)}{pos < text.length && play && <span style={{ animation: "rb-blink 0.9s step-end infinite", borderRight: "1.5px solid var(--rb-fg-1)" }}>&nbsp;</span>}</>;
 };
 
-// ─── Navigation ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ Navigation â”€â”€ (shared MarketingNav used in page root) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-const Nav = () => {
-  const [scrolled, setScrolled] = useState(false);
-  const [dismissed, setDismissed] = useState(false);
-  useEffect(() => {
-    const fn = () => setScrolled(window.scrollY > 40);
-    window.addEventListener("scroll", fn, { passive: true });
-    return () => window.removeEventListener("scroll", fn);
-  }, []);
-  return (
-    <header style={{ position: "sticky", top: 0, zIndex: 50 }}>
-      {!dismissed && (
-        <div style={{ background: "var(--rb-fg-1)", color: "var(--rb-bg-canvas)", fontSize: 12.5, height: 34, display: "flex", alignItems: "center", justifyContent: "center", gap: 12, position: "relative" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "2px 8px", borderRadius: 99, background: "var(--rb-blue-500)", color: "#fff", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", fontFamily: "var(--rb-font-mono)" }}>SHIPPED</span>
-          <span style={{ letterSpacing: "-0.005em" }}>Incident detection is generally available. Auto-paging from review patterns, live today.</span>
-          <Link href="/changelog" style={{ color: "var(--rb-bg-canvas)", fontWeight: 600, fontSize: 12.5, display: "inline-flex", alignItems: "center", gap: 4 }}>
-            Read the post <Arrow size={11} />
-          </Link>
-          <button onClick={() => setDismissed(true)} aria-label="Dismiss" style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", background: "transparent", border: 0, color: "var(--rb-bg-canvas)", opacity: 0.6, cursor: "pointer", padding: 4, display: "inline-flex" }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-          </button>
-        </div>
-      )}
-      <div style={{ background: scrolled ? "color-mix(in oklab, var(--rb-bg-canvas) 88%, transparent)" : "color-mix(in oklab, var(--rb-bg-canvas) 70%, transparent)", backdropFilter: "blur(20px) saturate(180%)", WebkitBackdropFilter: "blur(20px) saturate(180%)", borderBottom: scrolled ? "1px solid var(--rb-border-1)" : "1px solid transparent", transition: "background 200ms, border-color 200ms" }}>
-        <Container>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, height: 64 }}>
-            <div style={{ display: "inline-flex", alignItems: "center", gap: 12, marginRight: 8 }}>
-              <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-                <LogoMark size={22} />
-                <span style={{ fontFamily: "var(--rb-font-display)", fontSize: 17, fontWeight: 700, color: "var(--rb-fg-1)", letterSpacing: "-0.02em" }}>ReviewBox</span>
-              </Link>
-              <Link href="/status" style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 99, background: "var(--rb-bg-sunken)", border: "1px solid var(--rb-border-1)", fontSize: 10.5, fontWeight: 600, color: "var(--rb-fg-3)", fontFamily: "var(--rb-font-mono)", letterSpacing: "0.04em", textDecoration: "none" }}>
-                <LivePulse size={6} color="var(--rb-green-500)" />
-                <span>ALL SYSTEMS NORMAL</span>
-              </Link>
-            </div>
-            <nav style={{ display: "flex", gap: 24, marginLeft: 14 }}>
-              {[
-                { l: "Pricing",   href: "/pricing" },
-                { l: "Compare",   href: "/compare" },
-                { l: "Customers", href: "/customers" },
-                { l: "Blog",      href: "/blog" },
-                { l: "Help",      href: "/help" },
-              ].map(it => (
-                <Link key={it.l} href={it.href} style={{ fontSize: 13.5, color: "var(--rb-fg-2)", fontWeight: 500, letterSpacing: "-0.005em", textDecoration: "none" }}>{it.l}</Link>
-              ))}
-            </nav>
-            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 10 }}>
-              <Link href="/sign-in" style={{ fontSize: 13.5, color: "var(--rb-fg-2)", fontWeight: 500, padding: "0 8px", textDecoration: "none" }}>Sign in</Link>
-              <Btn kind="primary" size="sm" href="/sign-up">Start free trial <Arrow size={12} /></Btn>
-            </div>
-          </div>
-        </Container>
-      </div>
-    </header>
-  );
-};
-
-// ─── Hero ─────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Hero â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const HeroDemo = () => {
   const ref = useRef<HTMLDivElement>(null);
@@ -340,19 +269,19 @@ const HeroDemo = () => {
     <div ref={ref} style={{ background: "var(--rb-bg-surface)", border: "1px solid var(--rb-border-1)", borderRadius: 18, boxShadow: "var(--rb-shadow-xl)", overflow: "hidden" }}>
       <div style={{ height: 36, background: "var(--rb-bg-sunken)", borderBottom: "1px solid var(--rb-border-1)", display: "flex", alignItems: "center", padding: "0 14px", gap: 12 }}>
         <LivePulse size={7} color={done ? "var(--rb-green-500)" : "var(--rb-blue-500)"} />
-        <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--rb-fg-2)", fontFamily: "var(--rb-font-mono)", letterSpacing: "0.04em" }}>{done ? "DRAFT READY · 2.9s" : play ? "DRAFTING…" : "WAITING FOR REVIEW"}</span>
-        <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--rb-fg-4)", fontFamily: "var(--rb-font-mono)" }}>groq · llama-3.3-70b</span>
+        <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--rb-fg-2)", fontFamily: "var(--rb-font-mono)", letterSpacing: "0.04em" }}>{done ? "DRAFT READY Â· 2.9s" : play ? "DRAFTINGâ€¦" : "WAITING FOR REVIEW"}</span>
+        <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--rb-fg-4)", fontFamily: "var(--rb-font-mono)" }}>groq Â· llama-3.3-70b</span>
       </div>
       <div style={{ padding: "20px 22px", borderBottom: "1px solid var(--rb-border-1)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
-          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--rb-fg-3)", fontFamily: "var(--rb-font-mono)", letterSpacing: "0.08em" }}>APP STORE · iOS</span>
+          <span style={{ fontSize: 11, fontWeight: 700, color: "var(--rb-fg-3)", fontFamily: "var(--rb-font-mono)", letterSpacing: "0.08em" }}>APP STORE Â· iOS</span>
           <span style={{ marginLeft: "auto", display: "inline-flex", gap: 2 }}>
             {[1,2,3,4,5].map(i => <svg key={i} width="12" height="12" viewBox="0 0 24 24" fill={i === 1 ? "#FFB800" : "var(--rb-border-2)"}><path d="M12 2 L15 9 L22 9.5 L17 14.5 L18.5 22 L12 18 L5.5 22 L7 14.5 L2 9.5 L9 9 Z" /></svg>)}
           </span>
         </div>
         <div style={{ fontFamily: "var(--rb-font-display)", fontSize: 15, fontWeight: 700, color: "var(--rb-fg-1)", marginBottom: 6 }}>Crashes on iPad after 4.2.1</div>
-        <div style={{ fontSize: 13, color: "var(--rb-fg-2)", lineHeight: 1.55 }}>Every time I open the budgets tab on iPad it freezes for 5–10 seconds. Started after the last update. I use this daily for my small business.</div>
-        <div style={{ fontSize: 11, color: "var(--rb-fg-4)", marginTop: 8, fontFamily: "var(--rb-font-mono)" }}>@kthompson · Acme Banking · v4.2.1 · 2m ago</div>
+        <div style={{ fontSize: 13, color: "var(--rb-fg-2)", lineHeight: 1.55 }}>Every time I open the budgets tab on iPad it freezes for 5â€“10 seconds. Started after the last update. I use this daily for my small business.</div>
+        <div style={{ fontSize: 11, color: "var(--rb-fg-4)", marginTop: 8, fontFamily: "var(--rb-font-mono)" }}>@kthompson Â· Acme Banking Â· v4.2.1 Â· 2m ago</div>
       </div>
       <div style={{ padding: "18px 22px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
@@ -363,10 +292,10 @@ const HeroDemo = () => {
           </button>
         </div>
         <div style={{ padding: 14, borderRadius: 10, background: "color-mix(in oklch, var(--rb-purple-500) 8%, transparent)", border: "1px dashed color-mix(in oklch, var(--rb-purple-500) 36%, transparent)", fontSize: 13.5, lineHeight: 1.65, color: "var(--rb-fg-1)", minHeight: 90, letterSpacing: "-0.003em" }}>
-          {play ? <Streaming text={HERO_DRAFT} speed={12} play={play} onDone={() => setDone(true)} /> : <span style={{ color: "var(--rb-fg-4)" }}>Generating reply…</span>}
+          {play ? <Streaming text={HERO_DRAFT} speed={12} play={play} onDone={() => setDone(true)} /> : <span style={{ color: "var(--rb-fg-4)" }}>Generating replyâ€¦</span>}
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", opacity: done ? 1 : 0, transition: "opacity 360ms" }}>
-          {[{ l: "tone · empathetic", c: "var(--rb-blue-500)" }, { l: "KB · v4.2.1 notes", c: "var(--rb-purple-500)" }, { l: "✓ ready to post", c: "var(--rb-green-500)" }].map(t => (
+          {[{ l: "tone Â· empathetic", c: "var(--rb-blue-500)" }, { l: "KB Â· v4.2.1 notes", c: "var(--rb-purple-500)" }, { l: "âœ“ ready to post", c: "var(--rb-green-500)" }].map(t => (
             <span key={t.l} style={{ padding: "3px 9px", borderRadius: 99, background: `color-mix(in oklch, ${t.c} 10%, transparent)`, color: t.c, fontSize: 10.5, fontWeight: 700, fontFamily: "var(--rb-font-mono)", letterSpacing: "0.04em" }}>{t.l}</span>
           ))}
         </div>
@@ -385,7 +314,7 @@ const Hero = () => (
           <Reveal delay={0}>
             <Link href="/changelog" style={{ display: "inline-flex", alignItems: "center", gap: 8, padding: "5px 13px 5px 5px", borderRadius: 99, background: "var(--rb-bg-surface)", border: "1px solid var(--rb-border-1)", fontSize: 12.5, fontWeight: 500, color: "var(--rb-fg-2)", marginBottom: 28, textDecoration: "none" }}>
               <span style={{ padding: "2px 9px", borderRadius: 99, background: "var(--rb-blue-500)", color: "#fff", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", fontFamily: "var(--rb-font-mono)" }}>NEW</span>
-              <span style={{ color: "var(--rb-fg-1)" }}>Incident detection · generally available</span>
+              <span style={{ color: "var(--rb-fg-1)" }}>Incident detection Â· generally available</span>
               <Arrow size={11} />
             </Link>
           </Reveal>
@@ -397,12 +326,12 @@ const Hero = () => (
           </Reveal>
           <Reveal delay={160}>
             <p style={{ fontSize: 19, lineHeight: 1.55, color: "var(--rb-fg-2)", maxWidth: 520, letterSpacing: "-0.005em", marginBottom: 36 }}>
-              If your review ops doc has more tabs than your phone, you&apos;re the product. ReviewBox is the inbox, the alerts, and the reply queue — minus the busywork.
+              If your review ops doc has more tabs than your phone, you&apos;re the product. ReviewBox is the inbox, the alerts, and the reply queue â€” minus the busywork.
             </p>
           </Reveal>
           <Reveal delay={240}>
             <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-              <Btn size="lg" kind="primary" href="/sign-up">Start free · no card <Arrow /></Btn>
+              <Btn size="lg" kind="primary" href="/sign-up">Start free Â· no card <Arrow /></Btn>
               <Btn size="lg" kind="secondary" href="#demo">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20" /></svg>
                 Watch 90s demo
@@ -415,7 +344,7 @@ const Hero = () => (
                 <LivePulse size={6} color="var(--rb-green-500)" />
                 <CountUp end={312} duration={1800} /> apps shipping with us
               </span>
-              <span>14d free · connect in 60s · cancel from one screen</span>
+              <span>14d free Â· connect in 60s Â· cancel from one screen</span>
             </div>
           </Reveal>
         </div>
@@ -427,7 +356,7 @@ const Hero = () => (
   </section>
 );
 
-// ─── Inbox showcase ───────────────────────────────────────────────────────────
+// â”€â”€â”€ Inbox showcase â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const InboxShowcase = () => (
   <section style={{ padding: "40px 0 88px", background: "var(--rb-bg-canvas)" }}>
@@ -478,7 +407,7 @@ const InboxShowcase = () => (
             <div style={{ flex: 1, padding: "16px 20px", display: "flex", flexDirection: "column", gap: 12, background: "var(--rb-bg-surface)", minWidth: 0 }}>
               <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
                 <div>
-                  <div style={{ fontSize: 10, fontWeight: 600, color: "var(--rb-fg-4)", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "var(--rb-font-mono)" }}>4 apps · 312 this week</div>
+                  <div style={{ fontSize: 10, fontWeight: 600, color: "var(--rb-fg-4)", letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "var(--rb-font-mono)" }}>4 apps Â· 312 this week</div>
                   <div style={{ fontSize: 20, fontWeight: 700, color: "var(--rb-fg-1)", fontFamily: "var(--rb-font-display)", letterSpacing: "-0.02em", marginTop: 2 }}>Inbox</div>
                 </div>
                 <div style={{ marginLeft: "auto", display: "inline-flex", padding: 2, borderRadius: 7, background: "var(--rb-bg-sunken)", border: "1px solid var(--rb-border-1)" }}>
@@ -487,7 +416,7 @@ const InboxShowcase = () => (
                 </div>
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8 }}>
-                {[{ l: "Rating", v: "4.62", d: "+0.41" }, { l: "Reply rate", v: "94%", d: "+12%" }, { l: "Reply time", v: "11m", d: "−27m" }, { l: "Incidents", v: "2", d: "−1", warn: true }].map((m, i) => (
+                {[{ l: "Rating", v: "4.62", d: "+0.41" }, { l: "Reply rate", v: "94%", d: "+12%" }, { l: "Reply time", v: "11m", d: "âˆ’27m" }, { l: "Incidents", v: "2", d: "âˆ’1", warn: true }].map((m, i) => (
                   <div key={i} style={{ padding: "10px 12px", borderRadius: 9, border: "1px solid var(--rb-border-1)", background: "var(--rb-bg-raised)" }}>
                     <div style={{ fontSize: 9, color: "var(--rb-fg-4)", fontWeight: 600, letterSpacing: "0.06em", textTransform: "uppercase", fontFamily: "var(--rb-font-mono)" }}>{m.l}</div>
                     <div style={{ fontFamily: "var(--rb-font-display)", fontSize: 22, fontWeight: 700, color: m.warn ? "var(--rb-red-500)" : "var(--rb-fg-1)", letterSpacing: "-0.025em", marginTop: 3 }}>{m.v}</div>
@@ -512,9 +441,9 @@ const InboxShowcase = () => (
                         <span style={{ padding: "1px 6px", borderRadius: 99, background: "color-mix(in oklch, var(--rb-purple-500) 14%, transparent)", color: "var(--rb-purple-500)", fontSize: 9.5, fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 3 }}><Sparkle size={8} color="var(--rb-purple-500)" /> {r.ai}</span>
                       </div>
                       <div style={{ fontSize: 11.5, color: "var(--rb-fg-3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{r.body}</div>
-                      <div style={{ fontSize: 10, color: "var(--rb-fg-4)", marginTop: 2, fontFamily: "var(--rb-font-mono)" }}>{r.app} · {r.store} · {r.t}</div>
+                      <div style={{ fontSize: 10, color: "var(--rb-fg-4)", marginTop: 2, fontFamily: "var(--rb-font-mono)" }}>{r.app} Â· {r.store} Â· {r.t}</div>
                     </div>
-                    {r.sel && <div style={{ padding: "3px 8px", borderRadius: 99, background: "var(--rb-blue-500)", color: "#fff", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>Drafting…</div>}
+                    {r.sel && <div style={{ padding: "3px 8px", borderRadius: 99, background: "var(--rb-blue-500)", color: "#fff", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>Draftingâ€¦</div>}
                   </div>
                 ))}
               </div>
@@ -526,7 +455,7 @@ const InboxShowcase = () => (
   </section>
 );
 
-// ─── Trust strip ──────────────────────────────────────────────────────────────
+// â”€â”€â”€ Trust strip â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const TrustStrip = () => {
   const logos = ["Northwind", "Helix Money", "Trailhead", "Pocket Lock", "Nova", "Atlas Logistics", "Lumen Health", "Marlin Pay", "Tide Books", "Compass"];
@@ -543,7 +472,7 @@ const TrustStrip = () => {
   );
 };
 
-// ─── Pain stats ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ Pain stats â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const Pain = () => (
   <section style={{ padding: "120px 0 96px", background: "var(--rb-bg-canvas)" }}>
@@ -557,14 +486,14 @@ const Pain = () => (
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", borderTop: "1px solid var(--rb-border-1)" }}>
         {[
-          { v: 47, suffix: "%", l: "of 1★ reviews never get a reply", body: "Every Tuesday afternoon, your support lead clicks through App Store Connect and gives up around the 23rd one. The other 24 don't come back." },
-          { v: -22, suffix: "%", l: "installs per 0.3★ drop", body: "Rank, conversion, and social proof index on rating. The math punishes you faster than your retention dashboards can show." },
+          { v: 47, suffix: "%", l: "of 1â˜… reviews never get a reply", body: "Every Tuesday afternoon, your support lead clicks through App Store Connect and gives up around the 23rd one. The other 24 don't come back." },
+          { v: -22, suffix: "%", l: "installs per 0.3â˜… drop", body: "Rank, conversion, and social proof index on rating. The math punishes you faster than your retention dashboards can show." },
           { v: 73, suffix: "%", l: "of regressions hit reviews first", body: "Crash reports lag. Sentry samples. Reviews are unfiltered, geotagged, and they show up the hour the regression ships." },
         ].map((s, i) => (
           <Reveal key={i} delay={i * 100}>
             <div style={{ padding: "40px 32px 36px", borderRight: i < 2 ? "1px solid var(--rb-border-1)" : 0, borderBottom: "1px solid var(--rb-border-1)" }}>
               <div style={{ fontFamily: "var(--rb-font-display)", fontSize: "clamp(64px, 6vw, 92px)", fontWeight: 700, letterSpacing: "-0.05em", color: "var(--rb-fg-1)", lineHeight: 0.9 } as React.CSSProperties}>
-                {s.v < 0 && "−"}<CountUp end={Math.abs(s.v)} suffix={s.suffix} duration={1600} />
+                {s.v < 0 && "âˆ’"}<CountUp end={Math.abs(s.v)} suffix={s.suffix} duration={1600} />
               </div>
               <div style={{ fontSize: 17, fontWeight: 600, color: "var(--rb-fg-1)", marginTop: 20, letterSpacing: "-0.01em" }}>{s.l}</div>
               <div style={{ fontSize: 14.5, color: "var(--rb-fg-3)", lineHeight: 1.6, marginTop: 10 }}>{s.body}</div>
@@ -572,12 +501,12 @@ const Pain = () => (
           </Reveal>
         ))}
       </div>
-      <div style={{ marginTop: 28, fontSize: 12, color: "var(--rb-fg-4)", fontFamily: "var(--rb-font-mono)" }}>{`// 312 apps tracked · Jan–Apr 2026 · full benchmark report ships next month`}</div>
+      <div style={{ marginTop: 28, fontSize: 12, color: "var(--rb-fg-4)", fontFamily: "var(--rb-font-mono)" }}>{`// 312 apps tracked Â· Janâ€“Apr 2026 Â· full benchmark report ships next month`}</div>
     </Container>
   </section>
 );
 
-// ─── Pillars ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Pillars â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const PillarIcon = ({ id }: { id: string }) => {
   const wrap: React.CSSProperties = { width: 40, height: 40, borderRadius: 9, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 };
@@ -598,7 +527,7 @@ const Pillars = () => (
           </h2>
         </div>
         <p style={{ fontSize: 18, color: "var(--rb-fg-2)", lineHeight: 1.55, letterSpacing: "-0.005em" }}>
-          Most &quot;review platforms&quot; are read-only dashboards with a Reply button bolted to the side. ReviewBox is the smallest possible tool that completes the actual loop — read, decide, draft, ship, learn.
+          Most &quot;review platforms&quot; are read-only dashboards with a Reply button bolted to the side. ReviewBox is the smallest possible tool that completes the actual loop â€” read, decide, draft, ship, learn.
         </p>
       </div>
       <div style={{ display: "flex", flexDirection: "column", borderTop: "1px solid var(--rb-border-1)" }}>
@@ -625,7 +554,7 @@ const Pillars = () => (
   </section>
 );
 
-// ─── AI Reply Demo ────────────────────────────────────────────────────────────
+// â”€â”€â”€ AI Reply Demo â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const PulsingDots = () => (
   <span style={{ display: "inline-flex", gap: 5, alignItems: "center" }}>
@@ -652,7 +581,7 @@ const AIReplyDemo = () => {
       if (!res.ok) throw new Error(data.message ?? data.error ?? "Failed");
       setReply(data.reply ?? "");
     } catch {
-      setError("Demo is offline for a sec. Try again, or grab a free trial — the real one is faster anyway.");
+      setError("Demo is offline for a sec. Try again, or grab a free trial â€” the real one is faster anyway.");
     } finally { setLoading(false); }
   };
 
@@ -669,11 +598,11 @@ const AIReplyDemo = () => {
           <div style={{ fontFamily: "var(--rb-font-display)", fontSize: 19, fontWeight: 700, color: "var(--rb-fg-1)", letterSpacing: "-0.015em", lineHeight: 1.25 }}>{r.title}</div>
           <div style={{ fontSize: 14, color: "var(--rb-fg-2)", lineHeight: 1.6, marginTop: 10 }}>{r.body}</div>
         </div>
-        <div style={{ fontSize: 11.5, color: "var(--rb-fg-3)", marginTop: "auto", fontFamily: "var(--rb-font-mono)" }}>App Store · iOS · {r.app} · v{r.version}</div>
+        <div style={{ fontSize: 11.5, color: "var(--rb-fg-3)", marginTop: "auto", fontFamily: "var(--rb-font-mono)" }}>App Store Â· iOS Â· {r.app} Â· v{r.version}</div>
         <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
           {SAMPLE_REVIEWS.map((s, i) => (
             <button key={i} onClick={() => { setIdx(i); setReply(""); setError(""); }} style={{ height: 28, padding: "0 12px", borderRadius: 99, fontSize: 11.5, fontWeight: 600, cursor: "pointer", fontFamily: "var(--rb-font-text)", border: i === idx ? "1px solid var(--rb-blue-500)" : "1px solid var(--rb-border-2)", background: i === idx ? "var(--rb-bg-accent-soft)" : "transparent", color: i === idx ? "var(--rb-blue-500)" : "var(--rb-fg-2)", transition: "all 120ms" }}>
-              {s.rating}★ · {s.title.split(" ").slice(0, 3).join(" ")}…
+              {s.rating}â˜… Â· {s.title.split(" ").slice(0, 3).join(" ")}â€¦
             </button>
           ))}
         </div>
@@ -681,7 +610,7 @@ const AIReplyDemo = () => {
       <div style={{ background: "var(--rb-bg-surface)", padding: "28px 30px", display: "flex", flexDirection: "column", gap: 14, minHeight: 340 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
           <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--rb-purple-500)", fontFamily: "var(--rb-font-mono)", display: "inline-flex", alignItems: "center", gap: 6 }}><Sparkle size={11} color="var(--rb-purple-500)" /> AI draft</span>
-          <span style={{ marginLeft: "auto", fontSize: 11.5, color: "var(--rb-fg-3)", fontFamily: "var(--rb-font-mono)" }}>{loading ? "thinking…" : reply ? `${reply.length} chars` : "ready"}</span>
+          <span style={{ marginLeft: "auto", fontSize: 11.5, color: "var(--rb-fg-3)", fontFamily: "var(--rb-font-mono)" }}>{loading ? "thinkingâ€¦" : reply ? `${reply.length} chars` : "ready"}</span>
         </div>
         <div style={{ flex: 1, padding: 18, borderRadius: 12, background: "color-mix(in oklch, var(--rb-purple-500) 8%, transparent)", border: "1px dashed color-mix(in oklch, var(--rb-purple-500) 35%, transparent)", fontSize: 14.5, lineHeight: 1.6, color: "var(--rb-fg-1)", minHeight: 160, whiteSpace: "pre-wrap" }}>
           {!reply && !loading && !error && <span style={{ color: "var(--rb-fg-3)" }}>Click <strong style={{ color: "var(--rb-fg-2)" }}>Generate reply</strong> below.</span>}
@@ -693,7 +622,7 @@ const AIReplyDemo = () => {
           <button onClick={generate} disabled={loading} style={{ height: 40, padding: "0 18px", borderRadius: 10, border: 0, background: "var(--rb-blue-500)", color: "#fff", fontWeight: 700, fontSize: 13.5, fontFamily: "var(--rb-font-text)", cursor: loading ? "wait" : "pointer", opacity: loading ? 0.6 : 1, display: "inline-flex", alignItems: "center", gap: 8, boxShadow: "inset 0 1px 0 rgba(255,255,255,0.18)" }}>
             <Sparkle size={14} color="#fff" /> {reply ? "Regenerate" : "Generate reply"}
           </button>
-          {reply && <button style={{ height: 40, padding: "0 16px", borderRadius: 10, border: "1px solid var(--rb-border-2)", background: "transparent", color: "var(--rb-fg-1)", fontWeight: 600, fontSize: 13.5, cursor: "pointer" }}>Use as template →</button>}
+          {reply && <button style={{ height: 40, padding: "0 16px", borderRadius: 10, border: "1px solid var(--rb-border-2)", background: "transparent", color: "var(--rb-fg-1)", fontWeight: 600, fontSize: 13.5, cursor: "pointer" }}>Use as template â†’</button>}
           <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--rb-fg-3)", fontFamily: "var(--rb-font-mono)" }}>{`// grounded on KB in real product`}</span>
         </div>
       </div>
@@ -705,23 +634,23 @@ const DemoSection = () => (
   <section id="demo" style={{ padding: "140px 0", background: "var(--rb-bg-canvas)" }}>
     <Container w={1240}>
       <div style={{ marginBottom: 56, maxWidth: 880 }}>
-        <Kicker accent="var(--rb-purple-500)">Try it · no sign-up · no card</Kicker>
+        <Kicker accent="var(--rb-purple-500)">Try it Â· no sign-up Â· no card</Kicker>
         <h2 style={{ fontFamily: "var(--rb-font-display)", fontSize: "clamp(48px, 5.5vw, 76px)", lineHeight: 0.94, fontWeight: 700, letterSpacing: "-0.045em", color: "var(--rb-fg-1)", marginTop: 22 } as React.CSSProperties}>
-          Reply to a 1★ review. <span style={{ fontStyle: "italic", color: "var(--rb-fg-3)" }}>Right here.</span>
+          Reply to a 1â˜… review. <span style={{ fontStyle: "italic", color: "var(--rb-fg-3)" }}>Right here.</span>
         </h2>
-        <p style={{ fontSize: 18, color: "var(--rb-fg-2)", marginTop: 20, maxWidth: 660, lineHeight: 1.55 }}>Pick a review on the left. Hit generate. The drafter on the right is the same model we ship — KB-grounded, tone-trained, ~3 seconds.</p>
+        <p style={{ fontSize: 18, color: "var(--rb-fg-2)", marginTop: 20, maxWidth: 660, lineHeight: 1.55 }}>Pick a review on the left. Hit generate. The drafter on the right is the same model we ship â€” KB-grounded, tone-trained, ~3 seconds.</p>
       </div>
       <AIReplyDemo />
     </Container>
   </section>
 );
 
-// ─── Roles ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Roles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const SupportPanel = () => (
   <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
     <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8 }}>
-      {[{ l: "median", v: "11m" }, { l: "p95", v: "1h 06m" }, { l: "1★ replied", v: "94%" }].map((m, i) => (
+      {[{ l: "median", v: "11m" }, { l: "p95", v: "1h 06m" }, { l: "1â˜… replied", v: "94%" }].map((m, i) => (
         <div key={i} style={{ padding: "12px 14px", borderRadius: 9, background: "var(--rb-bg-sunken)", border: "1px solid var(--rb-border-1)" }}>
           <div style={{ fontSize: 10.5, color: "var(--rb-fg-4)", fontWeight: 600, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "var(--rb-font-mono)" }}>{m.l}</div>
           <div style={{ fontFamily: "var(--rb-font-display)", fontSize: 22, fontWeight: 700, color: "var(--rb-blue-500)", marginTop: 4, letterSpacing: "-0.025em" }}>{m.v}</div>
@@ -757,13 +686,13 @@ const ProductPanel = () => (
 
 const ReleasePanel = () => (
   <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-    {[{ v: "4.2.1", r: 4.18, d: "−0.42", state: "degraded" }, { v: "4.2.0", r: 4.61, d: "+0.04", state: "healthy" }, { v: "4.1.4", r: 4.57, d: "+0.12", state: "healthy" }, { v: "4.1.3", r: 4.45, d: "−0.03", state: "monitoring" }].map((rel, i) => (
+    {[{ v: "4.2.1", r: 4.18, d: "âˆ’0.42", state: "degraded" }, { v: "4.2.0", r: 4.61, d: "+0.04", state: "healthy" }, { v: "4.1.4", r: 4.57, d: "+0.12", state: "healthy" }, { v: "4.1.3", r: 4.45, d: "âˆ’0.03", state: "monitoring" }].map((rel, i) => (
       <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, padding: "10px 12px", borderRadius: 9, background: rel.state === "degraded" ? "color-mix(in oklch, var(--rb-red-500) 8%, transparent)" : "var(--rb-bg-sunken)", border: `1px solid ${rel.state === "degraded" ? "color-mix(in oklch, var(--rb-red-500) 24%, transparent)" : "var(--rb-border-1)"}` }}>
         <div style={{ width: 8, height: 8, borderRadius: 99, background: rel.state === "degraded" ? "var(--rb-red-500)" : rel.state === "monitoring" ? "var(--rb-amber-500)" : "var(--rb-green-500)", flexShrink: 0 }} />
         <div style={{ fontFamily: "var(--rb-font-mono)", fontSize: 12.5, color: "var(--rb-fg-1)", fontWeight: 600 }}>v{rel.v}</div>
         <div style={{ flex: 1, fontSize: 11, color: "var(--rb-fg-3)", textTransform: "capitalize", fontFamily: "var(--rb-font-mono)" }}>{rel.state}</div>
         <div style={{ fontFamily: "var(--rb-font-display)", fontSize: 17, fontWeight: 700, color: "var(--rb-fg-1)" }}>{rel.r.toFixed(2)}</div>
-        <div style={{ fontFamily: "var(--rb-font-mono)", fontSize: 11.5, color: rel.d.startsWith("−") ? "var(--rb-red-500)" : "var(--rb-green-500)", fontWeight: 700, width: 50, textAlign: "right" }}>{rel.d}</div>
+        <div style={{ fontFamily: "var(--rb-font-mono)", fontSize: 11.5, color: rel.d.startsWith("âˆ’") ? "var(--rb-red-500)" : "var(--rb-green-500)", fontWeight: 700, width: 50, textAlign: "right" }}>{rel.d}</div>
       </div>
     ))}
   </div>
@@ -823,12 +752,12 @@ const Roles = () => {
   );
 };
 
-// ─── Quote ────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Quote â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const QuoteSection = () => (
   <section style={{ padding: "140px 0", background: "var(--rb-bg-canvas)" }}>
     <Container w={1140}>
-      <Kicker>Customer story · Acme Banking</Kicker>
+      <Kicker>Customer story Â· Acme Banking</Kicker>
       <p style={{ fontFamily: "var(--rb-font-display)", fontSize: "clamp(28px, 4vw, 52px)", lineHeight: 1.08, fontWeight: 600, letterSpacing: "-0.035em", color: "var(--rb-fg-1)", marginTop: 24, marginBottom: 40 } as React.CSSProperties}>
         <span style={{ color: "var(--rb-blue-500)" }}>&ldquo;</span>We cut median reply time from 38 hours to 11 minutes and our 30-day rating moved from 4.21 to 4.58. ReviewBox is the first tool I&apos;ve put in front of the support team where nobody asked for training.<span style={{ color: "var(--rb-blue-500)" }}>&rdquo;</span>
       </p>
@@ -842,7 +771,7 @@ const QuoteSection = () => (
         </div>
         <div style={{ height: 40, width: 1, background: "var(--rb-border-1)" }} />
         <div style={{ display: "flex", gap: 32 }}>
-          {[{ v: "4.21 → 4.58", l: "30-day rating in 6 weeks" }, { v: "38h → 11m", l: "Median reply time" }, { v: "94%", l: "1★ reply rate" }].map((m, i) => (
+          {[{ v: "4.21 â†’ 4.58", l: "30-day rating in 6 weeks" }, { v: "38h â†’ 11m", l: "Median reply time" }, { v: "94%", l: "1â˜… reply rate" }].map((m, i) => (
             <div key={i}>
               <div style={{ fontFamily: "var(--rb-font-display)", fontSize: 26, fontWeight: 700, color: "var(--rb-blue-500)", letterSpacing: "-0.025em" }}>{m.v}</div>
               <div style={{ fontSize: 12, color: "var(--rb-fg-3)", marginTop: 4 }}>{m.l}</div>
@@ -855,7 +784,7 @@ const QuoteSection = () => (
   </section>
 );
 
-// ─── Pricing ──────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Pricing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const PricingSection = () => (
   <section style={{ padding: "140px 0", background: "var(--rb-bg-surface)", borderTop: "1px solid var(--rb-border-1)", borderBottom: "1px solid var(--rb-border-1)" }}>
@@ -867,7 +796,7 @@ const PricingSection = () => (
             One number.<br />Hold the &quot;contact us.&quot;
           </h2>
         </div>
-        <p style={{ fontSize: 17, color: "var(--rb-fg-2)", lineHeight: 1.55, maxWidth: 540 }}>14-day free trial on every tier. No credit card. Annual saves you 20% — we say so in checkout, not in a tooltip.</p>
+        <p style={{ fontSize: 17, color: "var(--rb-fg-2)", lineHeight: 1.55, maxWidth: 540 }}>14-day free trial on every tier. No credit card. Annual saves you 20% â€” we say so in checkout, not in a tooltip.</p>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", border: "1px solid var(--rb-border-1)", borderRadius: 18, overflow: "hidden" }}>
         {PRICING.map((p, i) => (
@@ -888,15 +817,15 @@ const PricingSection = () => (
         ))}
       </div>
       <div style={{ textAlign: "center", marginTop: 32, fontSize: 13, color: "var(--rb-fg-3)" }}>
-        Need SOC 2, custom DPA, or invoicing? <Link href="/contact" style={{ color: "var(--rb-blue-500)", fontWeight: 700 }}>Talk to us →</Link>
-        &nbsp;&nbsp;·&nbsp;&nbsp;
-        Compared to AppFollow at $399? <Link href="/compare" style={{ color: "var(--rb-blue-500)", fontWeight: 700 }}>See the table →</Link>
+        Need SOC 2, custom DPA, or invoicing? <Link href="/contact" style={{ color: "var(--rb-blue-500)", fontWeight: 700 }}>Talk to us â†’</Link>
+        &nbsp;&nbsp;Â·&nbsp;&nbsp;
+        Compared to AppFollow at $399? <Link href="/compare" style={{ color: "var(--rb-blue-500)", fontWeight: 700 }}>See the table â†’</Link>
       </div>
     </Container>
   </section>
 );
 
-// ─── Integrations ─────────────────────────────────────────────────────────────
+// â”€â”€â”€ Integrations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const Integrations = () => (
   <section style={{ padding: "100px 0", background: "var(--rb-bg-canvas)" }}>
@@ -920,7 +849,7 @@ const Integrations = () => (
   </section>
 );
 
-// ─── Free Tools ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ Free Tools â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const Tools = () => (
   <section style={{ padding: "120px 0", background: "var(--rb-bg-surface)", borderTop: "1px solid var(--rb-border-1)", borderBottom: "1px solid var(--rb-border-1)" }}>
@@ -949,7 +878,7 @@ const Tools = () => (
   </section>
 );
 
-// ─── Resources ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Resources â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const Resources = () => (
   <section style={{ padding: "100px 0", background: "var(--rb-bg-canvas)" }}>
@@ -968,16 +897,16 @@ const Resources = () => (
       <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr 1fr", gap: 14 }}>
         <Link href="/blog/ai-cost-reduction" style={{ display: "flex", flexDirection: "column", borderRadius: 16, overflow: "hidden", border: "1px solid var(--rb-border-1)", background: "var(--rb-bg-surface)", textDecoration: "none" }}>
           <div style={{ aspectRatio: "16/10", background: "linear-gradient(135deg, var(--rb-blue-500) 0%, var(--rb-purple-500) 60%, #1D1D1F 100%)", display: "flex", alignItems: "flex-end", padding: 28 }}>
-            <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.85)", letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "var(--rb-font-mono)" }}>Benchmark · 2026</span>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.85)", letterSpacing: "0.1em", textTransform: "uppercase", fontFamily: "var(--rb-font-mono)" }}>Benchmark Â· 2026</span>
           </div>
           <div style={{ padding: "24px 26px" }}>
             <div style={{ fontFamily: "var(--rb-font-display)", fontSize: 22, lineHeight: 1.18, fontWeight: 700, letterSpacing: "-0.025em", color: "var(--rb-fg-1)", marginBottom: 12 }}>State of App Reviews 2026: 312 apps, 1.8M reviews, one rating crisis.</div>
-            <div style={{ fontSize: 14, color: "var(--rb-fg-3)", lineHeight: 1.55 }}>Median rating dropped 0.18★ year-over-year. Reply rates flatlined. We dug into why.</div>
-            <div style={{ marginTop: 16, fontSize: 11.5, color: "var(--rb-fg-4)", fontFamily: "var(--rb-font-mono)" }}>32 min read · MAY 2026</div>
+            <div style={{ fontSize: 14, color: "var(--rb-fg-3)", lineHeight: 1.55 }}>Median rating dropped 0.18â˜… year-over-year. Reply rates flatlined. We dug into why.</div>
+            <div style={{ marginTop: 16, fontSize: 11.5, color: "var(--rb-fg-4)", fontFamily: "var(--rb-font-mono)" }}>32 min read Â· MAY 2026</div>
           </div>
         </Link>
         {[
-          { t: "How to reply to a 1★ review without making it worse", k: "Guide", href: "/blog" },
+          { t: "How to reply to a 1â˜… review without making it worse", k: "Guide", href: "/blog" },
           { t: "Your rating is a release-engineering metric, actually", k: "Essay", href: "/blog" },
           { t: "12 highest-converting reply templates we've measured", k: "Templates", href: "/reply-kit" },
           { t: "Apple's reply API: what's true, what's coming, what's not", k: "Deep dive", href: "/blog" },
@@ -992,7 +921,7 @@ const Resources = () => (
   </section>
 );
 
-// ─── Security ─────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Security â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const Security = () => (
   <section style={{ padding: "100px 0", background: "var(--rb-bg-surface)", borderTop: "1px solid var(--rb-border-1)", borderBottom: "1px solid var(--rb-border-1)" }}>
@@ -1005,7 +934,7 @@ const Security = () => (
           </h2>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 10 }}>
-          {[{ t: "SOC 2 Type II", d: "in progress · Q3 target" }, { t: "GDPR + CCPA", d: "EU-hosted option, DPA on request" }, { t: "AES-256 at rest", d: "key rotation every 90d" }, { t: "Row-level security", d: "workspace isolation in-DB" }, { t: "No model training", d: "Groq / Anthropic, no retention" }, { t: "Single sign-on", d: "Okta · Google · custom OIDC" }].map(s => (
+          {[{ t: "SOC 2 Type II", d: "in progress Â· Q3 target" }, { t: "GDPR + CCPA", d: "EU-hosted option, DPA on request" }, { t: "AES-256 at rest", d: "key rotation every 90d" }, { t: "Row-level security", d: "workspace isolation in-DB" }, { t: "No model training", d: "Groq / Anthropic, no retention" }, { t: "Single sign-on", d: "Okta Â· Google Â· custom OIDC" }].map(s => (
             <div key={s.t} style={{ padding: 16, borderRadius: 10, background: "var(--rb-bg-raised)", border: "1px solid var(--rb-border-1)" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Check size={14} color="var(--rb-green-500)" />
@@ -1020,7 +949,7 @@ const Security = () => (
   </section>
 );
 
-// ─── FAQ ──────────────────────────────────────────────────────────────────────
+// â”€â”€â”€ FAQ â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const FAQ = () => {
   const [open, setOpen] = useState<number>(0);
@@ -1052,14 +981,14 @@ const FAQ = () => {
   );
 };
 
-// ─── Bottom CTA ───────────────────────────────────────────────────────────────
+// â”€â”€â”€ Bottom CTA â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 const BottomCTA = () => (
   <section style={{ padding: "120px 0", background: "var(--rb-bg-canvas)", position: "relative", overflow: "hidden" }}>
     <div style={{ position: "absolute", inset: 0, background: "radial-gradient(ellipse 70% 60% at 50% 100%, color-mix(in oklch, var(--rb-blue-500) 20%, transparent), transparent 70%)", pointerEvents: "none" }} />
     <Container w={1080}>
       <div style={{ position: "relative", textAlign: "center" }}>
-        <Kicker>14-day free trial · no card</Kicker>
+        <Kicker>14-day free trial Â· no card</Kicker>
         <h2 style={{ fontFamily: "var(--rb-font-display)", fontSize: "clamp(56px, 8vw, 96px)", lineHeight: 0.94, fontWeight: 700, letterSpacing: "-0.045em", color: "var(--rb-fg-1)", margin: "20px 0 24px", textWrap: "balance" } as React.CSSProperties}>
           Reply to your worst review <span style={{ color: "var(--rb-blue-500)" }}>first. We&apos;ll wait.</span>
         </h2>
@@ -1073,61 +1002,12 @@ const BottomCTA = () => (
   </section>
 );
 
-// ─── Footer ───────────────────────────────────────────────────────────────────
-
-const FOOTER_COLS = [
-  { h: "Product",   l: [{ t: "Inbox", href: "/sign-up" }, { t: "AI replies", href: "/sign-up" }, { t: "Incident detection", href: "/sign-up" }, { t: "Release health", href: "/sign-up" }, { t: "Automations", href: "/sign-up" }, { t: "Reply kit", href: "/sign-up" }] },
-  { h: "Compare",   l: [{ t: "vs AppFollow", href: "/compare" }, { t: "vs AppBot", href: "/compare" }, { t: "vs Sensor Tower", href: "/compare" }, { t: "vs Spreadsheets", href: "/compare" }] },
-  { h: "Resources", l: [{ t: "Blog", href: "/blog" }, { t: "Customers", href: "/customers" }, { t: "Changelog", href: "/changelog" }, { t: "Help center", href: "/help" }, { t: "FAQ", href: "/faq" }] },
-  { h: "Company",   l: [{ t: "About", href: "/about" }, { t: "Careers", href: "/careers" }, { t: "Privacy", href: "/privacy" }, { t: "Terms", href: "/terms" }, { t: "Status", href: "/status" }] },
-];
-
-const Footer = () => (
-  <footer style={{ padding: "80px 0 32px", background: "var(--rb-bg-sunken)", borderTop: "1px solid var(--rb-border-1)" }}>
-    <Container>
-      <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 40, marginBottom: 56 }}>
-        <div>
-          <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
-            <LogoMark size={22} />
-            <span style={{ fontFamily: "var(--rb-font-display)", fontSize: 17, fontWeight: 700, color: "var(--rb-fg-1)", letterSpacing: "-0.02em" }}>ReviewBox</span>
-          </Link>
-          <p style={{ fontSize: 13, color: "var(--rb-fg-3)", marginTop: 14, lineHeight: 1.55, maxWidth: 280 }}>App review management for product teams who&apos;d rather ship the fix than argue whose ticket it was.</p>
-          <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-            {["X", "in", "GH"].map(s => (
-              <a key={s} href="https://tryreviewbox.com" style={{ width: 30, height: 30, borderRadius: 7, background: "var(--rb-bg-surface)", border: "1px solid var(--rb-border-1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, fontWeight: 700, color: "var(--rb-fg-3)", fontFamily: "var(--rb-font-mono)", textDecoration: "none" }}>{s}</a>
-            ))}
-          </div>
-        </div>
-        {FOOTER_COLS.map(s => (
-          <div key={s.h}>
-            <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--rb-fg-1)", marginBottom: 16, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "var(--rb-font-mono)" }}>/{s.h.toLowerCase()}</div>
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 9 }}>
-              {s.l.map(it => <li key={it.t}><Link href={it.href} style={{ fontSize: 13, color: "var(--rb-fg-3)", textDecoration: "none" }}>{it.t}</Link></li>)}
-            </ul>
-          </div>
-        ))}
-      </div>
-      <div style={{ paddingTop: 24, borderTop: "1px solid var(--rb-border-1)", display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--rb-fg-4)", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-        <div style={{ fontFamily: "var(--rb-font-mono)" }}>© 2026 ReviewBox, Inc. // All rights reserved</div>
-        <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "var(--rb-font-mono)" }}>
-            <LivePulse size={6} color="var(--rb-green-500)" /> ALL SYSTEMS NORMAL
-          </span>
-          <Link href="/dpa" style={{ color: "var(--rb-fg-4)", textDecoration: "none" }}>DPA</Link>
-          <Link href="/privacy" style={{ color: "var(--rb-fg-4)", textDecoration: "none" }}>Privacy</Link>
-          <Link href="/terms" style={{ color: "var(--rb-fg-4)", textDecoration: "none" }}>Terms</Link>
-        </div>
-      </div>
-    </Container>
-  </footer>
-);
-
-// ─── Page root ────────────────────────────────────────────────────────────────
+// â”€â”€â”€ Page root â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 export default function HomePage() {
   return (
-    <div data-theme="dark" style={{ background: "var(--rb-bg-canvas)", color: "var(--rb-fg-1)", fontFamily: "var(--rb-font-text)", minHeight: "100vh", WebkitFontSmoothing: "antialiased" }}>
-      <Nav />
+    <MarketingShell>
+      <MarketingNav />
       <Hero />
       <InboxShowcase />
       <TrustStrip />
@@ -1143,7 +1023,7 @@ export default function HomePage() {
       <Security />
       <FAQ />
       <BottomCTA />
-      <Footer />
-    </div>
+      <MarketingFooter />
+    </MarketingShell>
   );
 }

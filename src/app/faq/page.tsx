@@ -1,10 +1,11 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
+import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "FAQ — ReviewBox",
-  description: "Frequently asked questions about ReviewBox — setup, pricing, AI replies, and more.",
+  title: "FAQ â€” ReviewBox",
+  description: "Frequently asked questions about ReviewBox â€” setup, pricing, AI replies, and more.",
 };
 
 const FAQ_SECTIONS = [
@@ -13,19 +14,19 @@ const FAQ_SECTIONS = [
     questions: [
       {
         q: "How do I connect Google Play?",
-        a: "You need a Google Cloud service account with the \"Reply to reviews\" permission scoped to your Google Play Console. Create the service account in Google Cloud, download the JSON key, and paste it into ReviewBox Settings → Apps. Full guide: tryreviewbox.com/help/connect-google-play.",
+        a: "You need a Google Cloud service account with the \"Reply to reviews\" permission scoped to your Google Play Console. Create the service account in Google Cloud, download the JSON key, and paste it into ReviewBox Settings â†’ Apps. Full guide: tryreviewbox.com/help/connect-google-play.",
       },
       {
         q: "How do I connect the App Store?",
-        a: "You need an App Store Connect API key (not the old iTunes key). In App Store Connect, go to Users & Access → Integrations → App Store Connect API, generate a key with Customer Support access, and enter the Key ID, Issuer ID, and .p8 file into ReviewBox Settings → Apps.",
+        a: "You need an App Store Connect API key (not the old iTunes key). In App Store Connect, go to Users & Access â†’ Integrations â†’ App Store Connect API, generate a key with Customer Support access, and enter the Key ID, Issuer ID, and .p8 file into ReviewBox Settings â†’ Apps.",
       },
       {
         q: "How long does the first sync take?",
-        a: "The first sync fetches your most recent reviews immediately — typically under 2 minutes for up to 500 reviews. Subsequent syncs run automatically every 4 hours.",
+        a: "The first sync fetches your most recent reviews immediately â€” typically under 2 minutes for up to 500 reviews. Subsequent syncs run automatically every 4 hours.",
       },
       {
         q: "Can I try ReviewBox before paying?",
-        a: "Yes — every account starts with a 14-day free trial at Pro tier. No credit card required. You can downgrade, upgrade, or cancel at any time from Billing settings.",
+        a: "Yes â€” every account starts with a 14-day free trial at Pro tier. No credit card required. You can downgrade, upgrade, or cancel at any time from Billing settings.",
       },
     ],
   },
@@ -34,7 +35,7 @@ const FAQ_SECTIONS = [
     questions: [
       {
         q: "How does the AI reply system work?",
-        a: "ReviewBox uses a 3-tier pipeline. First, it tries to match your review against one of 25 templates (instant, zero tokens). If no template matches, it checks a Redis cache for identical or near-identical reviews. If still no match, it generates a new reply via Groq's Llama 3.3 70B model. About 85% of replies are served from tiers 1–2.",
+        a: "ReviewBox uses a 3-tier pipeline. First, it tries to match your review against one of 25 templates (instant, zero tokens). If no template matches, it checks a Redis cache for identical or near-identical reviews. If still no match, it generates a new reply via Groq's Llama 3.3 70B model. About 85% of replies are served from tiers 1â€“2.",
       },
       {
         q: "What tone options are available?",
@@ -42,7 +43,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: "Can ReviewBox auto-publish replies?",
-        a: "Yes — on the Team plan, you can configure auto-publish rules. You set the conditions (e.g. \"5-star reviews + positive sentiment + reply from template\") and ReviewBox will publish without human approval. This is disabled by default and opt-in per workspace.",
+        a: "Yes â€” on the Team plan, you can configure auto-publish rules. You set the conditions (e.g. \"5-star reviews + positive sentiment + reply from template\") and ReviewBox will publish without human approval. This is disabled by default and opt-in per workspace.",
       },
       {
         q: "Does ReviewBox learn from my edits?",
@@ -59,7 +60,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: "Can I get a refund?",
-        a: "Yes — 30-day full refund on monthly plans (most recent charge) and annual plans (from purchase/renewal date). No questions asked. See our Refund Policy for full details.",
+        a: "Yes â€” 30-day full refund on monthly plans (most recent charge) and annual plans (from purchase/renewal date). No questions asked. See our Refund Policy for full details.",
       },
       {
         q: "Do you offer discounts for startups or non-profits?",
@@ -67,7 +68,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: "Is there an annual billing option?",
-        a: "Yes — annual billing is 2 months free (equivalent to ~17% off). Contact us to switch; we&apos;ll prorate your current plan.",
+        a: "Yes â€” annual billing is 2 months free (equivalent to ~17% off). Contact us to switch; we&apos;ll prorate your current plan.",
       },
     ],
   },
@@ -88,7 +89,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: "How do I delete my account and data?",
-        a: "Go to Settings → Privacy → Delete account, or email legal@tryreviewbox.com. All personal data and review data is permanently deleted within 30 days. You can export your data first via Settings → Privacy → Export data.",
+        a: "Go to Settings â†’ Privacy â†’ Delete account, or email legal@tryreviewbox.com. All personal data and review data is permanently deleted within 30 days. You can export your data first via Settings â†’ Privacy â†’ Export data.",
       },
     ],
   },
@@ -108,12 +109,12 @@ const FAQ_JSON_LD = {
 
 export default function FaqPage() {
   return (
-    <div className="min-h-screen bg-[#F5F5F7]">
+    <MarketingShell>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSON_LD) }}
       />
-      <MarketingNav cta="signin" />
+      <MarketingNav />
 
       {/* Breadcrumb */}
       <div className="mx-auto max-w-screen-xl px-6 py-3">
@@ -127,15 +128,15 @@ export default function FaqPage() {
       <main className="mx-auto max-w-3xl px-6 pb-32">
         {/* Header */}
         <div className="pt-12 pb-12">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900">
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">
             Frequently asked questions
           </h1>
-          <p className="mt-3 text-gray-500">
+          <p className="mt-3 text-gray-500 dark:text-[#86868B]">
             Can&apos;t find an answer?{" "}
             <Link href="/contact" className="text-[#0A84FF] hover:underline">
               Email us
             </Link>{" "}
-            — we respond within one business day.
+            â€” we respond within one business day.
           </p>
         </div>
 
@@ -143,17 +144,17 @@ export default function FaqPage() {
         <div className="space-y-12">
           {FAQ_SECTIONS.map((section) => (
             <div key={section.title}>
-              <h2 className="mb-6 text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+              <h2 className="mb-6 text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366]">
                 {section.title}
               </h2>
               <dl className="space-y-4">
                 {section.questions.map(({ q, a }) => (
                   <div
                     key={q}
-                    className="rounded-2xl border border-gray-200 bg-white p-6"
+                    className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6"
                   >
-                    <dt className="font-semibold text-gray-900">{q}</dt>
-                    <dd className="mt-3 text-sm leading-relaxed text-gray-600">{a}</dd>
+                    <dt className="font-semibold text-gray-900 dark:text-[#F5F5F7]">{q}</dt>
+                    <dd className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-[#C7C7CC]">{a}</dd>
                   </div>
                 ))}
               </dl>
@@ -162,9 +163,9 @@ export default function FaqPage() {
         </div>
 
         {/* CTA */}
-        <div className="mt-16 rounded-2xl border border-blue-100 bg-blue-50 px-8 py-10 text-center">
-          <h2 className="text-lg font-bold text-gray-900">Still have questions?</h2>
-          <p className="mt-2 text-sm text-gray-600">
+        <div className="mt-16 rounded-2xl border border-blue-100 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-900/20 px-8 py-10 text-center">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-[#F5F5F7]">Still have questions?</h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-[#C7C7CC]">
             The whole team reads support email. You&apos;ll get a real answer, not a template.
           </p>
           <Link
@@ -177,6 +178,6 @@ export default function FaqPage() {
       </main>
 
       <MarketingFooter />
-    </div>
+    </MarketingShell>
   );
 }

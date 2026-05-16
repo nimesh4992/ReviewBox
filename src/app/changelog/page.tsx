@@ -1,10 +1,11 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
+import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "Changelog — ReviewBox",
-  description: "What's new in ReviewBox — release notes grouped by month.",
+  title: "Changelog â€” ReviewBox",
+  description: "What's new in ReviewBox â€” release notes grouped by month.",
 };
 
 const RELEASES = [
@@ -16,7 +17,7 @@ const RELEASES = [
         date: "May 15, 2026",
         type: "feature" as const,
         title: "Apple App Store sync + App Store Connect API",
-        body: "You can now connect your App Store Connect account and sync reviews from any iOS app. Reviews land in the same queue as Google Play — with the same AI triage, priority scoring, and reply workflow.",
+        body: "You can now connect your App Store Connect account and sync reviews from any iOS app. Reviews land in the same queue as Google Play â€” with the same AI triage, priority scoring, and reply workflow.",
         items: [
           "App Store Connect JWT authentication (ES256, per-workspace credentials)",
           "Unified review queue across both stores",
@@ -28,13 +29,13 @@ const RELEASES = [
         version: "v1.3.2",
         date: "May 10, 2026",
         type: "improvement" as const,
-        title: "AI cost optimisation — 94% fewer tokens",
+        title: "AI cost optimisation â€” 94% fewer tokens",
         body: "Major rework of the AI reply pipeline to eliminate redundant API calls. The vast majority of replies are now handled without hitting Groq at all.",
         items: [
           "25-template match layer resolves ~70% of requests at zero tokens",
           "SHA-256 Redis reply cache (7-day TTL) handles ~20% of remainder",
-          "Prompt compression strips filler phrases — 73% shorter inputs",
-          "Gemini 2.0 Flash for batch sentiment on ambiguous 3★ reviews",
+          "Prompt compression strips filler phrases â€” 73% shorter inputs",
+          "Gemini 2.0 Flash for batch sentiment on ambiguous 3â˜… reviews",
         ],
       },
       {
@@ -42,7 +43,7 @@ const RELEASES = [
         date: "May 1, 2026",
         type: "feature" as const,
         title: "Automation rules + auto-draft",
-        body: "Build rules that fire automatically when reviews arrive. Auto-triage, auto-escalate, and auto-draft replies — all configurable per workspace.",
+        body: "Build rules that fire automatically when reviews arrive. Auto-triage, auto-escalate, and auto-draft replies â€” all configurable per workspace.",
         items: [
           "Visual rule builder with 8 condition types",
           "Actions: escalate, tag, draft reply, assign",
@@ -60,11 +61,11 @@ const RELEASES = [
         date: "April 20, 2026",
         type: "feature" as const,
         title: "Rating spike detection + email alerts",
-        body: "ReviewBox now monitors for sudden bursts of low-rated reviews on the same app version. If ≥5 reviews rated ≤2★ arrive within 24 hours on a single version, the workspace owner gets an email alert.",
+        body: "ReviewBox now monitors for sudden bursts of low-rated reviews on the same app version. If â‰¥5 reviews rated â‰¤2â˜… arrive within 24 hours on a single version, the workspace owner gets an email alert.",
         items: [
           "Spike detection runs on every sync",
           "Alert email includes version, count, and sample reviews",
-          "Configurable threshold in Settings → Alerts",
+          "Configurable threshold in Settings â†’ Alerts",
         ],
       },
       {
@@ -119,8 +120,8 @@ const TYPE_LABELS: Record<string, string> = {
 
 export default function ChangelogPage() {
   return (
-    <div className="min-h-screen bg-[#F5F5F7]">
-      <MarketingNav cta="trial" />
+    <MarketingShell>
+      <MarketingNav />
 
       {/* Breadcrumb */}
       <div className="mx-auto max-w-screen-xl px-6 py-3">
@@ -134,9 +135,9 @@ export default function ChangelogPage() {
       <main className="mx-auto max-w-2xl px-6 pb-32">
         {/* Header */}
         <div className="pt-8 pb-12">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900">Changelog</h1>
-          <p className="mt-3 text-gray-500">
-            Every release, every improvement — shipped and documented.
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">Changelog</h1>
+          <p className="mt-3 text-gray-500 dark:text-[#86868B]">
+            Every release, every improvement â€” shipped and documented.
           </p>
         </div>
 
@@ -144,12 +145,12 @@ export default function ChangelogPage() {
         <div className="space-y-16">
           {RELEASES.map((group) => (
             <div key={group.month}>
-              <h2 className="mb-8 text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+              <h2 className="mb-8 text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366]">
                 {group.month}
               </h2>
               <div className="space-y-10">
                 {group.entries.map((entry) => (
-                  <article key={entry.version} className="rounded-2xl border border-gray-200 bg-white p-8">
+                  <article key={entry.version} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-8">
                     <div className="flex flex-wrap items-center gap-3">
                       <span
                         className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest ${
@@ -158,15 +159,15 @@ export default function ChangelogPage() {
                       >
                         {TYPE_LABELS[entry.type]}
                       </span>
-                      <span className="font-mono text-xs text-gray-400">{entry.version}</span>
-                      <span className="text-xs text-gray-400">·</span>
-                      <span className="text-xs text-gray-400">{entry.date}</span>
+                      <span className="font-mono text-xs text-gray-400 dark:text-[#636366]">{entry.version}</span>
+                      <span className="text-xs text-gray-400 dark:text-[#636366]">Â·</span>
+                      <span className="text-xs text-gray-400 dark:text-[#636366]">{entry.date}</span>
                     </div>
-                    <h3 className="mt-3 text-lg font-semibold text-gray-900">{entry.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-gray-600">{entry.body}</p>
+                    <h3 className="mt-3 text-lg font-semibold text-gray-900 dark:text-[#F5F5F7]">{entry.title}</h3>
+                    <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-[#C7C7CC]">{entry.body}</p>
                     <ul className="mt-4 space-y-1.5">
                       {entry.items.map((item) => (
-                        <li key={item} className="flex items-start gap-2 text-sm text-gray-600">
+                        <li key={item} className="flex items-start gap-2 text-sm text-gray-600 dark:text-[#C7C7CC]">
                           <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#0A84FF]" />
                           {item}
                         </li>
@@ -181,6 +182,6 @@ export default function ChangelogPage() {
       </main>
 
       <MarketingFooter />
-    </div>
+    </MarketingShell>
   );
 }

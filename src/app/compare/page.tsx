@@ -1,10 +1,11 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { Check, X, Minus } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
+import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "ReviewBox vs AppFollow — Feature Comparison",
+  title: "ReviewBox vs AppFollow â€” Feature Comparison",
   description:
     "See how ReviewBox compares to AppFollow across AI replies, automation, pricing, and data ownership.",
 };
@@ -87,13 +88,13 @@ function Cell({ value }: { value: CellValue }) {
     return <X className="mx-auto h-4 w-4 text-gray-300" strokeWidth={2} />;
   if (value === "partial")
     return <Minus className="mx-auto h-4 w-4 text-amber-400" strokeWidth={2.5} />;
-  return <span className="text-xs text-gray-500">{value}</span>;
+  return <span className="text-xs text-gray-500 dark:text-[#86868B]">{value}</span>;
 }
 
 export default function ComparePage() {
   return (
-    <div className="min-h-screen bg-[#F5F5F7]">
-      <MarketingNav cta="trial" />
+    <MarketingShell>
+      <MarketingNav />
 
       {/* Breadcrumb */}
       <div className="mx-auto max-w-screen-xl px-6 py-3">
@@ -110,10 +111,10 @@ export default function ComparePage() {
           <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-blue-600">
             Comparison
           </span>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
+          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7] sm:text-5xl">
             ReviewBox vs AppFollow
           </h1>
-          <p className="mt-4 text-gray-500 text-lg">
+          <p className="mt-4 text-gray-500 dark:text-[#86868B] text-lg">
             Feature-by-feature. No marketing spin.
           </p>
         </div>
@@ -132,11 +133,11 @@ export default function ComparePage() {
         </div>
 
         {/* Table */}
-        <div className="overflow-x-auto rounded-2xl border border-gray-200 bg-white">
+        <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618]">
           <table className="w-full text-sm">
             <thead>
-              <tr className="border-b border-gray-100">
-                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 w-1/2">
+              <tr className="border-b border-gray-100 dark:border-white/6">
+                <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-[#636366] w-1/2">
                   Feature
                 </th>
                 <th className="px-6 py-4 text-center text-xs font-semibold uppercase tracking-wide text-[#0A84FF] w-1/4">
@@ -150,17 +151,17 @@ export default function ComparePage() {
             <tbody>
               {ROWS.map((group) => (
                 <>
-                  <tr key={group.category} className="border-t border-gray-100 bg-gray-50">
+                  <tr key={group.category} className="border-t border-gray-100 dark:border-white/6 bg-gray-50 dark:bg-[#0E0E11]">
                     <td
                       colSpan={3}
-                      className="px-6 py-2 text-[11px] font-semibold uppercase tracking-widest text-gray-400"
+                      className="px-6 py-2 text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366]"
                     >
                       {group.category}
                     </td>
                   </tr>
                   {group.features.map((row) => (
-                    <tr key={row.label} className="border-t border-gray-100 hover:bg-gray-50/50">
-                      <td className="px-6 py-3 text-gray-700">{row.label}</td>
+                    <tr key={row.label} className="border-t border-gray-100 dark:border-white/6 hover:bg-gray-50/50 dark:hover:bg-white/5">
+                      <td className="px-6 py-3 text-gray-700 dark:text-[#C7C7CC]">{row.label}</td>
                       <td className="px-6 py-3 text-center">
                         <Cell value={row.reviewbox} />
                       </td>
@@ -201,6 +202,6 @@ export default function ComparePage() {
       </main>
 
       <MarketingFooter />
-    </div>
+    </MarketingShell>
   );
 }

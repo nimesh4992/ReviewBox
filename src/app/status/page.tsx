@@ -1,11 +1,12 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { CheckCircle, AlertCircle, XCircle, Clock } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
+import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "System Status — ReviewBox",
-  description: "Live status of ReviewBox services — API, AI replies, sync, and more.",
+  title: "System Status â€” ReviewBox",
+  description: "Live status of ReviewBox services â€” API, AI replies, sync, and more.",
 };
 
 type ServiceStatus = "operational" | "degraded" | "outage" | "maintenance";
@@ -16,14 +17,14 @@ const SERVICES: { name: string; status: ServiceStatus; latency?: string }[] = [
   { name: "Dashboard & Web App", status: "operational", latency: "98ms" },
   { name: "API", status: "operational", latency: "112ms" },
   { name: "AI Reply Generation", status: "operational", latency: "340ms" },
-  { name: "Google Play Sync", status: "operational", latency: "—" },
-  { name: "Apple App Store Sync", status: "operational", latency: "—" },
+  { name: "Google Play Sync", status: "operational", latency: "â€”" },
+  { name: "Apple App Store Sync", status: "operational", latency: "â€”" },
   { name: "Webhooks", status: "operational", latency: "55ms" },
-  { name: "Email Notifications", status: "operational", latency: "—" },
+  { name: "Email Notifications", status: "operational", latency: "â€”" },
   { name: "Upstash Redis (Cache)", status: "operational", latency: "8ms" },
 ];
 
-// 90-day uptime simulation — each entry is a day, true = up, false = incident
+// 90-day uptime simulation â€” each entry is a day, true = up, false = incident
 function generateUptimeBar(incidents: number[]): boolean[] {
   return Array.from({ length: 90 }, (_, i) => !incidents.includes(i));
 }
@@ -57,10 +58,10 @@ const INCIDENTS = [
 
 function StatusBadge({ status }: { status: ServiceStatus }) {
   const map = {
-    operational: { label: "Operational", icon: CheckCircle, color: "text-emerald-600", bg: "bg-emerald-50" },
-    degraded: { label: "Degraded", icon: AlertCircle, color: "text-amber-600", bg: "bg-amber-50" },
-    outage: { label: "Outage", icon: XCircle, color: "text-red-600", bg: "bg-red-50" },
-    maintenance: { label: "Maintenance", icon: Clock, color: "text-blue-600", bg: "bg-blue-50" },
+    operational: { label: "Operational", icon: CheckCircle, color: "text-emerald-600 dark:text-emerald-400", bg: "bg-emerald-50 dark:bg-emerald-900/30" },
+    degraded: { label: "Degraded", icon: AlertCircle, color: "text-amber-600 dark:text-amber-400", bg: "bg-amber-50 dark:bg-amber-900/30" },
+    outage: { label: "Outage", icon: XCircle, color: "text-red-600 dark:text-red-400", bg: "bg-red-50 dark:bg-red-900/30" },
+    maintenance: { label: "Maintenance", icon: Clock, color: "text-blue-600 dark:text-blue-400", bg: "bg-blue-50 dark:bg-blue-900/30" },
   };
   const { label, icon: Icon, color, bg } = map[status];
   return (
@@ -110,8 +111,8 @@ function OverallBanner({ status }: { status: ServiceStatus }) {
 
 export default function StatusPage() {
   return (
-    <div className="min-h-screen bg-[#F5F5F7]">
-      <MarketingNav cta="trial" />
+    <MarketingShell>
+      <MarketingNav />
 
       {/* Breadcrumb */}
       <div className="mx-auto max-w-screen-xl px-6 py-3">
@@ -125,8 +126,8 @@ export default function StatusPage() {
       <main className="mx-auto max-w-4xl px-6 pb-32">
         {/* Header */}
         <div className="pt-12 pb-8">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900">System Status</h1>
-          <p className="mt-2 text-gray-500">
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">System Status</h1>
+          <p className="mt-2 text-gray-500 dark:text-[#86868B]">
             Live health of all ReviewBox services.{" "}
             <a
               href="https://status.tryreviewbox.com"
@@ -134,7 +135,7 @@ export default function StatusPage() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              Subscribe to updates →
+              Subscribe to updates â†’
             </a>
           </p>
         </div>
@@ -143,17 +144,17 @@ export default function StatusPage() {
         <OverallBanner status={OVERALL_STATUS} />
 
         {/* Services table */}
-        <div className="mb-10 overflow-hidden rounded-2xl border border-gray-200 bg-white">
-          <div className="border-b border-gray-100 px-6 py-4">
-            <h2 className="text-sm font-semibold text-gray-900">Services</h2>
+        <div className="mb-10 overflow-hidden rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618]">
+          <div className="border-b border-gray-100 dark:border-white/6 px-6 py-4">
+            <h2 className="text-sm font-semibold text-gray-900 dark:text-[#F5F5F7]">Services</h2>
           </div>
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-gray-100 dark:divide-white/6">
             {SERVICES.map((svc) => (
               <div key={svc.name} className="flex items-center justify-between px-6 py-4">
                 <div>
-                  <p className="text-sm font-medium text-gray-900">{svc.name}</p>
-                  {svc.latency && svc.latency !== "—" && (
-                    <p className="text-xs text-gray-400 mt-0.5">avg latency {svc.latency}</p>
+                  <p className="text-sm font-medium text-gray-900 dark:text-[#F5F5F7]">{svc.name}</p>
+                  {svc.latency && svc.latency !== "â€”" && (
+                    <p className="text-xs text-gray-400 dark:text-[#636366] mt-0.5">avg latency {svc.latency}</p>
                   )}
                 </div>
                 <StatusBadge status={svc.status} />
@@ -164,13 +165,13 @@ export default function StatusPage() {
 
         {/* 90-day history */}
         <div className="mb-10">
-          <h2 className="text-xl font-bold text-gray-900 mb-6">90-day uptime</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-[#F5F5F7] mb-6">90-day uptime</h2>
           <div className="space-y-5">
             {Object.entries(UPTIME_DATA).map(([name, { days, pct }]) => (
-              <div key={name} className="rounded-2xl border border-gray-200 bg-white p-5">
+              <div key={name} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-5">
                 <div className="flex items-center justify-between mb-3">
-                  <p className="text-sm font-semibold text-gray-900">{name}</p>
-                  <span className="text-xs text-gray-400">{pct} uptime</span>
+                  <p className="text-sm font-semibold text-gray-900 dark:text-[#F5F5F7]">{name}</p>
+                  <span className="text-xs text-gray-400 dark:text-[#636366]">{pct} uptime</span>
                 </div>
                 <div className="flex gap-0.5">
                   {days.map((up, i) => (
@@ -182,7 +183,7 @@ export default function StatusPage() {
                     />
                   ))}
                 </div>
-                <div className="flex justify-between mt-2 text-[10px] text-gray-400">
+                <div className="flex justify-between mt-2 text-[10px] text-gray-400 dark:text-[#636366]">
                   <span>90 days ago</span>
                   <span>Today</span>
                 </div>
@@ -193,24 +194,24 @@ export default function StatusPage() {
 
         {/* Incident history */}
         <div>
-          <h2 className="text-xl font-bold text-gray-900 mb-6">Recent incidents</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-[#F5F5F7] mb-6">Recent incidents</h2>
           {INCIDENTS.length === 0 ? (
-            <div className="rounded-2xl border border-gray-200 bg-white p-8 text-center text-gray-400 text-sm">
+            <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-8 text-center text-gray-400 dark:text-[#636366] text-sm">
               No incidents in the last 90 days.
             </div>
           ) : (
             <div className="space-y-4">
               {INCIDENTS.map((inc) => (
-                <div key={inc.title} className="rounded-2xl border border-gray-200 bg-white p-6">
+                <div key={inc.title} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6">
                   <div className="flex flex-wrap items-center gap-3 mb-3">
-                    <span className="text-xs text-gray-400">{inc.date}</span>
-                    <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-semibold text-emerald-700">
+                    <span className="text-xs text-gray-400 dark:text-[#636366]">{inc.date}</span>
+                    <span className="inline-flex items-center rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-2.5 py-0.5 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
                       {inc.status}
                     </span>
-                    <span className="text-xs text-gray-400">Duration: {inc.duration}</span>
+                    <span className="text-xs text-gray-400 dark:text-[#636366]">Duration: {inc.duration}</span>
                   </div>
-                  <h3 className="font-semibold text-gray-900">{inc.title}</h3>
-                  <p className="mt-2 text-sm text-gray-500 leading-relaxed">{inc.description}</p>
+                  <h3 className="font-semibold text-gray-900 dark:text-[#F5F5F7]">{inc.title}</h3>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-[#86868B] leading-relaxed">{inc.description}</p>
                 </div>
               ))}
             </div>
@@ -219,6 +220,6 @@ export default function StatusPage() {
       </main>
 
       <MarketingFooter />
-    </div>
+    </MarketingShell>
   );
 }
