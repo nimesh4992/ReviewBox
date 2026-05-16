@@ -364,7 +364,7 @@ export default function HomePage() {
             <div className="flex items-center gap-2.5">
               <span className="flex size-6 items-center justify-center rounded-md bg-[#0A84FF] text-[10px] font-bold text-white">R</span>
               <span className="text-[13px] font-semibold text-fg-1">ReviewBox</span>
-              <span className="text-[12px] text-fg-3">© 2026 AT Work Inc.</span>
+              <span className="text-[12px] text-fg-3">© 2026 ReviewBox, Inc.</span>
             </div>
             <a href="mailto:hello@tryreviewbox.com" className="text-[12px] text-fg-3 hover:text-fg-1 transition-colors">
               hello@tryreviewbox.com
