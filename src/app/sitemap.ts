@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
+const RAW_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
+const BASE_URL = RAW_URL.startsWith("http") ? RAW_URL : `https://${RAW_URL}`;
 
 function url(path: string, priority: number, freq: MetadataRoute.Sitemap[number]["changeFrequency"]) {
   return { url: `${BASE_URL}${path}`, lastModified: new Date(), changeFrequency: freq, priority };
