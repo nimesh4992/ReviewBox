@@ -88,14 +88,14 @@ function BillingContent() {
       });
 
       if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
-        throw new Error(data.error ?? "Failed to create checkout session");
+        await res.json();
+        throw new Error("Unable to start checkout. Please try again.");
       }
 
       const data = (await res.json()) as { url: string };
       router.push(data.url);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+    } catch {
+      setError("Unable to start checkout. Please try again.");
       setLoadingPlan(null);
     }
   }
@@ -112,13 +112,13 @@ function BillingContent() {
         if (data.error === "NO_SUBSCRIPTION") {
           throw new Error("No active subscription found. Choose a plan below to get started.");
         }
-        throw new Error(data.error ?? "Failed to open billing portal");
+        throw new Error("Unable to open billing portal. Please try again.");
       }
 
-      const data = (await res.json()) as { url: string };
-      router.push(data.url);
+      const { url } = (await res.json()) as { url: string };
+      router.push(url);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Something went wrong");
+      setError(err instanceof Error ? err.message : "Unable to open billing portal. Please try again.");
       setPortalLoading(false);
     }
   }
@@ -138,7 +138,7 @@ function BillingContent() {
             <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" strokeWidth={1.5} />
             <p className="text-sm text-amber-800">
               <span className="font-semibold">Your free trial has expired.</span>{" "}
-              Choose a plan to continue using Revi.
+              Choose a plan to continue using ReviewBox.
             </p>
           </div>
         )}
@@ -224,14 +224,14 @@ function PlanCard({ plan, isLoading, isDisabled, onChoose }: PlanCardProps) {
       className={cn(
         "relative flex flex-col rounded-2xl bg-white p-6 shadow-sm transition-shadow hover:shadow-md",
         plan.highlight
-          ? "ring-2 ring-[#5B5BD6]"
+          ? "ring-2 ring-[#0A84FF]"
           : "border border-gray-200",
       )}
     >
       {/* Badge */}
       {plan.badge ? (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-          <span className="inline-flex items-center gap-1 rounded-full bg-[#5B5BD6] px-3 py-0.5 text-xs font-semibold text-white shadow">
+          <span className="inline-flex items-center gap-1 rounded-full bg-[#0A84FF] px-3 py-0.5 text-xs font-semibold text-white shadow">
             <Zap className="size-3" strokeWidth={1.5} />
             {plan.badge}
           </span>
@@ -258,7 +258,7 @@ function PlanCard({ plan, isLoading, isDisabled, onChoose }: PlanCardProps) {
               className={cn(
                 "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
                 plan.highlight
-                  ? "bg-indigo-100 text-indigo-600"
+                  ? "bg-[#0A84FF]/10 text-[#0A84FF]"
                   : "bg-gray-100 text-gray-500",
               )}
             >
@@ -275,7 +275,7 @@ function PlanCard({ plan, isLoading, isDisabled, onChoose }: PlanCardProps) {
         className={cn(
           "w-full",
           plan.highlight
-            ? "bg-[#5B5BD6] text-white hover:bg-[#4b4bc6]"
+            ? "bg-[#0A84FF] text-white hover:bg-[#006EE0]"
             : "border-gray-200 text-gray-700 hover:bg-gray-50",
         )}
         onClick={onChoose}

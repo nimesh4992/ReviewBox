@@ -1,4 +1,4 @@
-# ReviewIQ — Architecture
+# ReviewBox — Architecture
 
 ## Folder Architecture: Feature-Slice Design
 

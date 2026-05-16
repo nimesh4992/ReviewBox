@@ -1,4 +1,4 @@
-# ReviewIQ — 30-Day Launch Plan
+# ReviewBox — 30-Day Launch Plan
 
 > Living document. Update status as tasks complete.
 > Read alongside `CLAUDE.md` (stack, types, conventions) and `ARCHITECTURE.md` (data flow).
@@ -10,7 +10,7 @@
 
 | Decision | Choice | Reason |
 |---|---|---|
-| Name | **Revi** (pending rename) | Short, language-agnostic, doesn't box into one feature |
+| Name | **ReviewBox** | Short, language-agnostic, doesn't box into one feature |
 | Pricing | $49/month · 3 apps · 2 users · 14-day free trial | One plan, no decision fatigue |
 | Launch platform | **Google Play only** | App Store Connect reply API is blocked; add post-launch |
 | Auth | **Clerk** | Org switching, team invites, Google OAuth — saves 2 weeks |

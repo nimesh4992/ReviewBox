@@ -92,7 +92,7 @@ export function AlertPreferences() {
             Alert preferences
           </h2>
           <p className="mt-0.5 text-xs text-gray-400">
-            Choose when and how Revi notifies you.
+            Choose when and how ReviewBox notifies you.
           </p>
         </div>
       </div>

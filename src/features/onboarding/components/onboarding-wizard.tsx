@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronRight, Plus, X } from "lucide-react";
+import { Check, ChevronRight, Play, Plus, Smartphone, X } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ── Step indicator ────────────────────────────────────────────────────────────
@@ -59,17 +60,19 @@ function StepIndicator({ current }: { current: number }) {
 
 // ── Step 1 — Connect stores ───────────────────────────────────────────────────
 
-const STORES = [
+const STORES: { id: string; name: string; Icon: LucideIcon; iconClass: string; description: string }[] = [
   {
     id: "google-play",
     name: "Google Play",
-    icon: "🟢",
+    Icon: Play,
+    iconClass: "text-[#3DDC84]",
     description: "Android apps on Google Play Console",
   },
   {
     id: "app-store",
     name: "App Store",
-    icon: "🍎",
+    Icon: Smartphone,
+    iconClass: "text-[#0A84FF]",
     description: "iOS / macOS apps on App Store Connect",
   },
 ];
@@ -81,7 +84,7 @@ function Step1({ onNext }: { onNext: () => void }) {
     <div className="flex flex-col gap-6">
       <div>
         <h2 className="text-[20px] font-semibold tracking-[-0.015em] text-fg-1">Connect your stores</h2>
-        <p className="mt-1 text-[13px] text-fg-3">Authorize Revi to read your reviews and reply on your behalf.</p>
+        <p className="mt-1 text-[13px] text-fg-3">Authorize ReviewBox to read your reviews and reply on your behalf.</p>
       </div>
 
       <div className="flex flex-col gap-3">
@@ -97,8 +100,8 @@ function Step1({ onNext }: { onNext: () => void }) {
                   : "border-[var(--rb-border-1)] bg-surface",
               )}
             >
-              <div className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[var(--rb-bg-sunken)] text-[20px]">
-                {store.icon}
+              <div className="flex size-10 shrink-0 items-center justify-center rounded-[10px] bg-[var(--rb-bg-sunken)]">
+                <store.Icon className={`size-5 ${store.iconClass}`} strokeWidth={1.5} />
               </div>
               <div className="min-w-0 flex-1">
                 <div className="text-[14px] font-semibold text-fg-1">{store.name}</div>
@@ -160,7 +163,7 @@ function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
     <div className="flex flex-col gap-6">
       <div>
         <h2 className="text-[20px] font-semibold tracking-[-0.015em] text-fg-1">Pick your apps</h2>
-        <p className="mt-1 text-[13px] text-fg-3">Choose which apps Revi should monitor. You can change this later.</p>
+        <p className="mt-1 text-[13px] text-fg-3">Choose which apps ReviewBox should monitor. You can change this later.</p>
       </div>
 
       <div className="flex flex-col gap-2">
@@ -383,7 +386,7 @@ export function OnboardingWizard() {
         <div className="flex size-8 items-center justify-center rounded-[10px] bg-[#0A84FF] text-[13px] font-bold text-white">
           R
         </div>
-        <span className="text-[16px] font-semibold tracking-tight text-fg-1">Revi</span>
+        <span className="text-[16px] font-semibold tracking-tight text-fg-1">ReviewBox</span>
       </div>
 
       {/* Step indicator */}

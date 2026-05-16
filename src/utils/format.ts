@@ -40,3 +40,19 @@ export function avatarInitials(name: string): string {
     .slice(0, 2)
     .toUpperCase();
 }
+
+export function formatReviewDate(value: string): string {
+  // Already formatted (mock data)
+  if (!value || !/^\d{4}-/.test(value)) return value;
+  const date = new Date(value);
+  if (isNaN(date.getTime())) return value;
+  const diffMs = Date.now() - date.getTime();
+  const diffMin = Math.floor(diffMs / 60_000);
+  if (diffMin < 60) return `${diffMin}m ago`;
+  const diffH = Math.floor(diffMin / 60);
+  if (diffH < 24) return `${diffH}h ago`;
+  const diffD = Math.floor(diffH / 24);
+  if (diffD === 1) return "Yesterday";
+  if (diffD < 7) return `${diffD}d ago`;
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}

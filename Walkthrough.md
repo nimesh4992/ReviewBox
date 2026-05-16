@@ -198,7 +198,7 @@ team:    999/day,          unlimited, unlimited
 
 All email functions use `getResend()` (not a module-level `new Resend()`). This prevents build crashes when the API key isn't set.
 
-**From address:** `hello@revi.app` — requires DNS verification in Resend dashboard before going live. Use `onboarding@resend.dev` for local/staging testing.
+**From address:** `hello@tryreviewbox.com` — requires DNS verification in Resend dashboard before going live. Use `onboarding@resend.dev` for local/staging testing.
 
 ---
 
@@ -556,7 +556,7 @@ try {
 | **Stripe setup** | `.env.local` + Vercel | Create 3 products ($49/$99/$199), copy `STRIPE_SECRET_KEY` + `STRIPE_WEBHOOK_SECRET` |
 | **ADMIN_CLERK_USER_ID** | `.env.local` + Vercel | Clerk dashboard → Users → copy your user ID |
 | **Rotate all API keys** | All providers | Every key was shared in plain text in chat — rotate all 6: Groq, Upstash, Supabase service role, Clerk, Resend |
-| **Resend domain verification** | Resend dashboard | Verify `revi.app` DNS before real emails; use `onboarding@resend.dev` for testing |
+| **Resend domain verification** | Resend dashboard | Verify `tryreviewbox.com` DNS before real emails; use `onboarding@resend.dev` for testing |
 | **Vercel deployment** | Vercel | `vercel --prod`, add all env vars in dashboard |
 
 ### Core features not yet built

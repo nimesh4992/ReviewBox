@@ -109,11 +109,11 @@ export default function OnboardingPage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#0d0f14] px-4 py-12">
       {/* Logo mark */}
       <div className="mb-10 flex items-center gap-2.5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#5B5BD6]">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0A84FF]">
           <span className="text-sm font-bold text-white">R</span>
         </div>
         <span className="text-lg font-semibold tracking-tight text-white">
-          Revi
+          ReviewBox
         </span>
       </div>
 
@@ -131,8 +131,8 @@ export default function OnboardingPage() {
                   <div
                     className={cn(
                       "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-colors",
-                      done && "bg-[#5B5BD6] text-white",
-                      active && "bg-[#5B5BD6] text-white ring-2 ring-[#5B5BD6]/30",
+                      done && "bg-[#0A84FF] text-white",
+                      active && "bg-[#0A84FF] text-white ring-2 ring-[#0A84FF]/30",
                       !done && !active && "bg-white/[0.06] text-white/30",
                     )}
                   >
@@ -153,7 +153,7 @@ export default function OnboardingPage() {
           {/* Progress bar */}
           <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
             <div
-              className="h-full rounded-full bg-[#5B5BD6] transition-all duration-500"
+              className="h-full rounded-full bg-[#0A84FF] transition-all duration-500"
               style={{ width: `${((step - 1) / (STEPS.length - 1)) * 100}%` }}
             />
           </div>
@@ -217,7 +217,7 @@ function StepWorkspace({
             value={form.workspaceName}
             onChange={(e) => update("workspaceName", e.target.value)}
             placeholder="Acme Inc."
-            className="border-white/[0.08] bg-[#0d0f14] text-white placeholder:text-white/20 focus-visible:ring-[#5B5BD6]/50 focus-visible:border-[#5B5BD6]"
+            className="border-white/[0.08] bg-[#0d0f14] text-white placeholder:text-white/20 focus-visible:ring-[#0A84FF]/50 focus-visible:border-[#0A84FF]"
           />
         </div>
 
@@ -226,11 +226,11 @@ function StepWorkspace({
             Workspace URL
           </Label>
           <div className={cn(
-            "flex items-center overflow-hidden rounded-lg border bg-[#0d0f14] focus-within:border-[#5B5BD6]",
+            "flex items-center overflow-hidden rounded-lg border bg-[#0d0f14] focus-within:border-[#0A84FF]",
             slugError ? "border-red-500/60" : "border-white/[0.08]",
           )}>
             <span className="select-none border-r border-white/[0.08] px-3 py-2 text-sm text-white/30">
-              revi.app/
+              tryreviewbox.com/
             </span>
             <input
               value={form.workspaceSlug}
@@ -248,7 +248,7 @@ function StepWorkspace({
       <Button
         onClick={onNext}
         disabled={!form.workspaceName.trim()}
-        className="w-full bg-[#5B5BD6] text-white hover:bg-[#4e4ec4] disabled:opacity-40"
+        className="w-full bg-[#0A84FF] text-white hover:bg-[#006EE0] disabled:opacity-40"
       >
         Continue
         <ChevronRight className="ml-1 size-4" strokeWidth={1.5} />
@@ -288,7 +288,7 @@ function StepApp({
             value={form.appName}
             onChange={(e) => update("appName", e.target.value)}
             placeholder="My Awesome App"
-            className="border-white/[0.08] bg-[#0d0f14] text-white placeholder:text-white/20 focus-visible:ring-[#5B5BD6]/50 focus-visible:border-[#5B5BD6]"
+            className="border-white/[0.08] bg-[#0d0f14] text-white placeholder:text-white/20 focus-visible:ring-[#0A84FF]/50 focus-visible:border-[#0A84FF]"
           />
         </div>
 
@@ -310,7 +310,7 @@ function StepApp({
                 className={cn(
                   "rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors",
                   form.platform === opt.value
-                    ? "border-[#5B5BD6] bg-[#5B5BD6]/10 text-[#7878e8]"
+                    ? "border-[#0A84FF] bg-[#0A84FF]/10 text-[#0A84FF]"
                     : "border-white/[0.08] bg-[#0d0f14] text-white/50 hover:border-white/20 hover:text-white/80",
                 )}
               >
@@ -332,7 +332,7 @@ function StepApp({
                 ? "com.example.app"
                 : "123456789"
             }
-            className="border-white/[0.08] bg-[#0d0f14] text-white placeholder:text-white/20 focus-visible:ring-[#5B5BD6]/50 focus-visible:border-[#5B5BD6]"
+            className="border-white/[0.08] bg-[#0d0f14] text-white placeholder:text-white/20 focus-visible:ring-[#0A84FF]/50 focus-visible:border-[#0A84FF]"
           />
           <p className="text-[11px] text-white/25">
             Google Play:{" "}
@@ -346,7 +346,7 @@ function StepApp({
       <Button
         onClick={onNext}
         disabled={!form.appName.trim() || !form.storeId.trim()}
-        className="w-full bg-[#5B5BD6] text-white hover:bg-[#4e4ec4] disabled:opacity-40"
+        className="w-full bg-[#0A84FF] text-white hover:bg-[#006EE0] disabled:opacity-40"
       >
         Continue
         <ChevronRight className="ml-1 size-4" strokeWidth={1.5} />
@@ -379,7 +379,7 @@ function StepConnect({
             : "Connect to App Store Connect"}
         </h2>
         <p className="mt-1 text-sm text-white/40">
-          Authorize Revi to read your reviews and reply on your behalf.
+          Authorize ReviewBox to read your reviews and reply on your behalf.
         </p>
       </div>
 
@@ -422,7 +422,7 @@ function StepConnect({
         <Button
           onClick={onNext}
           disabled={saving}
-          className="w-full bg-[#5B5BD6] text-white hover:bg-[#4e4ec4] disabled:opacity-40"
+          className="w-full bg-[#0A84FF] text-white hover:bg-[#006EE0] disabled:opacity-40"
         >
           {saving ? "Saving…" : "Continue"}
           {!saving && <ChevronRight className="ml-1 size-4" strokeWidth={1.5} />}
@@ -446,7 +446,7 @@ function StepConnect({
 function StepDone({ onFinish }: { onFinish: () => void }) {
   return (
     <div className="flex flex-col items-center gap-6 py-4 text-center">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#5B5BD6]/10 text-5xl">
+      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#0A84FF]/10 text-5xl">
         🎉
       </div>
       <div>
@@ -457,7 +457,7 @@ function StepDone({ onFinish }: { onFinish: () => void }) {
       </div>
       <Button
         onClick={onFinish}
-        className="mt-2 w-full bg-[#5B5BD6] text-white hover:bg-[#4e4ec4]"
+        className="mt-2 w-full bg-[#0A84FF] text-white hover:bg-[#006EE0]"
       >
         Go to Dashboard
         <ChevronRight className="ml-1 size-4" strokeWidth={1.5} />

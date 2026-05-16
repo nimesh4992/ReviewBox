@@ -1,6 +1,6 @@
 import { Resend } from "resend";
 
-export const FROM = "Revi <hello@revi.app>"; // update domain when live
+export const FROM = "ReviewBox <hello@tryreviewbox.com>";
 
 // Lazy singleton — avoids build-time crash when RESEND_API_KEY is not set
 let _resend: Resend | null = null;

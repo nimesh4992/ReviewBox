@@ -55,7 +55,7 @@ export default function SignUpPage() {
           <span className="text-[18px] font-bold tracking-tight text-white">R</span>
         </div>
         <div className="flex flex-col items-center gap-0.5">
-          <span className="text-[22px] font-semibold tracking-[-0.02em] text-[#1D1D1F]">Revi</span>
+          <span className="text-[22px] font-semibold tracking-[-0.02em] text-[#1D1D1F]">ReviewBox</span>
           <span className="text-[13px] text-[#86868B]">App Review Intelligence</span>
         </div>
       </div>

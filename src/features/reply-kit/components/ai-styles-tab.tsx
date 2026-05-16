@@ -74,7 +74,7 @@ export function AIStylesTab() {
       <div className="mb-1">
         <h2 className="text-base font-semibold text-gray-900">AI Reply styles</h2>
         <p className="mt-1 text-sm text-gray-500">
-          Choose the tone Revi uses when generating AI replies.
+          Choose the tone ReviewBox uses when generating AI replies.
         </p>
       </div>
 

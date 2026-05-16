@@ -13,11 +13,18 @@ export async function GET() {
   const sb = getServiceClient();
   const { data: apps } = await sb
     .from("apps")
-    .select("id, name, platform, store_id")
+    .select("id, name, platform, store_id, last_synced_at, access_token, refresh_token")
     .eq("workspace_id", workspaceId)
     .order("created_at");
 
-  return NextResponse.json({ apps: apps ?? [] });
+  const mapped = (apps ?? []).map(
+    ({ access_token, refresh_token, ...rest }) => ({
+      ...rest,
+      has_credentials: !!(access_token && refresh_token),
+    }),
+  );
+
+  return NextResponse.json({ apps: mapped });
 }
 
 interface CreateAppBody {

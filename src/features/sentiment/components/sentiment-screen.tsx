@@ -1,7 +1,11 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useSentimentAnalysis } from "@/hooks/use-sentiment-analysis";
+import { mockReviews } from "@/features/reviews/data/mock-reviews";
+import type { AnalysisResult } from "@/app/api/sentiment/analyze/route";
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
@@ -134,8 +138,17 @@ const TOPICS = [
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
+const SENTIMENT_BADGE: Record<string, { label: string; cls: string }> = {
+  critical: { label: "Critical",  cls: "bg-[rgba(220,38,38,0.10)] text-[#DC2626]" },
+  negative: { label: "Negative",  cls: "bg-[rgba(220,38,38,0.08)] text-[#DC2626]" },
+  mixed:    { label: "Mixed",     cls: "bg-[rgba(234,179,8,0.10)] text-[#CA8A04]" },
+  positive: { label: "Positive",  cls: "bg-[rgba(31,138,91,0.10)] text-[#1F8A5B]" },
+};
+
 export function SentimentScreen() {
   const [range, setRange] = useState<"7d" | "30d" | "90d">("90d");
+  const [aiResults, setAiResults] = useState<AnalysisResult[] | null>(null);
+  const { mutate: analyze, isPending } = useSentimentAnalysis();
 
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8 max-w-[1240px] mx-auto">
@@ -204,8 +217,19 @@ export function SentimentScreen() {
             <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">Topics · auto-clustered</div>
             <div className="mt-0.5 text-[12px] text-fg-3">624 reviews grouped into 5 clusters</div>
           </div>
-          <button className="ml-auto h-7 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)]">
-            Re-cluster
+          <button
+            onClick={() =>
+              analyze(mockReviews, { onSuccess: setAiResults })
+            }
+            disabled={isPending}
+            className="ml-auto flex h-7 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50"
+          >
+            {isPending ? (
+              <Loader2 className="size-3 animate-spin" />
+            ) : (
+              <Sparkles className="size-3 text-[#0A84FF]" />
+            )}
+            {isPending ? "Analysing…" : "Re-cluster with AI"}
           </button>
         </div>
         <table className="w-full border-collapse">
@@ -254,6 +278,48 @@ export function SentimentScreen() {
           </tbody>
         </table>
       </div>
+
+      {/* AI Analysis results (shown after Re-cluster with AI) */}
+      {aiResults && aiResults.length > 0 && (
+        <div className="overflow-hidden rounded-[14px] border border-[#0A84FF]/20 bg-surface shadow-[var(--rb-shadow-xs)]">
+          <div className="flex items-center gap-2 border-b border-[var(--rb-border-1)] px-5 py-4">
+            <Sparkles className="size-4 text-[#0A84FF]" strokeWidth={1.5} />
+            <div>
+              <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">
+                AI Sentiment Analysis
+              </div>
+              <div className="mt-0.5 text-[12px] text-fg-3">
+                {aiResults.length} reviews · rules engine + Gemini
+              </div>
+            </div>
+          </div>
+          <div className="divide-y divide-[var(--rb-border-1)]">
+            {aiResults.map((r) => {
+              const badge = SENTIMENT_BADGE[r.sentiment] ?? SENTIMENT_BADGE.mixed;
+              return (
+                <div key={r.id} className="flex items-center gap-3 px-5 py-3">
+                  <span className="font-mono text-[11px] text-fg-3">{r.id}</span>
+                  <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", badge.cls)}>
+                    {badge.label}
+                  </span>
+                  <span className="text-[12px] capitalize text-fg-2">{r.priority}</span>
+                  <div className="ml-auto flex flex-wrap gap-1">
+                    {r.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-2 py-0.5 text-[10px] font-medium text-fg-3"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                  <span className="ml-2 text-[10px] text-fg-3 opacity-50">{r.source}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-# ReviewIQ — Feature Specs
+# ReviewBox — Feature Specs
 
 Platform for managing app reviews across Google Play and Apple App Store.
 Target users: mobile app teams (support ops, product managers, release engineers).

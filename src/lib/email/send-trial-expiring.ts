@@ -11,7 +11,7 @@ export async function sendTrialExpiringEmail(
   }
 
   const dayLabel = daysLeft === 1 ? "day" : "days";
-  const subject = `Your Revi trial ends in ${daysLeft} ${dayLabel}`;
+  const subject = `Your ReviewBox trial ends in ${daysLeft} ${dayLabel}`;
 
   const urgencyColor = daysLeft <= 1 ? "#dc2626" : daysLeft <= 3 ? "#d97706" : "#6366f1";
 
@@ -32,7 +32,7 @@ export async function sendTrialExpiringEmail(
           <tr>
             <td style="background:#1e293b;padding:24px 32px;">
               <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">
-                R&nbsp;<span style="color:#6366f1;">|</span>&nbsp;Revi
+                R&nbsp;<span style="color:#6366f1;">|</span>&nbsp;ReviewBox
               </p>
             </td>
           </tr>
@@ -47,7 +47,7 @@ export async function sendTrialExpiringEmail(
                 Hi ${name}, your free trial ends in ${daysLeft} ${dayLabel}
               </h1>
               <p style="margin:0 0 16px;font-size:15px;color:#475569;line-height:1.6;">
-                Your Revi free trial is almost over. Upgrade now to keep uninterrupted access to:
+                Your ReviewBox free trial is almost over. Upgrade now to keep uninterrupted access to:
               </p>
 
               <!-- Features list -->
@@ -80,7 +80,7 @@ export async function sendTrialExpiringEmail(
                 <tr>
                   <td style="border-radius:8px;background:${urgencyColor};">
                     <a
-                      href="https://revi.app/billing"
+                      href="https://tryreviewbox.com/billing"
                       style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;"
                     >
                       Upgrade my plan
@@ -99,7 +99,7 @@ export async function sendTrialExpiringEmail(
           <tr>
             <td style="padding:20px 32px;border-top:1px solid #f1f5f9;">
               <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;">
-                You're receiving this because your Revi trial is expiring. To unsubscribe from
+                You're receiving this because your ReviewBox trial is expiring. To unsubscribe from
                 marketing emails, reply with "unsubscribe" in the subject line.
               </p>
             </td>
@@ -114,17 +114,17 @@ export async function sendTrialExpiringEmail(
 
   const text = `Hi ${name},
 
-Your Revi free trial ends in ${daysLeft} ${dayLabel}.
+Your ReviewBox free trial ends in ${daysLeft} ${dayLabel}.
 
 Upgrade now to keep access to:
 - AI-generated reply suggestions
 - Automation rules and smart routing
 - Your full review history and data
 
-Upgrade your plan: https://revi.app/billing
+Upgrade your plan: https://tryreviewbox.com/billing
 
 ---
-You're receiving this because your Revi trial is expiring. Reply "unsubscribe" to opt out of marketing emails.`;
+You're receiving this because your ReviewBox trial is expiring. Reply "unsubscribe" to opt out of marketing emails.`;
 
   const r = getResend();
   if (!r) return;

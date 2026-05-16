@@ -9,7 +9,7 @@ import {
   AppReview,
   ReviewSentiment,
 } from "@/types/review";
-import { humanizeToken } from "@/utils/format";
+import { humanizeToken, formatReviewDate } from "@/utils/format";
 
 // ── Stars ─────────────────────────────────────────────────────────────────────
 
@@ -115,7 +115,7 @@ function ReviewRow({
           <span className="shrink-0">{review.source === "App Store" ? "iOS" : "Android"}</span>
           <span>·</span>
           <span className="shrink-0 font-mono">v{review.appVersion}</span>
-          <span className="ml-auto shrink-0 tabular-nums">{review.createdAt}</span>
+          <span className="ml-auto shrink-0 tabular-nums">{formatReviewDate(review.createdAt)}</span>
         </div>
       </div>
     </div>
@@ -137,6 +137,7 @@ function ReplyComposer({
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [isSending, setIsSending] = useState(false);
   const [sendFeedback, setSendFeedback] = useState<"success" | "error" | null>(null);
+  const [sendError, setSendError] = useState<string | null>(null);
   const [replyDone, setReplyDone] = useState(false);
 
   const badge = SENTIMENT_BADGE[review.sentiment];
@@ -179,8 +180,16 @@ function ReplyComposer({
         body: JSON.stringify({ replyText: text, status: "sent" }),
       });
       if (!res.ok) {
+        const data = await res.json().catch(() => ({})) as { error?: string };
+        const msg =
+          data.error === "APP_STORE_NOT_CONNECTED"   ? "Connect App Store credentials in Settings first." :
+          data.error === "STORE_RATE_LIMITED"        ? "Store rate limit — try again in a few minutes." :
+          data.error === "REVIEW_NOT_FOUND_ON_STORE" ? "Review no longer available on the store." :
+          data.error === "STORE_SUBMIT_FAILED"       ? "Store rejected the reply — check console for details." :
+          "Something went wrong.";
         setSendFeedback("error");
-        setTimeout(() => setSendFeedback(null), 2500);
+        setSendError(msg);
+        setTimeout(() => { setSendFeedback(null); setSendError(null); }, 4000);
         return;
       }
       setReplyDone(true);
@@ -222,7 +231,7 @@ function ReplyComposer({
       <div className="border-b border-gray-50 px-[18px] py-[14px]">
         <div className="flex items-center gap-2">
           <Stars rating={review.rating} size={14} />
-          <span className="text-[12px] text-[#86868B]">{review.createdAt}</span>
+          <span className="text-[12px] text-[#86868B]">{formatReviewDate(review.createdAt)}</span>
         </div>
         <p className="mt-2 text-[14px] font-semibold leading-snug text-[#1D1D1F]">
           {shortTitle(review.text)}
@@ -251,8 +260,7 @@ function ReplyComposer({
       {/* Composer */}
       <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-[18px] py-[14px]">
         {/* AI suggestion box */}
-        {review.hasAiSuggestion && (
-          <div className="rounded-[10px] border border-gray-100 bg-gray-50 p-3">
+        <div className="rounded-[10px] border border-gray-100 bg-gray-50 p-3">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[#6D3DD9]">
               <Sparkles className="size-2.5" strokeWidth={2} />
               AI suggestion
@@ -300,8 +308,7 @@ function ReplyComposer({
                 </button>
               </div>
             )}
-          </div>
-        )}
+        </div>
 
         {/* Reply textarea */}
         <textarea
@@ -317,6 +324,9 @@ function ReplyComposer({
           <p className="text-[12px] font-semibold text-emerald-600">✓ Reply sent</p>
         ) : (
           <div className="flex items-center gap-2">
+            {sendFeedback === "error" && sendError && (
+              <p className="text-[11px] text-red-500">{sendError}</p>
+            )}
             <button
               onClick={handleSend}
               disabled={isSending || !text.trim()}
@@ -327,7 +337,7 @@ function ReplyComposer({
                   : "bg-[#0A84FF] hover:bg-[#006EE0]",
               )}
             >
-              {isSending ? "Posting…" : sendFeedback === "error" ? "Failed — retry" : "Post reply"}
+              {isSending ? "Posting…" : sendFeedback === "error" ? "Retry" : "Post reply"}
             </button>
             <button
               onClick={handleSaveDraft}
@@ -337,7 +347,7 @@ function ReplyComposer({
               Save draft
             </button>
             <span className="ml-auto shrink-0 text-[11px] text-[#86868B]">
-              {review.source === "App Store" ? "Posts to App Store · ~5 min" : "Posts to Google Play"}
+              {review.source === "App Store" ? "Posts to App Store" : "Posts to Google Play"}
             </span>
           </div>
         )}

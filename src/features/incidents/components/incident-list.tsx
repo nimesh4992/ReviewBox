@@ -60,7 +60,7 @@ export function IncidentList({ incidents }: { incidents: IncidentAlert[] }) {
             <ShieldCheck className="size-12 text-emerald-200" strokeWidth={1.5} />
             <h3 className="mt-4 text-sm font-semibold text-gray-900">All clear</h3>
             <p className="mt-1 max-w-xs text-xs text-gray-400">
-              No active incidents. Revi will automatically detect crash spikes and rating drops once reviews are syncing.
+              No active incidents. ReviewBox will automatically detect crash spikes and rating drops once reviews are syncing.
             </p>
           </div>
         ) : incidents.map((incident) => {

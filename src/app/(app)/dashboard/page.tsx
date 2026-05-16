@@ -6,6 +6,7 @@ import { AlertOctagon, Download, Sparkles, TrendingUp, Users } from "lucide-reac
 
 import { cn } from "@/lib/utils";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
+import { useApps } from "@/hooks/use-apps";
 
 // ── Static attention items (real data from incident feed — wire later) ─────────
 
@@ -67,6 +68,7 @@ function PortfolioSparkline() {
 
 export default function DashboardPage() {
   const { data: metrics, isLoading } = useDashboardMetrics();
+  const { apps, isLoading: appsLoading } = useApps();
   const [range, setRange] = useState<"7d" | "30d" | "90d">("30d");
 
   const now = new Date();
@@ -236,31 +238,34 @@ export default function DashboardPage() {
               Manage →
             </Link>
           </div>
-          {MOCK_APPS.map((a, i) => (
-            <div
-              key={a.name}
-              className={cn(
-                "flex cursor-pointer items-center gap-3.5 px-5 py-3.5 transition-colors hover:bg-gray-50",
-                i < MOCK_APPS.length - 1 && "border-b border-gray-50",
-              )}
-            >
-              <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[12px] font-bold text-[#86868B]">
-                {a.name[0]}
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-semibold text-[#1D1D1F]">{a.name}</div>
-                <div className="mt-0.5 text-[11px] text-[#86868B]">{a.store} · {a.unreplied} unreplied</div>
-              </div>
-              <div className="shrink-0 text-right">
-                <div className="text-[17px] font-semibold leading-tight tracking-[-0.018em] tabular-nums text-[#1D1D1F]">
-                  {a.rating.toFixed(2)}
-                </div>
-                <div className={cn("mt-0.5 text-[11px] tabular-nums font-medium", a.delta >= 0 ? "text-[#1F8A5B]" : "text-[#DC2626]")}>
-                  {a.delta >= 0 ? "+" : "−"}{Math.abs(a.delta).toFixed(2)}
-                </div>
-              </div>
+          {appsLoading ? (
+            <div className="px-5 py-8 text-center text-xs text-[#86868B]">Loading…</div>
+          ) : apps.length === 0 ? (
+            <div className="px-5 py-8 text-center text-xs text-[#86868B]">
+              No apps connected yet.{" "}
+              <Link href="/settings" className="text-[#0A84FF] hover:underline">Add one →</Link>
             </div>
-          ))}
+          ) : (
+            apps.map((a, i) => (
+              <div
+                key={a.id}
+                className={cn(
+                  "flex cursor-pointer items-center gap-3.5 px-5 py-3.5 transition-colors hover:bg-gray-50",
+                  i < apps.length - 1 && "border-b border-gray-50",
+                )}
+              >
+                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[12px] font-bold text-[#86868B]">
+                  {a.name[0]}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-semibold text-[#1D1D1F]">{a.name}</div>
+                  <div className="mt-0.5 text-[11px] text-[#86868B]">
+                    {a.platform === "google_play" ? "Google Play" : "App Store"}
+                  </div>
+                </div>
+              </div>
+            ))
+          )}
         </div>
 
       </section>
@@ -268,11 +273,3 @@ export default function DashboardPage() {
   );
 }
 
-// ── Mock app data (replace when Google Play sync ships) ────────────────────────
-
-const MOCK_APPS = [
-  { name: "Acme Banking",  store: "iOS · Android", rating: 4.62, delta:  0.42, unreplied: 14 },
-  { name: "Trailhead",     store: "iOS · Android", rating: 4.71, delta:  0.08, unreplied:  3 },
-  { name: "Pocket Lock",   store: "Android",       rating: 4.21, delta: -0.03, unreplied:  5 },
-  { name: "Nova",          store: "iOS",           rating: 4.39, delta:  0.18, unreplied:  1 },
-];

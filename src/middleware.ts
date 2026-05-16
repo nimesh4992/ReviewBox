@@ -7,6 +7,8 @@ const isPublicRoute = createRouteMatcher([
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/api/stripe/webhook", // Stripe webhooks bypass auth
+  "/api/sync/(.*)",      // Vercel Cron routes — auth handled by CRON_SECRET header
+  "/monitoring(.*)",     // Sentry tunnel route — must be public
 ]);
 
 // Routes that require an active paid plan (free trial = grace period)

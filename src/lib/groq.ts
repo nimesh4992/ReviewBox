@@ -1,7 +1,10 @@
 import Groq from "groq-sdk";
 
-const GROQ_MODEL = "llama-3.3-70b-versatile";
-const MAX_TOKENS = 200;
+const GROQ_MODEL =
+  process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile";
+
+/** Reduced from 200 to match the "under 120 words" system prompt instruction. */
+const MAX_TOKENS = 150;
 
 let _client: Groq | null = null;
 
@@ -13,26 +16,33 @@ function getGroqClient(): Groq {
 }
 
 export async function generateReply(params: {
+  /** Compressed review text (use compressReviewText() before calling). */
   reviewBody: string;
   rating: number;
   tone: string;
+  /** @deprecated Pass systemPrompt instead for better token efficiency. */
   context?: string;
+  /**
+   * Pre-built system prompt from buildSystemPrompt().
+   * When provided, overrides the internally built prompt and `context`.
+   * Target: ~35-45 tokens vs the old ~245 token approach.
+   */
+  systemPrompt?: string;
 }): Promise<string> {
-  const { reviewBody, rating, tone, context } = params;
+  const { reviewBody, rating, tone, context, systemPrompt: prebuiltPrompt } = params;
 
-  const systemPrompt = [
-    `You are a professional mobile app support specialist. Write a concise, helpful reply to the following app store review. Be ${tone}. Keep it under 150 words. Don't mention specific version numbers unless provided. Sign off as 'The Revi Team'.`,
-    context ? `\n${context}` : null,
-  ]
-    .filter(Boolean)
-    .join("");
+  // Use the pre-built compressed prompt if provided, otherwise fall back to
+  // the original verbose approach (backward compatibility).
+  const finalSystemPrompt =
+    prebuiltPrompt ??
+    [
+      `You are a professional mobile app support specialist. Write a concise, helpful reply to the following app store review. Be ${tone}. Keep it under 120 words. Sign off as 'The ReviewBox Team'.`,
+      context ? `\n${context}` : null,
+    ]
+      .filter(Boolean)
+      .join("");
 
-  const userContent = [
-    `Rating: ${rating}/5`,
-    `Review: ${reviewBody}`,
-  ]
-    .filter(Boolean)
-    .join("\n\n");
+  const userContent = `Rating: ${rating}/5\n\nReview: ${reviewBody}`;
 
   try {
     const client = getGroqClient();
@@ -40,21 +50,16 @@ export async function generateReply(params: {
       model: GROQ_MODEL,
       max_tokens: MAX_TOKENS,
       messages: [
-        { role: "system", content: systemPrompt },
-        { role: "user", content: userContent },
+        { role: "system", content: finalSystemPrompt },
+        { role: "user",   content: userContent },
       ],
     });
 
     const text = completion.choices[0]?.message?.content;
-    if (!text) {
-      throw new Error("AI_UNAVAILABLE");
-    }
+    if (!text) throw new Error("AI_UNAVAILABLE");
     return text;
   } catch (err) {
-    // Re-throw our sentinel so callers can distinguish AI failures
-    if (err instanceof Error && err.message === "AI_UNAVAILABLE") {
-      throw err;
-    }
+    if (err instanceof Error && err.message === "AI_UNAVAILABLE") throw err;
     throw new Error("AI_UNAVAILABLE");
   }
 }

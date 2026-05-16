@@ -1,7 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useAsoSuggestions } from "@/hooks/use-aso-suggestions";
+import { useWorkspaceStore } from "@/store/use-workspace-store";
 
 function MetricCard({
   label,
@@ -85,6 +88,8 @@ function VolumeBar({ value }: { value: number }) {
 
 export function ASOScreen() {
   const [tab, setTab] = useState<"keywords" | "ratings">("keywords");
+  const selectedApp = useWorkspaceStore((s) => s.selectedApp);
+  const { mutate: getSuggestions, isPending, data: asoData } = useAsoSuggestions();
 
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8 max-w-[1240px] mx-auto">
@@ -129,9 +134,23 @@ export function ASOScreen() {
             <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">Keyword positions</div>
             <div className="mt-0.5 text-[12px] text-fg-3">App Store · iOS · updated today</div>
           </div>
-          <button className="ml-auto h-7 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)]">
-            Add keyword
-          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              onClick={() => getSuggestions(selectedApp)}
+              disabled={isPending}
+              className="flex h-7 items-center gap-1.5 rounded-[7px] bg-[#0A84FF] px-3 text-[12px] font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:opacity-50"
+            >
+              {isPending ? (
+                <Loader2 className="size-3 animate-spin" />
+              ) : (
+                <Sparkles className="size-3" />
+              )}
+              {isPending ? "Generating…" : "AI Suggestions"}
+            </button>
+            <button className="h-7 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)]">
+              Add keyword
+            </button>
+          </div>
         </div>
         <table className="w-full border-collapse">
           <thead>
@@ -172,6 +191,49 @@ export function ASOScreen() {
           </tbody>
         </table>
       </div>
+
+      {/* AI Keyword Suggestions (shown after clicking AI Suggestions) */}
+      {asoData && (
+        <div className="overflow-hidden rounded-[14px] border border-[#0A84FF]/20 bg-surface shadow-[var(--rb-shadow-xs)]">
+          <div className="flex items-center gap-2 border-b border-[var(--rb-border-1)] px-5 py-4">
+            <Sparkles className="size-4 text-[#0A84FF]" strokeWidth={1.5} />
+            <div>
+              <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">
+                AI Keyword Suggestions
+              </div>
+              <div className="mt-0.5 text-[12px] text-fg-3">
+                {asoData.source === "cache"
+                  ? `Cached · updated ${new Date(asoData.lastUpdated).toLocaleDateString()}`
+                  : asoData.source === "gemini"
+                    ? "Gemini 2.0 Flash · just generated"
+                    : "Service unavailable — check GEMINI_API_KEY"}
+              </div>
+            </div>
+          </div>
+
+          {asoData.keywords.length > 0 ? (
+            <div className="flex flex-wrap gap-2 p-5">
+              {asoData.keywords.map((kw) => (
+                <div
+                  key={kw}
+                  className="flex items-center gap-2 rounded-[8px] border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-1.5"
+                >
+                  <span className="text-[13px] font-medium text-fg-1">{kw}</span>
+                  <button className="text-[10px] font-semibold text-[#0A84FF] hover:underline">
+                    + Add
+                  </button>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="px-5 py-6 text-center text-[13px] text-fg-3">
+              {asoData.source === "unavailable"
+                ? "Add your GEMINI_API_KEY to enable AI suggestions."
+                : "No new keyword suggestions at this time."}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

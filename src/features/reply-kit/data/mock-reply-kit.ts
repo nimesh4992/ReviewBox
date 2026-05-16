@@ -1,4 +1,4 @@
-import type {
+﻿import type {
   TagDefinition,
   ReplyTemplate,
   AIReplyStyle,
@@ -34,7 +34,7 @@ export const mockTags: TagDefinition[] = [
 export const mockTemplates: ReplyTemplate[] = [
   {
     id: "tpl-1",
-    name: "Thank you — 5 star",
+    name: "Thank you â€” 5 star",
     content:
       "Thank you so much for the 5 stars! We're thrilled you're enjoying the experience. Your support means everything to our team.",
     tags: ["feature-request"],
@@ -47,7 +47,7 @@ export const mockTemplates: ReplyTemplate[] = [
     id: "tpl-2",
     name: "Crash acknowledgement",
     content:
-      "Hi there, we're very sorry to hear you're experiencing crashes. Our team is actively investigating this issue. Please update to the latest version — if the problem persists, email us at support@revi.app with your device model.",
+      "Hi there, we're very sorry to hear you're experiencing crashes. Our team is actively investigating this issue. Please update to the latest version â€” if the problem persists, email us at hello@tryreviewbox.com with your device model.",
     tags: ["crash"],
     ratingRange: [1, 2],
     language: "English",
@@ -58,7 +58,7 @@ export const mockTemplates: ReplyTemplate[] = [
     id: "tpl-3",
     name: "Billing complaint",
     content:
-      "We sincerely apologize for the billing inconvenience. Please contact support@revi.app directly and our team will resolve this within 24 hours.",
+      "We sincerely apologize for the billing inconvenience. Please contact hello@tryreviewbox.com directly and our team will resolve this within 24 hours.",
     tags: ["billing"],
     ratingRange: [1, 3],
     language: "English",
@@ -67,7 +67,7 @@ export const mockTemplates: ReplyTemplate[] = [
   },
   {
     id: "tpl-4",
-    name: "Feature request — logged",
+    name: "Feature request â€” logged",
     content:
       "Thank you for the suggestion! We've logged this with our product team. Feature requests from users like you directly shape our roadmap.",
     tags: ["feature-request"],
@@ -80,7 +80,7 @@ export const mockTemplates: ReplyTemplate[] = [
     id: "tpl-5",
     name: "Login issue",
     content:
-      "We're sorry you're having trouble logging in. Please try: 1) Clear app cache, 2) Update to latest version, 3) Reset password. If the issue persists, contact support@revi.app.",
+      "We're sorry you're having trouble logging in. Please try: 1) Clear app cache, 2) Update to latest version, 3) Reset password. If the issue persists, contact hello@tryreviewbox.com.",
     tags: ["login"],
     ratingRange: [1, 3],
     language: "English",
@@ -89,7 +89,7 @@ export const mockTemplates: ReplyTemplate[] = [
   },
   {
     id: "tpl-6",
-    name: "Performance — fix incoming",
+    name: "Performance â€” fix incoming",
     content:
       "Thank you for flagging this. We've identified the cause of the slowdown and a fix is shipping in the next update. We appreciate your patience.",
     tags: ["performance"],
@@ -119,7 +119,7 @@ export const mockAIStyles: AIReplyStyle[] = [
     isDefault: false,
     exampleInput: "App keeps crashing",
     exampleOutput:
-      "We're really sorry this is happening — that sounds incredibly frustrating. Our team is on it and we'll have this fixed as soon as possible. Thank you for your patience.",
+      "We're really sorry this is happening â€” that sounds incredibly frustrating. Our team is on it and we'll have this fixed as soon as possible. Thank you for your patience.",
   },
   {
     id: "direct",
@@ -129,7 +129,7 @@ export const mockAIStyles: AIReplyStyle[] = [
     isDefault: false,
     exampleInput: "App keeps crashing",
     exampleOutput:
-      "Sorry for the crash. Fix shipping next update. Email support@revi.app if urgent.",
+      "Sorry for the crash. Fix shipping next update. Email hello@tryreviewbox.com if urgent.",
   },
   {
     id: "casual",
@@ -139,7 +139,7 @@ export const mockAIStyles: AIReplyStyle[] = [
     isDefault: false,
     exampleInput: "App keeps crashing",
     exampleOutput:
-      "Ugh, so sorry about that! We know crashes are the worst. Our team is already on it — update should be out soon. Hang tight!",
+      "Ugh, so sorry about that! We know crashes are the worst. Our team is already on it â€” update should be out soon. Hang tight!",
   },
 ];
 
@@ -156,7 +156,7 @@ export const mockKnowledgeBase: KnowledgeBaseEntry[] = [
     id: "kb-2",
     title: "Product overview",
     content:
-      "Revi is an AI-powered app review management tool. We help teams reply faster, spot trends, and protect their ratings.",
+      "ReviewBox is an AI-powered app review management tool. We help teams reply faster, spot trends, and protect their ratings.",
     category: "product",
     createdAt: "Apr 1, 2026",
   },
@@ -177,3 +177,4 @@ export const mockKnowledgeBase: KnowledgeBaseEntry[] = [
     createdAt: "May 1, 2026",
   },
 ];
+

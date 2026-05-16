@@ -11,7 +11,7 @@ export async function sendWelcomeEmail(to: string, name: string): Promise<void> 
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Welcome to Revi</title>
+  <title>Welcome to ReviewBox</title>
 </head>
 <body style="margin:0;padding:0;background:#f9fafb;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;">
   <table width="100%" cellpadding="0" cellspacing="0" style="background:#f9fafb;padding:40px 16px;">
@@ -23,7 +23,7 @@ export async function sendWelcomeEmail(to: string, name: string): Promise<void> 
           <tr>
             <td style="background:#1e293b;padding:24px 32px;">
               <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">
-                R&nbsp;<span style="color:#6366f1;">|</span>&nbsp;Revi
+                R&nbsp;<span style="color:#6366f1;">|</span>&nbsp;ReviewBox
               </p>
             </td>
           </tr>
@@ -35,7 +35,7 @@ export async function sendWelcomeEmail(to: string, name: string): Promise<void> 
                 Hi ${name} 👋
               </h1>
               <p style="margin:0 0 24px;font-size:16px;color:#475569;line-height:1.6;">
-                Welcome to Revi! Your 14-day free trial has started. Here's what to do next:
+                Welcome to ReviewBox! Your 14-day free trial has started. Here's what to do next:
               </p>
 
               <!-- Steps -->
@@ -70,7 +70,7 @@ export async function sendWelcomeEmail(to: string, name: string): Promise<void> 
                 <tr>
                   <td style="border-radius:8px;background:#6366f1;">
                     <a
-                      href="https://revi.app/dashboard"
+                      href="https://tryreviewbox.com/dashboard"
                       style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;"
                     >
                       Go to your dashboard
@@ -85,7 +85,7 @@ export async function sendWelcomeEmail(to: string, name: string): Promise<void> 
           <tr>
             <td style="padding:20px 32px;border-top:1px solid #f1f5f9;">
               <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;">
-                You're receiving this because you signed up for Revi. If you didn't create an account,
+                You're receiving this because you signed up for ReviewBox. If you didn't create an account,
                 you can safely ignore this email. To unsubscribe from marketing emails, reply with
                 "unsubscribe" in the subject line.
               </p>
@@ -101,24 +101,24 @@ export async function sendWelcomeEmail(to: string, name: string): Promise<void> 
 
   const text = `Hi ${name},
 
-Welcome to Revi! Your 14-day free trial has started.
+Welcome to ReviewBox! Your 14-day free trial has started.
 
 Here's what to do next:
 1. Connect Google Play Console
 2. Generate your first AI reply
 3. Set up email alerts
 
-Go to your dashboard: https://revi.app/dashboard
+Go to your dashboard: https://tryreviewbox.com/dashboard
 
 ---
-You're receiving this because you signed up for Revi. To unsubscribe, reply with "unsubscribe" in the subject line.`;
+You're receiving this because you signed up for ReviewBox. To unsubscribe, reply with "unsubscribe" in the subject line.`;
 
   const r = getResend();
   if (!r) return;
   const { error } = await r.emails.send({
     from: FROM,
     to,
-    subject: "Welcome to Revi 🎉",
+    subject: "Welcome to ReviewBox 🎉",
     html,
     text,
   });

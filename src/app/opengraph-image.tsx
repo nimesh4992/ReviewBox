@@ -1,7 +1,7 @@
 import { ImageResponse } from "next/og";
 
 export const runtime = "edge";
-export const alt = "Revi — App Review Intelligence";
+export const alt = "ReviewBox — App Review Intelligence";
 export const size = { width: 1200, height: 630 };
 export const contentType = "image/png";
 
@@ -45,7 +45,7 @@ export default function OGImage() {
             letterSpacing: -2,
           }}
         >
-          Revi
+          ReviewBox
         </span>
       </div>
       <p

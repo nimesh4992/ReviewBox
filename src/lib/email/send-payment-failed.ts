@@ -27,7 +27,7 @@ export async function sendPaymentFailedEmail(
           <tr>
             <td style="background:#1e293b;padding:24px 32px;">
               <p style="margin:0;font-size:20px;font-weight:700;color:#ffffff;letter-spacing:-0.5px;">
-                R&nbsp;<span style="color:#6366f1;">|</span>&nbsp;Revi
+                R&nbsp;<span style="color:#6366f1;">|</span>&nbsp;ReviewBox
               </p>
             </td>
           </tr>
@@ -48,7 +48,7 @@ export async function sendPaymentFailedEmail(
                 Hi ${name},
               </h1>
               <p style="margin:0 0 16px;font-size:15px;color:#475569;line-height:1.6;">
-                We weren't able to charge the card on file for your Revi subscription.
+                We weren't able to charge the card on file for your ReviewBox subscription.
                 Don't worry — your account remains fully active for the next <strong>7 days</strong>,
                 giving you time to update your payment details.
               </p>
@@ -62,7 +62,7 @@ export async function sendPaymentFailedEmail(
                 <tr>
                   <td style="border-radius:8px;background:#dc2626;">
                     <a
-                      href="https://revi.app/billing"
+                      href="https://tryreviewbox.com/billing"
                       style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;"
                     >
                       Update payment method
@@ -82,7 +82,7 @@ export async function sendPaymentFailedEmail(
           <tr>
             <td style="padding:20px 32px;border-top:1px solid #f1f5f9;">
               <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;">
-                This is a transactional email regarding your Revi subscription. You cannot
+                This is a transactional email regarding your ReviewBox subscription. You cannot
                 unsubscribe from billing notifications.
               </p>
             </td>
@@ -97,24 +97,24 @@ export async function sendPaymentFailedEmail(
 
   const text = `Hi ${name},
 
-We weren't able to charge the card on file for your Revi subscription.
+We weren't able to charge the card on file for your ReviewBox subscription.
 
 Your account remains active for 7 days. We'll retry on ${retryDate}.
 
 Please update your payment method to avoid losing access:
-https://revi.app/billing
+https://tryreviewbox.com/billing
 
 If you have questions, reply to this email.
 
 ---
-This is a transactional email regarding your Revi subscription.`;
+This is a transactional email regarding your ReviewBox subscription.`;
 
   const r = getResend();
   if (!r) return;
   const { error } = await r.emails.send({
     from: FROM,
     to,
-    subject: "Action required: Payment failed for your Revi subscription",
+    subject: "Action required: Payment failed for your ReviewBox subscription",
     html,
     text,
   });

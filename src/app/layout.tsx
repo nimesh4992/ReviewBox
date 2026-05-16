@@ -6,18 +6,19 @@ import "./globals.css";
 import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { CookieBanner } from "@/components/layout/cookie-banner";
+import { PostHogProvider } from "@/components/providers/posthog-provider";
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
 });
 
-const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://revi.app";
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
 
 export const metadata: Metadata = {
   title: {
-    default: "Revi — App Review Intelligence",
-    template: "%s | Revi",
+    default: "ReviewBox — App Review Intelligence",
+    template: "%s | ReviewBox",
   },
   description:
     "AI-powered review management for Google Play and App Store. Reply faster, spot crashes earlier, keep ratings high.",
@@ -26,25 +27,16 @@ export const metadata: Metadata = {
     type: "website",
     locale: "en_US",
     url: BASE_URL,
-    siteName: "Revi",
-    title: "Revi — App Review Intelligence",
+    siteName: "ReviewBox",
+    title: "ReviewBox — App Review Intelligence",
     description:
       "AI-powered review management for Google Play and App Store. Reply faster, spot crashes earlier, keep ratings high.",
-    images: [
-      {
-        url: "/og.png", // add og.png to /public when ready
-        width: 1200,
-        height: 630,
-        alt: "Revi — App Review Intelligence",
-      },
-    ],
   },
   twitter: {
     card: "summary_large_image",
-    title: "Revi — App Review Intelligence",
+    title: "ReviewBox — App Review Intelligence",
     description:
       "AI-powered review management for Google Play and App Store.",
-    images: ["/og.png"],
   },
   robots: {
     index: true,
@@ -63,7 +55,9 @@ export default function RootLayout({
       <html lang="en">
         <body className={`${inter.variable} antialiased`} suppressHydrationWarning>
           <QueryProvider>
-            <ThemeProvider>{children}</ThemeProvider>
+            <PostHogProvider>
+              <ThemeProvider>{children}</ThemeProvider>
+            </PostHogProvider>
           </QueryProvider>
           <CookieBanner />
         </body>

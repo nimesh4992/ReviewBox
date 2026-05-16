@@ -1,4 +1,4 @@
-# Revi — Zero-Cost Survival Plan
+# ReviewBox — Zero-Cost Survival Plan
 > Run the entire product for $0/month until $1K MRR. Then spend <5% of revenue on infra forever.
 > Last updated: 2026-05-10
 
@@ -386,7 +386,7 @@ STRIPE_PRICE_ID_TEAM=
 
 # Resend (free 3K/month)
 RESEND_API_KEY=
-RESEND_FROM_EMAIL=alerts@revi.app
+RESEND_FROM_EMAIL=alerts@tryreviewbox.com
 
 # Upstash Redis (free — rate limiting)
 UPSTASH_REDIS_REST_URL=
