@@ -15,7 +15,8 @@
       "WebFetch(domain:claude.ai)",
       "Bash(rm -f \"D:/Projects/Reviews/.git/index.lock\")",
       "Bash(git commit -m ' *)",
-      "Bash(git push *)"
+      "Bash(git push *)",
+      "Bash(git add *)"
     ]
   }
 }
