@@ -35,7 +35,7 @@
   /* ── Font families ── */
   --rb-font-display: -apple-system, "SF Pro Display", var(--font-inter), "Inter", BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
   --rb-font-text:    -apple-system, "SF Pro Text",    var(--font-inter), "Inter", BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
-  --rb-font-mono:    "JetBrains Mono", "SF Mono", ui-monospace, Menlo, Monaco, Consolas, monospace;
+  --rb-font-mono:    "SF Mono", ui-monospace, Menlo, Monaco, Consolas, "Courier New", monospace;
 
   /* Foreground — light */
   --rb-fg-1: #1D1D1F;

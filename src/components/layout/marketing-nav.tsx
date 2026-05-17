@@ -102,7 +102,7 @@ export function MarketingNav() {
               </Link>
               <Link href="/status" style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 99, background: "var(--rb-bg-sunken)", border: "1px solid var(--rb-border-1)", fontSize: 10.5, fontWeight: 600, color: "var(--rb-fg-3)", fontFamily: "var(--rb-font-mono)", letterSpacing: "0.04em", textDecoration: "none" }}>
                 <LivePulse size={6} color="var(--rb-green-500)" />
-                <span>ALL SYSTEMS NORMAL</span>
+                <span>All systems normal</span>
               </Link>
             </div>
 

@@ -51,7 +51,7 @@ export function MarketingFooter() {
           {/* Link columns */}
           {FOOTER_COLS.map(s => (
             <div key={s.h}>
-              <div style={{ fontSize: 11.5, fontWeight: 700, color: "var(--rb-fg-1)", marginBottom: 16, letterSpacing: "0.08em", textTransform: "uppercase", fontFamily: "var(--rb-font-mono)" }}>/{s.h.toLowerCase()}</div>
+              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--rb-fg-3)", marginBottom: 16, letterSpacing: "0.08em", textTransform: "uppercase" }}>{s.h}</div>
               <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 9 }}>
                 {s.l.map(it => (
                   <li key={it.t}>
@@ -65,10 +65,10 @@ export function MarketingFooter() {
 
         {/* Bottom bar */}
         <div style={{ paddingTop: 24, borderTop: "1px solid var(--rb-border-1)", display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--rb-fg-4)", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-          <div style={{ fontFamily: "var(--rb-font-mono)" }}>© 2026 ReviewBox, Inc. // All rights reserved</div>
+          <div>© 2026 ReviewBox, Inc. All rights reserved.</div>
           <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontFamily: "var(--rb-font-mono)" }}>
-              <LivePulse /> ALL SYSTEMS NORMAL
+            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+              <LivePulse /> All systems normal
             </span>
             <Link href="/dpa"     style={{ color: "var(--rb-fg-4)", textDecoration: "none" }}>DPA</Link>
             <Link href="/privacy" style={{ color: "var(--rb-fg-4)", textDecoration: "none" }}>Privacy</Link>
