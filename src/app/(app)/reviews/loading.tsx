@@ -1,4 +1,4 @@
-export default function ReviewsLoading() {
+﻿export default function ReviewsLoading() {
   return (
     <div className="min-w-0 animate-pulse">
       {/* Header */}

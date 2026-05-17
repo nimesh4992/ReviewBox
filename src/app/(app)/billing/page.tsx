@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -181,7 +181,7 @@ function BillingContent() {
               {portalLoading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Opening…
+                  Openingâ€¦
                 </>
               ) : (
                 <>
@@ -284,7 +284,7 @@ function PlanCard({ plan, isLoading, isDisabled, onChoose }: PlanCardProps) {
         {isLoading ? (
           <>
             <Loader2 className="size-4 animate-spin" />
-            Redirecting…
+            Redirectingâ€¦
           </>
         ) : (
           "Choose Plan"

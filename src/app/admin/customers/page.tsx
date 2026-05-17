@@ -1,4 +1,4 @@
-import { getServiceClient } from "@/lib/supabase-server";
+﻿import { getServiceClient } from "@/lib/supabase-server";
 import { cn } from "@/lib/utils";
 
 // Note: set ADMIN_CLERK_USER_ID in .env.local to your Clerk user ID (Clerk dashboard > Users)
@@ -115,7 +115,7 @@ export default async function AdminCustomersPage() {
                     <td className="px-4 py-3 text-gray-700">{row.app_count}</td>
                     <td className="px-4 py-3 text-gray-500">{joined}</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-400">
-                      {row.owner_clerk_id ?? "—"}
+                      {row.owner_clerk_id ?? "â€”"}
                     </td>
                   </tr>
                 );

@@ -1,4 +1,4 @@
-import { PageHeader } from "@/components/layout/page-header";
+﻿import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { AutomationHub } from "@/features/automations/components/automation-hub";
 import { Plus } from "lucide-react";

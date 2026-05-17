@@ -113,7 +113,10 @@ export default function SignUpPage() {
       )}
 
       {showSignUp && (
-        <SignUp signInUrl="/sign-in" appearance={CLERK_APPEARANCE} />
+        <SignUp
+          signInUrl="/sign-in"
+          appearance={CLERK_APPEARANCE}
+        />
       )}
     </div>
   );

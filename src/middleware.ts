@@ -1,17 +1,71 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
-// Routes that don't require auth
+const APP_HOST    = "app.tryreviewbox.com";
+const MARKETING_HOST = "tryreviewbox.com";
+
+// All marketing/public paths — never require auth
 const isPublicRoute = createRouteMatcher([
   "/",
+  "/pricing(.*)",
+  "/compare(.*)",
+  "/customers(.*)",
+  "/about(.*)",
+  "/blog(.*)",
+  "/careers(.*)",
+  "/changelog(.*)",
+  "/contact(.*)",
+  "/status(.*)",
+  "/faq(.*)",
+  "/help(.*)",
+  "/privacy(.*)",
+  "/terms(.*)",
+  "/dpa(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
-  "/api/stripe/webhook", // Stripe webhooks bypass auth
-  "/api/sync/(.*)",      // Vercel Cron routes — auth handled by CRON_SECRET header
-  "/monitoring(.*)",     // Sentry tunnel route — must be public
+  "/api/stripe/webhook",
+  "/api/sync/(.*)",
+  "/api/demo/(.*)",
+  "/monitoring(.*)",
 ]);
 
-// Routes that require an active paid plan (free trial = grace period)
+// App-only paths (authenticated product)
+const isAppRoute = createRouteMatcher([
+  "/dashboard(.*)",
+  "/reviews(.*)",
+  "/inbox(.*)",
+  "/incidents(.*)",
+  "/releases(.*)",
+  "/automations(.*)",
+  "/reply-kit(.*)",
+  "/sentiment(.*)",
+  "/competitors(.*)",
+  "/aso(.*)",
+  "/reports(.*)",
+  "/settings(.*)",
+  "/billing(.*)",
+  "/onboarding(.*)",
+  "/admin(.*)",
+  "/api/onboarding(.*)",
+  "/api/apps(.*)",
+  "/api/reviews(.*)",
+  "/api/reply(.*)",
+  "/api/dashboard(.*)",
+  "/api/incidents(.*)",
+  "/api/automations(.*)",
+  "/api/reply-kit(.*)",
+  "/api/settings(.*)",
+  "/api/onboarding(.*)",
+  "/api/stripe/checkout(.*)",
+  "/api/stripe/portal(.*)",
+  "/api/gdpr(.*)",
+  "/api/sentiment(.*)",
+  "/api/aso(.*)",
+  "/api/health(.*)",
+  "/api/admin(.*)",
+]);
+
+// Routes that require an active paid plan
 const isBilledRoute = createRouteMatcher([
   "/automations(.*)",
   "/reply-kit(.*)",
@@ -19,56 +73,87 @@ const isBilledRoute = createRouteMatcher([
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
-  if (isPublicRoute(request)) return NextResponse.next();
+  const { nextUrl } = request;
+  const hostname = request.headers.get("host") ?? "";
+  const isProd = hostname.includes("tryreviewbox.com");
+  const isAppHost = isProd && (hostname === APP_HOST || hostname.startsWith("app."));
 
-  // Require sign-in for all non-public routes
+  // ── Subdomain routing (production only) ────────────────────────────────────
+  if (isProd) {
+    // app.tryreviewbox.com root → sign-in
+    if (isAppHost && nextUrl.pathname === "/") {
+      return NextResponse.redirect(new URL("/sign-in", request.url));
+    }
+
+    // app subdomain: unknown (non-app, non-public) path → dashboard
+    if (isAppHost && !isAppRoute(request) && !isPublicRoute(request)) {
+      return NextResponse.redirect(new URL("/dashboard", request.url));
+    }
+
+    // Marketing domain: sign-in/sign-up → redirect to app subdomain
+    if (!isAppHost && hostname === MARKETING_HOST &&
+        (nextUrl.pathname.startsWith("/sign-in") || nextUrl.pathname.startsWith("/sign-up"))) {
+      const appUrl = new URL(nextUrl.pathname + nextUrl.search, `https://${APP_HOST}`);
+      return NextResponse.redirect(appUrl);
+    }
+
+    // Marketing domain: app path → redirect to app subdomain
+    if (!isAppHost && hostname === MARKETING_HOST && isAppRoute(request)) {
+      const appUrl = new URL(nextUrl.pathname + nextUrl.search, `https://${APP_HOST}`);
+      return NextResponse.redirect(appUrl);
+    }
+  }
+
+  // ── Auth guard ─────────────────────────────────────────────────────────────
+  if (isPublicRoute(request)) {
+    const res = NextResponse.next();
+    // Tell crawlers not to index the app subdomain
+    if (isAppHost) res.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return res;
+  }
+
   await auth.protect();
 
-  // Trial expiry check
   const { sessionClaims } = await auth();
   const trialEndsAt = (sessionClaims?.metadata as { trialEndsAt?: string } | undefined)?.trialEndsAt;
   const plan = (sessionClaims?.metadata as { plan?: string } | undefined)?.plan ?? "free";
 
+  // Trial expiry
   if (trialEndsAt && plan === "free") {
     const expired = new Date(trialEndsAt) < new Date();
-    if (expired && !isPublicRoute(request) && !request.nextUrl.pathname.startsWith("/billing")) {
+    if (expired && !nextUrl.pathname.startsWith("/billing")) {
       const url = new URL("/billing", request.url);
       url.searchParams.set("reason", "trial-expired");
       return NextResponse.redirect(url);
     }
   }
 
-  // Billing gate — check plan in session claims (populated by Clerk webhook)
-  if (isBilledRoute(request)) {
-    // Allow if they have any paid plan or are in trial
-    if (!plan || plan === "free") {
-      const billingUrl = new URL("/billing", request.url);
-      billingUrl.searchParams.set("required", "1");
-      return NextResponse.redirect(billingUrl);
-    }
+  // Billing gate
+  if (isBilledRoute(request) && (!plan || plan === "free")) {
+    const billingUrl = new URL("/billing", request.url);
+    billingUrl.searchParams.set("required", "1");
+    return NextResponse.redirect(billingUrl);
   }
 
-  // Grace period check — redirect to /billing if payment has been failed for > 7 days
+  // Payment grace period
   const paymentFailedAt = (sessionClaims?.metadata as { paymentFailedAt?: string } | undefined)?.paymentFailedAt;
   if (paymentFailedAt) {
-    const failedDate = new Date(paymentFailedAt);
-    const gracePeriodDays = 7;
-    const graceExpired = new Date(failedDate.getTime() + gracePeriodDays * 86400000) < new Date();
-    if (graceExpired && !isPublicRoute(request) && !request.nextUrl.pathname.startsWith("/billing")) {
+    const graceExpired = new Date(new Date(paymentFailedAt).getTime() + 7 * 86400000) < new Date();
+    if (graceExpired && !nextUrl.pathname.startsWith("/billing")) {
       const url = new URL("/billing", request.url);
       url.searchParams.set("reason", "payment-failed");
       return NextResponse.redirect(url);
     }
   }
 
-  return NextResponse.next();
+  const res = NextResponse.next();
+  if (isAppHost) res.headers.set("X-Robots-Tag", "noindex, nofollow");
+  return res;
 });
 
 export const config = {
   matcher: [
-    // Skip Next.js internals and static files
     "/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)",
-    // Always run for API routes
     "/(api|trpc)(.*)",
   ],
 };

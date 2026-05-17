@@ -16,7 +16,7 @@ interface WorkspaceState {
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
     (set, get) => ({
-      selectedApp: "ReviewIQ Mobile",
+      selectedApp: "",
       environment: "production",
       theme: "light",
       setSelectedApp: (selectedApp) => set({ selectedApp }),

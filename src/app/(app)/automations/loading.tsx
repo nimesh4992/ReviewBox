@@ -1,4 +1,4 @@
-export default function AutomationsLoading() {
+﻿export default function AutomationsLoading() {
   return (
     <div className="min-w-0 animate-pulse">
       <div className="border-b border-gray-100 px-6 py-5">

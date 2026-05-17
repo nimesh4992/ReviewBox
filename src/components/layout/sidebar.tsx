@@ -60,7 +60,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Inbox",
     items: [
-      { name: "Reviews",    href: "/reviews",     icon: Inbox,    signal: "127" },
+      { name: "Inbox",       href: "/inbox",       icon: Inbox,    signal: "127" },
       { name: "Automations", href: "/automations", icon: Workflow,  signal: null  },
       { name: "Reply Kit",   href: "/reply-kit",   icon: BookOpen,  signal: null  },
     ],
@@ -216,6 +216,11 @@ export function Sidebar({ className }: { className?: string }) {
       .then((data: { apps: App[] } | null) => {
         if (data?.apps?.length) {
           setApps(data.apps);
+          // Auto-select the first app if nothing valid is selected
+          const names = data.apps.map((a) => a.name);
+          if (!selectedApp || !names.includes(selectedApp)) {
+            setSelectedApp(data.apps[0].name);
+          }
         }
       })
       .catch(() => null);

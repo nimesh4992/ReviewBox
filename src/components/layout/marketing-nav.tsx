@@ -124,8 +124,8 @@ export function MarketingNav() {
                 {theme === "dark" ? <SunIcon /> : <MoonIcon />}
               </button>
 
-              <Link href="/sign-in" style={{ fontSize: 13.5, color: "var(--rb-fg-2)", fontWeight: 500, padding: "0 8px", textDecoration: "none" }}>Sign in</Link>
-              <Link href="/sign-up" style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 34, padding: "0 14px", borderRadius: 9, background: "var(--rb-blue-500)", color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap", letterSpacing: "-0.01em" }}>
+              <Link href="https://app.tryreviewbox.com/sign-in" style={{ fontSize: 13.5, color: "var(--rb-fg-2)", fontWeight: 500, padding: "0 8px", textDecoration: "none" }}>Sign in</Link>
+              <Link href="https://app.tryreviewbox.com/sign-up" style={{ display: "inline-flex", alignItems: "center", gap: 6, height: 34, padding: "0 14px", borderRadius: 9, background: "var(--rb-blue-500)", color: "#fff", fontSize: 13, fontWeight: 700, textDecoration: "none", whiteSpace: "nowrap", letterSpacing: "-0.01em" }}>
                 Start free <Arrow size={11} />
               </Link>
             </div>

@@ -447,7 +447,7 @@ function StepDone({ onFinish }: { onFinish: () => void }) {
   return (
     <div className="flex flex-col items-center gap-6 py-4 text-center">
       <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#0A84FF]/10 text-5xl">
-        🎉
+        ðYZ?
       </div>
       <div>
         <h2 className="text-xl font-semibold text-white">You&apos;re all set!</h2>
