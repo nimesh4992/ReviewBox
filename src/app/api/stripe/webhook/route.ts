@@ -60,6 +60,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
+  // ── Idempotency: ack duplicates without re-processing ────────────────────────
+  {
+    const { createClient } = await import("@supabase/supabase-js");
+    const sb = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    );
+    const { error: insertError } = await sb
+      .from("webhook_events")
+      .insert({ id: event.id, source: "stripe", type: event.type });
+
+    if (insertError) {
+      // 23505 = unique_violation — we've already processed this event
+      if (insertError.code === "23505") {
+        return NextResponse.json({ received: true, duplicate: true }, { status: 200 });
+      }
+      // Any other failure: log but don't block — better to double-process
+      // than to miss the event entirely
+      console.error("[stripe/webhook] dedup insert failed:", insertError);
+    }
+  }
+
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;

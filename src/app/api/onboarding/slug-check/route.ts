@@ -14,12 +14,6 @@ const RESERVED = new Set([
   "status", "support", "terms", "www",
 ]);
 
-interface CheckResult {
-  available: boolean;
-  reason?: "INVALID" | "RESERVED" | "TAKEN";
-  suggestions: string[];
-}
-
 export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.userId) {

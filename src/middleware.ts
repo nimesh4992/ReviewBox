@@ -23,6 +23,7 @@ const isPublicRoute = createRouteMatcher([
   "/dpa(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/invite(.*)",
   "/api/stripe/webhook",
   "/api/sync/(.*)",
   "/api/demo/(.*)",
@@ -45,6 +46,7 @@ const isAppRoute = createRouteMatcher([
   "/settings(.*)",
   "/billing(.*)",
   "/onboarding(.*)",
+  "/account-deleted(.*)",
   "/admin(.*)",
   "/api/onboarding(.*)",
   "/api/apps(.*)",
@@ -56,6 +58,8 @@ const isAppRoute = createRouteMatcher([
   "/api/reply-kit(.*)",
   "/api/settings(.*)",
   "/api/onboarding(.*)",
+  "/api/account(.*)",
+  "/api/team(.*)",
   "/api/stripe/checkout(.*)",
   "/api/stripe/portal(.*)",
   "/api/gdpr(.*)",
@@ -120,18 +124,35 @@ export default clerkMiddleware(async (auth, request) => {
     plan?: string;
     trialEndsAt?: string;
     paymentFailedAt?: string;
+    accountDeletedAt?: string;
   };
   const onboarded = metadata.onboarded === true;
   const plan = metadata.plan ?? "trial";
   const trialEndsAt = metadata.trialEndsAt;
+  const accountDeletedAt = metadata.accountDeletedAt;
 
-  // Onboarding gate
+  // Account scheduled for deletion — let restore endpoint and the
+  // restore page through; block everything else.
+  if (accountDeletedAt) {
+    const isRestorePath =
+      nextUrl.pathname === "/account-deleted" ||
+      nextUrl.pathname === "/api/account/restore" ||
+      nextUrl.pathname === "/api/account/cancel"; // allow re-confirming cancel
+    if (!isRestorePath) {
+      return NextResponse.redirect(new URL("/account-deleted", request.url));
+    }
+  }
+
+  // Onboarding gate — accept-invite paths bypass so invitees can join
   const isOnboardingPath =
     nextUrl.pathname === "/onboarding" ||
     nextUrl.pathname.startsWith("/onboarding/") ||
     nextUrl.pathname.startsWith("/api/onboarding");
+  const isInviteAcceptPath =
+    nextUrl.pathname.startsWith("/invite/") ||
+    nextUrl.pathname === "/api/account/accept-invite";
 
-  if (!onboarded && !isOnboardingPath) {
+  if (!onboarded && !isOnboardingPath && !isInviteAcceptPath) {
     return NextResponse.redirect(new URL("/onboarding", request.url));
   }
   if (onboarded && nextUrl.pathname === "/onboarding") {
