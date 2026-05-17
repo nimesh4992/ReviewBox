@@ -2,6 +2,8 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { rateLimit } from "@/lib/api-rate-limit";
+import { apiError } from "@/lib/api-response";
 
 const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$/;
 const RESERVED = new Set([
@@ -18,10 +20,16 @@ interface CheckResult {
   suggestions: string[];
 }
 
-export async function GET(req: NextRequest): Promise<NextResponse<CheckResult | { error: string }>> {
+export async function GET(req: NextRequest) {
   const session = await auth();
   if (!session?.userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    return apiError("UNAUTHORIZED", 401);
+  }
+
+  // Prevent enumeration of all workspace slugs by a malicious client.
+  const rl = await rateLimit(req, session.userId, { bucket: "slug-check", limit: 30, window: "1 m" });
+  if (!rl.allowed) {
+    return apiError("RATE_LIMITED", 429);
   }
 
   const slug = (req.nextUrl.searchParams.get("slug") ?? "").trim().toLowerCase();

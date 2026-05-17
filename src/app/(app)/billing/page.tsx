@@ -103,13 +103,14 @@ function BillingContent() {
       });
 
       if (!res.ok) {
-        const data = (await res.json().catch(() => ({}))) as { error?: string };
-        if (data.error === "STRIPE_NOT_CONFIGURED") {
-          throw new Error(
-            "Billing is not set up yet. Add Stripe test keys to enable checkout.",
-          );
+        const data = (await res.json().catch(() => ({}))) as { error?: { code?: string; message?: string } };
+        if (data.error?.code === "STRIPE_NOT_CONFIGURED") {
+          throw new Error("Billing is not set up yet. Add Stripe test keys to enable checkout.");
         }
-        throw new Error("Unable to start checkout. Please try again.");
+        if (data.error?.code === "RATE_LIMITED") {
+          throw new Error("Too many attempts. Please wait a minute and try again.");
+        }
+        throw new Error(data.error?.message ?? "Unable to start checkout. Please try again.");
       }
 
       const data = (await res.json()) as { url: string };
@@ -128,11 +129,14 @@ function BillingContent() {
       const res = await fetch("/api/stripe/portal", { method: "POST" });
 
       if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
-        if (data.error === "NO_SUBSCRIPTION") {
+        const data = (await res.json()) as { error?: { code?: string; message?: string } };
+        if (res.status === 404) {
           throw new Error("No active subscription found. Choose a plan below to get started.");
         }
-        throw new Error("Unable to open billing portal. Please try again.");
+        if (data.error?.code === "STRIPE_NOT_CONFIGURED") {
+          throw new Error("Billing is not set up yet.");
+        }
+        throw new Error(data.error?.message ?? "Unable to open billing portal. Please try again.");
       }
 
       const { url } = (await res.json()) as { url: string };

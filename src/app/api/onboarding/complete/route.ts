@@ -4,6 +4,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient } from "@/lib/supabase-server";
 import { sendWelcomeEmail } from "@/lib/email/send-welcome";
 import { audit } from "@/lib/audit";
+import { rateLimit } from "@/lib/api-rate-limit";
+import { apiError } from "@/lib/api-response";
 
 interface OnboardingBody {
   workspaceName: string;
@@ -20,14 +22,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const userId  = session?.userId;
 
   if (!userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    return apiError("UNAUTHORIZED", 401);
+  }
+
+  // Cheap insurance against workspace-creation spam from a single user.
+  const rl = await rateLimit(req, userId, { bucket: "onboarding-complete", limit: 5, window: "10 m" });
+  if (!rl.allowed) {
+    return apiError("RATE_LIMITED", 429);
   }
 
   const body = (await req.json()) as OnboardingBody;
   const { workspaceName, workspaceSlug, appName, platform, storeId = "" } = body;
 
   if (!workspaceName?.trim() || !workspaceSlug?.trim() || !appName?.trim()) {
-    return NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
+    return apiError("MISSING_FIELDS", 400);
   }
 
   const sb = getServiceClient();
@@ -54,10 +62,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (wsError) {
       if (wsError.code === "23505") {
-        return NextResponse.json({ error: "SLUG_TAKEN" }, { status: 409 });
+        return apiError("SLUG_TAKEN", 409);
       }
       console.error("[onboarding] workspace insert:", wsError);
-      return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
+      return apiError("INTERNAL_SERVER_ERROR", 500);
     }
 
     workspaceId = workspace.id as string;
@@ -68,7 +76,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (memberError) {
       console.error("[onboarding] member insert:", memberError);
-      return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
+      return apiError("INTERNAL_SERVER_ERROR", 500);
     }
   }
 
@@ -99,7 +107,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (appError) {
       console.error("[onboarding] app insert:", appError);
-      return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
+      return apiError("INTERNAL_SERVER_ERROR", 500);
     }
     appId = app.id as string;
   }
