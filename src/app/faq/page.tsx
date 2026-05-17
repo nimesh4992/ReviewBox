@@ -1,11 +1,11 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "FAQ â€” ReviewBox",
-  description: "Frequently asked questions about ReviewBox â€” setup, pricing, AI replies, and more.",
+  title: "FAQ — ReviewBox",
+  description: "Frequently asked questions about ReviewBox — setup, pricing, AI replies, and more.",
 };
 
 const FAQ_SECTIONS = [
@@ -14,19 +14,19 @@ const FAQ_SECTIONS = [
     questions: [
       {
         q: "How do I connect Google Play?",
-        a: "You need a Google Cloud service account with the \"Reply to reviews\" permission scoped to your Google Play Console. Create the service account in Google Cloud, download the JSON key, and paste it into ReviewBox Settings â†’ Apps. Full guide: tryreviewbox.com/help/connect-google-play.",
+        a: "You need a Google Cloud service account with the \"Reply to reviews\" permission scoped to your Google Play Console. Create the service account in Google Cloud, download the JSON key, and paste it into ReviewBox Settings → Apps. Full guide: tryreviewbox.com/help/connect-google-play.",
       },
       {
         q: "How do I connect the App Store?",
-        a: "You need an App Store Connect API key (not the old iTunes key). In App Store Connect, go to Users & Access â†’ Integrations â†’ App Store Connect API, generate a key with Customer Support access, and enter the Key ID, Issuer ID, and .p8 file into ReviewBox Settings â†’ Apps.",
+        a: "You need an App Store Connect API key (not the old iTunes key). In App Store Connect, go to Users & Access → Integrations → App Store Connect API, generate a key with Customer Support access, and enter the Key ID, Issuer ID, and .p8 file into ReviewBox Settings → Apps.",
       },
       {
         q: "How long does the first sync take?",
-        a: "The first sync fetches your most recent reviews immediately â€” typically under 2 minutes for up to 500 reviews. Subsequent syncs run automatically every 4 hours.",
+        a: "The first sync fetches your most recent reviews immediately — typically under 2 minutes for up to 500 reviews. Subsequent syncs run automatically every 4 hours.",
       },
       {
         q: "Can I try ReviewBox before paying?",
-        a: "Yes â€” every account starts with a 14-day free trial at Pro tier. No credit card required. You can downgrade, upgrade, or cancel at any time from Billing settings.",
+        a: "Yes — every account starts with a 14-day free trial at Pro tier. No credit card required. You can downgrade, upgrade, or cancel at any time from Billing settings.",
       },
     ],
   },
@@ -35,7 +35,7 @@ const FAQ_SECTIONS = [
     questions: [
       {
         q: "How does the AI reply system work?",
-        a: "ReviewBox uses a 3-tier pipeline. First, it tries to match your review against one of 25 templates (instant, zero tokens). If no template matches, it checks a Redis cache for identical or near-identical reviews. If still no match, it generates a new reply via Groq's Llama 3.3 70B model. About 85% of replies are served from tiers 1â€“2.",
+        a: "ReviewBox uses a 3-tier pipeline. First, it tries to match your review against one of 25 templates (instant, zero tokens). If no template matches, it checks a Redis cache for identical or near-identical reviews. If still no match, it generates a new reply via Groq's Llama 3.3 70B model. About 85% of replies are served from tiers 1–2.",
       },
       {
         q: "What tone options are available?",
@@ -43,7 +43,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: "Can ReviewBox auto-publish replies?",
-        a: "Yes â€” on the Team plan, you can configure auto-publish rules. You set the conditions (e.g. \"5-star reviews + positive sentiment + reply from template\") and ReviewBox will publish without human approval. This is disabled by default and opt-in per workspace.",
+        a: "Yes — on the Team plan, you can configure auto-publish rules. You set the conditions (e.g. \"5-star reviews + positive sentiment + reply from template\") and ReviewBox will publish without human approval. This is disabled by default and opt-in per workspace.",
       },
       {
         q: "Does ReviewBox learn from my edits?",
@@ -60,7 +60,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: "Can I get a refund?",
-        a: "Yes â€” 30-day full refund on monthly plans (most recent charge) and annual plans (from purchase/renewal date). No questions asked. See our Refund Policy for full details.",
+        a: "Yes — 30-day full refund on monthly plans (most recent charge) and annual plans (from purchase/renewal date). No questions asked. See our Refund Policy for full details.",
       },
       {
         q: "Do you offer discounts for startups or non-profits?",
@@ -68,7 +68,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: "Is there an annual billing option?",
-        a: "Yes â€” annual billing is 2 months free (equivalent to ~17% off). Contact us to switch; we&apos;ll prorate your current plan.",
+        a: "Yes — annual billing is 2 months free (equivalent to ~17% off). Contact us to switch; we&apos;ll prorate your current plan.",
       },
     ],
   },
@@ -89,7 +89,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: "How do I delete my account and data?",
-        a: "Go to Settings â†’ Privacy â†’ Delete account, or email legal@tryreviewbox.com. All personal data and review data is permanently deleted within 30 days. You can export your data first via Settings â†’ Privacy â†’ Export data.",
+        a: "Go to Settings → Privacy → Delete account, or email legal@tryreviewbox.com. All personal data and review data is permanently deleted within 30 days. You can export your data first via Settings → Privacy → Export data.",
       },
     ],
   },
@@ -136,7 +136,7 @@ export default function FaqPage() {
             <Link href="/contact" className="text-[#0A84FF] hover:underline">
               Email us
             </Link>{" "}
-            â€” we respond within one business day.
+            — we respond within one business day.
           </p>
         </div>
 

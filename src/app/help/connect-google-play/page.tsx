@@ -1,10 +1,10 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { CheckCircle, AlertCircle, ChevronRight } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
 export const metadata = {
-  title: "Connect Google Play â€” ReviewBox Help",
+  title: "Connect Google Play — ReviewBox Help",
   description:
     "Step-by-step guide to connecting your Google Play app to ReviewBox using a Google Cloud service account.",
 };
@@ -28,7 +28,7 @@ const STEPS = [
           and sign in with the Google account that owns your Google Play Console.
         </p>
         <p className="mt-3">
-          If you don&apos;t have a project yet, click <strong>Select a project â†’ New Project</strong>. Name it something like <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">reviewbox-integration</code>.
+          If you don&apos;t have a project yet, click <strong>Select a project → New Project</strong>. Name it something like <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">reviewbox-integration</code>.
         </p>
       </>
     ),
@@ -39,7 +39,7 @@ const STEPS = [
     content: (
       <>
         <p>
-          In the Google Cloud Console, go to <strong>APIs &amp; Services â†’ Library</strong>. Search for{" "}
+          In the Google Cloud Console, go to <strong>APIs &amp; Services → Library</strong>. Search for{" "}
           <strong>Google Play Android Developer API</strong> and click <strong>Enable</strong>.
         </p>
         <div className="mt-4 flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-100 p-4">
@@ -57,18 +57,18 @@ const STEPS = [
     content: (
       <>
         <p>
-          Go to <strong>IAM &amp; Admin â†’ Service Accounts â†’ Create Service Account</strong>.
+          Go to <strong>IAM &amp; Admin → Service Accounts → Create Service Account</strong>.
         </p>
         <ol className="mt-3 space-y-2 text-sm list-decimal list-inside text-gray-600">
           <li>Name it <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">reviewbox</code> (or any name you prefer)</li>
           <li>Click <strong>Create and continue</strong></li>
-          <li>Skip the optional role and user access steps â€” click <strong>Done</strong></li>
+          <li>Skip the optional role and user access steps — click <strong>Done</strong></li>
         </ol>
         <p className="mt-3">
           You&apos;ll see your new service account in the list. Click it, then go to the <strong>Keys</strong> tab.
         </p>
         <p className="mt-2">
-          Click <strong>Add Key â†’ Create new key â†’ JSON â†’ Create</strong>. A <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">.json</code> file will download. Keep it safe â€” you&apos;ll need it in step 5.
+          Click <strong>Add Key → Create new key → JSON → Create</strong>. A <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">.json</code> file will download. Keep it safe — you&apos;ll need it in step 5.
         </p>
       </>
     ),
@@ -88,11 +88,11 @@ const STEPS = [
           >
             play.google.com/console
           </a>{" "}
-          and go to <strong>Setup â†’ API access</strong>.
+          and go to <strong>Setup → API access</strong>.
         </p>
         <ol className="mt-3 space-y-3 text-sm list-decimal list-inside text-gray-600">
           <li>
-            If prompted, link your Play Console account to your Google Cloud project â€” select the project you created in step 1.
+            If prompted, link your Play Console account to your Google Cloud project — select the project you created in step 1.
           </li>
           <li>
             Under <strong>Service accounts</strong>, find the account you created and click <strong>Manage Play Console permissions</strong>.
@@ -101,7 +101,7 @@ const STEPS = [
             Under <strong>Account permissions</strong>, enable <strong>Reply to reviews</strong>.
           </li>
           <li>
-            Click <strong>Invite user â†’ Send invitation</strong>.
+            Click <strong>Invite user → Send invitation</strong>.
           </li>
         </ol>
         <div className="mt-4 flex items-start gap-3 rounded-xl bg-blue-50 border border-blue-100 p-4">
@@ -119,7 +119,7 @@ const STEPS = [
     content: (
       <>
         <p>
-          In ReviewBox, go to <strong>Settings â†’ Apps â†’ Add app â†’ Google Play</strong>.
+          In ReviewBox, go to <strong>Settings → Apps → Add app → Google Play</strong>.
         </p>
         <ol className="mt-3 space-y-2 text-sm list-decimal list-inside text-gray-600">
           <li>Enter your <strong>Package name</strong> (e.g. <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">com.yourcompany.yourapp</code>)</li>
@@ -163,13 +163,13 @@ export default function ConnectGooglePlayPage() {
       <main className="mx-auto max-w-screen-xl px-6 pb-32">
         <div className="pt-10 pb-8 max-w-3xl">
           <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-blue-600">
-            Getting started Â· 5 min
+            Getting started · 5 min
           </span>
           <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
             Connect Google Play
           </h1>
           <p className="mt-3 text-gray-500 leading-relaxed">
-            ReviewBox uses a Google Cloud service account to read and reply to your Play Store reviews. This guide walks through the complete setup â€” from creating the service account to verifying the connection in ReviewBox.
+            ReviewBox uses a Google Cloud service account to read and reply to your Play Store reviews. This guide walks through the complete setup — from creating the service account to verifying the connection in ReviewBox.
           </p>
         </div>
 
@@ -203,7 +203,7 @@ export default function ConnectGooglePlayPage() {
                 <h3 className="font-semibold text-emerald-900">You&apos;re connected!</h3>
                 <p className="mt-1 text-sm text-emerald-800 leading-relaxed">
                   Reviews will sync automatically every 4 hours. You can also trigger a manual sync from{" "}
-                  <strong>Settings â†’ Apps</strong> at any time.
+                  <strong>Settings → Apps</strong> at any time.
                 </p>
               </div>
             </div>

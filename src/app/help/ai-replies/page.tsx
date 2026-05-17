@@ -1,19 +1,19 @@
-﻿import Link from "next/link";
+import Link from "next/link";
 import { ChevronRight } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
 export const metadata = {
-  title: "How AI Replies Work â€” ReviewBox Help",
+  title: "How AI Replies Work — ReviewBox Help",
   description:
-    "Learn how ReviewBox's 3-tier AI reply pipeline works: templates, cache, and Groq â€” and how 85% of replies cost $0.",
+    "Learn how ReviewBox's 3-tier AI reply pipeline works: templates, cache, and Groq — and how 85% of replies cost $0.",
 };
 
 const TIERS = [
   {
     number: "1",
     label: "Template match",
-    cost: "$0 Â· instant",
+    cost: "$0 · instant",
     color: "bg-emerald-500",
     description:
       "ReviewBox checks your review against 25 built-in reply templates. Templates match on rating + detected tags (crash, billing, login, feature request, etc.). If a template matches, the reply is returned instantly with zero AI tokens consumed.",
@@ -22,7 +22,7 @@ const TIERS = [
   {
     number: "2",
     label: "Reply cache",
-    cost: "$0 Â· ~5ms",
+    cost: "$0 · ~5ms",
     color: "bg-blue-500",
     description:
       "If no template matches, ReviewBox checks a Redis cache for a previously-generated reply to an identical or near-identical review. Cache keys are SHA-256 hashes of the review text + rating + tone. Cached replies are served instantly.",
@@ -31,11 +31,11 @@ const TIERS = [
   {
     number: "3",
     label: "AI generation",
-    cost: "~$0.001 Â· ~600ms",
+    cost: "~$0.001 · ~600ms",
     color: "bg-purple-500",
     description:
       "If neither tier 1 nor 2 matches, ReviewBox generates a new reply using Groq's Llama 3.3 70B model. Before sending, the review text is compressed (stripping filler phrases) to reduce token usage by ~73%. The generated reply is stored in the cache so identical future reviews are free.",
-    detail: "~12â€“18% of reviews reach AI generation.",
+    detail: "~12–18% of reviews reach AI generation.",
   },
 ];
 
@@ -43,7 +43,7 @@ const TONES = [
   { name: "Professional", desc: "Formal, concise, corporate-safe." },
   { name: "Friendly", desc: "Warm, conversational, approachable." },
   { name: "Empathetic", desc: "Leads with understanding before solutions." },
-  { name: "Brief", desc: "2â€“3 sentences max. Respect the reader's time." },
+  { name: "Brief", desc: "2–3 sentences max. Respect the reader's time." },
   { name: "Custom", desc: "Write your own persona description (up to 200 chars). Applied to every AI-generated reply." },
 ];
 
@@ -72,13 +72,13 @@ export default function AiRepliesPage() {
       <main className="mx-auto max-w-screen-xl px-6 pb-32">
         <div className="pt-10 pb-8 max-w-3xl">
           <span className="inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-purple-600">
-            AI replies Â· 4 min
+            AI replies · 4 min
           </span>
           <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
             How AI replies work
           </h1>
           <p className="mt-3 text-gray-500 leading-relaxed">
-            ReviewBox uses a 3-tier pipeline to generate reply drafts. About 85% of replies are served from tiers 1â€“2 at zero cost. Only ~15% of reviews ever touch an AI model.
+            ReviewBox uses a 3-tier pipeline to generate reply drafts. About 85% of replies are served from tiers 1–2 at zero cost. Only ~15% of reviews ever touch an AI model.
           </p>
         </div>
 
@@ -133,14 +133,14 @@ export default function AiRepliesPage() {
               <div className="rounded-2xl border border-gray-200 bg-white p-6">
                 <p className="text-sm text-gray-600 leading-relaxed">
                   On the <strong>Team plan</strong>, you can configure auto-publish rules. A rule defines conditions
-                  (e.g. &ldquo;5-star review + positive sentiment + reply from template&rdquo;) â€” when all conditions match,
+                  (e.g. &ldquo;5-star review + positive sentiment + reply from template&rdquo;) — when all conditions match,
                   ReviewBox publishes the reply without human approval.
                 </p>
                 <ul className="mt-4 space-y-2 text-sm text-gray-600 list-disc list-inside">
-                  <li>Disabled by default â€” opt-in per workspace</li>
+                  <li>Disabled by default — opt-in per workspace</li>
                   <li>Only template-tier replies can be auto-published (not AI-generated ones)</li>
                   <li>All auto-published replies are logged in the audit trail</li>
-                  <li>You can pause or disable auto-publish at any time from Settings â†’ Automations</li>
+                  <li>You can pause or disable auto-publish at any time from Settings → Automations</li>
                 </ul>
               </div>
             </div>
@@ -151,7 +151,7 @@ export default function AiRepliesPage() {
               <div className="rounded-2xl border border-gray-200 bg-white p-6">
                 <p className="text-sm text-gray-600 leading-relaxed">
                   Not yet. When you edit an AI draft before publishing, your edit is saved but not currently used
-                  to fine-tune the model. This is on the roadmap â€” the goal is for ReviewBox to learn your preferred
+                  to fine-tune the model. This is on the roadmap — the goal is for ReviewBox to learn your preferred
                   phrasing over time and reduce AI-generated replies in favour of cached edits.
                 </p>
               </div>
