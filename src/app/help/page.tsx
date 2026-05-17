@@ -1,12 +1,12 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { Search, BookOpen, Zap, CreditCard, Shield, ArrowRight } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
 export const metadata = {
-  title: "Help Center — ReviewBox",
+  title: "Help Center â€” ReviewBox",
   description:
-    "Guides, tutorials, and answers for ReviewBox — setup, AI replies, automations, billing, and more.",
+    "Guides, tutorials, and answers for ReviewBox â€” setup, AI replies, automations, billing, and more.",
 };
 
 const CATEGORIES = [
@@ -76,7 +76,7 @@ const POPULAR = [
 export default function HelpPage() {
   return (
     <div className="min-h-screen bg-[#F5F5F7]">
-      <MarketingNav cta="signin" />
+      <MarketingNav />
 
       {/* Breadcrumb */}
       <div className="mx-auto max-w-screen-xl px-6 py-3">
@@ -97,7 +97,7 @@ export default function HelpPage() {
             Search the docs, or browse by category below.
           </p>
 
-          {/* Search bar — decorative (no JS needed for static) */}
+          {/* Search bar â€” decorative (no JS needed for static) */}
           <div className="mt-8 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input

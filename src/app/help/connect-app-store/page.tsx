@@ -1,10 +1,10 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { CheckCircle, AlertCircle, ChevronRight } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
 export const metadata = {
-  title: "Connect the App Store — ReviewBox Help",
+  title: "Connect the App Store â€” ReviewBox Help",
   description:
     "Step-by-step guide to connecting your iOS app to ReviewBox using an App Store Connect API key.",
 };
@@ -31,18 +31,18 @@ const STEPS = [
     content: (
       <>
         <p>
-          Go to <strong>Users and Access → Integrations → App Store Connect API</strong>.
+          Go to <strong>Users and Access â†’ Integrations â†’ App Store Connect API</strong>.
         </p>
         <ol className="mt-3 space-y-2 text-sm list-decimal list-inside text-gray-600">
           <li>Click the <strong>+</strong> button to generate a new key</li>
           <li>Give it a name like <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">ReviewBox</code></li>
-          <li>Set <strong>Access</strong> to <strong>Customer Support</strong> — this grants read + reply access without billing permissions</li>
+          <li>Set <strong>Access</strong> to <strong>Customer Support</strong> â€” this grants read + reply access without billing permissions</li>
           <li>Click <strong>Generate</strong></li>
         </ol>
         <div className="mt-4 flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-100 p-4">
           <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
           <p className="text-sm text-amber-800">
-            Download the <code className="rounded bg-amber-100 px-1 text-xs">.p8</code> key file immediately — Apple only lets you download it once. If you lose it, you&apos;ll need to revoke and generate a new key.
+            Download the <code className="rounded bg-amber-100 px-1 text-xs">.p8</code> key file immediately â€” Apple only lets you download it once. If you lose it, you&apos;ll need to revoke and generate a new key.
           </p>
         </div>
       </>
@@ -75,7 +75,7 @@ const STEPS = [
     content: (
       <>
         <p>
-          In ReviewBox, go to <strong>Settings → Apps → Add app → App Store</strong>.
+          In ReviewBox, go to <strong>Settings â†’ Apps â†’ Add app â†’ App Store</strong>.
         </p>
         <ol className="mt-3 space-y-2 text-sm list-decimal list-inside text-gray-600">
           <li>Enter your <strong>Bundle ID</strong> (e.g. <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">com.yourcompany.yourapp</code>)</li>
@@ -105,7 +105,7 @@ const RELATED = [
 export default function ConnectAppStorePage() {
   return (
     <div className="min-h-screen bg-[#F5F5F7]">
-      <MarketingNav cta="signin" />
+      <MarketingNav />
 
       <div className="mx-auto max-w-screen-xl px-6 py-3">
         <nav className="flex items-center gap-1.5 text-xs text-gray-400">
@@ -120,13 +120,13 @@ export default function ConnectAppStorePage() {
       <main className="mx-auto max-w-screen-xl px-6 pb-32">
         <div className="pt-10 pb-8 max-w-3xl">
           <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-blue-600">
-            Getting started · 5 min
+            Getting started Â· 5 min
           </span>
           <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
             Connect the App Store
           </h1>
           <p className="mt-3 text-gray-500 leading-relaxed">
-            ReviewBox uses an App Store Connect API key to read and reply to your iOS reviews. Unlike the Google Play setup, there&apos;s no service account — just three credentials from App Store Connect.
+            ReviewBox uses an App Store Connect API key to read and reply to your iOS reviews. Unlike the Google Play setup, there&apos;s no service account â€” just three credentials from App Store Connect.
           </p>
         </div>
 
@@ -154,7 +154,7 @@ export default function ConnectAppStorePage() {
               <div>
                 <h3 className="font-semibold text-emerald-900">You&apos;re connected!</h3>
                 <p className="mt-1 text-sm text-emerald-800 leading-relaxed">
-                  Reviews will sync every 4 hours. Trigger a manual sync any time from <strong>Settings → Apps</strong>.
+                  Reviews will sync every 4 hours. Trigger a manual sync any time from <strong>Settings â†’ Apps</strong>.
                 </p>
               </div>
             </div>
