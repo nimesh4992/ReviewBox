@@ -24,6 +24,10 @@ export default function SignInPage() {
       <SignIn
         signUpUrl="/sign-up"
         appearance={{
+          layout: {
+            privacyPageUrl: "https://tryreviewbox.com/privacy",
+            termsPageUrl: "https://tryreviewbox.com/terms",
+          },
           variables: {
             colorPrimary: "#0A84FF",
             colorBackground: "#ffffff",

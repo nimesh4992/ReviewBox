@@ -181,7 +181,7 @@ function BillingContent() {
               {portalLoading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Openingâ€¦
+                  Opening…
                 </>
               ) : (
                 <>
@@ -284,7 +284,7 @@ function PlanCard({ plan, isLoading, isDisabled, onChoose }: PlanCardProps) {
         {isLoading ? (
           <>
             <Loader2 className="size-4 animate-spin" />
-            Redirectingâ€¦
+            Redirecting…
           </>
         ) : (
           "Choose Plan"

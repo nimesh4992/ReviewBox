@@ -424,7 +424,7 @@ export function InboxScreen({
           <div className="mb-3.5 flex items-end justify-between gap-4">
             <div>
               <div className="text-[12px] font-medium text-[var(--rb-fg-3)]">
-                {reviews.length} review{reviews.length !== 1 ? "s" : ""} this week
+                {reviews.length} review{reviews.length !== 1 ? "s" : ""}
               </div>
               <h1 className="mt-1 text-[24px] font-semibold leading-tight tracking-[-0.022em] text-[var(--rb-fg-1)]"
                   style={{ fontFamily: "var(--rb-font-display)" }}>
