@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { Check, ChevronRight, ExternalLink, Plug, X, Loader2 } from "lucide-react";
+import { Check, ChevronRight, Plug, X, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -530,67 +530,41 @@ function StepConnect({
     <div className="flex flex-col gap-6">
       <div>
         <h2 className="text-lg font-semibold text-white">
-          {isPlay
-            ? "Connect to Google Play Console"
-            : "Connect to App Store Connect"}
+          {isPlay ? "We'll fetch your reviews" : "One more thing for App Store"}
         </h2>
         <p className="mt-1 text-sm text-white/40">
-          Authorize ReviewBox to read your reviews and reply on your behalf.
+          {isPlay
+            ? "ReviewBox already has read & reply access to public Google Play data. Your reviews will appear in the inbox within 24 hours."
+            : "Apple requires per-app API credentials. You can add them in Settings → Apps after onboarding. We'll start syncing as soon as they're in."}
         </p>
       </div>
 
-      {/* OAuth card */}
       <div className="rounded-xl border border-white/[0.08] bg-[#0d0f14] p-5">
         <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.06]">
-            <Plug className="size-5 text-white/40" strokeWidth={1.5} />
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#0A84FF]/15">
+            <Plug className="size-5 text-[#0A84FF]" strokeWidth={1.5} />
           </div>
           <div className="flex-1">
             <p className="text-sm font-medium text-white">
-              {isPlay ? "Google Play Console" : "App Store Connect"}
+              {isPlay ? "Google Play sync" : "App Store sync"}
             </p>
             <p className="mt-0.5 text-xs text-white/35">
               {isPlay
-                ? "OAuth 2.0 — read & reply permissions"
-                : "API key — read & reply permissions"}
+                ? "Runs automatically once a day. First batch within 24h."
+                : "Add an App Store Connect API key in Settings to enable sync."}
             </p>
           </div>
         </div>
-
-        <div className="mt-4 flex items-center gap-3">
-          <div className="relative group">
-            <button
-              disabled
-              className="flex cursor-not-allowed items-center gap-2 rounded-lg border border-white/[0.06] bg-white/[0.04] px-4 py-2 text-sm font-medium text-white/25 transition-colors"
-            >
-              <ExternalLink className="size-4" strokeWidth={1.5} />
-              Authorize with {isPlay ? "Google" : "Apple"}
-            </button>
-            {/* Tooltip */}
-            <div className="pointer-events-none absolute bottom-full left-0 mb-2 hidden w-56 rounded-lg border border-white/[0.08] bg-[#1a1d27] px-3 py-2 text-xs text-white/60 shadow-xl group-hover:block">
-              Setting up — available in 48h
-            </div>
-          </div>
-        </div>
       </div>
 
-      <div className="flex flex-col gap-3">
-        <Button
-          onClick={onNext}
-          disabled={saving}
-          className="w-full bg-[#0A84FF] text-white hover:bg-[#006EE0] disabled:opacity-40"
-        >
-          {saving ? "Saving…" : "Continue"}
-          {!saving && <ChevronRight className="ml-1 size-4" strokeWidth={1.5} />}
-        </Button>
-        <button
-          onClick={onNext}
-          disabled={saving}
-          className="text-center text-sm text-white/30 underline-offset-2 hover:text-white/50 hover:underline disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          Skip for now
-        </button>
-      </div>
+      <Button
+        onClick={onNext}
+        disabled={saving}
+        className="w-full bg-[#0A84FF] text-white hover:bg-[#006EE0] disabled:opacity-40"
+      >
+        {saving ? "Saving…" : isPlay ? "Finish setup" : "Got it — continue"}
+        {!saving && <ChevronRight className="ml-1 size-4" strokeWidth={1.5} />}
+      </Button>
     </div>
   );
 }

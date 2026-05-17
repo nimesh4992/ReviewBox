@@ -243,7 +243,7 @@ async function upsertAndFinalize(
 
 // ── Main handler ───────────────────────────────────────────────────────────────
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
+async function handler(req: NextRequest): Promise<NextResponse> {
   if (!isAuthorized(req)) {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
@@ -276,6 +276,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   return NextResponse.json(summary);
 }
+
+// Vercel Cron uses GET. We also accept POST for manual triggers (curl/admin).
+export const GET = handler;
+export const POST = handler;
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
