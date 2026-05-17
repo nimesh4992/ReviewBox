@@ -1,9 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { ChevronRight, ExternalLink, Plug } from "lucide-react";
+import { Check, ChevronRight, ExternalLink, Plug, X, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -39,6 +39,14 @@ const STEPS = [
   { label: "Done" },
 ];
 
+type SlugStatus =
+  | { state: "idle" }
+  | { state: "checking" }
+  | { state: "available" }
+  | { state: "invalid" }
+  | { state: "reserved"; suggestions: string[] }
+  | { state: "taken"; suggestions: string[] };
+
 export default function OnboardingPage() {
   const router = useRouter();
   const [step, setStep] = useState(1);
@@ -50,7 +58,87 @@ export default function OnboardingPage() {
     storeId: "",
   });
   const [slugError, setSlugError] = useState<string | null>(null);
+  const [slugStatus, setSlugStatus] = useState<SlugStatus>({ state: "idle" });
   const [saving, setSaving] = useState(false);
+  const [hydrating, setHydrating] = useState(true);
+  const slugCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Resume: hydrate from server state on mount
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch("/api/onboarding/state");
+        if (!res.ok) return;
+        const data = await res.json() as {
+          onboarded: boolean;
+          hasWorkspace: boolean;
+          hasApp: boolean;
+          workspace: { name: string; slug: string } | null;
+          app: { name: string; platform: string; storeId: string } | null;
+        };
+        if (cancelled) return;
+
+        if (data.onboarded) {
+          router.replace("/dashboard");
+          return;
+        }
+
+        setForm((prev) => ({
+          ...prev,
+          workspaceName: data.workspace?.name ?? prev.workspaceName,
+          workspaceSlug: data.workspace?.slug ?? prev.workspaceSlug,
+          appName: data.app?.name ?? prev.appName,
+          platform: data.app?.platform === "app_store" ? "app-store" : prev.platform,
+          storeId: data.app?.storeId ?? prev.storeId,
+        }));
+
+        if (data.hasWorkspace && data.hasApp) setStep(3);
+        else if (data.hasWorkspace) setStep(2);
+      } catch {
+        /* fall through to step 1 */
+      } finally {
+        if (!cancelled) setHydrating(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [router]);
+
+  // Debounced slug availability check
+  useEffect(() => {
+    if (slugCheckTimer.current) clearTimeout(slugCheckTimer.current);
+    const slug = form.workspaceSlug.trim();
+    if (!slug) {
+      setSlugStatus({ state: "idle" });
+      return;
+    }
+    setSlugStatus({ state: "checking" });
+    slugCheckTimer.current = setTimeout(async () => {
+      try {
+        const res = await fetch(`/api/onboarding/slug-check?slug=${encodeURIComponent(slug)}`);
+        if (!res.ok) return;
+        const data = await res.json() as {
+          available: boolean;
+          reason?: "INVALID" | "RESERVED" | "TAKEN";
+          suggestions: string[];
+        };
+        if (data.available) {
+          setSlugStatus({ state: "available" });
+        } else if (data.reason === "INVALID") {
+          setSlugStatus({ state: "invalid" });
+        } else if (data.reason === "RESERVED") {
+          setSlugStatus({ state: "reserved", suggestions: data.suggestions });
+        } else {
+          setSlugStatus({ state: "taken", suggestions: data.suggestions });
+        }
+      } catch {
+        /* network error — leave status as checking; user can still proceed */
+      }
+    }, 400);
+    return () => {
+      if (slugCheckTimer.current) clearTimeout(slugCheckTimer.current);
+    };
+  }, [form.workspaceSlug]);
 
   const update = (key: keyof FormState, value: string) => {
     if (key === "workspaceName" || key === "workspaceSlug") {
@@ -160,16 +248,27 @@ export default function OnboardingPage() {
         </div>
 
         {/* Step content */}
-        {step === 1 && (
-          <StepWorkspace form={form} update={update} onNext={next} slugError={slugError} />
+        {hydrating && (
+          <div className="flex items-center justify-center py-20 text-white/40">
+            <Loader2 className="size-5 animate-spin" strokeWidth={1.5} />
+          </div>
         )}
-        {step === 2 && (
+        {!hydrating && step === 1 && (
+          <StepWorkspace
+            form={form}
+            update={update}
+            onNext={next}
+            slugError={slugError}
+            slugStatus={slugStatus}
+          />
+        )}
+        {!hydrating && step === 2 && (
           <StepApp form={form} update={update} onNext={next} />
         )}
-        {step === 3 && (
+        {!hydrating && step === 3 && (
           <StepConnect platform={form.platform} onNext={saveAndAdvance} saving={saving} />
         )}
-        {step === 4 && (
+        {!hydrating && step === 4 && (
           <StepDone onFinish={() => router.push("/dashboard")} />
         )}
       </div>
@@ -191,12 +290,25 @@ function StepWorkspace({
   update,
   onNext,
   slugError,
+  slugStatus,
 }: {
   form: FormState;
   update: (k: keyof FormState, v: string) => void;
   onNext: () => void;
   slugError: string | null;
+  slugStatus: SlugStatus;
 }) {
+  const slugBorder =
+    slugError || slugStatus.state === "taken" || slugStatus.state === "reserved" || slugStatus.state === "invalid"
+      ? "border-red-500/60"
+      : slugStatus.state === "available"
+        ? "border-emerald-500/60"
+        : "border-white/[0.08]";
+
+  const canContinue =
+    form.workspaceName.trim().length > 0 &&
+    (slugStatus.state === "available" || slugStatus.state === "idle");
+
   return (
     <div className="flex flex-col gap-6">
       <div>
@@ -225,10 +337,7 @@ function StepWorkspace({
           <Label className="text-white/60 text-xs font-medium uppercase tracking-wide">
             Workspace URL
           </Label>
-          <div className={cn(
-            "flex items-center overflow-hidden rounded-lg border bg-[#0d0f14] focus-within:border-[#0A84FF]",
-            slugError ? "border-red-500/60" : "border-white/[0.08]",
-          )}>
+          <div className={cn("flex items-center overflow-hidden rounded-lg border bg-[#0d0f14] focus-within:border-[#0A84FF]", slugBorder)}>
             <span className="select-none border-r border-white/[0.08] px-3 py-2 text-sm text-white/30">
               tryreviewbox.com/
             </span>
@@ -238,8 +347,29 @@ function StepWorkspace({
               placeholder="acme-inc"
               className="flex-1 bg-transparent px-3 py-2 text-sm text-white outline-none placeholder:text-white/20"
             />
+            <span className="pr-3">
+              {slugStatus.state === "checking" && (
+                <Loader2 className="size-4 animate-spin text-white/30" strokeWidth={1.5} />
+              )}
+              {slugStatus.state === "available" && (
+                <Check className="size-4 text-emerald-400" strokeWidth={2} />
+              )}
+              {(slugStatus.state === "taken" || slugStatus.state === "reserved" || slugStatus.state === "invalid") && (
+                <X className="size-4 text-red-400" strokeWidth={2} />
+              )}
+            </span>
           </div>
-          {slugError && (
+
+          {slugStatus.state === "invalid" && (
+            <p className="text-xs text-red-400">Use 3-40 lowercase letters, numbers, or hyphens.</p>
+          )}
+          {slugStatus.state === "reserved" && (
+            <SlugSuggestions label="That URL is reserved." suggestions={slugStatus.suggestions} onPick={(s) => update("workspaceSlug", s)} />
+          )}
+          {slugStatus.state === "taken" && (
+            <SlugSuggestions label="That URL is taken." suggestions={slugStatus.suggestions} onPick={(s) => update("workspaceSlug", s)} />
+          )}
+          {slugError && slugStatus.state !== "taken" && (
             <p className="text-xs text-red-400">{slugError}</p>
           )}
         </div>
@@ -247,12 +377,38 @@ function StepWorkspace({
 
       <Button
         onClick={onNext}
-        disabled={!form.workspaceName.trim()}
+        disabled={!canContinue}
         className="w-full bg-[#0A84FF] text-white hover:bg-[#006EE0] disabled:opacity-40"
       >
         Continue
         <ChevronRight className="ml-1 size-4" strokeWidth={1.5} />
       </Button>
+    </div>
+  );
+}
+
+function SlugSuggestions({
+  label,
+  suggestions,
+  onPick,
+}: {
+  label: string;
+  suggestions: string[];
+  onPick: (slug: string) => void;
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-xs text-red-400">{label}</span>
+      {suggestions.map((s) => (
+        <button
+          key={s}
+          type="button"
+          onClick={() => onPick(s)}
+          className="rounded-md border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 text-[11px] font-medium text-white/70 transition-colors hover:border-[#0A84FF] hover:text-[#0A84FF]"
+        >
+          {s}
+        </button>
+      ))}
     </div>
   );
 }
@@ -446,8 +602,8 @@ function StepConnect({
 function StepDone({ onFinish }: { onFinish: () => void }) {
   return (
     <div className="flex flex-col items-center gap-6 py-4 text-center">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#0A84FF]/10 text-5xl">
-        ðYZ?
+      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#0A84FF]/10">
+        <Check className="size-9 text-[#0A84FF]" strokeWidth={2.5} />
       </div>
       <div>
         <h2 className="text-xl font-semibold text-white">You&apos;re all set!</h2>

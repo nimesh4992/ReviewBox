@@ -115,11 +115,31 @@ export default clerkMiddleware(async (auth, request) => {
   await auth.protect();
 
   const { sessionClaims } = await auth();
-  const trialEndsAt = (sessionClaims?.metadata as { trialEndsAt?: string } | undefined)?.trialEndsAt;
-  const plan = (sessionClaims?.metadata as { plan?: string } | undefined)?.plan ?? "free";
+  const metadata = (sessionClaims?.metadata ?? {}) as {
+    onboarded?: boolean;
+    plan?: string;
+    trialEndsAt?: string;
+    paymentFailedAt?: string;
+  };
+  const onboarded = metadata.onboarded === true;
+  const plan = metadata.plan ?? "trial";
+  const trialEndsAt = metadata.trialEndsAt;
 
-  // Trial expiry
-  if (trialEndsAt && plan === "free") {
+  // Onboarding gate
+  const isOnboardingPath =
+    nextUrl.pathname === "/onboarding" ||
+    nextUrl.pathname.startsWith("/onboarding/") ||
+    nextUrl.pathname.startsWith("/api/onboarding");
+
+  if (!onboarded && !isOnboardingPath) {
+    return NextResponse.redirect(new URL("/onboarding", request.url));
+  }
+  if (onboarded && nextUrl.pathname === "/onboarding") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // Trial expiry (only while plan === "trial")
+  if (plan === "trial" && trialEndsAt) {
     const expired = new Date(trialEndsAt) < new Date();
     if (expired && !nextUrl.pathname.startsWith("/billing")) {
       const url = new URL("/billing", request.url);
@@ -128,15 +148,16 @@ export default clerkMiddleware(async (auth, request) => {
     }
   }
 
-  // Billing gate
-  if (isBilledRoute(request) && (!plan || plan === "free")) {
+  // Billing gate — only paid plans access billed routes
+  const paidPlans = new Set(["starter", "pro", "team"]);
+  if (isBilledRoute(request) && !paidPlans.has(plan)) {
     const billingUrl = new URL("/billing", request.url);
     billingUrl.searchParams.set("required", "1");
     return NextResponse.redirect(billingUrl);
   }
 
   // Payment grace period
-  const paymentFailedAt = (sessionClaims?.metadata as { paymentFailedAt?: string } | undefined)?.paymentFailedAt;
+  const paymentFailedAt = metadata.paymentFailedAt;
   if (paymentFailedAt) {
     const graceExpired = new Date(new Date(paymentFailedAt).getTime() + 7 * 86400000) < new Date();
     if (graceExpired && !nextUrl.pathname.startsWith("/billing")) {
