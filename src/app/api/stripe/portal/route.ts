@@ -16,6 +16,13 @@ export async function POST() {
     return NextResponse.json({ error: "No email found" }, { status: 400 });
   }
 
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return NextResponse.json(
+      { error: "STRIPE_NOT_CONFIGURED" },
+      { status: 503 },
+    );
+  }
+
   const existing = await stripe.customers.list({ email: userEmail, limit: 1 });
 
   if (!existing.data.length) {

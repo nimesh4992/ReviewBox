@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { AlertOctagon, Download, Sparkles, TrendingUp, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
 import { useApps } from "@/hooks/use-apps";
+import { TrialBanner } from "@/components/dashboard/trial-banner";
+import { UpgradeToast } from "@/components/dashboard/upgrade-toast";
 
 // ── Static attention items (real data from incident feed — wire later) ─────────
 
@@ -91,6 +93,10 @@ export default function DashboardPage() {
 
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8" style={{ maxWidth: 1240, margin: "0 auto" }}>
+      <Suspense fallback={null}>
+        <UpgradeToast />
+      </Suspense>
+      <TrialBanner />
 
       {/* Page header */}
       <header className="flex items-end justify-between gap-6">

@@ -88,14 +88,19 @@ function BillingContent() {
       });
 
       if (!res.ok) {
-        await res.json();
+        const data = (await res.json().catch(() => ({}))) as { error?: string };
+        if (data.error === "STRIPE_NOT_CONFIGURED") {
+          throw new Error(
+            "Billing is not set up yet. Add Stripe test keys to enable checkout.",
+          );
+        }
         throw new Error("Unable to start checkout. Please try again.");
       }
 
       const data = (await res.json()) as { url: string };
       router.push(data.url);
-    } catch {
-      setError("Unable to start checkout. Please try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to start checkout. Please try again.");
       setLoadingPlan(null);
     }
   }

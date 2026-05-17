@@ -18,6 +18,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Invalid plan" }, { status: 400 });
   }
 
+  if (!process.env.STRIPE_SECRET_KEY) {
+    return NextResponse.json(
+      { error: "STRIPE_NOT_CONFIGURED", message: "Add Stripe test keys to .env.local to enable checkout." },
+      { status: 503 },
+    );
+  }
+
   const user = await currentUser();
   const userEmail = user?.emailAddresses?.[0]?.emailAddress;
 
@@ -39,21 +46,25 @@ export async function POST(request: NextRequest) {
     customerId = customer.id;
   }
 
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
+    client_reference_id: userId,
     line_items: [
       {
         price: PRICE_IDS[plan],
         quantity: 1,
       },
     ],
-    success_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard?upgraded=1`,
-    cancel_url: `${process.env.NEXT_PUBLIC_APP_URL}/billing`,
+    success_url: `${appUrl}/dashboard?upgraded=1&plan=${plan}`,
+    cancel_url: `${appUrl}/billing`,
     metadata: { clerkUserId: userId, plan },
     subscription_data: {
       metadata: { clerkUserId: userId, plan },
     },
+    allow_promotion_codes: true,
   });
 
   return NextResponse.json({ url: session.url }, { status: 200 });

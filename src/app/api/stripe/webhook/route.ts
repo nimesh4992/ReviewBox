@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { stripe } from "@/lib/stripe";
 import Stripe from "stripe";
-import { sendWelcomeEmail } from "@/lib/email/send-welcome";
 import { sendPaymentFailedEmail } from "@/lib/email/send-payment-failed";
 
 export const dynamic = "force-dynamic";
@@ -11,20 +10,29 @@ async function syncPlanToSupabase(clerkUserId: string, plan: string) {
   const { createClient } = await import("@supabase/supabase-js");
   const sb = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
   );
-  await sb
+  const { data } = await sb
     .from("workspace_members")
     .select("workspace_id")
     .eq("clerk_user_id", clerkUserId)
-    .limit(1)
-    .then(async ({ data }) => {
-      if (!data?.length) return;
-      await sb
-        .from("workspaces")
-        .update({ plan })
-        .eq("id", data[0].workspace_id);
-    });
+    .limit(1);
+  if (!data?.length) return;
+  await sb.from("workspaces").update({ plan }).eq("id", data[0].workspace_id);
+}
+
+async function updateUserPlan(
+  clerkUserId: string,
+  patch: { plan?: string; trialEndsAt?: string | null; paymentFailedAt?: string | null },
+) {
+  const clerk = await clerkClient();
+  const user = await clerk.users.getUser(clerkUserId);
+  await clerk.users.updateUserMetadata(clerkUserId, {
+    publicMetadata: {
+      ...user.publicMetadata,
+      ...patch,
+    },
+  });
 }
 
 export async function POST(request: NextRequest) {
@@ -41,7 +49,7 @@ export async function POST(request: NextRequest) {
     event = stripe.webhooks.constructEvent(
       Buffer.from(rawBody),
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET!
+      process.env.STRIPE_WEBHOOK_SECRET!,
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Signature verification failed";
@@ -49,32 +57,41 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: message }, { status: 400 });
   }
 
-  const clerk = await clerkClient();
-
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
-      const clerkUserId = session.metadata?.clerkUserId;
+      const clerkUserId = session.metadata?.clerkUserId ?? session.client_reference_id;
       const plan = session.metadata?.plan;
 
       if (clerkUserId && plan) {
-        await clerk.users.updateUserMetadata(clerkUserId, {
-          publicMetadata: { plan, paymentFailedAt: null },
+        // Trial → paid: set plan, clear trial expiry, clear payment-failed flag
+        await updateUserPlan(clerkUserId, {
+          plan,
+          trialEndsAt: null,
+          paymentFailedAt: null,
         });
         await syncPlanToSupabase(clerkUserId, plan);
       }
+      break;
+    }
 
-      // Send welcome email
-      if (session.customer) {
-        try {
-          const customer = await stripe.customers.retrieve(session.customer as string) as Stripe.Customer;
-          if (customer.email) {
-            const customerName = customer.name ?? customer.email.split("@")[0];
-            await sendWelcomeEmail(customer.email, customerName);
-          }
-        } catch (err) {
-          console.error("[stripe/webhook] Failed to send welcome email:", err);
-        }
+    case "customer.subscription.updated": {
+      const subscription = event.data.object as Stripe.Subscription;
+      const clerkUserId = subscription.metadata?.clerkUserId;
+      const plan = subscription.metadata?.plan;
+
+      if (clerkUserId && plan) {
+        const status = subscription.status;
+        const mappedPlan =
+          status === "active" || status === "trialing"
+            ? plan
+            : status === "past_due"
+              ? "past_due"
+              : status === "canceled"
+                ? "canceled"
+                : plan;
+        await updateUserPlan(clerkUserId, { plan: mappedPlan });
+        await syncPlanToSupabase(clerkUserId, mappedPlan);
       }
       break;
     }
@@ -84,10 +101,31 @@ export async function POST(request: NextRequest) {
       const clerkUserId = subscription.metadata?.clerkUserId;
 
       if (clerkUserId) {
-        await clerk.users.updateUserMetadata(clerkUserId, {
-          publicMetadata: { plan: "free" },
-        });
-        await syncPlanToSupabase(clerkUserId, "free");
+        await updateUserPlan(clerkUserId, { plan: "canceled" });
+        await syncPlanToSupabase(clerkUserId, "canceled");
+      }
+      break;
+    }
+
+    case "invoice.payment_succeeded": {
+      // Payment recovered — clear the failure flag if it was set
+      const invoice = event.data.object as Stripe.Invoice;
+      const invoiceAny = invoice as unknown as Record<string, unknown>;
+      const subscriptionId =
+        (invoiceAny.subscription as string | undefined) ??
+        ((invoiceAny.parent as { subscription_details?: { subscription?: string } } | undefined)
+          ?.subscription_details?.subscription);
+
+      if (subscriptionId) {
+        try {
+          const sub = await stripe.subscriptions.retrieve(subscriptionId);
+          const clerkUserId = sub.metadata?.clerkUserId;
+          if (clerkUserId) {
+            await updateUserPlan(clerkUserId, { paymentFailedAt: null });
+          }
+        } catch (err) {
+          console.error("[stripe/webhook] payment_succeeded recovery:", err);
+        }
       }
       break;
     }
@@ -96,13 +134,12 @@ export async function POST(request: NextRequest) {
       const invoice = event.data.object as Stripe.Invoice;
       console.warn("[stripe/webhook] Payment failed for invoice:", invoice.id);
 
-      // Resolve clerkUserId via the subscription metadata
-      // Note: Stripe 2026 API moved invoice.subscription → invoice.parent
       const invoiceAny = invoice as unknown as Record<string, unknown>;
       const subscriptionId =
         (invoiceAny.subscription as string | undefined) ??
         ((invoiceAny.parent as { subscription_details?: { subscription?: string } } | undefined)
           ?.subscription_details?.subscription);
+
       let failedClerkUserId: string | null = null;
       if (subscriptionId) {
         try {
@@ -113,18 +150,16 @@ export async function POST(request: NextRequest) {
         }
       }
 
-      // Set paymentFailedAt in Clerk user metadata
       if (failedClerkUserId) {
         try {
-          await clerk.users.updateUserMetadata(failedClerkUserId, {
-            publicMetadata: { paymentFailedAt: new Date().toISOString() },
+          await updateUserPlan(failedClerkUserId, {
+            paymentFailedAt: new Date().toISOString(),
           });
         } catch (err) {
           console.error("[stripe/webhook] Failed to set paymentFailedAt:", err);
         }
       }
 
-      // Send payment-failed email
       if (invoice.customer) {
         try {
           const customer = await stripe.customers.retrieve(invoice.customer as string) as Stripe.Customer;
