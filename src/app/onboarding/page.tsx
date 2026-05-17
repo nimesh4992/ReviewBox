@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
 import { Check, ChevronRight, Plug, X, Loader2 } from "lucide-react";
+import { track } from "@/lib/analytics";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -185,6 +186,7 @@ export default function OnboardingPage() {
       }
 
       await res.json() as OnboardingResult;
+      track({ name: "onboarding_completed", properties: { platform: form.platform } });
       next();
     } catch {
       setSlugError("Network error. Please try again.");

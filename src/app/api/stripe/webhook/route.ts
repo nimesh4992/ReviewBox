@@ -3,10 +3,11 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { stripe } from "@/lib/stripe";
 import Stripe from "stripe";
 import { sendPaymentFailedEmail } from "@/lib/email/send-payment-failed";
+import { audit } from "@/lib/audit";
 
 export const dynamic = "force-dynamic";
 
-async function syncPlanToSupabase(clerkUserId: string, plan: string) {
+async function syncPlanToSupabase(clerkUserId: string, plan: string): Promise<string | null> {
   const { createClient } = await import("@supabase/supabase-js");
   const sb = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -17,8 +18,10 @@ async function syncPlanToSupabase(clerkUserId: string, plan: string) {
     .select("workspace_id")
     .eq("clerk_user_id", clerkUserId)
     .limit(1);
-  if (!data?.length) return;
-  await sb.from("workspaces").update({ plan }).eq("id", data[0].workspace_id);
+  if (!data?.length) return null;
+  const workspaceId = data[0].workspace_id as string;
+  await sb.from("workspaces").update({ plan }).eq("id", workspaceId);
+  return workspaceId;
 }
 
 async function updateUserPlan(
@@ -70,7 +73,15 @@ export async function POST(request: NextRequest) {
           trialEndsAt: null,
           paymentFailedAt: null,
         });
-        await syncPlanToSupabase(clerkUserId, plan);
+        const workspaceId = await syncPlanToSupabase(clerkUserId, plan);
+        await audit({
+          workspaceId,
+          actorUserId: clerkUserId,
+          action: "billing.upgrade",
+          targetType: "subscription",
+          targetId: session.subscription as string | undefined,
+          payload: { plan, stripeSessionId: session.id, amountTotal: session.amount_total },
+        });
       }
       break;
     }
@@ -102,7 +113,15 @@ export async function POST(request: NextRequest) {
 
       if (clerkUserId) {
         await updateUserPlan(clerkUserId, { plan: "canceled" });
-        await syncPlanToSupabase(clerkUserId, "canceled");
+        const workspaceId = await syncPlanToSupabase(clerkUserId, "canceled");
+        await audit({
+          workspaceId,
+          actorUserId: clerkUserId,
+          action: "billing.cancel",
+          targetType: "subscription",
+          targetId: subscription.id,
+          payload: { canceledAt: new Date().toISOString() },
+        });
       }
       break;
     }
@@ -154,6 +173,14 @@ export async function POST(request: NextRequest) {
         try {
           await updateUserPlan(failedClerkUserId, {
             paymentFailedAt: new Date().toISOString(),
+          });
+          await audit({
+            workspaceId: null,
+            actorUserId: failedClerkUserId,
+            action: "billing.payment_failed",
+            targetType: "subscription",
+            targetId: subscriptionId,
+            payload: { invoiceId: invoice.id, retryAt: invoice.next_payment_attempt },
           });
         } catch (err) {
           console.error("[stripe/webhook] Failed to set paymentFailedAt:", err);

@@ -1,12 +1,13 @@
 ﻿"use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, Check, Loader2, ExternalLink, Zap } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { track } from "@/lib/analytics";
 
 type PlanId = "starter" | "pro" | "team";
 
@@ -71,14 +72,28 @@ const PLANS: Plan[] = [
 function BillingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const trialExpired = searchParams.get("reason") === "trial-expired";
+  const reason = searchParams.get("reason");
+  const required = searchParams.get("required") === "1";
+  const trialExpired = reason === "trial-expired";
   const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const reasonProp = required
+      ? ("required" as const)
+      : reason === "trial-expired"
+        ? ("trial-expired" as const)
+        : reason === "payment-failed"
+          ? ("payment-failed" as const)
+          : ("direct" as const);
+    track({ name: "billing_viewed", properties: { reason: reasonProp } });
+  }, [reason, required]);
+
   async function handleChoosePlan(planId: PlanId) {
     setLoadingPlan(planId);
     setError(null);
+    track({ name: "upgrade_clicked", properties: { plan: planId } });
 
     try {
       const res = await fetch("/api/stripe/checkout", {

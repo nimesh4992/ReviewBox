@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { audit } from "@/lib/audit";
 import { submitReply as submitGooglePlayReply } from "@/services/google-play/publisher-api";
 import {
   buildJWT,
@@ -102,6 +103,19 @@ export async function POST(
       console.error("[reply] Supabase update failed:", updateError);
       return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
     }
+
+    await audit({
+      workspaceId,
+      actorUserId: userId,
+      action: status === "sent" ? "reply.publish" : "reply.draft.generate",
+      targetType: "review",
+      targetId: reviewId,
+      payload: {
+        replyLength: replyText.trim().length,
+        source: (review.apps && (Array.isArray(review.apps) ? review.apps[0]?.platform : (review.apps as { platform?: string }).platform)) ?? null,
+      },
+      request: req,
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {

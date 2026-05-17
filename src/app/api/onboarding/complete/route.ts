@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { sendWelcomeEmail } from "@/lib/email/send-welcome";
+import { audit } from "@/lib/audit";
 
 interface OnboardingBody {
   workspaceName: string;
@@ -39,6 +40,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .maybeSingle();
 
   let workspaceId: string;
+
+  const workspaceWasJustCreated = !existingMember?.workspace_id;
 
   if (existingMember?.workspace_id) {
     workspaceId = existingMember.workspace_id as string;
@@ -135,6 +138,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   } catch (err) {
     // Non-fatal — workspace created, just metadata/email failed
     console.error("[onboarding] post-create hooks:", err);
+  }
+
+  if (workspaceWasJustCreated) {
+    await audit({
+      workspaceId,
+      actorUserId: userId,
+      action: "workspace.create",
+      targetType: "workspace",
+      targetId: workspaceId,
+      payload: { workspaceName, workspaceSlug, platform, appName },
+      request: req,
+    });
   }
 
   return NextResponse.json({ workspaceId, appId }, { status: 200 });

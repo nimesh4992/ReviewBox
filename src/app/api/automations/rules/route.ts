@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { audit } from "@/lib/audit";
 import type { AutomationAction, AutomationCondition } from "@/types/review";
 
 interface CreateRuleBody {
@@ -92,6 +93,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       { status: 500 },
     );
   }
+
+  await audit({
+    workspaceId,
+    actorUserId: userId,
+    action: "rule.create",
+    targetType: "rule",
+    targetId: data.id as string,
+    payload: { name, action, appsScope },
+    request: req,
+  });
 
   return NextResponse.json({ rule: data }, { status: 201 });
 }

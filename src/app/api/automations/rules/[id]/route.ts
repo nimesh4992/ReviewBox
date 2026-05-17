@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { audit } from "@/lib/audit";
 
 interface PatchRuleBody {
   name?: string;
@@ -65,11 +66,21 @@ export async function PATCH(
     );
   }
 
+  await audit({
+    workspaceId,
+    actorUserId: userId,
+    action: "rule.update",
+    targetType: "rule",
+    targetId: id,
+    payload: { changedFields: Object.keys(updates) },
+    request: req,
+  });
+
   return NextResponse.json({ rule: data }, { status: 200 });
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   // 1. Auth
@@ -102,6 +113,15 @@ export async function DELETE(
       { status: 500 },
     );
   }
+
+  await audit({
+    workspaceId,
+    actorUserId: userId,
+    action: "rule.delete",
+    targetType: "rule",
+    targetId: id,
+    request: req,
+  });
 
   return NextResponse.json({ success: true }, { status: 200 });
 }

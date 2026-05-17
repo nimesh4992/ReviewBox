@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { CheckCircle2 } from "lucide-react";
+import { track } from "@/lib/analytics";
 
 const PLAN_LABEL: Record<string, string> = {
   starter: "Starter",
@@ -18,8 +19,12 @@ export function UpgradeToast() {
 
   useEffect(() => {
     if (searchParams.get("upgraded") === "1") {
-      setPlan(searchParams.get("plan") ?? "");
+      const p = searchParams.get("plan") ?? "";
+      setPlan(p);
       setVisible(true);
+      if (p === "starter" || p === "pro" || p === "team") {
+        track({ name: "upgrade_completed", properties: { plan: p } });
+      }
       // Clean the URL so a refresh doesn't re-show the toast
       router.replace("/dashboard");
       const t = setTimeout(() => setVisible(false), 5000);
