@@ -20,7 +20,8 @@ These are the next items to ship. Don't skip; don't reorder without thinking.
 **Why now:** Nothing else can be tested end-to-end until prod schema matches code.
 **HUMAN-REQUIRED** (founder runs SQL in Supabase dashboard).
 
-### [ ] N2 · Notification panel — empty state instead of fake data · ICE 72 (8×9÷1)
+### [x] N2 · Notification panel — empty state instead of fake data · ICE 72 (8×9÷1)
+*Shipped on branch `claude/n2-notification-panel-empty-state`. Replaced hardcoded 3-item array with empty array + comment pointing to future real-feed work. "Mark all read" button hidden when empty. As a side-effect fixed lint error in `test-play-api.ts` so CI now passes.*
 **Effort:** 30 min.
 **Done when:** Top-nav bell shows real notifications only. No "Crash spike v2.4.1" hardcoded items.
 **Files:** `src/components/layout/top-navigation.tsx`

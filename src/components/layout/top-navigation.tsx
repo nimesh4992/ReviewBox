@@ -34,32 +34,11 @@ interface Notification {
   href: string;
 }
 
-const SAMPLE_NOTIFICATIONS: Notification[] = [
-  {
-    id: "1",
-    severity: "red",
-    title: "Crash spike detected",
-    subtitle: "21 reviews mention crashes in v2.4.1",
-    time: "2h ago",
-    href: "/incidents",
-  },
-  {
-    id: "2",
-    severity: "yellow",
-    title: "46 reviews need a reply",
-    subtitle: "Oldest is 3 days ago",
-    time: "Today",
-    href: "/inbox",
-  },
-  {
-    id: "3",
-    severity: "green",
-    title: "Weekly digest ready",
-    subtitle: "Your app rating improved 0.2★ this week",
-    time: "Yesterday",
-    href: "/dashboard",
-  },
-];
+// Notifications are intentionally empty here. A real notification feed
+// (rating spikes, urgent unreplied, incidents) is queued for a future
+// backlog item. Until then we show the "all caught up" empty state to
+// avoid presenting hardcoded data for apps the user doesn't have.
+const NOTIFICATIONS: Notification[] = [];
 
 const severityDot: Record<NotifSeverity, string> = {
   red: "bg-red-400",
@@ -175,18 +154,20 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
               <SheetTitle className="text-sm font-semibold text-gray-900">
                 Notifications
               </SheetTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs text-gray-400 hover:text-gray-600"
-              >
-                Mark all read
-              </Button>
+              {NOTIFICATIONS.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-gray-400 hover:text-gray-600"
+                >
+                  Mark all read
+                </Button>
+              )}
             </SheetHeader>
 
             {/* Notification list */}
             <div className="flex-1 overflow-y-auto">
-              {SAMPLE_NOTIFICATIONS.length === 0 ? (
+              {NOTIFICATIONS.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
                   <CheckCircle
                     className="size-8 text-gray-300"
@@ -196,7 +177,7 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
                 </div>
               ) : (
                 <ul className="divide-y divide-gray-50">
-                  {SAMPLE_NOTIFICATIONS.map((notif) => (
+                  {NOTIFICATIONS.map((notif) => (
                     <li key={notif.id}>
                       <button
                         onClick={() => handleNotifClick(notif.href)}
