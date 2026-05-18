@@ -21,11 +21,12 @@ async function runTest() {
       console.log("\nHere is a preview of the latest review:");
       console.log(JSON.stringify(reviews[0], null, 2));
     }
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error("\n❌ Test Failed!");
-    console.error(error.message);
-    if (error.response?.data) {
-      console.error("Google API Details:", error.response.data);
+    const err = error as { message?: string; response?: { data?: unknown } };
+    console.error(err.message);
+    if (err.response?.data) {
+      console.error("Google API Details:", err.response.data);
     }
   }
 }
