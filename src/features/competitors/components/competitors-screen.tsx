@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useWorkspaceStore } from "@/store/use-workspace-store";
 
 function MetricCard({
   label,
@@ -53,8 +54,8 @@ function MiniSparkline({ values, positive = true }: { values: number[]; positive
   );
 }
 
-const COMPETITORS = [
-  { name: "Acme Banking",   rating: 4.6, reviews: 312, replyRate: 72, trend: [4.2, 4.3, 4.4, 4.5, 4.6, 4.6], you: true  },
+const COMPETITORS_BASE = [
+  { name: "",               rating: 4.6, reviews: 312, replyRate: 72, trend: [4.2, 4.3, 4.4, 4.5, 4.6, 4.6], you: true  },
   { name: "FinanceFlow",    rating: 4.8, reviews: 520, replyRate: 61, trend: [4.5, 4.6, 4.7, 4.7, 4.8, 4.8], you: false },
   { name: "MoneyTree",      rating: 4.5, reviews: 289, replyRate: 48, trend: [4.6, 4.5, 4.5, 4.4, 4.5, 4.5], you: false },
   { name: "SpendSmart",     rating: 4.3, reviews: 198, replyRate: 35, trend: [4.4, 4.3, 4.2, 4.3, 4.3, 4.3], you: false },
@@ -63,6 +64,10 @@ const COMPETITORS = [
 
 export function CompetitorsScreen() {
   const [range, setRange] = useState<"7d" | "30d" | "90d">("30d");
+  const selectedApp = useWorkspaceStore((s) => s.selectedApp);
+  const COMPETITORS = COMPETITORS_BASE.map((c) =>
+    c.you ? { ...c, name: selectedApp || "Your app" } : c,
+  );
 
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8 max-w-[1240px] mx-auto">
@@ -70,7 +75,7 @@ export function CompetitorsScreen() {
       {/* Header */}
       <header className="flex items-end justify-between gap-6">
         <div>
-          <div className="text-[12px] font-medium text-fg-3">Acme Banking · iOS</div>
+          <div className="text-[12px] font-medium text-fg-3">{selectedApp || "All apps"}</div>
           <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.022em] text-fg-1">
             Competitors
           </h1>

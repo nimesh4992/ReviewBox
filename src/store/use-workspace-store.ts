@@ -24,6 +24,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       setTheme: (theme) => set({ theme }),
       toggleTheme: () => set({ theme: get().theme === "light" ? "dark" : "light" }),
     }),
-    { name: "revi-workspace" },
+    { name: "reviewbox-workspace" },
   ),
 );

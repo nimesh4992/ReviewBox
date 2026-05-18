@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Hash, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,15 @@ export function AlertPreferences() {
   const [prefs, setPrefs] = useState<AlertPreference[]>(mockAlertPreferences);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+
+  useEffect(() => {
+    fetch("/api/settings/alerts")
+      .then((r) => r.ok ? r.json() : null)
+      .then((data: { preferences: AlertPreference[] } | null) => {
+        if (data?.preferences?.length) setPrefs(data.preferences);
+      })
+      .catch(() => null);
+  }, []);
 
   async function savePreferences() {
     setSaving(true);

@@ -15,6 +15,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { enrichReview } from "@/lib/rules-engine";
 import { analyzeSentimentBatch } from "@/lib/gemini";
+import { rateLimit } from "@/lib/api-rate-limit";
+import { apiError, captureAndError } from "@/lib/api-response";
 import type { AppReview } from "@/types/review";
 
 export interface AnalysisResult {
@@ -36,27 +38,26 @@ function chunk<T>(arr: T[], size: number): T[][] {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    // Auth
     const session = await auth();
     if (!session?.userId) {
-      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+      return apiError("UNAUTHORIZED", 401);
+    }
+
+    // Gemini quota guard: 20 batch requests / 10 min / user.
+    const rl = await rateLimit(req, session.userId, { bucket: "sentiment", limit: 20, window: "10 m" });
+    if (!rl.allowed) {
+      return apiError("RATE_LIMITED", 429);
     }
 
     const body = (await req.json()) as { reviews?: AppReview[] };
     const reviews = body.reviews;
 
     if (!Array.isArray(reviews) || reviews.length === 0) {
-      return NextResponse.json(
-        { error: "reviews must be a non-empty array" },
-        { status: 400 },
-      );
+      return apiError("INVALID_INPUT", 400, "reviews must be a non-empty array");
     }
 
     if (reviews.length > 100) {
-      return NextResponse.json(
-        { error: "Maximum 100 reviews per request" },
-        { status: 400 },
-      );
+      return apiError("INVALID_INPUT", 400, "Maximum 100 reviews per request");
     }
 
     // ── TIER 1: Rules engine on ALL reviews (0 API calls) ───────────────────
@@ -115,7 +116,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ results }, { status: 200 });
   } catch (err) {
-    console.error("Unexpected error in /api/sentiment/analyze:", err);
-    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
+    return captureAndError(err, "POST /api/sentiment/analyze");
   }
 }

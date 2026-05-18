@@ -1,12 +1,13 @@
 ﻿"use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, Check, Loader2, ExternalLink, Zap } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { track } from "@/lib/analytics";
 
 type PlanId = "starter" | "pro" | "team";
 
@@ -71,14 +72,28 @@ const PLANS: Plan[] = [
 function BillingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const trialExpired = searchParams.get("reason") === "trial-expired";
+  const reason = searchParams.get("reason");
+  const required = searchParams.get("required") === "1";
+  const trialExpired = reason === "trial-expired";
   const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const reasonProp = required
+      ? ("required" as const)
+      : reason === "trial-expired"
+        ? ("trial-expired" as const)
+        : reason === "payment-failed"
+          ? ("payment-failed" as const)
+          : ("direct" as const);
+    track({ name: "billing_viewed", properties: { reason: reasonProp } });
+  }, [reason, required]);
+
   async function handleChoosePlan(planId: PlanId) {
     setLoadingPlan(planId);
     setError(null);
+    track({ name: "upgrade_clicked", properties: { plan: planId } });
 
     try {
       const res = await fetch("/api/stripe/checkout", {
@@ -88,14 +103,20 @@ function BillingContent() {
       });
 
       if (!res.ok) {
-        await res.json();
-        throw new Error("Unable to start checkout. Please try again.");
+        const data = (await res.json().catch(() => ({}))) as { error?: { code?: string; message?: string } };
+        if (data.error?.code === "STRIPE_NOT_CONFIGURED") {
+          throw new Error("Billing is not set up yet. Add Stripe test keys to enable checkout.");
+        }
+        if (data.error?.code === "RATE_LIMITED") {
+          throw new Error("Too many attempts. Please wait a minute and try again.");
+        }
+        throw new Error(data.error?.message ?? "Unable to start checkout. Please try again.");
       }
 
       const data = (await res.json()) as { url: string };
       router.push(data.url);
-    } catch {
-      setError("Unable to start checkout. Please try again.");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Unable to start checkout. Please try again.");
       setLoadingPlan(null);
     }
   }
@@ -108,11 +129,14 @@ function BillingContent() {
       const res = await fetch("/api/stripe/portal", { method: "POST" });
 
       if (!res.ok) {
-        const data = (await res.json()) as { error?: string };
-        if (data.error === "NO_SUBSCRIPTION") {
+        const data = (await res.json()) as { error?: { code?: string; message?: string } };
+        if (res.status === 404) {
           throw new Error("No active subscription found. Choose a plan below to get started.");
         }
-        throw new Error("Unable to open billing portal. Please try again.");
+        if (data.error?.code === "STRIPE_NOT_CONFIGURED") {
+          throw new Error("Billing is not set up yet.");
+        }
+        throw new Error(data.error?.message ?? "Unable to open billing portal. Please try again.");
       }
 
       const { url } = (await res.json()) as { url: string };
@@ -181,7 +205,7 @@ function BillingContent() {
               {portalLoading ? (
                 <>
                   <Loader2 className="size-4 animate-spin" />
-                  Openingâ€¦
+                  Opening…
                 </>
               ) : (
                 <>
@@ -284,7 +308,7 @@ function PlanCard({ plan, isLoading, isDisabled, onChoose }: PlanCardProps) {
         {isLoading ? (
           <>
             <Loader2 className="size-4 animate-spin" />
-            Redirectingâ€¦
+            Redirecting…
           </>
         ) : (
           "Choose Plan"

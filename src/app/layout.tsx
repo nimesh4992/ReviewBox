@@ -8,6 +8,7 @@ import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { CookieBanner } from "@/components/layout/cookie-banner";
 import { PostHogProvider } from "@/components/providers/posthog-provider";
+import { SentryIdentify } from "@/components/providers/sentry-identify";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -58,6 +59,7 @@ export default function RootLayout({
         <body className={`${inter.variable} antialiased`} suppressHydrationWarning>
           <QueryProvider>
             <PostHogProvider>
+              <SentryIdentify />
               <ThemeProvider>{children}</ThemeProvider>
             </PostHogProvider>
           </QueryProvider>

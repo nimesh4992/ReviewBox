@@ -2,6 +2,9 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { audit } from "@/lib/audit";
+import { rateLimit } from "@/lib/api-rate-limit";
+import { apiError, captureAndError } from "@/lib/api-response";
 import { submitReply as submitGooglePlayReply } from "@/services/google-play/publisher-api";
 import {
   buildJWT,
@@ -25,12 +28,18 @@ export async function POST(
     const session = await auth();
     const userId = session?.userId;
     if (!userId) {
-      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+      return apiError("UNAUTHORIZED", 401);
+    }
+
+    // 30 reply publishes per 10 min — protects store APIs from abuse.
+    const rl = await rateLimit(req, userId, { bucket: "reply-publish", limit: 30, window: "10 m" });
+    if (!rl.allowed) {
+      return apiError("RATE_LIMITED", 429);
     }
 
     const workspaceId = await getWorkspaceId(userId);
     if (!workspaceId) {
-      return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
+      return apiError("NO_WORKSPACE", 404);
     }
 
     const { id: reviewId } = await params;
@@ -38,7 +47,7 @@ export async function POST(
     const { replyText, status } = body;
 
     if (!replyText?.trim() || !status) {
-      return NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
+      return apiError("MISSING_FIELDS", 400);
     }
 
     const sb = getServiceClient();
@@ -52,7 +61,7 @@ export async function POST(
       .single();
 
     if (lookupError || !review) {
-      return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+      return apiError("NOT_FOUND", 404);
     }
 
     // ── Publish to store if status = "sent" ──────────────────────────────────
@@ -66,7 +75,7 @@ export async function POST(
           await submitGooglePlayReply(app.store_id, review.external_id, replyText.trim());
         } else if (app?.platform === "app_store") {
           if (!app.access_token || !app.refresh_token) {
-            return NextResponse.json({ error: "APP_STORE_NOT_CONNECTED" }, { status: 422 });
+            return apiError("APP_STORE_NOT_CONNECTED", 422);
           }
           const creds = JSON.parse(app.access_token) as { keyId: string; issuerId: string };
           const jwt = await buildJWT(creds.keyId, creds.issuerId, app.refresh_token);
@@ -77,12 +86,12 @@ export async function POST(
         console.error("[reply] store submit failed:", msg);
 
         if (msg.includes("429") || msg.toLowerCase().includes("quota")) {
-          return NextResponse.json({ error: "STORE_RATE_LIMITED" }, { status: 429 });
+          return apiError("STORE_RATE_LIMITED", 429);
         }
         if (msg.includes("404") || msg.toLowerCase().includes("not found")) {
-          return NextResponse.json({ error: "REVIEW_NOT_FOUND_ON_STORE" }, { status: 422 });
+          return apiError("REVIEW_NOT_FOUND_ON_STORE", 422);
         }
-        return NextResponse.json({ error: "STORE_SUBMIT_FAILED", detail: msg }, { status: 502 });
+        return apiError("STORE_SUBMIT_FAILED", 502, msg);
       }
     }
 
@@ -100,12 +109,24 @@ export async function POST(
 
     if (updateError) {
       console.error("[reply] Supabase update failed:", updateError);
-      return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
+      return apiError("INTERNAL_SERVER_ERROR", 500);
     }
+
+    await audit({
+      workspaceId,
+      actorUserId: userId,
+      action: status === "sent" ? "reply.publish" : "reply.draft.generate",
+      targetType: "review",
+      targetId: reviewId,
+      payload: {
+        replyLength: replyText.trim().length,
+        source: (review.apps && (Array.isArray(review.apps) ? review.apps[0]?.platform : (review.apps as { platform?: string }).platform)) ?? null,
+      },
+      request: req,
+    });
 
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("[reply] unexpected:", err);
-    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
+    return captureAndError(err, "POST /api/reviews/[id]/reply");
   }
 }

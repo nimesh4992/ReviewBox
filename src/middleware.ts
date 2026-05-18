@@ -23,6 +23,7 @@ const isPublicRoute = createRouteMatcher([
   "/dpa(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
+  "/invite(.*)",
   "/api/stripe/webhook",
   "/api/sync/(.*)",
   "/api/demo/(.*)",
@@ -45,6 +46,7 @@ const isAppRoute = createRouteMatcher([
   "/settings(.*)",
   "/billing(.*)",
   "/onboarding(.*)",
+  "/account-deleted(.*)",
   "/admin(.*)",
   "/api/onboarding(.*)",
   "/api/apps(.*)",
@@ -56,6 +58,8 @@ const isAppRoute = createRouteMatcher([
   "/api/reply-kit(.*)",
   "/api/settings(.*)",
   "/api/onboarding(.*)",
+  "/api/account(.*)",
+  "/api/team(.*)",
   "/api/stripe/checkout(.*)",
   "/api/stripe/portal(.*)",
   "/api/gdpr(.*)",
@@ -115,11 +119,48 @@ export default clerkMiddleware(async (auth, request) => {
   await auth.protect();
 
   const { sessionClaims } = await auth();
-  const trialEndsAt = (sessionClaims?.metadata as { trialEndsAt?: string } | undefined)?.trialEndsAt;
-  const plan = (sessionClaims?.metadata as { plan?: string } | undefined)?.plan ?? "free";
+  const metadata = (sessionClaims?.metadata ?? {}) as {
+    onboarded?: boolean;
+    plan?: string;
+    trialEndsAt?: string;
+    paymentFailedAt?: string;
+    accountDeletedAt?: string;
+  };
+  const onboarded = metadata.onboarded === true;
+  const plan = metadata.plan ?? "trial";
+  const trialEndsAt = metadata.trialEndsAt;
+  const accountDeletedAt = metadata.accountDeletedAt;
 
-  // Trial expiry
-  if (trialEndsAt && plan === "free") {
+  // Account scheduled for deletion — let restore endpoint and the
+  // restore page through; block everything else.
+  if (accountDeletedAt) {
+    const isRestorePath =
+      nextUrl.pathname === "/account-deleted" ||
+      nextUrl.pathname === "/api/account/restore" ||
+      nextUrl.pathname === "/api/account/cancel"; // allow re-confirming cancel
+    if (!isRestorePath) {
+      return NextResponse.redirect(new URL("/account-deleted", request.url));
+    }
+  }
+
+  // Onboarding gate — accept-invite paths bypass so invitees can join
+  const isOnboardingPath =
+    nextUrl.pathname === "/onboarding" ||
+    nextUrl.pathname.startsWith("/onboarding/") ||
+    nextUrl.pathname.startsWith("/api/onboarding");
+  const isInviteAcceptPath =
+    nextUrl.pathname.startsWith("/invite/") ||
+    nextUrl.pathname === "/api/account/accept-invite";
+
+  if (!onboarded && !isOnboardingPath && !isInviteAcceptPath) {
+    return NextResponse.redirect(new URL("/onboarding", request.url));
+  }
+  if (onboarded && nextUrl.pathname === "/onboarding") {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // Trial expiry (only while plan === "trial")
+  if (plan === "trial" && trialEndsAt) {
     const expired = new Date(trialEndsAt) < new Date();
     if (expired && !nextUrl.pathname.startsWith("/billing")) {
       const url = new URL("/billing", request.url);
@@ -128,15 +169,16 @@ export default clerkMiddleware(async (auth, request) => {
     }
   }
 
-  // Billing gate
-  if (isBilledRoute(request) && (!plan || plan === "free")) {
+  // Billing gate — only paid plans access billed routes
+  const paidPlans = new Set(["starter", "pro", "team"]);
+  if (isBilledRoute(request) && !paidPlans.has(plan)) {
     const billingUrl = new URL("/billing", request.url);
     billingUrl.searchParams.set("required", "1");
     return NextResponse.redirect(billingUrl);
   }
 
   // Payment grace period
-  const paymentFailedAt = (sessionClaims?.metadata as { paymentFailedAt?: string } | undefined)?.paymentFailedAt;
+  const paymentFailedAt = metadata.paymentFailedAt;
   if (paymentFailedAt) {
     const graceExpired = new Date(new Date(paymentFailedAt).getTime() + 7 * 86400000) < new Date();
     if (graceExpired && !nextUrl.pathname.startsWith("/billing")) {

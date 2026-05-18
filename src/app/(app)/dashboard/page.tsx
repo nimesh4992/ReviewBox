@@ -1,47 +1,49 @@
-﻿"use client";
+"use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import Link from "next/link";
 import { AlertOctagon, Download, Sparkles, TrendingUp, Users } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
 import { useApps } from "@/hooks/use-apps";
+import { TrialBanner } from "@/components/dashboard/trial-banner";
+import { UpgradeToast } from "@/components/dashboard/upgrade-toast";
 
-// â”€â”€ Static attention items (real data from incident feed â€” wire later) â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Static attention items (real data from incident feed — wire later) ─────────
 
 const ATTENTION_ITEMS = [
   {
     icon: AlertOctagon,
     color: "#DC2626",
     title: "Rating spike detected",
-    subtitle: "14 reviews in 2h Â· 11 mention crash on latest version",
+    subtitle: "14 reviews in 2h · 11 mention crash on latest version",
     time: "2h ago",
   },
   {
     icon: Sparkles,
     color: "#8E5BFF",
     title: "New AI topic cluster",
-    subtitle: "8 reviews about \"login slow\" â€” none last week",
+    subtitle: "8 reviews about \"login slow\" — none last week",
     time: "4h ago",
   },
   {
     icon: TrendingUp,
     color: "#1F8A5B",
     title: "Onboarding praise rising",
-    subtitle: "+0.18 â˜… on first-run reviews Â· 18 positive in 24h",
+    subtitle: "+0.18 ★ on first-run reviews · 18 positive in 24h",
     time: "Yesterday",
   },
   {
     icon: Users,
     color: "#86868B",
     title: "Competitor rating dropped",
-    subtitle: "Rival app âˆ’0.05 vs prior week Â· opportunity",
+    subtitle: "Rival app −0.05 vs prior week · opportunity",
     time: "Yesterday",
   },
 ];
 
-// â”€â”€ Sparkline chart â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Sparkline chart ────────────────────────────────────────────────────────────
 
 function PortfolioSparkline() {
   const data = [4.18, 4.20, 4.25, 4.32, 4.38, 4.40, 4.44, 4.46, 4.47, 4.48];
@@ -64,7 +66,7 @@ function PortfolioSparkline() {
   );
 }
 
-// â”€â”€ Page â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
   const { data: metrics, isLoading } = useDashboardMetrics();
@@ -86,11 +88,15 @@ export default function DashboardPage() {
     { label: "Reviews today",       value: String(reviewsToday), delta: "+18%",            kind: "positive" as const, sub: "this week" },
     { label: "AI drafts this week",  value: String(aiDrafts),    delta: "generated",       kind: "neutral"  as const, sub: "draft replies" },
     { label: "Unreplied",           value: String(unreplied),    delta: `${urgent} urgent`, kind: urgent > 5 ? "warning" as const : "positive" as const, sub: "across apps" },
-    { label: "Avg. rating",         value: avgRating !== null ? avgRating.toFixed(2) : "â€”", delta: "+0.31", kind: "positive" as const, sub: `last ${range}` },
+    { label: "Avg. rating",         value: avgRating !== null ? avgRating.toFixed(2) : "—", delta: "+0.31", kind: "positive" as const, sub: `last ${range}` },
   ];
 
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8" style={{ maxWidth: 1240, margin: "0 auto" }}>
+      <Suspense fallback={null}>
+        <UpgradeToast />
+      </Suspense>
+      <TrialBanner />
 
       {/* Page header */}
       <header className="flex items-end justify-between gap-6">
@@ -125,13 +131,13 @@ export default function DashboardPage() {
         </div>
       </header>
 
-      {/* Hero â€” portfolio rating */}
+      {/* Hero — portfolio rating */}
       <section className="grid items-center gap-10 rounded-2xl border border-gray-100 bg-white px-8 py-7 shadow-sm" style={{ gridTemplateColumns: "minmax(0,280px) 1fr" }}>
         <div>
-          <div className="text-xs font-medium text-[#86868B]">Portfolio rating Â· {range}</div>
+          <div className="text-xs font-medium text-[#86868B]">Portfolio rating · {range}</div>
           <div className="mt-3 flex items-baseline gap-3">
             <span className="text-[64px] font-semibold leading-none tracking-[-0.04em] tabular-nums text-[#1D1D1F]">
-              {avgRating !== null ? avgRating.toFixed(2) : "â€”"}
+              {avgRating !== null ? avgRating.toFixed(2) : "—"}
             </span>
             {avgRating !== null && (
               <div className="mb-1 flex gap-0.5">
@@ -200,8 +206,8 @@ export default function DashboardPage() {
               <div className="text-sm font-semibold text-[#1D1D1F]">Needs your eyes</div>
               <div className="mt-0.5 text-xs text-[#86868B]">{urgent} things flagged today</div>
             </div>
-            <Link href="/reviews" className="ml-auto text-xs font-semibold text-[#0A84FF] hover:underline">
-              Open inbox â†’
+            <Link href="/inbox" className="ml-auto text-xs font-semibold text-[#0A84FF] hover:underline">
+              Open inbox →
             </Link>
           </div>
           {ATTENTION_ITEMS.map((e, i) => (
@@ -235,15 +241,15 @@ export default function DashboardPage() {
               <div className="mt-0.5 text-xs text-[#86868B]">Portfolio overview</div>
             </div>
             <Link href="/settings" className="ml-auto text-xs font-semibold text-[#0A84FF] hover:underline">
-              Manage â†’
+              Manage →
             </Link>
           </div>
           {appsLoading ? (
-            <div className="px-5 py-8 text-center text-xs text-[#86868B]">Loadingâ€¦</div>
+            <div className="px-5 py-8 text-center text-xs text-[#86868B]">Loading…</div>
           ) : apps.length === 0 ? (
             <div className="px-5 py-8 text-center text-xs text-[#86868B]">
               No apps connected yet.{" "}
-              <Link href="/settings" className="text-[#0A84FF] hover:underline">Add one â†’</Link>
+              <Link href="/settings" className="text-[#0A84FF] hover:underline">Add one →</Link>
             </div>
           ) : (
             apps.map((a, i) => (
@@ -272,4 +278,3 @@ export default function DashboardPage() {
     </div>
   );
 }
-

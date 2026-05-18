@@ -16,6 +16,8 @@ import { Redis } from "@upstash/redis";
 import { suggestAsoKeywords } from "@/lib/gemini";
 import { compressReviewText } from "@/lib/prompt-utils";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { rateLimit } from "@/lib/api-rate-limit";
+import { apiError, captureAndError } from "@/lib/api-response";
 
 const CACHE_TTL_SECONDS = 24 * 60 * 60; // 24 hours
 
@@ -46,21 +48,26 @@ interface CachedAsoPayload {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
-    // Auth
     const session = await auth();
     const userId  = session?.userId;
     if (!userId) {
-      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+      return apiError("UNAUTHORIZED", 401);
+    }
+
+    // Cache is per-app per-day, but still rate-limit refresh attempts.
+    const rl = await rateLimit(req, userId, { bucket: "aso", limit: 10, window: "10 m" });
+    if (!rl.allowed) {
+      return apiError("RATE_LIMITED", 429);
     }
 
     const { appId } = (await req.json()) as { appId?: string };
     if (!appId) {
-      return NextResponse.json({ error: "appId is required" }, { status: 400 });
+      return apiError("MISSING_FIELDS", 400, "appId is required");
     }
 
     const workspaceId = await getWorkspaceId(userId);
     if (!workspaceId) {
-      return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
+      return apiError("NO_WORKSPACE", 404);
     }
 
     const cacheKey = `aso_suggest:${workspaceId}:${appId}`;
@@ -161,7 +168,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       source: "gemini",
     });
   } catch (err) {
-    console.error("Unexpected error in /api/aso/suggest:", err);
-    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
+    return captureAndError(err, "POST /api/aso/suggest");
   }
 }

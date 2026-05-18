@@ -4,6 +4,10 @@ import { useState } from "react";
 import { SignUp } from "@clerk/nextjs";
 
 const CLERK_APPEARANCE = {
+  layout: {
+    privacyPageUrl: "https://tryreviewbox.com/privacy",
+    termsPageUrl: "https://tryreviewbox.com/terms",
+  },
   variables: {
     colorPrimary: "#0A84FF",
     colorBackground: "#ffffff",
@@ -92,11 +96,11 @@ export default function SignUpPage() {
             </div>
             <span className="text-[13px] leading-relaxed text-[#48484D]">
               I agree to the{" "}
-              <a href="/terms" target="_blank" rel="noopener noreferrer" className="text-[#0A84FF] underline-offset-2 hover:underline">
+              <a href="https://tryreviewbox.com/terms" target="_blank" rel="noopener noreferrer" className="text-[#0A84FF] underline-offset-2 hover:underline">
                 Terms of Service
               </a>{" "}
               and{" "}
-              <a href="/privacy" target="_blank" rel="noopener noreferrer" className="text-[#0A84FF] underline-offset-2 hover:underline">
+              <a href="https://tryreviewbox.com/privacy" target="_blank" rel="noopener noreferrer" className="text-[#0A84FF] underline-offset-2 hover:underline">
                 Privacy Policy
               </a>
             </span>

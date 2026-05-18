@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useUser } from "@clerk/nextjs";
 import { Bell, CheckCircle, Menu, Moon, Plus, Search, Sun } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -48,7 +49,7 @@ const SAMPLE_NOTIFICATIONS: Notification[] = [
     title: "46 reviews need a reply",
     subtitle: "Oldest is 3 days ago",
     time: "Today",
-    href: "/reviews",
+    href: "/inbox",
   },
   {
     id: "3",
@@ -76,6 +77,14 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
   const [notifOpen, setNotifOpen] = useState(false);
   const router = useRouter();
   const { theme, toggleTheme } = useWorkspaceStore();
+  const { user } = useUser();
+
+  const initials =
+    user?.firstName && user?.lastName
+      ? `${user.firstName[0]}${user.lastName[0]}`
+      : user?.firstName?.[0]?.toUpperCase() ??
+        user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ??
+        "?";
 
   function handleNotifClick(href: string) {
     setNotifOpen(false);
@@ -222,7 +231,7 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
             <div className="border-t border-gray-100 px-4 py-3">
               <button
                 onClick={() => handleNotifClick("/settings")}
-                className="text-xs text-[#5B5BD6] hover:underline"
+                className="text-xs text-[#0A84FF] hover:underline"
               >
                 Notification settings
               </button>
@@ -231,10 +240,10 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
         </Sheet>
 
         <button
-          className="flex size-7 items-center justify-center rounded-full bg-[#5B5BD6] text-[11px] font-semibold text-white ring-2 ring-white transition-opacity duration-150 hover:opacity-90"
+          className="flex size-7 items-center justify-center rounded-full bg-gradient-to-br from-[#4592FF] to-[#0058B3] text-[11px] font-semibold text-white ring-2 ring-white transition-opacity duration-150 hover:opacity-90"
           aria-label="Account"
         >
-          NS
+          {initials}
         </button>
       </div>
     </header>
