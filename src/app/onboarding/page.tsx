@@ -105,7 +105,10 @@ export default function OnboardingPage() {
     return () => { cancelled = true; };
   }, [router]);
 
-  // Debounced slug availability check
+  // Debounced slug availability check.
+  // Safety: if the check hangs or errors, fall back to "idle" after 4s
+  // so the user is never stuck. Server-side /api/onboarding/complete
+  // re-validates and returns SLUG_TAKEN (409) if there's a conflict.
   useEffect(() => {
     if (slugCheckTimer.current) clearTimeout(slugCheckTimer.current);
     const slug = form.workspaceSlug.trim();
@@ -114,10 +117,21 @@ export default function OnboardingPage() {
       return;
     }
     setSlugStatus({ state: "checking" });
+
+    // Timeout safety: never stay "checking" longer than 4s.
+    const fallback = setTimeout(() => {
+      setSlugStatus({ state: "idle" });
+    }, 4000);
+
     slugCheckTimer.current = setTimeout(async () => {
       try {
         const res = await fetch(`/api/onboarding/slug-check?slug=${encodeURIComponent(slug)}`);
-        if (!res.ok) return;
+        clearTimeout(fallback);
+        if (!res.ok) {
+          // Endpoint failed; let the user proceed — server complete validates.
+          setSlugStatus({ state: "idle" });
+          return;
+        }
         const data = await res.json() as {
           available: boolean;
           reason?: "INVALID" | "RESERVED" | "TAKEN";
@@ -133,11 +147,14 @@ export default function OnboardingPage() {
           setSlugStatus({ state: "taken", suggestions: data.suggestions });
         }
       } catch {
-        /* network error — leave status as checking; user can still proceed */
+        // Network error — let the user proceed; server complete validates.
+        clearTimeout(fallback);
+        setSlugStatus({ state: "idle" });
       }
     }, 400);
     return () => {
       if (slugCheckTimer.current) clearTimeout(slugCheckTimer.current);
+      clearTimeout(fallback);
     };
   }, [form.workspaceSlug]);
 
@@ -307,9 +324,14 @@ function StepWorkspace({
         ? "border-emerald-500/60"
         : "border-white/[0.08]";
 
+  // Allow proceed in any state except hard-fail ones (taken/reserved/invalid).
+  // While we're still checking, server complete validates anyway — so we
+  // don't trap the user behind a slow or failed slug-check API call.
   const canContinue =
     form.workspaceName.trim().length > 0 &&
-    (slugStatus.state === "available" || slugStatus.state === "idle");
+    slugStatus.state !== "taken" &&
+    slugStatus.state !== "reserved" &&
+    slugStatus.state !== "invalid";
 
   return (
     <div className="flex flex-col gap-6">
