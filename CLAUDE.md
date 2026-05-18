@@ -4,13 +4,39 @@ AI-powered review management platform for Google Play and Apple App Store operat
 
 **Brand:** ReviewBox · **Domain:** `tryreviewbox.com` · **Email:** `hello@tryreviewbox.com`
 
-> **Active launch plan:** `docs/LAUNCH_PLAN.md` — read this before starting any backend or infra work.
-> **Zero-cost survival plan:** `docs/ZERO_COST_PLAN.md` — read this before adding ANY paid service.
-> **Architecture:** `docs/ARCHITECTURE.md` · **Features:** `docs/FEATURES.md`
+> **READ THESE FIRST, EVERY SESSION** (the autopilot relies on them):
+> 1. **`docs/decisions.md`** — IMMUTABLE rules + the non-coder contract. Agents obey D000–D013.
+> 2. **`docs/backlog.md`** — single source of truth for what we build next. ICE-scored.
+> 3. **`docs/today.md`** — what shipped last session, what's queued. Overwritten each session.
+> 4. **`.claude/agents/*.md`** — pm, architect, coder, tester, reviewer roles. Spawn per task.
+
+> **Other docs:** `docs/LAUNCH_PLAN.md` · `docs/ZERO_COST_PLAN.md` · `docs/ARCHITECTURE.md` · `docs/FEATURES.md`
 
 ## The one rule
 Do not add a paid service until a customer pays first. Every tool has a free tier that covers 0–20 customers.
 See `docs/ZERO_COST_PLAN.md` for the full breakdown.
+
+## The autopilot
+
+The founder is a non-coder. The product ships via this loop:
+
+1. **PM agent** picks the top NOW item from `docs/backlog.md` (ICE-ranked, skip HUMAN-REQUIRED)
+2. **Architect agent** writes an ADR in `docs/adr/` if the item is non-trivial
+3. **Coder agent** branches `claude/<id>-<slug>`, implements, opens a PR
+4. **Tester agent** writes Vitest + Playwright tests for new logic
+5. **Reviewer agent** comments BLOCKER/NIT on the PR before founder merge
+6. CI on every PR (`.github/workflows/ci.yml`): build, type-check, lint, unit tests, e2e tests, security audit. Failure blocks the merge button
+7. Founder verifies on the Vercel preview using the plain-English "How to test" section of the PR template, then merges
+8. Vercel auto-deploys main to production. Founder gets ~60s to roll back via Vercel if needed
+
+Hard rules (`docs/decisions.md` D009):
+- I never push to `main`. PRs only.
+- I never deploy to production.
+- I never run migrations against prod Supabase. Founder pastes them manually.
+- I never send real emails or change pricing or billing.
+- Every PR description must be a 5-minute test plan in plain English.
+
+End of every session: overwrite `docs/today.md` with what shipped and what's next.
 
 ## Stack
 
@@ -537,47 +563,101 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 
 ## Current Sprint
 
-**Active: S1.3 — Help Center**
-Last updated: 2026-05-15
+**Active: Autopilot bootstrap → marketing-site responsive sweep**
+Last updated: 2026-05-18
 
-Completed sprints: S0.1 · S0.2 · S0.3 · S1.1 · S1.2
+### What just shipped (recent commits)
 
-Key completions this session (S1.1 + S1.2):
-- ✅ `review-service.ts` — wired to Supabase, accepts workspaceId + filters
-- ✅ `src/hooks/use-apps.ts` — React Query hook calling `/api/apps`
-- ✅ Dashboard `MOCK_APPS` → real apps from Supabase via `useApps()` hook
-- ✅ `/api/onboarding/complete` — fires `sendWelcomeEmail()` after workspace creation
-- ✅ `/api/sync/reviews` — Google Play fetch → `enrichReview()` → Supabase upsert
-- ✅ `vercel.json` — Vercel Cron `0 */4 * * *` triggers sync
-- ✅ Rating spike detection: ≥5 reviews ≤2★ same version/24h → email workspace owner
-- ✅ `src/lib/email/send-rating-spike-alert.ts` — alert email template
-- ✅ `/api/sync/reviews` added to Clerk middleware public routes
+Foundation hardening (EXTREME tier 1–5):
+- ✅ `supabase/migrations/` — versioned, forward-only migrations (002 plan vocab, 003 audit log, 004 webhook events, 005 soft-delete, 006 invites)
+- ✅ `src/lib/audit.ts` — `audit()` helper writes to audit_log table on every mutation
+- ✅ `src/lib/api-response.ts` — canonical `{ error: { code, message } }` envelope + `apiError()` + `captureAndError()`
+- ✅ `src/lib/api-rate-limit.ts` — generic per-route Upstash rate limiter; applied to slug-check, onboarding/complete, sentiment, aso, stripe checkout/portal, reply publish, GDPR export
+- ✅ Sentry user identity wired (`src/components/providers/sentry-identify.tsx`)
+- ✅ PostHog funnel events typed in `src/lib/analytics.ts`
 
-Up next (S1.3):
-- [ ] Create 4 help pages: Getting Started · Connect Google Play · AI Replies · FAQ
-- [ ] Configure `help.tryreviewbox.com` CNAME (Mintlify or Notion public)
+HIGH tier 6–10:
+- ✅ Stripe webhook idempotency via `webhook_events` table dedup
+- ✅ Workspace soft-delete + 30-day grace + `/account-deleted` restore page + DangerZone in /settings
+- ✅ GDPR export rewritten (audit_log + members + webhook_events), GDPR delete uses envelope + Stripe customer cleanup
+- ✅ Team invites: `/api/team/invites`, `/api/account/accept-invite`, `/invite/[token]` landing
+- ✅ Sync route now coordinator+worker pattern — one Vercel invocation per workspace
+
+Autopilot bootstrap:
+- ✅ `docs/decisions.md` — 13 immutable decisions + non-coder contract
+- ✅ `docs/backlog.md` — every pending item ICE-scored
+- ✅ `docs/today.md` — daily handoff template
+- ✅ `.github/PULL_REQUEST_TEMPLATE.md` — marketer-friendly format
+- ✅ `.github/workflows/ci.yml` — build, type-check, lint, unit, e2e, security
+- ✅ `vitest.config.ts` + first 14 unit tests on `src/lib/rules-engine.ts`
+- ✅ `playwright.config.ts` + first 5 smoke e2e tests
+- ✅ Five agent definitions in `.claude/agents/`
+
+### PRs in flight (awaiting founder merge)
+
+- `claude/fix-onboarding-stuck-checking` — slug-check timeout safety, can't trap user on step 1
+- `claude/hotfix-viewport-meta` — adds `<meta viewport>` so mobile stops rendering desktop-scaled-down
+- `claude/n2-notification-panel-empty-state` — removes fake "Crash spike" bell items
+- `claude/n8-auth-pages-redesign` — split-screen sign-up/sign-in with brand-side panel + AuthShell
+
+### Up next (per backlog NOW)
+
+After PRs merge:
+- **N7a** — Landing page mobile responsive (`src/app/page.tsx`, 284 inline styles → media-query wrapped). ICE 90.
+- **N5** — `/compare/appfollow` rewrite with real teeth (feature table + ROI calc + CTAs). ICE 81.
+- **N3** — `/incidents/[id]` and `/releases/[version]` detail pages. ICE 64.
+- **N4** — Remove or wire dead buttons across competitors/aso/reports/settings. ICE 56.
 
 ---
 
 ## Key Commands
 
 ```bash
-npm run dev     # start dev server (localhost:3000)
-npm run build   # production build
-npm run lint    # ESLint check
+npm run dev           # start dev server (localhost:3000)
+npm run build         # production build
+npm run lint          # ESLint check
+npm run test          # Vitest unit tests (alias for test:unit)
+npm run test:unit     # Vitest unit tests, single run
+npm run test:e2e      # Playwright e2e — spins up dev server, runs in chromium
+npm run test:coverage # Vitest with coverage report
 ```
 
-Windows: use `npm.cmd` if `npm` not found in PowerShell.
+Windows: use `npm.cmd` if `npm` not found in PowerShell. PowerShell 5.1 doesn't
+support `&&` — use `;` or run commands on separate lines.
+
+If `next build` runs out of memory on Windows:
+```
+$env:NODE_OPTIONS="--max-old-space-size=6144"
+npm.cmd run build
+```
+
+After switching branches, clear the Next.js build cache if you see odd
+MODULE_NOT_FOUND errors: `rm -rf .next` (or `Remove-Item -Recurse -Force .next`).
 
 ---
 
 ## What NOT To Do
 
+Code patterns:
 - Don't edit `src/components/ui/*` — shadcn-managed, re-add via CLI
-- Don't put Supabase queries in components — use service layer
+- Don't put Supabase queries in components — use service layer or API route
 - Don't create new type files — extend `src/types/review.ts`
 - Don't add CSS modules or styled-components
 - Don't use React context for global state — Zustand for UI, React Query for server
 - Don't import mock data outside of service files
-- Don't use raw hex values for colors — use CSS design tokens (`--rb-*`, `bg-surface`, `text-fg-*`)
+- Don't use raw hex values for colors — only `#0A84FF` is allowed; rest go via `--rb-*` tokens
+- Don't return raw `NextResponse.json({ error: "..." })` — use `apiError()` from `@/lib/api-response`
+- Don't forget `audit()` after a mutation, or `rateLimit()` on a paid-service or enumeration-prone route
 - Don't add a paid service without a paying customer first
+
+Workflow (autopilot guardrails — `docs/decisions.md` D009):
+- Don't push to `main` directly. PRs only.
+- Don't merge a PR — that's the founder's job.
+- Don't deploy to production. Vercel auto-deploys on merge.
+- Don't run a migration against production Supabase. Founder runs the SQL.
+- Don't send a real email to a real customer. Drafts only.
+- Don't change pricing or billing logic without an ADR + founder approval.
+- Don't modify legal pages (Terms, Privacy, DPA) without founder approval.
+- Don't add a new paid SaaS dependency — founder signs up and adds keys.
+- Don't `git commit --no-verify` or skip pre-commit hooks.
+- Don't disable or weaken CI checks.
