@@ -49,7 +49,7 @@ export function MarketingShell({ children }: { children: React.ReactNode }) {
       {/* data-theme for CSS-var-based components; "dark" class for Tailwind dark: variants */}
       <div
         data-theme={theme}
-        className={theme === "dark" ? "dark" : ""}
+        className={`rb-marketing ${theme === "dark" ? "dark" : ""}`}
         style={{
           background: "var(--rb-bg-canvas)",
           color: "var(--rb-fg-1)",
