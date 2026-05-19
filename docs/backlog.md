@@ -13,7 +13,8 @@ Status legend: `[ ]` queued · `[~]` in progress · `[x]` shipped · `[!]` block
 
 These are the next items to ship. Don't skip; don't reorder without thinking.
 
-### [ ] N1 · Apply Supabase migrations to prod · ICE 90 (10×9÷1)
+### [x] N1 · Apply Supabase migrations to prod · ICE 90 (10×9÷1)
+*Applied 2026-05-19. Migrations 002–006 live in production. Note: 002 required normalizing existing rows before adding check constraint.*
 **Effort:** 5 min (founder pastes SQL).
 **Done when:** All 6 migrations (002–006) applied to production Supabase project.
 **Files:** `supabase/migrations/002_plan_vocabulary.sql` through `006_workspace_invites.sql`
@@ -39,10 +40,12 @@ These are the next items to ship. Don't skip; don't reorder without thinking.
 **Files:** `competitors-screen.tsx`, `aso-screen.tsx`, `reports-screen.tsx`, settings sections
 **Why now:** "Save defaults" that does nothing trains users to mistrust us.
 
-### [ ] N5 · /compare/appfollow with real teeth · ICE 81 (9×9÷1)
+### [x] N5 · /compare/appfollow with real teeth · ICE 81 (9×9÷1)
+*Shipped 2026-05-19 on branch `claude/n5-compare-appfollow-rewrite` — awaiting founder merge.*
+*42-row table across 7 categories, ROI calculator widget, 4-step switch timeline, 3 placeholder quotes, price callout, dual CTA. Placeholder quotes marked in code for replacement with real customers.*
 **Effort:** 3h.
 **Done when:** Page has: feature comparison table (12 rows), ROI calculator widget, 3 customer-style quotes, "Switch in 5 min" CTA, screenshots side-by-side.
-**Files:** `src/app/compare/page.tsx`
+**Files:** `src/app/compare/page.tsx`, `src/components/marketing/roi-calculator.tsx`
 **Why now:** This is your #1 inbound conversion asset. Currently a stub.
 
 ### [ ] N6 · Stripe test keys + verify upgrade flow · ICE 80 (10×8÷1)
