@@ -323,3 +323,87 @@ textarea {
   border-radius: 50%;
   animation: rb-pulse 1.6s ease-in-out infinite;
 }
+
+/* ─────────────────────────────────────────────────────────────────────
+   Marketing site responsive overrides (N7)
+   ─────────────────────────────────────────────────────────────────────
+   Marketing pages use inline style={{}} with fixed px widths/grids for
+   desktop. Rather than rewriting 1000+ lines of inline styles, every
+   marketing page wraps in <MarketingShell> which adds `.rb-marketing`.
+   These rules override the worst offenders at narrow viewports.
+
+   Strategy:
+   - ≤768px: stack ALL grids to single column, shrink page padding,
+     scale down hero-sized fonts (40px+).
+   - ≤480px: further shrink the largest fonts.
+   ──────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  /* Stack ALL grid layouts vertically on mobile */
+  .rb-marketing [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+
+  /* Reduce explicit large gaps */
+  .rb-marketing [style*="gap: 64"]  { gap: 24px !important; }
+  .rb-marketing [style*="gap: 56"]  { gap: 24px !important; }
+  .rb-marketing [style*="gap: 48"]  { gap: 20px !important; }
+  .rb-marketing [style*="gap: 40"]  { gap: 20px !important; }
+
+  /* Reduce section padding */
+  .rb-marketing section { padding-left: 20px !important; padding-right: 20px !important; }
+  .rb-marketing [style*="padding: 56px 0"],
+  .rb-marketing [style*="padding: 80px 0"],
+  .rb-marketing [style*="padding: 96px 0"],
+  .rb-marketing [style*="padding: 120px 0"] {
+    padding: 40px 20px !important;
+  }
+  .rb-marketing [style*="padding: 44px 0"] { padding: 24px 0 !important; }
+
+  /* Scale down hero-sized fonts */
+  .rb-marketing [style*="font-size: 88"] { font-size: 38px !important; line-height: 1.1 !important; letter-spacing: -0.01em !important; }
+  .rb-marketing [style*="font-size: 80"] { font-size: 36px !important; line-height: 1.1 !important; }
+  .rb-marketing [style*="font-size: 72"] { font-size: 34px !important; line-height: 1.1 !important; }
+  .rb-marketing [style*="font-size: 64"] { font-size: 32px !important; line-height: 1.1 !important; }
+  .rb-marketing [style*="font-size: 56"] { font-size: 28px !important; line-height: 1.15 !important; }
+  .rb-marketing [style*="font-size: 48"] { font-size: 26px !important; line-height: 1.15 !important; }
+  .rb-marketing [style*="font-size: 44"] { font-size: 24px !important; line-height: 1.2 !important; }
+  .rb-marketing [style*="font-size: 40"] { font-size: 22px !important; line-height: 1.25 !important; }
+  .rb-marketing [style*="font-size: 36"] { font-size: 22px !important; }
+  .rb-marketing [style*="font-size: 32"] { font-size: 20px !important; }
+  .rb-marketing [style*="font-size: 28"] { font-size: 18px !important; }
+
+  /* Cap inline maxWidths that exceed mobile viewport */
+  .rb-marketing [style*="max-width: 1200"],
+  .rb-marketing [style*="max-width: 1240"],
+  .rb-marketing [style*="max-width: 1100"],
+  .rb-marketing [style*="max-width: 960"],
+  .rb-marketing [style*="max-width: 880"],
+  .rb-marketing [style*="max-width: 720"] {
+    max-width: 100% !important;
+  }
+
+  /* Prevent fixed-width media from forcing horizontal scroll */
+  .rb-marketing img,
+  .rb-marketing video,
+  .rb-marketing svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Dense desktop mockups scroll within their container rather than
+     blowing out the page width */
+  .rb-marketing [style*="display: grid"][style*="overflow: hidden"] {
+    overflow-x: auto !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .rb-marketing [style*="font-size: 88"] { font-size: 30px !important; }
+  .rb-marketing [style*="font-size: 80"] { font-size: 28px !important; }
+  .rb-marketing [style*="font-size: 72"] { font-size: 28px !important; }
+  .rb-marketing [style*="font-size: 64"] { font-size: 26px !important; }
+
+  .rb-marketing section { padding-left: 16px !important; padding-right: 16px !important; }
+}
