@@ -1,9 +1,10 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
+import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "Blog — ReviewBox",
+  title: "Blog â€” ReviewBox",
   description:
     "Guides, case studies, and product updates from the ReviewBox team.",
 };
@@ -11,7 +12,7 @@ export const metadata = {
 const FEATURED = {
   title: "How we reduced AI reply costs by 94% without hurting quality",
   excerpt:
-    "We rebuilt the reply pipeline from scratch — 25 templates, a Redis cache, and Gemini for the hard cases. Here's exactly how the math works.",
+    "We rebuilt the reply pipeline from scratch â€” 25 templates, a Redis cache, and Gemini for the hard cases. Here's exactly how the math works.",
   category: "Engineering",
   date: "May 15, 2026",
   readTime: "8 min read",
@@ -29,7 +30,7 @@ const POSTS = [
   },
   {
     title: "Rating spikes: how to detect them before they become a PR problem",
-    excerpt: "A burst of 1-star reviews in 24 hours is a signal. Here's how to read it — and what to do next.",
+    excerpt: "A burst of 1-star reviews in 24 hours is a signal. Here's how to read it â€” and what to do next.",
     category: "Product",
     date: "May 5, 2026",
     readTime: "4 min read",
@@ -45,7 +46,7 @@ const POSTS = [
     slug: "/blog/appstore-vs-google-play-rating",
   },
   {
-    title: "Case study: Acme Banking, 4.21 → 4.58 in 90 days",
+    title: "Case study: Acme Banking, 4.21 â†’ 4.58 in 90 days",
     excerpt:
       "11-minute average reply time. A structured response framework. And one weekend sprint that changed everything.",
     category: "Case Studies",
@@ -56,7 +57,7 @@ const POSTS = [
   {
     title: "Connecting Google Play to ReviewBox: the complete guide",
     excerpt:
-      "Service account setup, API scopes, the exact JSON you need — with screenshots for every step.",
+      "Service account setup, API scopes, the exact JSON you need â€” with screenshots for every step.",
     category: "How-to",
     date: "April 10, 2026",
     readTime: "7 min read",
@@ -85,8 +86,8 @@ const CATEGORY_STYLES: Record<string, string> = {
 
 export default function BlogPage() {
   return (
-    <div className="min-h-screen bg-[#F5F5F7]">
-      <MarketingNav cta="trial" />
+    <MarketingShell>
+      <MarketingNav />
 
       {/* Breadcrumb */}
       <div className="mx-auto max-w-screen-xl px-6 py-3">
@@ -100,8 +101,8 @@ export default function BlogPage() {
       <main className="mx-auto max-w-screen-xl px-6 pb-32">
         {/* Header */}
         <div className="pt-12 pb-10">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900">Blog</h1>
-          <p className="mt-2 text-gray-500">
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">Blog</h1>
+          <p className="mt-2 text-gray-500 dark:text-[#86868B]">
             Guides, case studies, and product updates from the ReviewBox team.
           </p>
         </div>
@@ -113,8 +114,8 @@ export default function BlogPage() {
               key={cat}
               className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
                 cat === "All"
-                  ? "bg-gray-900 text-white"
-                  : "border border-gray-200 bg-white text-gray-600 hover:bg-gray-50"
+                  ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
+                  : "border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] text-gray-600 dark:text-[#86868B] hover:bg-gray-50 dark:hover:bg-white/5"
               }`}
             >
               {cat}
@@ -126,7 +127,7 @@ export default function BlogPage() {
         <div className="mb-10">
           <Link
             href={FEATURED.slug}
-            className="block rounded-2xl border border-gray-200 bg-white p-8 hover:border-gray-300 transition-colors sm:flex sm:gap-8"
+            className="block rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-8 hover:border-gray-300 dark:hover:border-white/20 transition-colors sm:flex sm:gap-8"
           >
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-3">
@@ -139,11 +140,11 @@ export default function BlogPage() {
                 </span>
                 <span className="text-xs text-gray-400">Featured</span>
               </div>
-              <h2 className="text-xl font-bold text-gray-900 leading-snug">{FEATURED.title}</h2>
-              <p className="mt-3 text-gray-500 leading-relaxed">{FEATURED.excerpt}</p>
-              <div className="mt-4 flex items-center gap-3 text-xs text-gray-400">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-[#F5F5F7] leading-snug">{FEATURED.title}</h2>
+              <p className="mt-3 text-gray-500 dark:text-[#86868B] leading-relaxed">{FEATURED.excerpt}</p>
+              <div className="mt-4 flex items-center gap-3 text-xs text-gray-400 dark:text-[#636366]">
                 <span>{FEATURED.date}</span>
-                <span>·</span>
+                <span>Â·</span>
                 <span>{FEATURED.readTime}</span>
               </div>
             </div>
@@ -157,7 +158,7 @@ export default function BlogPage() {
             <Link
               key={post.title}
               href={post.slug}
-              className="block rounded-2xl border border-gray-200 bg-white p-6 hover:border-gray-300 transition-colors"
+              className="block rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6 hover:border-gray-300 dark:hover:border-white/20 transition-colors"
             >
               <span
                 className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest ${
@@ -166,13 +167,13 @@ export default function BlogPage() {
               >
                 {post.category}
               </span>
-              <h3 className="mt-3 font-semibold text-gray-900 leading-snug">{post.title}</h3>
-              <p className="mt-2 text-sm text-gray-500 leading-relaxed line-clamp-3">
+              <h3 className="mt-3 font-semibold text-gray-900 dark:text-[#F5F5F7] leading-snug">{post.title}</h3>
+              <p className="mt-2 text-sm text-gray-500 dark:text-[#86868B] leading-relaxed line-clamp-3">
                 {post.excerpt}
               </p>
-              <div className="mt-4 flex items-center gap-2 text-xs text-gray-400">
+              <div className="mt-4 flex items-center gap-2 text-xs text-gray-400 dark:text-[#636366]">
                 <span>{post.date}</span>
-                <span>·</span>
+                <span>Â·</span>
                 <span>{post.readTime}</span>
               </div>
             </Link>
@@ -181,6 +182,6 @@ export default function BlogPage() {
       </main>
 
       <MarketingFooter />
-    </div>
+    </MarketingShell>
   );
 }

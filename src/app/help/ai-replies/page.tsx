@@ -57,7 +57,7 @@ const RELATED = [
 export default function AiRepliesPage() {
   return (
     <div className="min-h-screen bg-[#F5F5F7]">
-      <MarketingNav cta="signin" />
+      <MarketingNav />
 
       <div className="mx-auto max-w-screen-xl px-6 py-3">
         <nav className="flex items-center gap-1.5 text-xs text-gray-400">

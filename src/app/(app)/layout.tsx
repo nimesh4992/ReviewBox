@@ -1,5 +1,4 @@
 import { AppShell } from "@/components/layout/app-shell";
-import { FirstVisitModal } from "@/components/onboarding/first-visit-modal";
 
 export default function AuthenticatedLayout({
   children,
@@ -7,9 +6,6 @@ export default function AuthenticatedLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AppShell>
-      <FirstVisitModal />
-      {children}
-    </AppShell>
+    <AppShell>{children}</AppShell>
   );
 }

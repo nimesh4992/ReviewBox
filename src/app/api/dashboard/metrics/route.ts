@@ -12,14 +12,16 @@ export interface DashboardMetrics {
   totalReviews: number;
 }
 
-// Hardcoded fallback so the dashboard never breaks
-const FALLBACK_METRICS: DashboardMetrics = {
-  unrepliedCount: 127,
-  urgentCount: 9,
-  avgRating: 3.8,
-  aiDraftsThisWeek: 5,
-  reviewsToday: 84,
-  totalReviews: 2764,
+// Zeroes — used when the user has no workspace yet or a query fails.
+// We never show fake numbers; an empty workspace shows real zeros so
+// the dashboard accurately reflects the state of their data.
+const EMPTY_METRICS: DashboardMetrics = {
+  unrepliedCount: 0,
+  urgentCount: 0,
+  avgRating: null,
+  aiDraftsThisWeek: 0,
+  reviewsToday: 0,
+  totalReviews: 0,
 };
 
 export async function GET(): Promise<NextResponse> {
@@ -36,8 +38,7 @@ export async function GET(): Promise<NextResponse> {
     const workspaceId = await getWorkspaceId(userId);
 
     if (!workspaceId) {
-      // No workspace yet — return fallback metrics
-      return NextResponse.json(FALLBACK_METRICS);
+      return NextResponse.json(EMPTY_METRICS);
     }
 
     const sb = getServiceClient();
@@ -76,14 +77,14 @@ export async function GET(): Promise<NextResponse> {
         .eq("priority", "urgent")
         .neq("reply_status", "replied"),
 
-      // 3. Avg rating last 30 days
+      // 3. Avg rating last 30 days (by store posting date)
       sb
         .from("reviews")
         .select("rating")
         .eq("workspace_id", workspaceId)
-        .gte("created_at", thirtyDaysAgo.toISOString()),
+        .gte("store_created_at", thirtyDaysAgo.toISOString()),
 
-      // 4. AI drafts this week
+      // 4. AI drafts this week (DB created_at is correct here — when WE drafted)
       sb
         .from("ai_usage")
         .select("id", { count: "exact", head: true })
@@ -91,12 +92,12 @@ export async function GET(): Promise<NextResponse> {
         .eq("action", "draft_reply")
         .gte("created_at", sevenDaysAgo.toISOString()),
 
-      // 5. Reviews today
+      // 5. Reviews posted today on the store (not synced today)
       sb
         .from("reviews")
         .select("id", { count: "exact", head: true })
         .eq("workspace_id", workspaceId)
-        .gte("created_at", todayStart.toISOString()),
+        .gte("store_created_at", todayStart.toISOString()),
 
       // 6. Total reviews
       sb
@@ -105,7 +106,6 @@ export async function GET(): Promise<NextResponse> {
         .eq("workspace_id", workspaceId),
     ]);
 
-    // If any query errored, fall back to mock
     if (
       unrepliedResult.error ||
       urgentResult.error ||
@@ -122,7 +122,7 @@ export async function GET(): Promise<NextResponse> {
         reviewsToday: reviewsTodayResult.error,
         totalReviews: totalReviewsResult.error,
       });
-      return NextResponse.json(FALLBACK_METRICS);
+      return NextResponse.json(EMPTY_METRICS);
     }
 
     // Compute avg rating from returned rows
@@ -148,6 +148,6 @@ export async function GET(): Promise<NextResponse> {
     return NextResponse.json(metrics);
   } catch (err) {
     console.error("Unexpected error in GET /api/dashboard/metrics:", err);
-    return NextResponse.json(FALLBACK_METRICS);
+    return NextResponse.json(EMPTY_METRICS);
   }
 }

@@ -8,6 +8,35 @@
   --brand: #0A84FF;
   --brand-rgb: 10 132 255;
 
+  /* ── Brand color scale ── */
+  --rb-blue-50:  #EBF4FF;
+  --rb-blue-100: #D6E8FF;
+  --rb-blue-200: #ADD0FF;
+  --rb-blue-300: #7AB2FF;
+  --rb-blue-400: #4592FF;
+  --rb-blue-500: #0A84FF;
+  --rb-blue-600: #006EE0;
+  --rb-blue-700: #0058B3;
+  --rb-blue-800: #003F80;
+  --rb-blue-900: #002654;
+
+  /* ── Semantic colors ── */
+  --rb-green-100: #DCFCE7;
+  --rb-green-500: #1F8A5B;
+  --rb-green-600: #157048;
+  --rb-amber-100: #FEF3C7;
+  --rb-amber-500: #C97A00;
+  --rb-amber-600: #9A5C00;
+  --rb-red-100:   #FEE2E2;
+  --rb-red-500:   #DC2626;
+  --rb-red-600:   #B91C1C;
+  --rb-purple-500:#8E5BFF;
+
+  /* ── Font families ── */
+  --rb-font-display: -apple-system, "SF Pro Display", var(--font-inter), "Inter", BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
+  --rb-font-text:    -apple-system, "SF Pro Text",    var(--font-inter), "Inter", BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
+  --rb-font-mono:    "SF Mono", ui-monospace, Menlo, Monaco, Consolas, "Courier New", monospace;
+
   /* Foreground — light */
   --rb-fg-1: #1D1D1F;
   --rb-fg-2: #48484D;
@@ -32,6 +61,8 @@
   --rb-shadow-xs: 0 1px 1px rgba(15,23,42,0.04);
   --rb-shadow-sm: 0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04);
   --rb-shadow-md: 0 4px 12px rgba(15,23,42,0.08), 0 2px 4px rgba(15,23,42,0.04);
+  --rb-shadow-lg: 0 12px 32px rgba(15,23,42,0.10), 0 2px 6px rgba(15,23,42,0.04);
+  --rb-shadow-xl: 0 24px 64px rgba(15,23,42,0.18), 0 4px 12px rgba(15,23,42,0.06);
 
   --background: oklch(0.979 0.003 240);
   --foreground: oklch(0.145 0.028 260);
@@ -60,8 +91,58 @@
   --critical: oklch(0.552 0.22 25);
 }
 
+/* ── Light mode explicit override (needed when html.dark is set by app ThemeProvider) ── */
+[data-theme="light"] {
+  --rb-fg-1: #1D1D1F;
+  --rb-fg-2: #48484D;
+  --rb-fg-3: #86868B;
+  --rb-fg-4: #B0B0B8;
+
+  --rb-bg-canvas:      #F5F5F7;
+  --rb-bg-surface:     #FFFFFF;
+  --rb-bg-raised:      #FFFFFF;
+  --rb-bg-sunken:      #FAFAFA;
+  --rb-bg-selected:    #EBF4FF;
+  --rb-bg-accent-soft: #EBF4FF;
+  --rb-bg-hover:       rgba(0,0,0,0.04);
+
+  --rb-border-1: rgba(0,0,0,0.06);
+  --rb-border-2: rgba(0,0,0,0.10);
+  --rb-border-3: rgba(0,0,0,0.16);
+
+  --rb-shadow-xs: 0 1px 1px rgba(15,23,42,0.04);
+  --rb-shadow-sm: 0 1px 3px rgba(15,23,42,0.06), 0 1px 2px rgba(15,23,42,0.04);
+  --rb-shadow-md: 0 4px 12px rgba(15,23,42,0.08), 0 2px 4px rgba(15,23,42,0.04);
+  --rb-shadow-lg: 0 12px 32px rgba(15,23,42,0.10), 0 2px 6px rgba(15,23,42,0.04);
+  --rb-shadow-xl: 0 24px 64px rgba(15,23,42,0.18), 0 4px 12px rgba(15,23,42,0.06);
+
+  --background: oklch(0.979 0.003 240);
+  --foreground: oklch(0.145 0.028 260);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.145 0.028 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.145 0.028 260);
+  --primary: oklch(0.590 0.196 254);
+  --primary-foreground: oklch(1 0 0);
+  --secondary: oklch(0.961 0.005 240);
+  --secondary-foreground: oklch(0.145 0.028 260);
+  --muted: oklch(0.961 0.005 240);
+  --muted-foreground: oklch(0.50 0.02 250);
+  --accent: oklch(0.961 0.005 240);
+  --accent-foreground: oklch(0.145 0.028 260);
+  --destructive: oklch(0.552 0.22 25);
+  --destructive-foreground: oklch(1 0 0);
+  --border: oklch(0.920 0.006 250);
+  --input: oklch(0.920 0.006 250);
+  --ring: oklch(0.590 0.196 254);
+  --success: oklch(0.502 0.15 155);
+  --warning: oklch(0.602 0.17 55);
+  --critical: oklch(0.552 0.22 25);
+}
+
 /* ── Dark mode ──────────────────────────────────────────────────────────── */
-.dark {
+.dark,
+[data-theme="dark"] {
   --rb-fg-1: #F5F5F7;
   --rb-fg-2: #C7C7CC;
   --rb-fg-3: #8E8E93;
@@ -82,6 +163,8 @@
   --rb-shadow-xs: 0 1px 1px rgba(0,0,0,0.50);
   --rb-shadow-sm: 0 1px 2px rgba(0,0,0,0.60);
   --rb-shadow-md: 0 4px 12px rgba(0,0,0,0.50);
+  --rb-shadow-lg: 0 12px 32px rgba(0,0,0,0.60);
+  --rb-shadow-xl: 0 24px 64px rgba(0,0,0,0.70);
 
   --background: oklch(0.09 0.01 260);
   --foreground: oklch(0.96 0.003 240);
@@ -208,4 +291,119 @@ textarea {
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
+}
+
+/* ── Marketing animations ─────────────────────────────────────────────────── */
+@keyframes rb-pulse {
+  0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
+  40%           { opacity: 1;    transform: scale(1);   }
+}
+@keyframes rb-marquee {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+@keyframes rb-fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes rb-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.rb-marquee-track {
+  display: flex;
+  gap: 56px;
+  animation: rb-marquee 32s linear infinite;
+  width: max-content;
+}
+
+.rb-live-pulse {
+  display: inline-block;
+  border-radius: 50%;
+  animation: rb-pulse 1.6s ease-in-out infinite;
+}
+
+/* ─────────────────────────────────────────────────────────────────────
+   Marketing site responsive overrides (N7)
+   ─────────────────────────────────────────────────────────────────────
+   Marketing pages use inline style={{}} with fixed px widths/grids for
+   desktop. Rather than rewriting 1000+ lines of inline styles, every
+   marketing page wraps in <MarketingShell> which adds `.rb-marketing`.
+   These rules override the worst offenders at narrow viewports.
+
+   Strategy:
+   - ≤768px: stack ALL grids to single column, shrink page padding,
+     scale down hero-sized fonts (40px+).
+   - ≤480px: further shrink the largest fonts.
+   ──────────────────────────────────────────────────────────────────── */
+
+@media (max-width: 768px) {
+  /* Stack ALL grid layouts vertically on mobile */
+  .rb-marketing [style*="grid-template-columns"] {
+    grid-template-columns: 1fr !important;
+    gap: 24px !important;
+  }
+
+  /* Reduce explicit large gaps */
+  .rb-marketing [style*="gap: 64"]  { gap: 24px !important; }
+  .rb-marketing [style*="gap: 56"]  { gap: 24px !important; }
+  .rb-marketing [style*="gap: 48"]  { gap: 20px !important; }
+  .rb-marketing [style*="gap: 40"]  { gap: 20px !important; }
+
+  /* Reduce section padding */
+  .rb-marketing section { padding-left: 20px !important; padding-right: 20px !important; }
+  .rb-marketing [style*="padding: 56px 0"],
+  .rb-marketing [style*="padding: 80px 0"],
+  .rb-marketing [style*="padding: 96px 0"],
+  .rb-marketing [style*="padding: 120px 0"] {
+    padding: 40px 20px !important;
+  }
+  .rb-marketing [style*="padding: 44px 0"] { padding: 24px 0 !important; }
+
+  /* Scale down hero-sized fonts */
+  .rb-marketing [style*="font-size: 88"] { font-size: 38px !important; line-height: 1.1 !important; letter-spacing: -0.01em !important; }
+  .rb-marketing [style*="font-size: 80"] { font-size: 36px !important; line-height: 1.1 !important; }
+  .rb-marketing [style*="font-size: 72"] { font-size: 34px !important; line-height: 1.1 !important; }
+  .rb-marketing [style*="font-size: 64"] { font-size: 32px !important; line-height: 1.1 !important; }
+  .rb-marketing [style*="font-size: 56"] { font-size: 28px !important; line-height: 1.15 !important; }
+  .rb-marketing [style*="font-size: 48"] { font-size: 26px !important; line-height: 1.15 !important; }
+  .rb-marketing [style*="font-size: 44"] { font-size: 24px !important; line-height: 1.2 !important; }
+  .rb-marketing [style*="font-size: 40"] { font-size: 22px !important; line-height: 1.25 !important; }
+  .rb-marketing [style*="font-size: 36"] { font-size: 22px !important; }
+  .rb-marketing [style*="font-size: 32"] { font-size: 20px !important; }
+  .rb-marketing [style*="font-size: 28"] { font-size: 18px !important; }
+
+  /* Cap inline maxWidths that exceed mobile viewport */
+  .rb-marketing [style*="max-width: 1200"],
+  .rb-marketing [style*="max-width: 1240"],
+  .rb-marketing [style*="max-width: 1100"],
+  .rb-marketing [style*="max-width: 960"],
+  .rb-marketing [style*="max-width: 880"],
+  .rb-marketing [style*="max-width: 720"] {
+    max-width: 100% !important;
+  }
+
+  /* Prevent fixed-width media from forcing horizontal scroll */
+  .rb-marketing img,
+  .rb-marketing video,
+  .rb-marketing svg {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Dense desktop mockups scroll within their container rather than
+     blowing out the page width */
+  .rb-marketing [style*="display: grid"][style*="overflow: hidden"] {
+    overflow-x: auto !important;
+  }
+}
+
+@media (max-width: 480px) {
+  .rb-marketing [style*="font-size: 88"] { font-size: 30px !important; }
+  .rb-marketing [style*="font-size: 80"] { font-size: 28px !important; }
+  .rb-marketing [style*="font-size: 72"] { font-size: 28px !important; }
+  .rb-marketing [style*="font-size: 64"] { font-size: 26px !important; }
+
+  .rb-marketing section { padding-left: 16px !important; padding-right: 16px !important; }
 }

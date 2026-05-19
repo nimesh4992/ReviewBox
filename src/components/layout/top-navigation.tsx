@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useUser } from "@clerk/nextjs";
 import { Bell, CheckCircle, Menu, Moon, Plus, Search, Sun } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -33,32 +34,11 @@ interface Notification {
   href: string;
 }
 
-const SAMPLE_NOTIFICATIONS: Notification[] = [
-  {
-    id: "1",
-    severity: "red",
-    title: "Crash spike detected",
-    subtitle: "21 reviews mention crashes in v2.4.1",
-    time: "2h ago",
-    href: "/incidents",
-  },
-  {
-    id: "2",
-    severity: "yellow",
-    title: "46 reviews need a reply",
-    subtitle: "Oldest is 3 days ago",
-    time: "Today",
-    href: "/reviews",
-  },
-  {
-    id: "3",
-    severity: "green",
-    title: "Weekly digest ready",
-    subtitle: "Your app rating improved 0.2★ this week",
-    time: "Yesterday",
-    href: "/dashboard",
-  },
-];
+// Notifications are intentionally empty here. A real notification feed
+// (rating spikes, urgent unreplied, incidents) is queued for a future
+// backlog item. Until then we show the "all caught up" empty state to
+// avoid presenting hardcoded data for apps the user doesn't have.
+const NOTIFICATIONS: Notification[] = [];
 
 const severityDot: Record<NotifSeverity, string> = {
   red: "bg-red-400",
@@ -76,6 +56,14 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
   const [notifOpen, setNotifOpen] = useState(false);
   const router = useRouter();
   const { theme, toggleTheme } = useWorkspaceStore();
+  const { user } = useUser();
+
+  const initials =
+    user?.firstName && user?.lastName
+      ? `${user.firstName[0]}${user.lastName[0]}`
+      : user?.firstName?.[0]?.toUpperCase() ??
+        user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ??
+        "?";
 
   function handleNotifClick(href: string) {
     setNotifOpen(false);
@@ -166,18 +154,20 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
               <SheetTitle className="text-sm font-semibold text-gray-900">
                 Notifications
               </SheetTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs text-gray-400 hover:text-gray-600"
-              >
-                Mark all read
-              </Button>
+              {NOTIFICATIONS.length > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="h-7 px-2 text-xs text-gray-400 hover:text-gray-600"
+                >
+                  Mark all read
+                </Button>
+              )}
             </SheetHeader>
 
             {/* Notification list */}
             <div className="flex-1 overflow-y-auto">
-              {SAMPLE_NOTIFICATIONS.length === 0 ? (
+              {NOTIFICATIONS.length === 0 ? (
                 <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
                   <CheckCircle
                     className="size-8 text-gray-300"
@@ -187,7 +177,7 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
                 </div>
               ) : (
                 <ul className="divide-y divide-gray-50">
-                  {SAMPLE_NOTIFICATIONS.map((notif) => (
+                  {NOTIFICATIONS.map((notif) => (
                     <li key={notif.id}>
                       <button
                         onClick={() => handleNotifClick(notif.href)}
@@ -222,7 +212,7 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
             <div className="border-t border-gray-100 px-4 py-3">
               <button
                 onClick={() => handleNotifClick("/settings")}
-                className="text-xs text-[#5B5BD6] hover:underline"
+                className="text-xs text-[#0A84FF] hover:underline"
               >
                 Notification settings
               </button>
@@ -231,10 +221,10 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
         </Sheet>
 
         <button
-          className="flex size-7 items-center justify-center rounded-full bg-[#5B5BD6] text-[11px] font-semibold text-white ring-2 ring-white transition-opacity duration-150 hover:opacity-90"
+          className="flex size-7 items-center justify-center rounded-full bg-gradient-to-br from-[#4592FF] to-[#0058B3] text-[11px] font-semibold text-white ring-2 ring-white transition-opacity duration-150 hover:opacity-90"
           aria-label="Account"
         >
-          NS
+          {initials}
         </button>
       </div>
     </header>

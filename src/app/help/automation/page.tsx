@@ -50,7 +50,7 @@ const RELATED = [
 export default function AutomationPage() {
   return (
     <div className="min-h-screen bg-[#F5F5F7]">
-      <MarketingNav cta="signin" />
+      <MarketingNav />
 
       <div className="mx-auto max-w-screen-xl px-6 py-3">
         <nav className="flex items-center gap-1.5 text-xs text-gray-400">
@@ -112,8 +112,8 @@ export default function AutomationPage() {
                   {[
                     "Go to **Automations** in the sidebar",
                     "Click **New rule**",
-                    'Give your rule a name (e.g. “Escalate crash reports”)',
-                    'Set your **trigger** — usually “New review received”',
+                    'Give your rule a name (e.g. "Escalate crash reports")',
+                    'Set your **trigger** — usually "New review received"',
                     "Add **conditions** to filter which reviews match",
                     "Choose one or more **actions** to perform",
                     "Click **Save** — the rule activates immediately",

@@ -16,7 +16,7 @@ interface WorkspaceState {
 export const useWorkspaceStore = create<WorkspaceState>()(
   persist(
     (set, get) => ({
-      selectedApp: "ReviewIQ Mobile",
+      selectedApp: "",
       environment: "production",
       theme: "light",
       setSelectedApp: (selectedApp) => set({ selectedApp }),
@@ -24,6 +24,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
       setTheme: (theme) => set({ theme }),
       toggleTheme: () => set({ theme: get().theme === "light" ? "dark" : "light" }),
     }),
-    { name: "revi-workspace" },
+    { name: "reviewbox-workspace" },
   ),
 );

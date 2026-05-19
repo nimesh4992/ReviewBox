@@ -1,15 +1,16 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
+import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "Customers — ReviewBox",
+  title: "Customers â€” ReviewBox",
   description: "See how mobile teams use ReviewBox to respond faster and improve their ratings.",
 };
 
 const METRICS = [
-  { value: "48h → 6h", label: "Average first-reply time" },
-  { value: "4.21 → 4.58", label: "Average rating after 90 days" },
+  { value: "48h â†’ 6h", label: "Average first-reply time" },
+  { value: "4.21 â†’ 4.58", label: "Average rating after 90 days" },
   { value: "340%", label: "More reviews replied to per week" },
   { value: "$0", label: "Cost per AI reply (template tier)" },
 ];
@@ -17,7 +18,7 @@ const METRICS = [
 const TESTIMONIALS = [
   {
     quote:
-      "We went from replying to maybe 20% of our reviews manually to replying to 95% — with better, more on-brand responses. It took one afternoon to set up.",
+      "We went from replying to maybe 20% of our reviews manually to replying to 95% â€” with better, more on-brand responses. It took one afternoon to set up.",
     author: "Sarah K.",
     role: "Head of Product, Fintech startup",
     rating: 5,
@@ -31,7 +32,7 @@ const TESTIMONIALS = [
   },
   {
     quote:
-      "Our app store rating went from 4.0 to 4.6 in three months. We changed nothing in the product — we just started actually responding to every review.",
+      "Our app store rating went from 4.0 to 4.6 in three months. We changed nothing in the product â€” we just started actually responding to every review.",
     author: "Priya M.",
     role: "Growth, Consumer app (2M MAU)",
     rating: 5,
@@ -58,8 +59,8 @@ const INDUSTRIES = [
 
 export default function CustomersPage() {
   return (
-    <div className="min-h-screen bg-[#F5F5F7]">
-      <MarketingNav cta="trial" />
+    <MarketingShell>
+      <MarketingNav />
 
       {/* Breadcrumb */}
       <div className="mx-auto max-w-screen-xl px-6 py-3">
@@ -76,20 +77,20 @@ export default function CustomersPage() {
           <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-blue-600">
             Customers
           </span>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
+          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7] sm:text-5xl">
             Mobile teams that reply faster and rate higher.
           </h1>
-          <p className="mt-4 text-lg text-gray-500">
-            From indie apps to 2M MAU products — real results from real teams.
+          <p className="mt-4 text-lg text-gray-500 dark:text-[#86868B]">
+            From indie apps to 2M MAU products â€” real results from real teams.
           </p>
         </div>
 
         {/* Metrics */}
         <div className="grid grid-cols-2 gap-4 sm:grid-cols-4 mb-16">
           {METRICS.map(({ value, label }) => (
-            <div key={label} className="rounded-2xl border border-gray-200 bg-white p-6 text-center">
-              <div className="text-2xl font-bold text-gray-900">{value}</div>
-              <div className="mt-1 text-xs text-gray-500">{label}</div>
+            <div key={label} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6 text-center">
+              <div className="text-2xl font-bold text-gray-900 dark:text-[#F5F5F7]">{value}</div>
+              <div className="mt-1 text-xs text-gray-500 dark:text-[#86868B]">{label}</div>
             </div>
           ))}
         </div>
@@ -103,7 +104,7 @@ export default function CustomersPage() {
             {LOGOS.map((name) => (
               <div
                 key={name}
-                className="rounded-xl border border-gray-200 bg-white px-6 py-3 text-sm font-semibold text-gray-400"
+                className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] px-6 py-3 text-sm font-semibold text-gray-400 dark:text-[#636366]"
               >
                 {name}
               </div>
@@ -113,21 +114,21 @@ export default function CustomersPage() {
 
         {/* Testimonials */}
         <div className="mb-16">
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900 mb-8">
+          <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7] mb-8">
             What teams say
           </h2>
           <div className="grid gap-6 sm:grid-cols-3">
             {TESTIMONIALS.map((t) => (
-              <div key={t.author} className="rounded-2xl border border-gray-200 bg-white p-8">
+              <div key={t.author} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-8">
                 <div className="flex gap-0.5 mb-4">
                   {Array.from({ length: t.rating }).map((_, i) => (
-                    <span key={i} className="text-amber-400 text-sm">★</span>
+                    <span key={i} className="text-amber-400 text-sm">â˜…</span>
                   ))}
                 </div>
-                <p className="text-sm leading-relaxed text-gray-700">&ldquo;{t.quote}&rdquo;</p>
-                <div className="mt-6 pt-4 border-t border-gray-100">
-                  <div className="font-semibold text-sm text-gray-900">{t.author}</div>
-                  <div className="text-xs text-gray-400">{t.role}</div>
+                <p className="text-sm leading-relaxed text-gray-700 dark:text-[#C7C7CC]">&ldquo;{t.quote}&rdquo;</p>
+                <div className="mt-6 pt-4 border-t border-gray-100 dark:border-white/6">
+                  <div className="font-semibold text-sm text-gray-900 dark:text-[#F5F5F7]">{t.author}</div>
+                  <div className="text-xs text-gray-400 dark:text-[#636366]">{t.role}</div>
                 </div>
               </div>
             ))}
@@ -136,16 +137,16 @@ export default function CustomersPage() {
 
         {/* Industries */}
         <div className="mb-16">
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900 mb-8">
+          <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7] mb-8">
             Industries we serve
           </h2>
           <div className="grid gap-4 sm:grid-cols-2">
             {INDUSTRIES.map((ind) => (
-              <div key={ind.name} className="rounded-2xl border border-gray-200 bg-white p-6 flex items-start gap-4">
+              <div key={ind.name} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6 flex items-start gap-4">
                 <div className="text-3xl font-bold text-[#0A84FF] shrink-0">{ind.count}</div>
                 <div>
-                  <div className="font-semibold text-gray-900">{ind.name}</div>
-                  <div className="mt-1 text-sm text-gray-500">{ind.description}</div>
+                  <div className="font-semibold text-gray-900 dark:text-[#F5F5F7]">{ind.name}</div>
+                  <div className="mt-1 text-sm text-gray-500 dark:text-[#86868B]">{ind.description}</div>
                 </div>
               </div>
             ))}
@@ -166,6 +167,6 @@ export default function CustomersPage() {
       </main>
 
       <MarketingFooter />
-    </div>
+    </MarketingShell>
   );
 }

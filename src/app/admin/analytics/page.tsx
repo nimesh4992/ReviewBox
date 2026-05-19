@@ -1,4 +1,4 @@
-import { getServiceClient } from "@/lib/supabase-server";
+﻿import { getServiceClient } from "@/lib/supabase-server";
 
 interface StatCardProps {
   label: string;
@@ -83,7 +83,7 @@ export default async function AdminAnalyticsPage() {
         <StatCard
           label="Total workspaces"
           value={totalWorkspaces}
-          sub={planBreakdown || "—"}
+          sub={planBreakdown || "â€”"}
         />
         <StatCard label="Total apps connected" value={totalApps ?? 0} />
         <StatCard label="Total reviews synced" value={totalReviews ?? 0} />

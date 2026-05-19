@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
+import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
   title: "FAQ — ReviewBox",
@@ -108,12 +109,12 @@ const FAQ_JSON_LD = {
 
 export default function FaqPage() {
   return (
-    <div className="min-h-screen bg-[#F5F5F7]">
+    <MarketingShell>
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSON_LD) }}
       />
-      <MarketingNav cta="signin" />
+      <MarketingNav />
 
       {/* Breadcrumb */}
       <div className="mx-auto max-w-screen-xl px-6 py-3">
@@ -127,10 +128,10 @@ export default function FaqPage() {
       <main className="mx-auto max-w-3xl px-6 pb-32">
         {/* Header */}
         <div className="pt-12 pb-12">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900">
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">
             Frequently asked questions
           </h1>
-          <p className="mt-3 text-gray-500">
+          <p className="mt-3 text-gray-500 dark:text-[#86868B]">
             Can&apos;t find an answer?{" "}
             <Link href="/contact" className="text-[#0A84FF] hover:underline">
               Email us
@@ -143,17 +144,17 @@ export default function FaqPage() {
         <div className="space-y-12">
           {FAQ_SECTIONS.map((section) => (
             <div key={section.title}>
-              <h2 className="mb-6 text-[11px] font-semibold uppercase tracking-widest text-gray-400">
+              <h2 className="mb-6 text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366]">
                 {section.title}
               </h2>
               <dl className="space-y-4">
                 {section.questions.map(({ q, a }) => (
                   <div
                     key={q}
-                    className="rounded-2xl border border-gray-200 bg-white p-6"
+                    className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6"
                   >
-                    <dt className="font-semibold text-gray-900">{q}</dt>
-                    <dd className="mt-3 text-sm leading-relaxed text-gray-600">{a}</dd>
+                    <dt className="font-semibold text-gray-900 dark:text-[#F5F5F7]">{q}</dt>
+                    <dd className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-[#C7C7CC]">{a}</dd>
                   </div>
                 ))}
               </dl>
@@ -162,9 +163,9 @@ export default function FaqPage() {
         </div>
 
         {/* CTA */}
-        <div className="mt-16 rounded-2xl border border-blue-100 bg-blue-50 px-8 py-10 text-center">
-          <h2 className="text-lg font-bold text-gray-900">Still have questions?</h2>
-          <p className="mt-2 text-sm text-gray-600">
+        <div className="mt-16 rounded-2xl border border-blue-100 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-900/20 px-8 py-10 text-center">
+          <h2 className="text-lg font-bold text-gray-900 dark:text-[#F5F5F7]">Still have questions?</h2>
+          <p className="mt-2 text-sm text-gray-600 dark:text-[#C7C7CC]">
             The whole team reads support email. You&apos;ll get a real answer, not a template.
           </p>
           <Link
@@ -177,6 +178,6 @@ export default function FaqPage() {
       </main>
 
       <MarketingFooter />
-    </div>
+    </MarketingShell>
   );
 }

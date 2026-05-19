@@ -1,64 +1,106 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
+
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { audit } from "@/lib/audit";
+import { rateLimit } from "@/lib/api-rate-limit";
+import { apiError, captureAndError } from "@/lib/api-response";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(): Promise<NextResponse> {
-  const { userId } = await auth();
+async function handler(req: NextRequest): Promise<NextResponse> {
+  try {
+    const { userId } = await auth();
+    if (!userId) {
+      return apiError("UNAUTHORIZED", 401);
+    }
 
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    // 3 full exports per hour — payload can be MBs, don't let people loop on it.
+    const rl = await rateLimit(req, userId, { bucket: "gdpr-export", limit: 3, window: "1 h" });
+    if (!rl.allowed) {
+      return apiError("RATE_LIMITED", 429);
+    }
+
+    const workspaceId = await getWorkspaceId(userId);
+    if (!workspaceId) {
+      return apiError("NO_WORKSPACE", 404);
+    }
+
+    const sb = getServiceClient();
+
+    const [
+      workspaceRes,
+      membersRes,
+      appsRes,
+      reviewsRes,
+      templatesRes,
+      knowledgeBaseRes,
+      alertPreferencesRes,
+      automationRulesRes,
+      aiUsageRes,
+      auditLogRes,
+    ] = await Promise.all([
+      sb.from("workspaces").select("*").eq("id", workspaceId).single(),
+      sb.from("workspace_members").select("*").eq("workspace_id", workspaceId),
+      sb.from("apps").select("*").eq("workspace_id", workspaceId),
+      sb.from("reviews").select("*").eq("workspace_id", workspaceId).limit(50000),
+      sb.from("reply_templates").select("*").eq("workspace_id", workspaceId),
+      sb.from("knowledge_base").select("*").eq("workspace_id", workspaceId),
+      sb.from("alert_preferences").select("*").eq("workspace_id", workspaceId),
+      sb.from("automation_rules").select("*").eq("workspace_id", workspaceId),
+      sb.from("ai_usage").select("*").eq("workspace_id", workspaceId).limit(50000),
+      sb.from("audit_log").select("*").eq("workspace_id", workspaceId).limit(50000),
+    ]);
+
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      requestedBy: userId,
+      workspaceId,
+      data: {
+        workspace:         workspaceRes.data ?? null,
+        members:           membersRes.data ?? [],
+        apps:              appsRes.data ?? [],
+        reviews:           reviewsRes.data ?? [],
+        templates:         templatesRes.data ?? [],
+        knowledgeBase:     knowledgeBaseRes.data ?? [],
+        alertPreferences:  alertPreferencesRes.data ?? [],
+        automationRules:   automationRulesRes.data ?? [],
+        aiUsage:           aiUsageRes.data ?? [],
+        auditLog:          auditLogRes.data ?? [],
+      },
+    };
+
+    await audit({
+      workspaceId,
+      actorUserId: userId,
+      action: "workspace.create", // closest stable action; export is a workspace read event
+      targetType: "workspace",
+      targetId: workspaceId,
+      payload: { event: "gdpr_export", rowCounts: countRows(payload.data) },
+      request: req,
+    });
+
+    const filename = `reviewbox-export-${new Date().toISOString().slice(0, 10)}.json`;
+    return new NextResponse(JSON.stringify(payload, null, 2), {
+      status: 200,
+      headers: {
+        "Content-Type": "application/json",
+        "Content-Disposition": `attachment; filename="${filename}"`,
+      },
+    });
+  } catch (err) {
+    return captureAndError(err, "POST /api/gdpr/export");
   }
-
-  const workspaceId = await getWorkspaceId(userId);
-
-  if (!workspaceId) {
-    return NextResponse.json({ error: "Workspace not found" }, { status: 404 });
-  }
-
-  const sb = getServiceClient();
-
-  const [
-    workspaceRes,
-    appsRes,
-    reviewsRes,
-    templatesRes,
-    knowledgeBaseRes,
-    alertPreferencesRes,
-    automationRulesRes,
-    aiUsageRes,
-  ] = await Promise.all([
-    sb.from("workspaces").select("*").eq("id", workspaceId).single(),
-    sb.from("apps").select("*").eq("workspace_id", workspaceId),
-    sb.from("reviews").select("*").eq("workspace_id", workspaceId).limit(10000),
-    sb.from("reply_templates").select("*").eq("workspace_id", workspaceId),
-    sb.from("knowledge_base").select("*").eq("workspace_id", workspaceId),
-    sb.from("alert_preferences").select("*").eq("workspace_id", workspaceId),
-    sb.from("automation_rules").select("*").eq("workspace_id", workspaceId),
-    sb.from("ai_usage").select("*").eq("workspace_id", workspaceId),
-  ]);
-
-  const payload = {
-    exportedAt: new Date().toISOString(),
-    workspaceId,
-    data: {
-      workspace: workspaceRes.data ?? null,
-      apps: appsRes.data ?? [],
-      reviews: reviewsRes.data ?? [],
-      templates: templatesRes.data ?? [],
-      knowledgeBase: knowledgeBaseRes.data ?? [],
-      alertPreferences: alertPreferencesRes.data ?? [],
-      automationRules: automationRulesRes.data ?? [],
-      aiUsage: aiUsageRes.data ?? [],
-    },
-  };
-
-  return new NextResponse(JSON.stringify(payload, null, 2), {
-    status: 200,
-    headers: {
-      "Content-Type": "application/json",
-      "Content-Disposition": `attachment; filename="revi-data-export.json"`,
-    },
-  });
 }
+
+function countRows(data: Record<string, unknown>): Record<string, number> {
+  const counts: Record<string, number> = {};
+  for (const [key, value] of Object.entries(data)) {
+    counts[key] = Array.isArray(value) ? value.length : value ? 1 : 0;
+  }
+  return counts;
+}
+
+// Accept both verbs; UI calls POST, curl users may use GET.
+export const GET = handler;
+export const POST = handler;

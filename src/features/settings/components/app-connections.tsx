@@ -464,7 +464,7 @@ export function AppConnections() {
       <div className="border-b border-gray-100 px-4 py-3">
         <h2 className="text-sm font-semibold text-gray-900">Connected apps</h2>
         <p className="mt-0.5 text-xs text-gray-400">
-          Apps synced to this workspace · reviews are fetched every 4 hours
+          Apps synced to this workspace · reviews are fetched daily
         </p>
       </div>
 

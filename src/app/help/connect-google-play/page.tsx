@@ -147,7 +147,7 @@ const RELATED = [
 export default function ConnectGooglePlayPage() {
   return (
     <div className="min-h-screen bg-[#F5F5F7]">
-      <MarketingNav cta="signin" />
+      <MarketingNav />
 
       {/* Breadcrumb */}
       <div className="mx-auto max-w-screen-xl px-6 py-3">

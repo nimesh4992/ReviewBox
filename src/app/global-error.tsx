@@ -17,7 +17,7 @@ export default function GlobalError({
   return (
     <html>
       <body className="flex min-h-screen flex-col items-center justify-center gap-4 bg-[#F5F5F7] p-8 text-center font-sans">
-        <div className="text-[48px]">⚠️</div>
+        <div className="flex size-16 items-center justify-center rounded-full bg-red-50 text-[28px] font-bold text-red-500">!</div>
         <h1 className="text-[22px] font-semibold text-[#1D1D1F]">Something went wrong</h1>
         <p className="max-w-sm text-[15px] text-[#86868B]">
           An unexpected error occurred. Our team has been notified automatically.

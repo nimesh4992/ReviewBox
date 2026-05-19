@@ -1,7 +1,7 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 
 export const metadata = {
-  title: "Refund & Cancellation Policy — ReviewBox",
+  title: "Refund & Cancellation Policy â€” ReviewBox",
 };
 
 export default function RefundPolicyPage() {
@@ -12,7 +12,7 @@ export default function RefundPolicyPage() {
           href="/"
           className="inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-800"
         >
-          ← Back to ReviewBox
+          â† Back to ReviewBox
         </Link>
 
         <div className="mt-8 rounded-2xl bg-white px-8 py-10 shadow-sm ring-1 ring-gray-200 sm:px-12">

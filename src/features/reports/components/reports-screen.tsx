@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useWorkspaceStore } from "@/store/use-workspace-store";
 
 const REPORTS = [
   {
@@ -118,13 +119,14 @@ function ReportCard({
 }
 
 export function ReportsScreen() {
+  const selectedApp = useWorkspaceStore((s) => s.selectedApp);
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8 max-w-[1240px] mx-auto">
 
       {/* Header */}
       <header className="flex items-end justify-between gap-6">
         <div>
-          <div className="text-[12px] font-medium text-fg-3">Acme Banking · iOS</div>
+          <div className="text-[12px] font-medium text-fg-3">{selectedApp || "All apps"}</div>
           <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.022em] text-fg-1">
             Reports
           </h1>

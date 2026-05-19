@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+﻿import type { Metadata, Viewport } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
@@ -9,6 +9,7 @@ import { QueryProvider } from "@/components/providers/query-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
 import { CookieBanner } from "@/components/layout/cookie-banner";
 import { PostHogProvider } from "@/components/providers/posthog-provider";
+import { SentryIdentify } from "@/components/providers/sentry-identify";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -17,6 +18,16 @@ const inter = Inter({
 
 const RAW_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
 const BASE_URL = RAW_URL.startsWith("http") ? RAW_URL : `https://${RAW_URL}`;
+
+// Tell mobile browsers to render at device width instead of the default
+// ~980px desktop width that then gets scaled down to fit. Without this,
+// the whole site looks squeezed-to-fit on phones with tiny unreadable text.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  maximumScale: 5,
+  themeColor: "#0A84FF",
+};
 
 export const metadata: Metadata = {
   title: {
@@ -59,6 +70,7 @@ export default function RootLayout({
         <body className={`${inter.variable} antialiased`} suppressHydrationWarning>
           <QueryProvider>
             <PostHogProvider>
+              <SentryIdentify />
               <ThemeProvider>{children}</ThemeProvider>
             </PostHogProvider>
           </QueryProvider>

@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSentimentAnalysis } from "@/hooks/use-sentiment-analysis";
+import { useWorkspaceStore } from "@/store/use-workspace-store";
 import { mockReviews } from "@/features/reviews/data/mock-reviews";
 import type { AnalysisResult } from "@/app/api/sentiment/analyze/route";
 
@@ -149,6 +150,7 @@ export function SentimentScreen() {
   const [range, setRange] = useState<"7d" | "30d" | "90d">("90d");
   const [aiResults, setAiResults] = useState<AnalysisResult[] | null>(null);
   const { mutate: analyze, isPending } = useSentimentAnalysis();
+  const selectedApp = useWorkspaceStore((s) => s.selectedApp);
 
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8 max-w-[1240px] mx-auto">
@@ -156,7 +158,7 @@ export function SentimentScreen() {
       {/* Header */}
       <header className="flex items-end justify-between gap-6">
         <div>
-          <div className="text-[12px] font-medium text-fg-3">Acme Banking · iOS</div>
+          <div className="text-[12px] font-medium text-fg-3">{selectedApp || "All apps"}</div>
           <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.022em] text-fg-1">
             Sentiment
           </h1>
@@ -192,7 +194,7 @@ export function SentimentScreen() {
         <div className="flex items-center border-b border-[var(--rb-border-1)] px-5 py-4">
           <div>
             <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">Sentiment trend</div>
-            <div className="mt-0.5 text-[12px] text-fg-3">Acme Banking · iOS · last {range}</div>
+            <div className="mt-0.5 text-[12px] text-fg-3">{selectedApp || "All apps"} · last {range}</div>
           </div>
           <div className="ml-auto flex items-center gap-4">
             <span className="flex items-center gap-1.5 text-[12px] text-fg-2">

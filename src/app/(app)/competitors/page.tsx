@@ -1,4 +1,4 @@
-import { CompetitorsScreen } from "@/features/competitors/components/competitors-screen";
+﻿import { CompetitorsScreen } from "@/features/competitors/components/competitors-screen";
 
 export const metadata = { title: "Competitors" };
 

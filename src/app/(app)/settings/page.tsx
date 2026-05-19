@@ -1,4 +1,4 @@
-import { KeyRound } from "lucide-react";
+﻿import { KeyRound } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -6,6 +6,7 @@ import {
   SettingsSections,
   WorkspaceDefaults,
 } from "@/features/settings/components/settings-sections";
+import { DangerZone } from "@/components/settings/danger-zone";
 
 export default function SettingsPage() {
   return (
@@ -23,7 +24,10 @@ export default function SettingsPage() {
       />
 
       <div className="grid gap-4 p-4 md:p-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <SettingsSections />
+        <div className="flex flex-col gap-4">
+          <SettingsSections />
+          <DangerZone />
+        </div>
         <WorkspaceDefaults />
       </div>
     </div>

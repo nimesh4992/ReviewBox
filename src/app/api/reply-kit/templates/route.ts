@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { audit } from "@/lib/audit";
 
 interface CreateTemplateBody {
   name: string;
@@ -80,6 +81,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     console.error("reply-kit/templates POST error:", error);
     return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
   }
+
+  await audit({
+    workspaceId,
+    actorUserId: userId,
+    action: "template.create",
+    targetType: "template",
+    targetId: data.id as string,
+    payload: { name, language },
+    request: req,
+  });
 
   return NextResponse.json({ template: data }, { status: 201 });
 }

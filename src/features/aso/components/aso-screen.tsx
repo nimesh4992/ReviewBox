@@ -97,7 +97,7 @@ export function ASOScreen() {
       {/* Header */}
       <header className="flex items-end justify-between gap-6">
         <div>
-          <div className="text-[12px] font-medium text-fg-3">Acme Banking · iOS</div>
+          <div className="text-[12px] font-medium text-fg-3">{selectedApp || "All apps"}</div>
           <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.022em] text-fg-1">
             ASO
           </h1>

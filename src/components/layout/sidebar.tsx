@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useUser } from "@clerk/nextjs";
+import { useAuth, useUser } from "@clerk/nextjs";
 import {
   Activity,
   AlertTriangle,
@@ -60,7 +60,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Inbox",
     items: [
-      { name: "Reviews",    href: "/reviews",     icon: Inbox,    signal: "127" },
+      { name: "Inbox",       href: "/inbox",       icon: Inbox,    signal: "127" },
       { name: "Automations", href: "/automations", icon: Workflow,  signal: null  },
       { name: "Reply Kit",   href: "/reply-kit",   icon: BookOpen,  signal: null  },
     ],
@@ -207,6 +207,10 @@ interface App { id: string; name: string; platform: string }
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
   const { user, isLoaded } = useUser();
+  const { sessionClaims } = useAuth();
+  const planLabel = sessionClaims?.metadata && typeof (sessionClaims.metadata as Record<string, unknown>).plan === "string"
+    ? String((sessionClaims.metadata as Record<string, unknown>).plan)
+    : "Free Plan";
   const { selectedApp, setSelectedApp, environment, setEnvironment } = useWorkspaceStore();
   const [apps, setApps] = useState<App[]>([]);
 
@@ -216,6 +220,11 @@ export function Sidebar({ className }: { className?: string }) {
       .then((data: { apps: App[] } | null) => {
         if (data?.apps?.length) {
           setApps(data.apps);
+          // Auto-select the first app if nothing valid is selected
+          const names = data.apps.map((a) => a.name);
+          if (!selectedApp || !names.includes(selectedApp)) {
+            setSelectedApp(data.apps[0].name);
+          }
         }
       })
       .catch(() => null);
@@ -383,7 +392,7 @@ export function Sidebar({ className }: { className?: string }) {
           </div>
           <div className="min-w-0 flex-1">
             <div className="truncate text-[12px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">{displayName}</div>
-            <div className="text-[10px] text-[#86868B]">Pro Plan</div>
+            <div className="text-[10px] text-[#86868B]">{planLabel}</div>
           </div>
           <ChevronUp className="size-3.5 shrink-0 text-[#86868B]" strokeWidth={1.5} />
         </div>

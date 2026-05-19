@@ -241,41 +241,101 @@ async function upsertAndFinalize(
   }
 }
 
-// ── Main handler ───────────────────────────────────────────────────────────────
+// ── Worker: sync one workspace's apps ──────────────────────────────────────────
 
-export async function POST(req: NextRequest): Promise<NextResponse> {
-  if (!isAuthorized(req)) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
-
+async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
   const sb = getServiceClient();
   const summary: SyncSummary = { appsProcessed: 0, reviewsUpserted: 0, spikesDetected: 0, errors: [] };
 
   const { data: apps } = await sb
     .from("apps")
     .select("id, workspace_id, name, platform, store_id, access_token, refresh_token")
+    .eq("workspace_id", workspaceId)
     .not("store_id", "is", null)
     .not("store_id", "eq", "");
 
-  if (!apps?.length) {
-    return NextResponse.json({ ...summary, message: "No apps to sync" });
-  }
+  if (!apps?.length) return summary;
 
   for (const app of apps as DbApp[]) {
     try {
-      if (app.platform === "google_play") {
-        await syncGooglePlayApp(app, summary);
-      } else if (app.platform === "app_store") {
-        await syncAppStoreApp(app, summary);
-      }
+      if (app.platform === "google_play")     await syncGooglePlayApp(app, summary);
+      else if (app.platform === "app_store")  await syncAppStoreApp(app, summary);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       summary.errors.push(`${app.platform} app ${app.store_id}: ${msg}`);
     }
   }
 
-  return NextResponse.json(summary);
+  return summary;
 }
+
+// ── Main handler: coordinator | worker ─────────────────────────────────────────
+//
+// Worker mode  (?workspaceId=X) → sync that one workspace inline.
+// Coordinator mode (no param)   → list active workspaces, fire one
+//   worker request per workspace via fetch fanout, return immediately.
+//   Each worker runs in its own Vercel invocation with its own 60s budget,
+//   so we scale to ~500 workspaces per daily cron run without timeouts.
+
+async function handler(req: NextRequest): Promise<NextResponse> {
+  if (!isAuthorized(req)) {
+    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  }
+
+  const workspaceId = req.nextUrl.searchParams.get("workspaceId");
+
+  // ── Worker mode ────────────────────────────────────────────────────────────
+  if (workspaceId) {
+    try {
+      const summary = await syncWorkspace(workspaceId);
+      return NextResponse.json({ ...summary, workspaceId });
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      return NextResponse.json(
+        { error: "WORKER_FAILED", workspaceId, message: msg },
+        { status: 500 },
+      );
+    }
+  }
+
+  // ── Coordinator mode ──────────────────────────────────────────────────────
+  const sb = getServiceClient();
+  const { data: workspaces } = await sb
+    .from("workspaces")
+    .select("id")
+    .is("deleted_at", null);
+
+  if (!workspaces?.length) {
+    return NextResponse.json({ message: "No active workspaces to sync", workspacesQueued: 0 });
+  }
+
+  const baseUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.startsWith("http")
+      ? process.env.NEXT_PUBLIC_APP_URL
+      : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000";
+
+  const secret = process.env.CRON_SECRET;
+  const headers: HeadersInit = secret ? { authorization: `Bearer ${secret}` } : {};
+
+  // Fanout: fire and forget. Each worker takes its own invocation budget.
+  for (const ws of workspaces) {
+    const url = `${baseUrl}/api/sync/reviews?workspaceId=${ws.id}`;
+    void fetch(url, { method: "GET", headers }).catch((err) => {
+      console.error(`[sync coordinator] failed to fanout ${ws.id}:`, err);
+    });
+  }
+
+  return NextResponse.json({
+    workspacesQueued: workspaces.length,
+    coordinatedAt: new Date().toISOString(),
+  });
+}
+
+// Vercel Cron uses GET. We also accept POST for manual triggers (curl/admin).
+export const GET = handler;
+export const POST = handler;
 
 // ── Helpers ────────────────────────────────────────────────────────────────────
 

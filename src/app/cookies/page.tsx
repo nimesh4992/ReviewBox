@@ -1,8 +1,8 @@
-import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
+﻿import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
 
 export const metadata = {
-  title: "Cookie Policy — ReviewBox",
-  description: "ReviewBox Cookie Policy — what cookies we set, why, and how to manage them.",
+  title: "Cookie Policy â€” ReviewBox",
+  description: "ReviewBox Cookie Policy â€” what cookies we set, why, and how to manage them.",
 };
 
 const SECTIONS = [
@@ -24,7 +24,7 @@ export default function CookiesPage() {
       version="2.3"
       plainLanguage={[
         "We use essential cookies to keep you logged in and run the app.",
-        "Analytics cookies (PostHog) help us improve the product — you can opt out.",
+        "Analytics cookies (PostHog) help us improve the product â€” you can opt out.",
         "No advertising or tracking cookies. Full list of cookies in section 3.",
       ]}
       sections={SECTIONS}
@@ -43,15 +43,15 @@ export default function CookiesPage() {
 
       <LegalSection id="categories" number={2} title="Categories we use">
         <p>
-          <strong>Essential (necessary)</strong> — always on. These keep you logged in, maintain
+          <strong>Essential (necessary)</strong> â€” always on. These keep you logged in, maintain
           CSRF protection, and handle session data. The app cannot function without them.
         </p>
         <p>
-          <strong>Functional</strong> — remember your preferences: dark/light mode, collapsed
+          <strong>Functional</strong> â€” remember your preferences: dark/light mode, collapsed
           sidebar state, selected workspace. Session-scoped or 1-year expiry.
         </p>
         <p>
-          <strong>Analytics</strong> — anonymous usage patterns via PostHog. Font: page
+          <strong>Analytics</strong> â€” anonymous usage patterns via PostHog. Font: page
           views, feature usage, session replay (PII masked). 90-day retention. Disable by opting
           out in your account preferences or via our cookie banner.
         </p>
@@ -96,7 +96,7 @@ export default function CookiesPage() {
       <LegalSection id="managing" number={4} title="Managing cookies">
         <p>
           Decline optional cookies any time via the cookie banner shown on first visit, or via{" "}
-          <strong>Settings → Privacy → Cookie preferences</strong> inside the app.
+          <strong>Settings â†’ Privacy â†’ Cookie preferences</strong> inside the app.
         </p>
         <p>
           You can also block or delete cookies through your browser settings. Note that blocking
@@ -143,7 +143,7 @@ export default function CookiesPage() {
           governed by the respective third party&apos;s privacy and cookie policies.
         </p>
         <p>
-          Services used: Clerk (authentication), PostHog (analytics), Stripe (billing — cookies
+          Services used: Clerk (authentication), PostHog (analytics), Stripe (billing â€” cookies
           only set on the checkout flow). Questions?{" "}
           <a href="mailto:legal@tryreviewbox.com" className="text-[#0A84FF] hover:underline">
             legal@tryreviewbox.com

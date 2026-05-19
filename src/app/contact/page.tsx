@@ -1,10 +1,11 @@
-import Link from "next/link";
+﻿import Link from "next/link";
 import { Mail, MessageSquare, Clock, MapPin } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
+import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "Contact — ReviewBox",
+  title: "Contact â€” ReviewBox",
   description:
     "Get in touch with the ReviewBox team. Support, sales, and partnerships.",
 };
@@ -41,15 +42,15 @@ const CHANNELS = [
 
 const FAQS = [
   { q: "How fast do you respond?", a: "Within one business day for support. Sales emails typically same day." },
-  { q: "Is there live chat?", a: "Not yet — but every email goes to a real person and we respond fast." },
-  { q: "Can I schedule a demo?", a: "Yes — email sales@tryreviewbox.com and we'll find a time." },
+  { q: "Is there live chat?", a: "Not yet â€” but every email goes to a real person and we respond fast." },
+  { q: "Can I schedule a demo?", a: "Yes â€” email sales@tryreviewbox.com and we'll find a time." },
   { q: "Where are you based?", a: "We're a remote-first team with people in San Francisco and London." },
 ];
 
 export default function ContactPage() {
   return (
-    <div className="min-h-screen bg-[#F5F5F7]">
-      <MarketingNav cta="trial" />
+    <MarketingShell>
+      <MarketingNav />
 
       {/* Breadcrumb */}
       <div className="mx-auto max-w-screen-xl px-6 py-3">
@@ -66,16 +67,16 @@ export default function ContactPage() {
           <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-blue-600">
             Contact
           </span>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl">
+          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7] sm:text-5xl">
             Talk to a real person.
           </h1>
-          <p className="mt-4 text-lg text-gray-500">
+          <p className="mt-4 text-lg text-gray-500 dark:text-[#86868B]">
             No ticketing system. No chatbot. Every email goes to someone who can actually help.
           </p>
 
-          <div className="mt-6 flex items-center gap-2 text-sm text-gray-500">
+          <div className="mt-6 flex items-center gap-2 text-sm text-gray-500 dark:text-[#86868B]">
             <Clock className="h-4 w-4 text-emerald-500" />
-            <span>We respond within <strong className="text-gray-800">one business day</strong> — usually faster.</span>
+            <span>We respond within <strong className="text-gray-800 dark:text-[#F5F5F7]">one business day</strong> â€” usually faster.</span>
           </div>
         </div>
 
@@ -85,13 +86,13 @@ export default function ContactPage() {
             <a
               key={ch.title}
               href={ch.href}
-              className="block rounded-2xl border border-gray-200 bg-white p-6 hover:border-gray-300 transition-colors"
+              className="block rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6 hover:border-gray-300 dark:hover:border-white/20 transition-colors"
             >
               <div className={`inline-flex rounded-xl p-2.5 ${ch.bg}`}>
                 <ch.icon className={`h-5 w-5 ${ch.color}`} strokeWidth={1.5} />
               </div>
-              <h2 className="mt-4 font-semibold text-gray-900">{ch.title}</h2>
-              <p className="mt-1 text-sm text-gray-500 leading-relaxed">{ch.description}</p>
+              <h2 className="mt-4 font-semibold text-gray-900 dark:text-[#F5F5F7]">{ch.title}</h2>
+              <p className="mt-1 text-sm text-gray-500 dark:text-[#86868B] leading-relaxed">{ch.description}</p>
               <span className={`mt-4 block text-sm font-medium ${ch.color} hover:underline`}>
                 {ch.cta}
               </span>
@@ -103,12 +104,12 @@ export default function ContactPage() {
         <div className="grid gap-8 lg:grid-cols-2 mb-16">
           {/* FAQ */}
           <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Common questions</h2>
+            <h2 className="text-xl font-bold text-gray-900 dark:text-[#F5F5F7] mb-6">Common questions</h2>
             <div className="space-y-4">
               {FAQS.map(({ q, a }) => (
-                <div key={q} className="rounded-2xl border border-gray-200 bg-white p-5">
-                  <p className="font-semibold text-gray-900 text-sm">{q}</p>
-                  <p className="mt-2 text-sm text-gray-500 leading-relaxed">{a}</p>
+                <div key={q} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-5">
+                  <p className="font-semibold text-gray-900 dark:text-[#F5F5F7] text-sm">{q}</p>
+                  <p className="mt-2 text-sm text-gray-500 dark:text-[#86868B] leading-relaxed">{a}</p>
                 </div>
               ))}
             </div>
@@ -116,16 +117,16 @@ export default function ContactPage() {
 
           {/* Office info */}
           <div>
-            <h2 className="text-xl font-bold text-gray-900 mb-6">Where we are</h2>
-            <div className="rounded-2xl border border-gray-200 bg-white p-8 space-y-6">
+            <h2 className="text-xl font-bold text-gray-900 dark:text-[#F5F5F7] mb-6">Where we are</h2>
+            <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-8 space-y-6">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Headquarters</p>
-                <p className="font-semibold text-gray-900">AT Work Inc.</p>
-                <p className="text-sm text-gray-500 mt-1">Remote-first · San Francisco + London</p>
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366] mb-2">Headquarters</p>
+                <p className="font-semibold text-gray-900 dark:text-[#F5F5F7]">AT Work Inc.</p>
+                <p className="text-sm text-gray-500 dark:text-[#86868B] mt-1">Remote-first Â· San Francisco + London</p>
               </div>
-              <div className="border-t border-gray-100 pt-6">
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Legal</p>
-                <p className="text-sm text-gray-500 leading-relaxed">
+              <div className="border-t border-gray-100 dark:border-white/6 pt-6">
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366] mb-2">Legal</p>
+                <p className="text-sm text-gray-500 dark:text-[#86868B] leading-relaxed">
                   For legal correspondence, DPA requests, or GDPR queries, email{" "}
                   <a href="mailto:legal@tryreviewbox.com" className="text-[#0A84FF] hover:underline">
                     legal@tryreviewbox.com
@@ -133,9 +134,9 @@ export default function ContactPage() {
                   .
                 </p>
               </div>
-              <div className="border-t border-gray-100 pt-6">
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Status</p>
-                <p className="text-sm text-gray-500">
+              <div className="border-t border-gray-100 dark:border-white/6 pt-6">
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366] mb-2">Status</p>
+                <p className="text-sm text-gray-500 dark:text-[#86868B]">
                   Check{" "}
                   <Link href="/status" className="text-[#0A84FF] hover:underline">
                     status.tryreviewbox.com
@@ -143,14 +144,14 @@ export default function ContactPage() {
                   for live uptime and incident reports.
                 </p>
               </div>
-              <div className="border-t border-gray-100 pt-6">
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">Help center</p>
-                <p className="text-sm text-gray-500">
+              <div className="border-t border-gray-100 dark:border-white/6 pt-6">
+                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366] mb-2">Help center</p>
+                <p className="text-sm text-gray-500 dark:text-[#86868B]">
                   Before emailing, check{" "}
                   <Link href="/help" className="text-[#0A84FF] hover:underline">
                     help.tryreviewbox.com
                   </Link>{" "}
-                  — it answers ~70% of questions instantly.
+                  â€” it answers ~70% of questions instantly.
                 </p>
               </div>
             </div>
@@ -159,6 +160,6 @@ export default function ContactPage() {
       </main>
 
       <MarketingFooter />
-    </div>
+    </MarketingShell>
   );
 }

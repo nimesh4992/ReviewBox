@@ -538,7 +538,7 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 ## Current Sprint
 
 **Active: S1.3 — Help Center**
-Last updated: 2026-05-15
+Last updated: 2026-05-19
 
 Completed sprints: S0.1 · S0.2 · S0.3 · S1.1 · S1.2
 
@@ -552,6 +552,14 @@ Key completions this session (S1.1 + S1.2):
 - ✅ Rating spike detection: ≥5 reviews ≤2★ same version/24h → email workspace owner
 - ✅ `src/lib/email/send-rating-spike-alert.ts` — alert email template
 - ✅ `/api/sync/reviews` added to Clerk middleware public routes
+
+Key completions 2026-05-19:
+- ✅ **N1** — Supabase migrations 002–006 applied to production
+  - 002: plan vocabulary (trial/starter/pro/team/past_due/canceled), default → trial
+  - 003: audit_log table + RLS (workspace-scoped reads, service-role writes)
+  - 004: webhook_events dedup table (Stripe retry safety)
+  - 005: workspace soft-delete column + pg_cron 30-day hard-delete job
+  - 006: workspace_invites table + RLS
 
 Up next (S1.3):
 - [ ] Create 4 help pages: Getting Started · Connect Google Play · AI Replies · FAQ

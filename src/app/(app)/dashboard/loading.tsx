@@ -1,4 +1,4 @@
-export default function DashboardLoading() {
+﻿export default function DashboardLoading() {
   return (
     <div className="min-w-0 animate-pulse">
       {/* Page header skeleton */}

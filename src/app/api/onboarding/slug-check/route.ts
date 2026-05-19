@@ -1,0 +1,84 @@
+import { auth } from "@clerk/nextjs/server";
+import { NextRequest, NextResponse } from "next/server";
+
+import { getServiceClient } from "@/lib/supabase-server";
+import { rateLimit } from "@/lib/api-rate-limit";
+import { apiError } from "@/lib/api-response";
+
+const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$/;
+const RESERVED = new Set([
+  "admin", "api", "app", "blog", "billing", "careers", "changelog", "compare",
+  "contact", "cookies", "customers", "dashboard", "dpa", "faq", "help",
+  "inbox", "incidents", "onboarding", "pricing", "privacy", "refund",
+  "releases", "reports", "reviews", "settings", "sign-in", "sign-up",
+  "status", "support", "terms", "www",
+]);
+
+export async function GET(req: NextRequest) {
+  const session = await auth();
+  if (!session?.userId) {
+    return apiError("UNAUTHORIZED", 401);
+  }
+
+  // Prevent enumeration of all workspace slugs by a malicious client.
+  const rl = await rateLimit(req, session.userId, { bucket: "slug-check", limit: 30, window: "1 m" });
+  if (!rl.allowed) {
+    return apiError("RATE_LIMITED", 429);
+  }
+
+  const slug = (req.nextUrl.searchParams.get("slug") ?? "").trim().toLowerCase();
+
+  if (!slug || !SLUG_PATTERN.test(slug)) {
+    return NextResponse.json({
+      available: false,
+      reason: "INVALID",
+      suggestions: [],
+    });
+  }
+
+  if (RESERVED.has(slug)) {
+    return NextResponse.json({
+      available: false,
+      reason: "RESERVED",
+      suggestions: [`${slug}-co`, `${slug}-app`, `${slug}-team`].filter((s) => !RESERVED.has(s)),
+    });
+  }
+
+  const sb = getServiceClient();
+  const { data: existing } = await sb
+    .from("workspaces")
+    .select("slug")
+    .eq("slug", slug)
+    .maybeSingle();
+
+  if (existing) {
+    const suggestions = await findAvailableSuggestions(sb, slug);
+    return NextResponse.json({
+      available: false,
+      reason: "TAKEN",
+      suggestions,
+    });
+  }
+
+  return NextResponse.json({ available: true, suggestions: [] });
+}
+
+async function findAvailableSuggestions(
+  sb: ReturnType<typeof getServiceClient>,
+  base: string,
+): Promise<string[]> {
+  const candidates = [
+    `${base}-co`,
+    `${base}-app`,
+    `${base}-team`,
+    `${base}-${Math.floor(Math.random() * 90) + 10}`,
+  ].filter((c) => !RESERVED.has(c) && SLUG_PATTERN.test(c));
+
+  const { data: taken } = await sb
+    .from("workspaces")
+    .select("slug")
+    .in("slug", candidates);
+
+  const takenSet = new Set((taken ?? []).map((r) => r.slug as string));
+  return candidates.filter((c) => !takenSet.has(c)).slice(0, 3);
+}
