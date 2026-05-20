@@ -66,7 +66,7 @@ const ROWS: {
     features: [
       { label: "Automation rule builder", reviewbox: true, appfollow: false },
       { label: "Auto-triage by tag / sentiment", reviewbox: true, appfollow: false },
-      { label: "Slack alerts", reviewbox: true, appfollow: true },
+      { label: "Slack alerts", reviewbox: "Coming soon", appfollow: true },
       { label: "Webhook output", reviewbox: "Team plan", appfollow: "Enterprise only" },
       { label: "Zapier / Make", reviewbox: "Coming Q3", appfollow: true },
       { label: "Audit log", reviewbox: true, appfollow: "partial" },
