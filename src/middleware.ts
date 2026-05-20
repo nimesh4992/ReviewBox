@@ -26,6 +26,8 @@ const isPublicRoute = createRouteMatcher([
   "/invite(.*)",
   "/api/stripe/webhook",
   "/api/sync/(.*)",
+  "/api/reports/weekly-digest",
+  "/api/reports/unreplied-alert",
   "/api/demo/(.*)",
   "/monitoring(.*)",
 ]);
@@ -65,6 +67,7 @@ const isAppRoute = createRouteMatcher([
   "/api/gdpr(.*)",
   "/api/sentiment(.*)",
   "/api/aso(.*)",
+  "/api/reports/export(.*)",
   "/api/health(.*)",
   "/api/admin(.*)",
 ]);

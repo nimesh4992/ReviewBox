@@ -3,7 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
-import { Check, ChevronRight, Plug, X, Loader2 } from "lucide-react";
+import { Check, ChevronRight, Plug, X, Loader2, Zap, MessageSquare, Bell } from "lucide-react";
 import { track } from "@/lib/analytics";
 
 import { Button } from "@/components/ui/button";
@@ -550,44 +550,71 @@ function StepConnect({
 }) {
   const isPlay = platform === "google-play";
 
+  const features = [
+    {
+      icon: <Plug className="size-4 text-[#0A84FF]" strokeWidth={1.5} />,
+      title: isPlay ? "Google Play sync" : "App Store sync",
+      desc: isPlay
+        ? "Reviews pulled automatically every 4 hours."
+        : "Sync after you add App Store Connect credentials.",
+    },
+    {
+      icon: <Zap className="size-4 text-amber-400" strokeWidth={1.5} />,
+      title: "AI triage",
+      desc: "Every review gets a sentiment score, priority, and issue tags.",
+    },
+    {
+      icon: <MessageSquare className="size-4 text-emerald-400" strokeWidth={1.5} />,
+      title: "Smart reply drafts",
+      desc: "One-click AI drafts grounded in your knowledge base.",
+    },
+    {
+      icon: <Bell className="size-4 text-rose-400" strokeWidth={1.5} />,
+      title: "Spike alerts",
+      desc: "Email + Slack alert when ratings drop unexpectedly.",
+    },
+  ];
+
   return (
     <div className="flex flex-col gap-6">
       <div>
         <h2 className="text-lg font-semibold text-white">
-          {isPlay ? "We'll fetch your reviews" : "One more thing for App Store"}
+          {isPlay ? "You're almost ready" : "Nearly there"}
         </h2>
         <p className="mt-1 text-sm text-white/40">
           {isPlay
-            ? "ReviewBox already has read & reply access to public Google Play data. Your reviews will appear in the inbox within 24 hours."
-            : "Apple requires per-app API credentials. You can add them in Settings → Apps after onboarding. We'll start syncing as soon as they're in."}
+            ? "ReviewBox will start syncing your reviews right after setup."
+            : "Apple requires API credentials — add them in Settings after onboarding."}
         </p>
       </div>
 
-      <div className="rounded-xl border border-white/[0.08] bg-[#0d0f14] p-5">
-        <div className="flex items-start gap-4">
-          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-[#0A84FF]/15">
-            <Plug className="size-5 text-[#0A84FF]" strokeWidth={1.5} />
-          </div>
-          <div className="flex-1">
-            <p className="text-sm font-medium text-white">
-              {isPlay ? "Google Play sync" : "App Store sync"}
-            </p>
-            <p className="mt-0.5 text-xs text-white/35">
-              {isPlay
-                ? "Runs automatically once a day. First batch within 24h."
-                : "Add an App Store Connect API key in Settings to enable sync."}
-            </p>
-          </div>
-        </div>
-      </div>
+      <ul className="flex flex-col gap-2">
+        {features.map((f) => (
+          <li
+            key={f.title}
+            className="flex items-start gap-3 rounded-xl border border-white/[0.06] bg-[#0d0f14] px-4 py-3"
+          >
+            <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05]">
+              {f.icon}
+            </div>
+            <div>
+              <p className="text-[13px] font-medium text-white/90">{f.title}</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-white/35">{f.desc}</p>
+            </div>
+          </li>
+        ))}
+      </ul>
 
       <Button
         onClick={onNext}
         disabled={saving}
         className="w-full bg-[#0A84FF] text-white hover:bg-[#006EE0] disabled:opacity-40"
       >
-        {saving ? "Saving…" : isPlay ? "Finish setup" : "Got it — continue"}
-        {!saving && <ChevronRight className="ml-1 size-4" strokeWidth={1.5} />}
+        {saving ? (
+          <><Loader2 className="mr-2 size-4 animate-spin" strokeWidth={2} />Creating workspace…</>
+        ) : (
+          <>{isPlay ? "Launch my workspace" : "Got it — continue"}<ChevronRight className="ml-1 size-4" strokeWidth={1.5} /></>
+        )}
       </Button>
     </div>
   );

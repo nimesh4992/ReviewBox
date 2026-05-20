@@ -2,46 +2,20 @@
 
 import { Suspense, useState } from "react";
 import Link from "next/link";
-import { AlertOctagon, Download, Sparkles, TrendingUp, Users } from "lucide-react";
+import { AlertOctagon, Download } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
 import { useApps } from "@/hooks/use-apps";
+import { useIncidents } from "@/hooks/use-incidents";
 import { TrialBanner } from "@/components/dashboard/trial-banner";
 import { UpgradeToast } from "@/components/dashboard/upgrade-toast";
 
-// ── Static attention items (real data from incident feed — wire later) ─────────
-
-const ATTENTION_ITEMS = [
-  {
-    icon: AlertOctagon,
-    color: "#DC2626",
-    title: "Rating spike detected",
-    subtitle: "14 reviews in 2h · 11 mention crash on latest version",
-    time: "2h ago",
-  },
-  {
-    icon: Sparkles,
-    color: "#8E5BFF",
-    title: "New AI topic cluster",
-    subtitle: "8 reviews about \"login slow\" — none last week",
-    time: "4h ago",
-  },
-  {
-    icon: TrendingUp,
-    color: "#1F8A5B",
-    title: "Onboarding praise rising",
-    subtitle: "+0.18 ★ on first-run reviews · 18 positive in 24h",
-    time: "Yesterday",
-  },
-  {
-    icon: Users,
-    color: "#86868B",
-    title: "Competitor rating dropped",
-    subtitle: "Rival app −0.05 vs prior week · opportunity",
-    time: "Yesterday",
-  },
-];
+const SEVERITY_COLOR: Record<string, string> = {
+  critical: "#DC2626",
+  high:     "#D97706",
+  medium:   "#6B7280",
+};
 
 // ── Sparkline chart ────────────────────────────────────────────────────────────
 
@@ -71,7 +45,25 @@ function PortfolioSparkline() {
 export default function DashboardPage() {
   const { data: metrics, isLoading } = useDashboardMetrics();
   const { apps, isLoading: appsLoading } = useApps();
+  const { data: incidents } = useIncidents();
   const [range, setRange] = useState<"7d" | "30d" | "90d">("30d");
+  const [exporting, setExporting] = useState(false);
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const res  = await fetch("/api/reports/export?days=30");
+      const blob = await res.blob();
+      const href = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = href;
+      a.download = `reviews-${new Date().toISOString().split("T")[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(href);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const now = new Date();
   const hour = now.getHours();
@@ -124,9 +116,13 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
-          <button className="flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3.5 text-[13px] font-medium text-[#48484D] transition-colors hover:bg-gray-50">
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3.5 text-[13px] font-medium text-[#48484D] transition-colors hover:bg-gray-50 disabled:opacity-50"
+          >
             <Download className="size-3.5" strokeWidth={2} />
-            Export
+            {exporting ? "Exporting…" : "Export"}
           </button>
         </div>
       </header>
@@ -199,38 +195,63 @@ export default function DashboardPage() {
       {/* Two-column lower */}
       <section className="grid gap-4" style={{ gridTemplateColumns: "1.4fr 1fr" }}>
 
-        {/* Needs your eyes */}
+        {/* Needs your eyes — live incidents */}
         <div className="overflow-hidden rounded-[14px] border border-gray-100 bg-white shadow-sm">
           <div className="flex items-center border-b border-gray-100 px-5 py-4">
             <div>
-              <div className="text-sm font-semibold text-[#1D1D1F]">Needs your eyes</div>
-              <div className="mt-0.5 text-xs text-[#86868B]">{urgent} things flagged today</div>
+              <div className="text-sm font-semibold text-[#1D1D1F]">Active incidents</div>
+              <div className="mt-0.5 text-xs text-[#86868B]">
+                {incidents
+                  ? `${incidents.filter((i) => i.status !== "resolved").length} open`
+                  : "Loading…"}
+              </div>
             </div>
-            <Link href="/inbox" className="ml-auto text-xs font-semibold text-[#0A84FF] hover:underline">
-              Open inbox →
+            <Link href="/incidents" className="ml-auto text-xs font-semibold text-[#0A84FF] hover:underline">
+              View all →
             </Link>
           </div>
-          {ATTENTION_ITEMS.map((e, i) => (
-            <div
-              key={i}
-              className={cn(
-                "flex cursor-pointer items-center gap-3.5 px-5 py-3.5 transition-colors hover:bg-gray-50",
-                i < ATTENTION_ITEMS.length - 1 && "border-b border-gray-50",
-              )}
-            >
-              <div
-                className="flex size-7 shrink-0 items-center justify-center rounded-lg"
-                style={{ background: e.color + "1A", color: e.color }}
-              >
-                <e.icon className="size-3.5" strokeWidth={2} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-semibold tracking-[-0.005em] text-[#1D1D1F]">{e.title}</div>
-                <div className="mt-0.5 text-xs leading-snug text-[#86868B]">{e.subtitle}</div>
-              </div>
-              <div className="shrink-0 tabular-nums text-[11px] text-[#86868B]">{e.time}</div>
+          {!incidents ? (
+            <div className="px-5 py-8 text-center text-xs text-[#86868B]">Loading…</div>
+          ) : incidents.filter((i) => i.status !== "resolved").length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <AlertOctagon className="size-8 text-gray-200" strokeWidth={1.5} />
+              <div className="mt-3 text-[13px] font-medium text-[#86868B]">No active incidents</div>
+              <div className="mt-1 text-[11px] text-[#86868B]">ReviewBox monitors for rating spikes automatically</div>
             </div>
-          ))}
+          ) : (
+            incidents
+              .filter((i) => i.status !== "resolved")
+              .slice(0, 4)
+              .map((inc, i, arr) => {
+                const color = SEVERITY_COLOR[inc.severity] ?? "#6B7280";
+                return (
+                  <Link
+                    key={inc.id}
+                    href={`/incidents/${inc.id}`}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-3.5 px-5 py-3.5 transition-colors hover:bg-gray-50",
+                      i < arr.length - 1 && "border-b border-gray-50",
+                    )}
+                  >
+                    <div
+                      className="flex size-7 shrink-0 items-center justify-center rounded-lg"
+                      style={{ background: color + "1A", color }}
+                    >
+                      <AlertOctagon className="size-3.5" strokeWidth={2} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-semibold tracking-[-0.005em] text-[#1D1D1F] truncate">
+                        {inc.title}
+                      </div>
+                      <div className="mt-0.5 text-xs leading-snug text-[#86868B] truncate">
+                        {inc.severity} · {inc.owner}
+                      </div>
+                    </div>
+                    <div className="shrink-0 tabular-nums text-[11px] text-[#86868B]">{inc.detectedAt}</div>
+                  </Link>
+                );
+              })
+          )}
         </div>
 
         {/* Apps overview */}

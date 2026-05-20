@@ -24,21 +24,28 @@ export async function GET(): Promise<NextResponse<OnboardingState | { error: str
 
   const sb = getServiceClient();
 
+  // Two separate queries — avoids PostgREST embedded-join ambiguity
   const { data: member } = await sb
     .from("workspace_members")
-    .select("workspace_id, workspaces(id, name, slug)")
+    .select("workspace_id")
     .eq("clerk_user_id", userId)
     .maybeSingle();
 
-  const workspaceRow = member?.workspaces as
-    | { id: string; name: string; slug: string }
-    | { id: string; name: string; slug: string }[]
-    | null
-    | undefined;
-
-  const workspace = Array.isArray(workspaceRow)
-    ? workspaceRow[0] ?? null
-    : workspaceRow ?? null;
+  let workspace: { id: string; name: string; slug: string } | null = null;
+  if (member?.workspace_id) {
+    const { data: wsRow } = await sb
+      .from("workspaces")
+      .select("id, name, slug")
+      .eq("id", member.workspace_id as string)
+      .maybeSingle();
+    if (wsRow) {
+      workspace = {
+        id: wsRow.id as string,
+        name: wsRow.name as string,
+        slug: (wsRow.slug as string) ?? "",
+      };
+    }
+  }
 
   let app: OnboardingState["app"] = null;
   if (workspace?.id) {
