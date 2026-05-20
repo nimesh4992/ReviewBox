@@ -200,10 +200,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
           const raw   = enforceCharLimit(bestMatch.content, charLimit);
           const reply = personalizeText(raw, persona);
           // Bump usage_count async
-          sb.from("reply_templates")
+          void sb.from("reply_templates")
             .update({ usage_count: (bestMatch.usage_count ?? 0) + 1 })
-            .eq("id", bestMatch.id)
-            .then(() => undefined).catch(() => undefined);
+            .eq("id", bestMatch.id);
 
           log("reply-kit", { tplId: bestMatch.id });
           return NextResponse.json({ source: "reply-kit" as ReplySource, reply }, { status: 200 });
