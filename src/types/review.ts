@@ -85,6 +85,20 @@ export interface PlatformHealth {
   ratingDistribution: [number, number, number, number, number];
 }
 
+// ── ASO ───────────────────────────────────────────────────────────────────────
+
+export interface AsoKeyword {
+  id: string;
+  keyword: string;
+  appId?: string;
+  currentRank: number | null;
+  previousRank: number | null;
+  volumeEstimate: number | null;
+  /** Last 6 rank snapshots, newest last (lower = better) */
+  trendData: number[];
+  addedAt: string;
+}
+
 // ── Automation Hub ────────────────────────────────────────────────────────────
 
 export type AutomationAction =
