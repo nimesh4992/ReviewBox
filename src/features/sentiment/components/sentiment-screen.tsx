@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, Sparkles } from "lucide-react";
+import { Loader2, MessageSquare, Sparkles, Star } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSentimentAnalysis } from "@/hooks/use-sentiment-analysis";
 import { useSentimentOverview } from "@/hooks/use-sentiment-overview";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
-import { mockReviews } from "@/features/reviews/data/mock-reviews";
+import { useReviewQueue } from "@/hooks/use-review-queue";
 import type { AnalysisResult } from "@/app/api/sentiment/analyze/route";
-import type { SentimentTopic } from "@/app/api/sentiment/overview/route";
+import type { SentimentTopic, CriticalReview } from "@/app/api/sentiment/overview/route";
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
@@ -16,13 +17,13 @@ function MetricCard({
   label,
   value,
   delta,
-  positive = true,
+  deltaPositive,
   sub,
 }: {
   label: string;
   value: string;
   delta?: string;
-  positive?: boolean;
+  deltaPositive?: boolean;
   sub?: string;
 }) {
   return (
@@ -36,7 +37,7 @@ function MetricCard({
           <span
             className={cn(
               "text-[12px] font-medium tabular-nums",
-              positive ? "text-[#1F8A5B]" : "text-[#DC2626]",
+              deltaPositive ? "text-[#1F8A5B]" : "text-[#DC2626]",
             )}
           >
             {delta}
@@ -54,21 +55,6 @@ function MetricSkeleton() {
       <div className="h-3 w-20 rounded bg-[var(--rb-bg-sunken)] mb-3" />
       <div className="h-7 w-16 rounded bg-[var(--rb-bg-sunken)]" />
     </div>
-  );
-}
-
-function Pill({ positive, children }: { positive: boolean; children: React.ReactNode }) {
-  return (
-    <span
-      className={cn(
-        "rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums",
-        positive
-          ? "bg-[rgba(31,138,91,0.10)] text-[#1F8A5B]"
-          : "bg-[rgba(220,38,38,0.10)] text-[#DC2626]",
-      )}
-    >
-      {children}
-    </span>
   );
 }
 
@@ -97,11 +83,7 @@ function SentimentChart({ pos, neg }: { pos: number[]; neg: number[] }) {
       </defs>
       {[0, 25, 50, 75, 100].map((g) => (
         <g key={g}>
-          <line
-            x1={padL} x2={w - padR}
-            y1={ys(g)} y2={ys(g)}
-            stroke="var(--rb-border-1)"
-          />
+          <line x1={padL} x2={w - padR} y1={ys(g)} y2={ys(g)} stroke="var(--rb-border-1)" />
           <text
             x={padL - 8} y={ys(g) + 3}
             fontSize="10" fill="var(--rb-fg-3)"
@@ -116,6 +98,48 @@ function SentimentChart({ pos, neg }: { pos: number[]; neg: number[] }) {
       <path d={path(pos)} fill="none" stroke="#1F8A5B" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" />
       <path d={path(neg)} fill="none" stroke="#DC2626" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round" strokeDasharray="3 3" />
     </svg>
+  );
+}
+
+// ── Rating distribution ───────────────────────────────────────────────────────
+
+function RatingDistribution({
+  dist,
+}: {
+  dist: [number, number, number, number, number];
+}) {
+  const stars = [5, 4, 3, 2, 1] as const;
+  const STAR_COLOR: Record<number, string> = {
+    5: "#1F8A5B",
+    4: "#4CAF50",
+    3: "#F59E0B",
+    2: "#F97316",
+    1: "#DC2626",
+  };
+
+  return (
+    <div className="space-y-2">
+      {stars.map((s) => {
+        const pct = dist[s - 1];
+        return (
+          <div key={s} className="flex items-center gap-2.5">
+            <div className="flex w-[28px] shrink-0 items-center justify-end gap-0.5">
+              <span className="text-[12px] tabular-nums text-fg-2">{s}</span>
+              <Star className="size-3 text-fg-3" fill="currentColor" />
+            </div>
+            <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--rb-bg-sunken)]">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{ width: `${pct}%`, backgroundColor: STAR_COLOR[s] }}
+              />
+            </div>
+            <span className="w-[32px] text-right text-[12px] tabular-nums text-fg-3">
+              {pct}%
+            </span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
@@ -145,14 +169,203 @@ function fmtReply(mins: number | null | undefined): string {
   return `${Math.round(mins / 1440)}d`;
 }
 
+function fmtDelta(curr: number | null, prev: number | null, unit = ""): { label: string; positive: boolean } | undefined {
+  if (curr == null || prev == null || prev === 0) return undefined;
+  const diff = curr - prev;
+  if (Math.abs(diff) < 0.01) return undefined;
+  const sign = diff > 0 ? "+" : "";
+  return { label: `${sign}${diff.toFixed(unit === "%" ? 0 : 2)}${unit}`, positive: diff > 0 };
+}
+
+function timeAgo(iso: string): string {
+  const diff = (Date.now() - new Date(iso).getTime()) / 1000;
+  if (diff < 3600) return `${Math.round(diff / 60)}m ago`;
+  if (diff < 86400) return `${Math.round(diff / 3600)}h ago`;
+  return `${Math.round(diff / 86400)}d ago`;
+}
+
+// ── Negative topics — trend context-aware coloring ───────────────────────────
+// For inherently negative tags, "rising" is bad (red); "falling" is good (green)
+// For positive tags like feature-request, "rising" is neutral/positive
+
+const NEGATIVE_TAGS = new Set([
+  "crash", "billing", "login", "performance", "release-regression", "support-delay",
+]);
+
+function TrendPill({ trend, tag }: { trend: "up" | "down" | "flat"; tag: string }) {
+  const isNegative = NEGATIVE_TAGS.has(tag);
+
+  const config = {
+    up: {
+      label: "↑ Rising",
+      positive: !isNegative,  // rising crashes = bad; rising feature-requests = neutral
+    },
+    down: {
+      label: "↓ Falling",
+      positive: isNegative,   // falling crashes = good
+    },
+    flat: {
+      label: "→ Steady",
+      positive: null,
+    },
+  }[trend];
+
+  const cls =
+    config.positive === null
+      ? "bg-[var(--rb-bg-sunken)] text-fg-3"
+      : config.positive
+        ? "bg-[rgba(31,138,91,0.10)] text-[#1F8A5B]"
+        : "bg-[rgba(220,38,38,0.10)] text-[#DC2626]";
+
+  return (
+    <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums", cls)}>
+      {config.label}
+    </span>
+  );
+}
+
 // ── Sentiment badge ───────────────────────────────────────────────────────────
 
 const SENTIMENT_BADGE: Record<string, { label: string; cls: string }> = {
-  critical: { label: "Critical",  cls: "bg-[rgba(220,38,38,0.10)] text-[#DC2626]" },
-  negative: { label: "Negative",  cls: "bg-[rgba(220,38,38,0.08)] text-[#DC2626]" },
-  mixed:    { label: "Mixed",     cls: "bg-[rgba(234,179,8,0.10)] text-[#CA8A04]" },
-  positive: { label: "Positive",  cls: "bg-[rgba(31,138,91,0.10)] text-[#1F8A5B]" },
+  critical: { label: "Critical", cls: "bg-[rgba(220,38,38,0.10)] text-[#DC2626]" },
+  negative: { label: "Negative", cls: "bg-[rgba(220,38,38,0.08)] text-[#DC2626]" },
+  mixed:    { label: "Mixed",    cls: "bg-[rgba(234,179,8,0.10)] text-[#CA8A04]" },
+  positive: { label: "Positive", cls: "bg-[rgba(31,138,91,0.10)] text-[#1F8A5B]" },
 };
+
+function StarRating({ rating }: { rating: number }) {
+  return (
+    <div className="flex items-center gap-0.5">
+      {[1, 2, 3, 4, 5].map((s) => (
+        <Star
+          key={s}
+          className={cn("size-3", s <= rating ? "text-[#F59E0B]" : "text-[var(--rb-border-1)]")}
+          fill="currentColor"
+        />
+      ))}
+    </div>
+  );
+}
+
+// ── Critical reviews quick-list ───────────────────────────────────────────────
+
+function CriticalReviewsList({
+  reviews,
+  isLoading,
+}: {
+  reviews: CriticalReview[];
+  isLoading: boolean;
+}) {
+  const router = useRouter();
+
+  if (isLoading) {
+    return (
+      <div className="divide-y divide-[var(--rb-border-1)]">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <div key={i} className="flex flex-col gap-2 px-5 py-4 animate-pulse">
+            <div className="flex items-center gap-2">
+              <div className="h-3 w-24 rounded bg-[var(--rb-bg-sunken)]" />
+              <div className="h-3 w-16 rounded bg-[var(--rb-bg-sunken)]" />
+            </div>
+            <div className="h-3 w-full rounded bg-[var(--rb-bg-sunken)]" />
+            <div className="h-3 w-3/4 rounded bg-[var(--rb-bg-sunken)]" />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
+  if (reviews.length === 0) {
+    return (
+      <div className="py-10 text-center text-[13px] text-fg-3">
+        No critical or negative reviews in this period.
+      </div>
+    );
+  }
+
+  return (
+    <div className="divide-y divide-[var(--rb-border-1)]">
+      {reviews.map((r) => {
+        const badge = SENTIMENT_BADGE[r.sentiment] ?? SENTIMENT_BADGE.mixed;
+        const needsReply = r.replyStatus === "needs_reply";
+        return (
+          <div key={r.id} className="group flex items-start gap-4 px-5 py-4 transition-colors hover:bg-[var(--rb-bg-hover)]">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                <span className="text-[13px] font-semibold text-fg-1">{r.author}</span>
+                <StarRating rating={r.rating} />
+                <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", badge.cls)}>
+                  {badge.label}
+                </span>
+                <span className="text-[11px] text-fg-3">{timeAgo(r.createdAt)}</span>
+              </div>
+              <p className="line-clamp-2 text-[12px] leading-relaxed text-fg-2">{r.text}</p>
+            </div>
+            {needsReply && (
+              <button
+                onClick={() => router.push("/reviews")}
+                className="ml-2 mt-0.5 flex shrink-0 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-fg-1 opacity-0 transition-all hover:bg-[var(--rb-bg-hover)] group-hover:opacity-100"
+              >
+                <MessageSquare className="size-3" strokeWidth={1.5} />
+                Reply
+              </button>
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── AI re-cluster results panel ───────────────────────────────────────────────
+
+function AiResultsPanel({ results }: { results: AnalysisResult[] }) {
+  return (
+    <div className="overflow-hidden rounded-[14px] border border-[#0A84FF]/20 bg-surface shadow-[var(--rb-shadow-xs)]">
+      <div className="flex items-center gap-2 border-b border-[var(--rb-border-1)] px-5 py-4">
+        <Sparkles className="size-4 text-[#0A84FF]" strokeWidth={1.5} />
+        <div>
+          <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">
+            AI Re-cluster results
+          </div>
+          <div className="mt-0.5 text-[12px] text-fg-3">
+            {results.length} reviews re-classified · rules engine + Gemini
+          </div>
+        </div>
+      </div>
+      <div className="divide-y divide-[var(--rb-border-1)]">
+        {results.map((r) => {
+          const badge = SENTIMENT_BADGE[r.sentiment] ?? SENTIMENT_BADGE.mixed;
+          return (
+            <div key={r.id} className="flex items-start gap-3 px-5 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-2 mb-1">
+                  <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", badge.cls)}>
+                    {badge.label}
+                  </span>
+                  <span className="text-[11px] capitalize text-fg-3">{r.priority} priority</span>
+                  <span className="text-[10px] text-fg-3 opacity-50">{r.source}</span>
+                </div>
+                {r.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1">
+                    {r.tags.map((tag) => (
+                      <span
+                        key={tag}
+                        className="rounded-full border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-2 py-0.5 text-[10px] font-medium text-fg-3"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 // ── Screen ────────────────────────────────────────────────────────────────────
 
@@ -160,8 +373,8 @@ export function SentimentScreen() {
   const [range, setRange] = useState<"7d" | "30d" | "90d">("30d");
   const [aiResults, setAiResults] = useState<AnalysisResult[] | null>(null);
   const { mutate: analyze, isPending } = useSentimentAnalysis();
-  const selectedApp = useWorkspaceStore((s) => s.selectedApp);
 
+  const selectedApp = useWorkspaceStore((s) => s.selectedApp);
   const appId =
     selectedApp && typeof selectedApp === "object" && "id" in selectedApp
       ? (selectedApp as { id: string }).id
@@ -175,10 +388,29 @@ export function SentimentScreen() {
 
   const { data: overview, isLoading } = useSentimentOverview(appId, range);
 
+  // Fetch real reviews for Re-cluster button (critical + negative, first page)
+  const { reviews: reclusterReviews } = useReviewQueue({ sentiment: "critical" });
+
   const topics: SentimentTopic[] = overview?.topics ?? [];
   const trendPos = overview?.trend.positive ?? [];
   const trendNeg = overview?.trend.negative ?? [];
   const hasChartData = trendPos.length >= 2;
+
+  // KPI deltas
+  const ratingDelta = fmtDelta(overview?.avgRating ?? null, overview?.avgRatingPrev ?? null);
+  const posShareDelta = fmtDelta(
+    overview?.positiveShare ?? null,
+    overview?.positiveSharePrev ?? null,
+    "%",
+  );
+
+  // Topics share bar: scale relative to the highest-count topic
+  const maxShare = topics.length > 0 ? Math.max(...topics.map((t) => t.share)) : 1;
+
+  function handleRecluster() {
+    if (!reclusterReviews.length) return;
+    analyze(reclusterReviews, { onSuccess: setAiResults });
+  }
 
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8 max-w-[1240px] mx-auto">
@@ -218,6 +450,8 @@ export function SentimentScreen() {
             <MetricCard
               label="Avg rating"
               value={overview?.avgRating != null ? overview.avgRating.toFixed(2) : "—"}
+              delta={ratingDelta?.label}
+              deltaPositive={ratingDelta?.positive}
               sub={`last ${range}`}
             />
             <MetricCard
@@ -228,6 +462,8 @@ export function SentimentScreen() {
             <MetricCard
               label="Positive share"
               value={`${overview?.positiveShare ?? 0}%`}
+              delta={posShareDelta?.label}
+              deltaPositive={posShareDelta?.positive}
               sub="of all reviews"
             />
             <MetricCard
@@ -239,34 +475,61 @@ export function SentimentScreen() {
         )}
       </section>
 
-      {/* Trend chart */}
-      <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">
-        <div className="flex items-center border-b border-[var(--rb-border-1)] px-5 py-4">
-          <div>
-            <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">Sentiment trend</div>
-            <div className="mt-0.5 text-[12px] text-fg-3">{appName} · last {range}</div>
+      {/* Trend chart + rating distribution side by side */}
+      <div className="grid grid-cols-[1fr_280px] gap-4">
+
+        {/* Trend chart */}
+        <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">
+          <div className="flex items-center border-b border-[var(--rb-border-1)] px-5 py-4">
+            <div>
+              <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">Sentiment trend</div>
+              <div className="mt-0.5 text-[12px] text-fg-3">{appName} · last {range}</div>
+            </div>
+            <div className="ml-auto flex items-center gap-4">
+              <span className="flex items-center gap-1.5 text-[12px] text-fg-2">
+                <svg width="20" height="6"><line x1="0" y1="3" x2="20" y2="3" stroke="#1F8A5B" strokeWidth="2" strokeLinecap="round" /></svg>
+                Positive
+              </span>
+              <span className="flex items-center gap-1.5 text-[12px] text-fg-2">
+                <svg width="20" height="6"><line x1="0" y1="3" x2="20" y2="3" stroke="#DC2626" strokeWidth="2" strokeDasharray="3 3" strokeLinecap="round" /></svg>
+                Negative
+              </span>
+            </div>
           </div>
-          <div className="ml-auto flex items-center gap-4">
-            <span className="flex items-center gap-1.5 text-[12px] text-fg-2">
-              <svg width="20" height="6"><line x1="0" y1="3" x2="20" y2="3" stroke="#1F8A5B" strokeWidth="2" strokeLinecap="round" /></svg>
-              Positive
-            </span>
-            <span className="flex items-center gap-1.5 text-[12px] text-fg-2">
-              <svg width="20" height="6"><line x1="0" y1="3" x2="20" y2="3" stroke="#DC2626" strokeWidth="2" strokeDasharray="3 3" strokeLinecap="round" /></svg>
-              Negative
-            </span>
+          <div className="p-5">
+            {isLoading ? (
+              <div className="h-[200px] animate-pulse rounded-lg bg-[var(--rb-bg-sunken)]" />
+            ) : hasChartData ? (
+              <SentimentChart pos={trendPos} neg={trendNeg} />
+            ) : (
+              <div className="flex h-[200px] items-center justify-center text-[13px] text-fg-3">
+                No review data yet for this period. Reviews appear here once synced.
+              </div>
+            )}
           </div>
         </div>
-        <div className="p-5">
-          {isLoading ? (
-            <div className="h-[200px] animate-pulse rounded-lg bg-[var(--rb-bg-sunken)]" />
-          ) : hasChartData ? (
-            <SentimentChart pos={trendPos} neg={trendNeg} />
-          ) : (
-            <div className="flex h-[200px] items-center justify-center text-[13px] text-fg-3">
-              No review data yet for this period. Reviews appear here once synced.
-            </div>
-          )}
+
+        {/* Rating distribution */}
+        <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">
+          <div className="border-b border-[var(--rb-border-1)] px-5 py-4">
+            <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">Rating distribution</div>
+            <div className="mt-0.5 text-[12px] text-fg-3">last {range}</div>
+          </div>
+          <div className="p-5">
+            {isLoading ? (
+              <div className="space-y-3">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="h-3 w-8 rounded bg-[var(--rb-bg-sunken)] animate-pulse" />
+                    <div className="h-2 flex-1 rounded-full bg-[var(--rb-bg-sunken)] animate-pulse" />
+                    <div className="h-3 w-8 rounded bg-[var(--rb-bg-sunken)] animate-pulse" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <RatingDistribution dist={overview?.ratingDistribution ?? [0, 0, 0, 0, 0]} />
+            )}
+          </div>
         </div>
       </div>
 
@@ -284,9 +547,9 @@ export function SentimentScreen() {
             </div>
           </div>
           <button
-            onClick={() => analyze(mockReviews, { onSuccess: setAiResults })}
-            disabled={isPending}
-            className="ml-auto flex h-7 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50"
+            onClick={handleRecluster}
+            disabled={isPending || reclusterReviews.length === 0}
+            className="ml-auto flex h-7 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40"
           >
             {isPending ? (
               <Loader2 className="size-3 animate-spin" />
@@ -318,6 +581,7 @@ export function SentimentScreen() {
             <tbody>
               {(isLoading
                 ? Array.from({ length: 5 }, (_, i) => ({
+                    tag: `__loading_${i}`,
                     topic: `__loading_${i}`,
                     count: 0,
                     share: 0,
@@ -326,7 +590,7 @@ export function SentimentScreen() {
                   }))
                 : topics
               ).map((t, i, arr) => (
-                <tr key={t.topic} className="transition-colors hover:bg-[var(--rb-bg-hover)]">
+                <tr key={t.tag} className="transition-colors hover:bg-[var(--rb-bg-hover)]">
                   <td className={cn("px-5 py-3 text-[13px] font-semibold text-fg-1", i < arr.length - 1 && "border-b border-[var(--rb-border-1)]")}>
                     {isLoading ? <span className="inline-block h-3 w-28 animate-pulse rounded bg-[var(--rb-bg-sunken)]" /> : t.topic}
                   </td>
@@ -339,7 +603,10 @@ export function SentimentScreen() {
                     ) : (
                       <div className="flex items-center gap-2.5">
                         <div className="h-1.5 w-[100px] overflow-hidden rounded-full bg-[var(--rb-bg-sunken)]">
-                          <div className="h-full rounded-full bg-[#0A84FF]" style={{ width: Math.min(t.share * 4, 100) }} />
+                          <div
+                            className="h-full rounded-full bg-[#0A84FF] transition-all duration-500"
+                            style={{ width: `${maxShare > 0 ? (t.share / maxShare) * 100 : 0}%` }}
+                          />
                         </div>
                         <span className="tabular-nums text-[12px] text-fg-3">{t.share}%</span>
                       </div>
@@ -349,9 +616,7 @@ export function SentimentScreen() {
                     {isLoading ? (
                       <span className="inline-block h-5 w-16 animate-pulse rounded-full bg-[var(--rb-bg-sunken)]" />
                     ) : (
-                      <Pill positive={t.trend === "up"}>
-                        {t.trend === "up" ? "↑ Rising" : t.trend === "down" ? "↓ Falling" : "→ Steady"}
-                      </Pill>
+                      <TrendPill trend={t.trend} tag={t.tag} />
                     )}
                   </td>
                   <td className={cn("px-5 py-3", i < arr.length - 1 && "border-b border-[var(--rb-border-1)]")}>
@@ -368,46 +633,25 @@ export function SentimentScreen() {
         )}
       </div>
 
-      {/* AI Analysis results (shown after Re-cluster with AI) */}
-      {aiResults && aiResults.length > 0 && (
-        <div className="overflow-hidden rounded-[14px] border border-[#0A84FF]/20 bg-surface shadow-[var(--rb-shadow-xs)]">
-          <div className="flex items-center gap-2 border-b border-[var(--rb-border-1)] px-5 py-4">
-            <Sparkles className="size-4 text-[#0A84FF]" strokeWidth={1.5} />
-            <div>
-              <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">
-                AI Sentiment Analysis
-              </div>
-              <div className="mt-0.5 text-[12px] text-fg-3">
-                {aiResults.length} reviews · rules engine + Gemini
-              </div>
+      {/* Critical reviews quick-list */}
+      <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">
+        <div className="flex items-center border-b border-[var(--rb-border-1)] px-5 py-4">
+          <div>
+            <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">
+              Recent critical & negative reviews
             </div>
-          </div>
-          <div className="divide-y divide-[var(--rb-border-1)]">
-            {aiResults.map((r) => {
-              const badge = SENTIMENT_BADGE[r.sentiment] ?? SENTIMENT_BADGE.mixed;
-              return (
-                <div key={r.id} className="flex items-center gap-3 px-5 py-3">
-                  <span className="font-mono text-[11px] text-fg-3">{r.id}</span>
-                  <span className={cn("rounded-full px-2 py-0.5 text-[11px] font-semibold", badge.cls)}>
-                    {badge.label}
-                  </span>
-                  <span className="text-[12px] capitalize text-fg-2">{r.priority}</span>
-                  <div className="ml-auto flex flex-wrap gap-1">
-                    {r.tags.map((tag) => (
-                      <span
-                        key={tag}
-                        className="rounded-full border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-2 py-0.5 text-[10px] font-medium text-fg-3"
-                      >
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                  <span className="ml-2 text-[10px] text-fg-3 opacity-50">{r.source}</span>
-                </div>
-              );
-            })}
+            <div className="mt-0.5 text-[12px] text-fg-3">Last 5 · hover to reply</div>
           </div>
         </div>
+        <CriticalReviewsList
+          reviews={overview?.criticalReviews ?? []}
+          isLoading={isLoading}
+        />
+      </div>
+
+      {/* AI re-cluster results */}
+      {aiResults && aiResults.length > 0 && (
+        <AiResultsPanel results={aiResults} />
       )}
     </div>
   );
