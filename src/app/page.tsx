@@ -1,6 +1,6 @@
 ﻿"use client";
 
-import React, { useEffect, useRef, useState, useCallback } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 import { MarketingNav } from "@/components/layout/marketing-nav";
@@ -160,8 +160,8 @@ const LivePulse = ({ size = 6, color = "var(--rb-green-500)" }: { size?: number;
 );
 
 const Kicker = ({ children, accent = "var(--rb-blue-500)" }: { children: React.ReactNode; accent?: string }) => (
-  <div style={{ fontSize: 11, fontWeight: 600, letterSpacing: "0.14em", textTransform: "uppercase", color: "var(--rb-fg-3)", display: "inline-flex", alignItems: "center", gap: 10, fontFamily: "var(--rb-font-mono)" }}>
-    <span style={{ width: 6, height: 6, borderRadius: 99, background: accent, boxShadow: `0 0 14px ${accent}` }} />
+  <div style={{ fontSize: 13, fontWeight: 500, color: "var(--rb-fg-3)", display: "inline-flex", alignItems: "center", gap: 9, fontFamily: "var(--rb-font-text)", letterSpacing: "-0.003em" }}>
+    <span style={{ width: 5, height: 5, borderRadius: 99, background: accent, flexShrink: 0 }} />
     {children}
   </div>
 );
@@ -257,7 +257,6 @@ const HeroDemo = () => {
   const ref = useRef<HTMLDivElement>(null);
   const [play, setPlay] = useState(false);
   const [done, setDone] = useState(false);
-  const replay = useCallback(() => { setDone(false); setPlay(false); setTimeout(() => setPlay(true), 60); }, []);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
@@ -270,7 +269,7 @@ const HeroDemo = () => {
       <div style={{ height: 36, background: "var(--rb-bg-sunken)", borderBottom: "1px solid var(--rb-border-1)", display: "flex", alignItems: "center", padding: "0 14px", gap: 12 }}>
         <LivePulse size={7} color={done ? "var(--rb-green-500)" : "var(--rb-blue-500)"} />
         <span style={{ fontSize: 11.5, fontWeight: 600, color: "var(--rb-fg-2)", fontFamily: "var(--rb-font-mono)", letterSpacing: "0.04em" }}>{done ? "DRAFT READY · 2.9s" : play ? "DRAFTING…" : "WAITING FOR REVIEW"}</span>
-        <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--rb-fg-4)", fontFamily: "var(--rb-font-mono)" }}>groq · llama-3.3-70b</span>
+        <span style={{ marginLeft: "auto", fontSize: 11, color: "var(--rb-fg-4)", fontFamily: "var(--rb-font-mono)" }}>{done ? "2.9s" : ""}</span>
       </div>
       <div style={{ padding: "20px 22px", borderBottom: "1px solid var(--rb-border-1)" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
@@ -285,19 +284,16 @@ const HeroDemo = () => {
       </div>
       <div style={{ padding: "18px 22px" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 10.5, fontWeight: 700, color: "var(--rb-purple-500)", fontFamily: "var(--rb-font-mono)", letterSpacing: "0.1em", textTransform: "uppercase" }}><Sparkle size={11} color="var(--rb-purple-500)" /> AI DRAFT</span>
-          <button onClick={replay} style={{ marginLeft: "auto", background: "transparent", border: 0, cursor: "pointer", fontSize: 11, color: done ? "var(--rb-blue-500)" : "var(--rb-fg-4)", fontFamily: "var(--rb-font-mono)", letterSpacing: "0.04em", fontWeight: 600, display: "inline-flex", alignItems: "center", gap: 4 }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
-            REPLAY
-          </button>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 11, fontWeight: 600, color: "var(--rb-purple-500)", fontFamily: "var(--rb-font-text)", letterSpacing: "-0.003em" }}><Sparkle size={11} color="var(--rb-purple-500)" /> Compose</span>
         </div>
         <div style={{ padding: 14, borderRadius: 10, background: "color-mix(in oklch, var(--rb-purple-500) 8%, transparent)", border: "1px dashed color-mix(in oklch, var(--rb-purple-500) 36%, transparent)", fontSize: 13.5, lineHeight: 1.65, color: "var(--rb-fg-1)", minHeight: 90, letterSpacing: "-0.003em" }}>
           {play ? <Streaming text={HERO_DRAFT} speed={12} play={play} onDone={() => setDone(true)} /> : <span style={{ color: "var(--rb-fg-4)" }}>Generating reply…</span>}
         </div>
         <div style={{ display: "flex", gap: 8, marginTop: 10, flexWrap: "wrap", opacity: done ? 1 : 0, transition: "opacity 360ms" }}>
-          {[{ l: "tone · empathetic", c: "var(--rb-blue-500)" }, { l: "KB · v4.2.1 notes", c: "var(--rb-purple-500)" }, { l: "✓ ready to post", c: "var(--rb-green-500)" }].map(t => (
-            <span key={t.l} style={{ padding: "3px 9px", borderRadius: 99, background: `color-mix(in oklch, ${t.c} 10%, transparent)`, color: t.c, fontSize: 10.5, fontWeight: 700, fontFamily: "var(--rb-font-mono)", letterSpacing: "0.04em" }}>{t.l}</span>
-          ))}
+          <span style={{ padding: "3px 10px", borderRadius: 99, background: "color-mix(in oklch, var(--rb-purple-500) 10%, transparent)", color: "var(--rb-purple-500)", fontSize: 11, fontWeight: 500, fontFamily: "var(--rb-font-text)", display: "inline-flex", alignItems: "center", gap: 5 }}>
+            <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+            Grounded on KB · v4.2.1
+          </span>
         </div>
       </div>
     </div>
@@ -326,7 +322,7 @@ const Hero = () => (
           </Reveal>
           <Reveal delay={160}>
             <p style={{ fontSize: 19, lineHeight: 1.55, color: "var(--rb-fg-2)", maxWidth: 520, letterSpacing: "-0.005em", marginBottom: 36 }}>
-              If your review ops doc has more tabs than your phone, you&apos;re the product. ReviewBox is the inbox, the alerts, and the reply queue — minus the busywork.
+              If your review ops doc has more tabs than your phone, you&apos;re the product. ReviewBox is the inbox, the alerts, and the reply queue — connected to the stores, not bolted above a spreadsheet.
             </p>
           </Reveal>
           <Reveal delay={240}>
@@ -523,18 +519,17 @@ const Pillars = () => (
         <div>
           <Kicker>What&apos;s inside</Kicker>
           <h2 style={{ fontFamily: "var(--rb-font-display)", fontSize: "clamp(48px, 5vw, 68px)", lineHeight: 0.94, fontWeight: 700, letterSpacing: "-0.04em", color: "var(--rb-fg-1)", marginTop: 18 } as React.CSSProperties}>
-            Four tools.<br />One inbox.<br />Zero busywork.
+            Four tools.<br />One inbox.<br />One screen.
           </h2>
         </div>
         <p style={{ fontSize: 18, color: "var(--rb-fg-2)", lineHeight: 1.55, letterSpacing: "-0.005em" }}>
-          Most &quot;review platforms&quot; are read-only dashboards with a Reply button bolted to the side. ReviewBox is the smallest possible tool that completes the actual loop — read, decide, draft, ship, learn.
+          Most &quot;review platforms&quot; are read-only dashboards with a Reply button bolted on. ReviewBox is built around the reply — read the review, draft with your KB, publish to the store, watch the rating move.
         </p>
       </div>
       <div style={{ display: "flex", flexDirection: "column", borderTop: "1px solid var(--rb-border-1)" }}>
         {PILLARS.map((p, i) => (
           <Reveal key={p.id} delay={i * 80}>
-            <div style={{ display: "grid", gridTemplateColumns: "100px 1fr 1fr", gap: 40, padding: "44px 0", borderBottom: "1px solid var(--rb-border-1)", alignItems: "flex-start" }}>
-              <div style={{ fontFamily: "var(--rb-font-mono)", fontSize: 13, color: "var(--rb-fg-4)", fontWeight: 600 }}>0{i + 1}</div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 40, padding: "44px 0", borderBottom: "1px solid var(--rb-border-1)", alignItems: "flex-start" }}>
               <div>
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 14 }}>
                   <PillarIcon id={p.id} />
@@ -609,7 +604,7 @@ const AIReplyDemo = () => {
       </div>
       <div style={{ background: "var(--rb-bg-surface)", padding: "28px 30px", display: "flex", flexDirection: "column", gap: 14, minHeight: 340 }}>
         <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--rb-purple-500)", fontFamily: "var(--rb-font-mono)", display: "inline-flex", alignItems: "center", gap: 6 }}><Sparkle size={11} color="var(--rb-purple-500)" /> AI draft</span>
+          <span style={{ fontSize: 11, fontWeight: 600, color: "var(--rb-purple-500)", fontFamily: "var(--rb-font-text)", display: "inline-flex", alignItems: "center", gap: 6, letterSpacing: "-0.003em" }}><Sparkle size={11} color="var(--rb-purple-500)" /> Compose</span>
           <span style={{ marginLeft: "auto", fontSize: 11.5, color: "var(--rb-fg-3)", fontFamily: "var(--rb-font-mono)" }}>{loading ? "thinking…" : reply ? `${reply.length} chars` : "ready"}</span>
         </div>
         <div style={{ flex: 1, padding: 18, borderRadius: 12, background: "color-mix(in oklch, var(--rb-purple-500) 8%, transparent)", border: "1px dashed color-mix(in oklch, var(--rb-purple-500) 35%, transparent)", fontSize: 14.5, lineHeight: 1.6, color: "var(--rb-fg-1)", minHeight: 160, whiteSpace: "pre-wrap" }}>
@@ -763,7 +758,6 @@ const QuoteSection = () => (
       </p>
       <div style={{ display: "flex", alignItems: "center", gap: 40, flexWrap: "wrap" }}>
         <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
-          <div style={{ width: 48, height: 48, borderRadius: 99, background: "linear-gradient(135deg, var(--rb-blue-400), var(--rb-blue-700))", color: "#fff", display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 800, fontSize: 18, flexShrink: 0 }}>M</div>
           <div>
             <div style={{ fontSize: 14.5, fontWeight: 600, color: "var(--rb-fg-1)" }}>Mariejean Cole</div>
             <div style={{ fontSize: 13, color: "var(--rb-fg-3)" }}>Head of Mobile Support, Acme Banking</div>
@@ -862,15 +856,12 @@ const Tools = () => (
         <p style={{ fontSize: 16, color: "var(--rb-fg-2)", marginTop: 16, maxWidth: 560 }}>Five things we built and gave away. No sign-up, no card, no &ldquo;free with email.&rdquo; Just the tool.</p>
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
-        {FREE_TOOLS.map((t, i) => (
-          <Link key={t.n} href="/sign-up" style={{ display: "flex", flexDirection: "column", gap: 14, padding: 26, background: "var(--rb-bg-raised)", border: "1px solid var(--rb-border-1)", borderRadius: 14, textDecoration: "none" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div style={{ fontFamily: "var(--rb-font-mono)", fontSize: 14, fontWeight: 700, color: "var(--rb-blue-500)" }}>0{i + 1}</div>
-              <span style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color: "var(--rb-blue-500)", letterSpacing: "0.1em", textTransform: "uppercase", padding: "3px 9px", borderRadius: 99, background: "var(--rb-bg-accent-soft)", border: "1px solid color-mix(in oklch, var(--rb-blue-500) 30%, transparent)", fontFamily: "var(--rb-font-mono)" }}>{t.k}</span>
-            </div>
+        {FREE_TOOLS.map((t) => (
+          <Link key={t.n} href="/sign-up" style={{ display: "flex", flexDirection: "column", gap: 12, padding: 26, background: "var(--rb-bg-raised)", border: "1px solid var(--rb-border-1)", borderRadius: 14, textDecoration: "none" }}>
+            <span style={{ alignSelf: "flex-start", fontSize: 11, fontWeight: 500, color: "var(--rb-blue-500)", padding: "3px 9px", borderRadius: 99, background: "var(--rb-bg-accent-soft)", border: "1px solid color-mix(in oklch, var(--rb-blue-500) 30%, transparent)", fontFamily: "var(--rb-font-text)" }}>{t.k}</span>
             <div style={{ fontFamily: "var(--rb-font-display)", fontSize: 20, fontWeight: 700, color: "var(--rb-fg-1)", letterSpacing: "-0.02em", lineHeight: 1.15 }}>{t.n}</div>
             <div style={{ fontSize: 13.5, color: "var(--rb-fg-3)", lineHeight: 1.55 }}>{t.d}</div>
-            <div style={{ marginTop: "auto", fontSize: 12.5, fontWeight: 700, color: "var(--rb-blue-500)", display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--rb-font-mono)", letterSpacing: "0.04em" }}>OPEN TOOL <Arrow size={11} /></div>
+            <div style={{ marginTop: "auto", fontSize: 13, fontWeight: 600, color: "var(--rb-blue-500)", display: "inline-flex", alignItems: "center", gap: 4, fontFamily: "var(--rb-font-text)" }}>Try it free <Arrow size={11} /></div>
           </Link>
         ))}
       </div>
