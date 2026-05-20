@@ -10,6 +10,7 @@ import {
 } from "@/services/app-store/connect-api";
 import { enrichReview } from "@/lib/rules-engine";
 import { sendRatingSpikeAlert } from "@/lib/email/send-rating-spike-alert";
+import { notifySlack, ratingSpike as slackRatingSpike } from "@/lib/slack";
 import { runAutomationRules } from "@/lib/automation-executor";
 import type { AppReview } from "@/types/review";
 
@@ -361,5 +362,14 @@ async function notifyWorkspaceOwner(
   const email = clerkUser.emailAddresses[0]?.emailAddress;
   if (!email) return;
 
-  await sendRatingSpikeAlert(email, appName, version, count);
+  // Email + Slack in parallel (both best-effort)
+  await Promise.allSettled([
+    sendRatingSpikeAlert(email, appName, version, count),
+    notifySlack(workspaceId, slackRatingSpike({
+      appName,
+      avgRating: 1.5, // spike threshold is ≤2★ reviews
+      reviewCount: count,
+      appVersion: version,
+    })),
+  ]);
 }
