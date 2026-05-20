@@ -21,6 +21,13 @@ export interface WorkspacePersona {
   supportEmail: string;
   /** Sign-off team name (e.g. "The Acme Tracker Team") */
   teamName: string;
+  /**
+   * 1-3 sentence brand voice description set in workspace settings.
+   * Injected into AI system prompts for tone/personality alignment.
+   * e.g. "We're a friendly fitness app for beginners. We avoid jargon,
+   *        use encouraging language, and always offer a practical next step."
+   */
+  brandVoice?: string;
 }
 
 // ── Defaults ──────────────────────────────────────────────────────────────────
@@ -70,17 +77,19 @@ export async function getWorkspacePersona(
     const sb = getServiceClient();
     const { data } = await sb
       .from("workspaces")
-      .select("name, support_email")
+      .select("name, support_email, brand_voice")
       .eq("id", workspaceId)
       .single();
 
     if (data) {
-      const name    = (data.name as string | null) ?? "";
-      const email   = (data.support_email as string | null) ?? DEFAULT_PERSONA.supportEmail;
+      const name       = (data.name as string | null) ?? "";
+      const email      = (data.support_email as string | null) ?? DEFAULT_PERSONA.supportEmail;
+      const brandVoice = (data.brand_voice as string | null) ?? undefined;
       const persona: WorkspacePersona = {
         appName:      name || DEFAULT_PERSONA.appName,
         supportEmail: email,
         teamName:     name ? `The ${name} Team` : DEFAULT_PERSONA.teamName,
+        brandVoice,
       };
 
       // Store in cache
