@@ -1,12 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { Inbox, Loader2, Sparkles } from "lucide-react";
+import { Inbox, Loader2, Search, Sparkles, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import { AppReview, ReviewSentiment } from "@/types/review";
+import { AppReview, ReviewSentiment, AIReplyTone } from "@/types/review";
 import { humanizeToken, formatReviewDate } from "@/utils/format";
+
+// ── Store char limits ─────────────────────────────────────────────────────────
+
+const CHAR_LIMIT: Record<AppReview["source"], number> = {
+  "Google Play": 350,
+  "App Store":   5950,
+};
 
 // ── Stars ─────────────────────────────────────────────────────────────────────
 
@@ -110,21 +117,67 @@ function ReviewRow({ review, selected, onClick }: {
   );
 }
 
+// ── Tone selector ─────────────────────────────────────────────────────────────
+
+const TONES: { value: AIReplyTone; label: string }[] = [
+  { value: "professional", label: "Professional" },
+  { value: "empathetic",   label: "Empathetic"   },
+  { value: "casual",       label: "Casual"        },
+  { value: "direct",       label: "Direct"        },
+];
+
+function ToneSelector({ tone, onChange }: {
+  tone: AIReplyTone;
+  onChange: (t: AIReplyTone) => void;
+}) {
+  return (
+    <div className="flex items-center gap-1 flex-wrap">
+      {TONES.map((t) => (
+        <button
+          key={t.value}
+          onClick={() => onChange(t.value)}
+          className={cn(
+            "h-[22px] rounded-md px-2 text-[11px] font-semibold transition-colors",
+            tone === t.value
+              ? "bg-[var(--rb-purple-100)] text-[var(--rb-purple-600)]"
+              : "text-[var(--rb-fg-3)] hover:bg-[var(--rb-bg-hover)] hover:text-[var(--rb-fg-2)]",
+          )}
+        >
+          {t.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 // ── ReplyComposer ─────────────────────────────────────────────────────────────
 
-function ReplyComposer({ review, onClose }: { review: AppReview; onClose: () => void }) {
-  const [text, setText]                     = useState("");
-  const [isGenerating, setIsGenerating]     = useState(false);
-  const [aiSuggestion, setAiSuggestion]     = useState<string | null>(null);
-  const [generateError, setGenerateError]   = useState<string | null>(null);
-  const [isSending, setIsSending]           = useState(false);
-  const [sendFeedback, setSendFeedback]     = useState<"success" | "error" | null>(null);
-  const [sendError, setSendError]           = useState<string | null>(null);
-  const [replyDone, setReplyDone]           = useState(false);
+function ReplyComposer({
+  review,
+  onClose,
+  onAdvance,
+}: {
+  review: AppReview;
+  onClose: () => void;
+  onAdvance: (id: string) => void;
+}) {
+  const limit                                   = CHAR_LIMIT[review.source];
+  const alreadyReplied                          = review.replyStatus === "replied";
+  const [text, setText]                         = useState(review.replyText ?? "");
+  const [tone, setTone]                         = useState<AIReplyTone>("professional");
+  const [isGenerating, setIsGenerating]         = useState(false);
+  const [aiSuggestion, setAiSuggestion]         = useState<string | null>(null);
+  const [generateError, setGenerateError]       = useState<string | null>(null);
+  const [isSending, setIsSending]               = useState(false);
+  const [sendFeedback, setSendFeedback]         = useState<"success" | "error" | null>(null);
+  const [sendError, setSendError]               = useState<string | null>(null);
+  const [replyDone, setReplyDone]               = useState(alreadyReplied);
+  const prevToneRef                             = useRef(tone);
 
-  const badge = SENTIMENT_BADGE[review.sentiment];
+  const overLimit = text.length > limit;
+  const badge     = SENTIMENT_BADGE[review.sentiment];
 
-  async function handleGenerate() {
+  const handleGenerate = useCallback(async (selectedTone: AIReplyTone) => {
     setIsGenerating(true);
     setGenerateError(null);
     try {
@@ -132,11 +185,11 @@ function ReplyComposer({ review, onClose }: { review: AppReview; onClose: () => 
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          reviewId: review.id,
+          reviewId:   review.id,
           reviewBody: review.text,
-          rating: review.rating,
-          tags: review.issueTags,
-          tone: "professional",
+          rating:     review.rating,
+          tags:       review.issueTags,
+          tone:       selectedTone,
         }),
       });
       if (res.status === 429) { setGenerateError("Daily AI limit reached."); return; }
@@ -149,16 +202,26 @@ function ReplyComposer({ review, onClose }: { review: AppReview; onClose: () => 
     } finally {
       setIsGenerating(false);
     }
-  }
+  }, [review.id, review.text, review.rating, review.issueTags]);
 
-  // Auto-generate when composer mounts for a new review
+  // Auto-generate when composer mounts (skip if already replied)
   useEffect(() => {
-    handleGenerate();
+    if (!alreadyReplied) {
+      handleGenerate(tone);
+    }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Regenerate when tone changes (only after first mount)
+  useEffect(() => {
+    if (prevToneRef.current !== tone) {
+      prevToneRef.current = tone;
+      handleGenerate(tone);
+    }
+  }, [tone, handleGenerate]);
+
   async function handleSend() {
-    if (!text.trim()) return;
+    if (!text.trim() || overLimit) return;
     setIsSending(true);
     setSendFeedback(null);
     try {
@@ -181,6 +244,8 @@ function ReplyComposer({ review, onClose }: { review: AppReview; onClose: () => 
         return;
       }
       setReplyDone(true);
+      // Auto-advance to next unreplied after short delay
+      setTimeout(() => onAdvance(review.id), 1200);
     } catch {
       setSendFeedback("error");
       setTimeout(() => setSendFeedback(null), 2500);
@@ -248,66 +313,102 @@ function ReplyComposer({ review, onClose }: { review: AppReview; onClose: () => 
         </div>
       </div>
 
+      {/* Existing reply banner (for already-replied reviews) */}
+      {alreadyReplied && review.replyText && (
+        <div className="border-b border-[var(--rb-border-1)] bg-[var(--rb-green-50)] px-[18px] py-3">
+          <div className="mb-1 text-[11px] font-semibold text-[var(--rb-green-600)]">Your reply</div>
+          <p className="text-[12px] leading-relaxed text-[var(--rb-fg-2)]">{review.replyText}</p>
+        </div>
+      )}
+
       {/* Composer */}
       <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-[18px] py-[14px]">
 
-        {/* AI suggestion */}
-        <div className="rounded-[10px] border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-3">
-          <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--rb-purple-500)]">
-            <Sparkles className="size-2.5" strokeWidth={2} />
-            AI suggestion
-          </div>
-          {isGenerating ? (
-            <div className="mt-2 flex items-center gap-2 text-[12px] text-[var(--rb-fg-3)]">
-              <Loader2 className="size-3 animate-spin" strokeWidth={1.5} />
-              Generating…
+        {/* AI suggestion (hidden if already replied) */}
+        {!alreadyReplied && (
+          <div className="rounded-[10px] border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--rb-purple-500)]">
+                <Sparkles className="size-2.5" strokeWidth={2} />
+                AI suggestion
+              </div>
+              <ToneSelector tone={tone} onChange={setTone} />
             </div>
-          ) : aiSuggestion ? (
-            <>
-              <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--rb-fg-2)]">{aiSuggestion}</p>
-              <div className="mt-2 flex gap-1.5">
+            {isGenerating ? (
+              <div className="flex items-center gap-2 text-[12px] text-[var(--rb-fg-3)]">
+                <Loader2 className="size-3 animate-spin" strokeWidth={1.5} />
+                Generating…
+              </div>
+            ) : aiSuggestion ? (
+              <>
+                <p className="text-[13px] leading-relaxed text-[var(--rb-fg-2)]">{aiSuggestion}</p>
+                <div className="mt-2 flex gap-1.5">
+                  <button
+                    onClick={() => setText(aiSuggestion)}
+                    className="h-[26px] rounded-md bg-[var(--rb-bg-surface)] px-2.5 text-[11px] font-semibold text-[var(--rb-fg-1)] shadow-[var(--rb-shadow-xs)] transition-colors hover:bg-[var(--rb-bg-hover)]"
+                  >
+                    Use this
+                  </button>
+                  <button
+                    onClick={() => handleGenerate(tone)}
+                    className="h-[26px] rounded-md px-2.5 text-[11px] font-semibold text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-fg-2)]"
+                  >
+                    Regenerate
+                  </button>
+                </div>
+              </>
+            ) : (
+              <div>
+                {generateError && (
+                  <p className="mb-1.5 text-[12px] text-[var(--rb-red-500)]">{generateError}</p>
+                )}
                 <button
-                  onClick={() => setText(aiSuggestion)}
-                  className="h-[26px] rounded-md bg-[var(--rb-bg-surface)] px-2.5 text-[11px] font-semibold text-[var(--rb-fg-1)] shadow-[var(--rb-shadow-xs)] transition-colors hover:bg-[var(--rb-bg-hover)]"
+                  onClick={() => handleGenerate(tone)}
+                  className="inline-flex h-[26px] items-center gap-1.5 rounded-md bg-[var(--rb-bg-surface)] px-2.5 text-[11px] font-semibold text-[var(--rb-fg-1)] shadow-[var(--rb-shadow-xs)] transition-colors hover:bg-[var(--rb-bg-hover)]"
                 >
-                  Use this
-                </button>
-                <button
-                  onClick={handleGenerate}
-                  className="h-[26px] rounded-md px-2.5 text-[11px] font-semibold text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-fg-2)]"
-                >
-                  Regenerate
+                  Retry
                 </button>
               </div>
-            </>
-          ) : (
-            <div className="mt-1.5">
-              {generateError && (
-                <p className="mb-1.5 text-[12px] text-[var(--rb-red-500)]">{generateError}</p>
-              )}
-              <button
-                onClick={handleGenerate}
-                className="inline-flex h-[26px] items-center gap-1.5 rounded-md bg-[var(--rb-bg-surface)] px-2.5 text-[11px] font-semibold text-[var(--rb-fg-1)] shadow-[var(--rb-shadow-xs)] transition-colors hover:bg-[var(--rb-bg-hover)]"
-              >
-                Retry
-              </button>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
 
         {/* Reply textarea */}
-        <textarea
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          placeholder="Write a reply…"
-          rows={5}
-          className="w-full resize-none rounded-lg border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] p-2.5 text-[13px] leading-relaxed text-[var(--rb-fg-1)] placeholder:text-[var(--rb-fg-3)] outline-none transition-colors focus:border-[var(--rb-blue-400)]"
-          style={{ fontFamily: "var(--rb-font-text)" }}
-        />
+        <div>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder={alreadyReplied ? "Edit your reply…" : "Write a reply…"}
+            rows={5}
+            className={cn(
+              "w-full resize-none rounded-lg border bg-[var(--rb-bg-surface)] p-2.5 text-[13px] leading-relaxed text-[var(--rb-fg-1)] placeholder:text-[var(--rb-fg-3)] outline-none transition-colors",
+              overLimit
+                ? "border-[var(--rb-red-400)] focus:border-[var(--rb-red-400)]"
+                : "border-[var(--rb-border-2)] focus:border-[var(--rb-blue-400)]",
+            )}
+            style={{ fontFamily: "var(--rb-font-text)" }}
+          />
+          {/* Character count */}
+          <div className="mt-1 flex items-center justify-between">
+            <span className="text-[10px] text-[var(--rb-fg-3)]">
+              {review.source === "Google Play" ? "Google Play · 350 char limit" : "App Store · 5,950 char limit"}
+            </span>
+            <span className={cn(
+              "tabular-nums text-[11px] font-medium",
+              overLimit
+                ? "text-[var(--rb-red-500)]"
+                : text.length > limit * 0.85
+                  ? "text-[var(--rb-amber-500)]"
+                  : "text-[var(--rb-fg-3)]",
+            )}>
+              {text.length.toLocaleString()} / {limit.toLocaleString()}
+            </span>
+          </div>
+        </div>
 
         {/* Actions */}
-        {replyDone ? (
-          <p className="text-[12px] font-semibold text-[var(--rb-green-500)]">✓ Reply sent</p>
+        {replyDone && !alreadyReplied ? (
+          <p className="text-[12px] font-semibold text-[var(--rb-green-500)]">✓ Reply sent — moving to next…</p>
         ) : (
           <div className="flex items-center gap-2">
             {sendFeedback === "error" && sendError && (
@@ -315,7 +416,7 @@ function ReplyComposer({ review, onClose }: { review: AppReview; onClose: () => 
             )}
             <button
               onClick={handleSend}
-              disabled={isSending || !text.trim()}
+              disabled={isSending || !text.trim() || overLimit}
               className={cn(
                 "h-[30px] rounded-[7px] px-3 text-[12px] font-semibold text-white transition-colors disabled:opacity-50",
                 sendFeedback === "error"
@@ -323,11 +424,11 @@ function ReplyComposer({ review, onClose }: { review: AppReview; onClose: () => 
                   : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
               )}
             >
-              {isSending ? "Posting…" : sendFeedback === "error" ? "Retry" : "Post reply"}
+              {isSending ? "Posting…" : sendFeedback === "error" ? "Retry" : alreadyReplied ? "Update reply" : "Post reply"}
             </button>
             <button
               onClick={handleSaveDraft}
-              disabled={!text.trim()}
+              disabled={!text.trim() || overLimit}
               className="h-[30px] rounded-[7px] border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] px-3 text-[12px] font-semibold text-[var(--rb-fg-1)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40"
             >
               Save draft
@@ -379,6 +480,13 @@ export function InboxScreen({
   const [selectedId, setSelectedId]     = useState<string | null>(reviews[0]?.id ?? null);
   const [activeFilter, setActiveFilter] = useState<InboxFilter>("all");
   const [sort, setSort]                 = useState<InboxSort>("newest");
+  const [search, setSearch]             = useState("");
+  const [versionFilter, setVersionFilter] = useState<string>("all");
+
+  // Derive unique versions from loaded reviews (top 4 by recency)
+  const uniqueVersions = Array.from(
+    new Set(reviews.map((r) => r.appVersion).filter(Boolean))
+  ).slice(0, 4);
 
   const unrepliedCount = reviews.filter((r) => r.replyStatus === "needs_reply").length;
   const lowRatingCount = reviews.filter((r) => r.rating <= 2).length;
@@ -395,8 +503,8 @@ export function InboxScreen({
       ),
     },
     { value: "low_rating", label: `1–2 ★ · ${lowRatingCount}` },
-    { value: "app_store",  label: "App Store · iOS" },
-    { value: "play_store", label: "Play Store · Android" },
+    { value: "app_store",  label: "App Store" },
+    { value: "play_store", label: "Play Store" },
   ];
 
   const filtered = reviews.filter((r) => {
@@ -405,6 +513,13 @@ export function InboxScreen({
     if (activeFilter === "app_store")  return r.source === "App Store";
     if (activeFilter === "play_store") return r.source === "Google Play";
     return true;
+  }).filter((r) => {
+    if (versionFilter !== "all") return r.appVersion === versionFilter;
+    return true;
+  }).filter((r) => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return r.text.toLowerCase().includes(q) || r.author.toLowerCase().includes(q);
   });
 
   const sorted = sort === "lowest"
@@ -412,6 +527,16 @@ export function InboxScreen({
     : filtered;
 
   const selected = sorted.find((r) => r.id === selectedId) ?? null;
+
+  // Auto-advance: move to next unreplied (or just next) after a reply is sent
+  const handleAdvance = useCallback((currentId: string) => {
+    const currentIndex = sorted.findIndex((r) => r.id === currentId);
+    // Prefer next unreplied; fall back to next in list
+    const nextUnreplied = sorted.slice(currentIndex + 1).find((r) => r.replyStatus === "needs_reply");
+    const nextAny       = sorted[currentIndex + 1] ?? sorted[currentIndex - 1];
+    const next          = nextUnreplied ?? nextAny;
+    if (next) setSelectedId(next.id);
+  }, [sorted]);
 
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">
@@ -425,6 +550,9 @@ export function InboxScreen({
             <div>
               <div className="text-[12px] font-medium text-[var(--rb-fg-3)]">
                 {reviews.length} review{reviews.length !== 1 ? "s" : ""}
+                {sorted.length !== reviews.length && (
+                  <span className="ml-1 text-[var(--rb-blue-500)]">· {sorted.length} shown</span>
+                )}
               </div>
               <h1 className="mt-1 text-[24px] font-semibold leading-tight tracking-[-0.022em] text-[var(--rb-fg-1)]"
                   style={{ fontFamily: "var(--rb-font-display)" }}>
@@ -450,6 +578,25 @@ export function InboxScreen({
             </div>
           </div>
 
+          {/* Search */}
+          <div className="relative mb-2.5">
+            <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[var(--rb-fg-3)]" strokeWidth={1.5} />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search reviews…"
+              className="h-8 w-full rounded-[8px] border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] pl-7 pr-7 text-[12px] text-[var(--rb-fg-1)] placeholder:text-[var(--rb-fg-3)] outline-none transition-colors focus:border-[var(--rb-border-2)]"
+            />
+            {search && (
+              <button
+                onClick={() => setSearch("")}
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-[var(--rb-fg-3)] hover:text-[var(--rb-fg-2)]"
+              >
+                <X className="size-3" />
+              </button>
+            )}
+          </div>
+
           {/* Filter chips */}
           <div className="flex flex-wrap gap-2">
             {FILTERS.map((f) => (
@@ -467,6 +614,38 @@ export function InboxScreen({
               </button>
             ))}
           </div>
+
+          {/* Version filter chips (only shown when there are multiple versions) */}
+          {uniqueVersions.length > 1 && (
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <span className="flex items-center text-[11px] text-[var(--rb-fg-3)] mr-0.5">v:</span>
+              <button
+                onClick={() => setVersionFilter("all")}
+                className={cn(
+                  "inline-flex h-6 items-center rounded-[6px] border px-2.5 text-[11px] font-semibold font-mono transition-colors",
+                  versionFilter === "all"
+                    ? "border-[var(--rb-border-3)] bg-[var(--rb-bg-sunken)] text-[var(--rb-fg-1)]"
+                    : "border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)] text-[var(--rb-fg-3)] hover:bg-[var(--rb-bg-hover)]",
+                )}
+              >
+                All
+              </button>
+              {uniqueVersions.map((v) => (
+                <button
+                  key={v}
+                  onClick={() => setVersionFilter(v)}
+                  className={cn(
+                    "inline-flex h-6 items-center rounded-[6px] border px-2.5 text-[11px] font-semibold font-mono transition-colors",
+                    versionFilter === v
+                      ? "border-[var(--rb-border-3)] bg-[var(--rb-bg-sunken)] text-[var(--rb-fg-1)]"
+                      : "border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)] text-[var(--rb-fg-3)] hover:bg-[var(--rb-bg-hover)]",
+                  )}
+                >
+                  {v}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
 
         {/* Review rows */}
@@ -475,17 +654,23 @@ export function InboxScreen({
             <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
               <Inbox className="size-10 text-[var(--rb-fg-4)]" strokeWidth={1.5} />
               <div>
-                <p className="text-sm font-semibold text-[var(--rb-fg-1)]">No reviews</p>
+                <p className="text-sm font-semibold text-[var(--rb-fg-1)]">
+                  {search ? "No results" : "No reviews"}
+                </p>
                 <p className="mt-1 text-xs text-[var(--rb-fg-3)]">
-                  Connect an app in Settings to start syncing.
+                  {search
+                    ? `Nothing matched "${search}"`
+                    : "Connect an app in Settings to start syncing."}
                 </p>
               </div>
-              <Link
-                href="/settings"
-                className="rounded-lg border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)]"
-              >
-                Go to Settings
-              </Link>
+              {!search && (
+                <Link
+                  href="/settings"
+                  className="rounded-lg border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)]"
+                >
+                  Go to Settings
+                </Link>
+              )}
             </div>
           ) : (
             <>
@@ -515,7 +700,7 @@ export function InboxScreen({
 
       {/* ── Right — detail + composer ──────────────────────────────────────── */}
       {selected
-        ? <ReplyComposer key={selected.id} review={selected} onClose={() => setSelectedId(null)} />
+        ? <ReplyComposer key={selected.id} review={selected} onClose={() => setSelectedId(null)} onAdvance={handleAdvance} />
         : <EmptyDetail />
       }
     </div>
