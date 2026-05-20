@@ -4,9 +4,11 @@ import { useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSentimentAnalysis } from "@/hooks/use-sentiment-analysis";
+import { useSentimentOverview } from "@/hooks/use-sentiment-overview";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
 import { mockReviews } from "@/features/reviews/data/mock-reviews";
 import type { AnalysisResult } from "@/app/api/sentiment/analyze/route";
+import type { SentimentTopic } from "@/app/api/sentiment/overview/route";
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
@@ -46,6 +48,15 @@ function MetricCard({
   );
 }
 
+function MetricSkeleton() {
+  return (
+    <div className="rounded-[12px] border border-[var(--rb-border-1)] bg-surface p-[18px] shadow-[var(--rb-shadow-xs)] animate-pulse">
+      <div className="h-3 w-20 rounded bg-[var(--rb-bg-sunken)] mb-3" />
+      <div className="h-7 w-16 rounded bg-[var(--rb-bg-sunken)]" />
+    </div>
+  );
+}
+
 function Pill({ positive, children }: { positive: boolean; children: React.ReactNode }) {
   return (
     <span
@@ -63,9 +74,7 @@ function Pill({ positive, children }: { positive: boolean; children: React.React
 
 // ── Sentiment trend chart ─────────────────────────────────────────────────────
 
-function SentimentChart() {
-  const pos = [60, 62, 58, 65, 64, 67, 63, 70, 68, 65, 72, 70, 74, 72];
-  const neg = [22, 20, 24, 18, 19, 16, 20, 14, 16, 18, 12, 14, 10, 12];
+function SentimentChart({ pos, neg }: { pos: number[]; neg: number[] }) {
   const w = 800, h = 200, padL = 36, padR = 12, padT = 10, padB = 28;
   const xs = (i: number, n: number) => padL + (i / (n - 1)) * (w - padL - padR);
   const ys = (v: number) => padT + (1 - v / 100) * (h - padT - padB);
@@ -118,7 +127,7 @@ function SentimentBar({ value }: { value: number }) {
   const fill = Math.abs(value) * half;
   return (
     <div style={{ width: w }} className="relative h-1.5 rounded-full bg-[var(--rb-bg-sunken)]">
-      <div className="absolute left-1/2 top-[-3px] h-[12px] w-px -translate-x-0.5 bg-[var(--rb-border-3)]" />
+      <div className="absolute left-1/2 top-[-3px] h-[12px] w-px -translate-x-0.5 bg-[var(--rb-border-1)]" />
       <div
         className={cn("absolute top-0 h-1.5 rounded-full", pos ? "bg-[#1F8A5B]" : "bg-[#DC2626]")}
         style={{ left: pos ? half : half - fill, width: fill }}
@@ -127,17 +136,16 @@ function SentimentBar({ value }: { value: number }) {
   );
 }
 
-// ── Topic data ────────────────────────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-const TOPICS = [
-  { topic: "Auth & login",  count: 142, share: 22, trend: "up",   sentiment: -0.4 },
-  { topic: "Onboarding",   count: 98,  share: 16, trend: "up",   sentiment:  0.7 },
-  { topic: "Performance",  count: 87,  share: 14, trend: "down", sentiment: -0.2 },
-  { topic: "Pricing",      count: 56,  share: 9,  trend: "flat", sentiment: -0.6 },
-  { topic: "Notifications",count: 41,  share: 7,  trend: "up",   sentiment:  0.3 },
-];
+function fmtReply(mins: number | null | undefined): string {
+  if (mins == null) return "—";
+  if (mins < 60) return `${mins}m`;
+  if (mins < 1440) return `${Math.round(mins / 60)}h`;
+  return `${Math.round(mins / 1440)}d`;
+}
 
-// ── Screen ────────────────────────────────────────────────────────────────────
+// ── Sentiment badge ───────────────────────────────────────────────────────────
 
 const SENTIMENT_BADGE: Record<string, { label: string; cls: string }> = {
   critical: { label: "Critical",  cls: "bg-[rgba(220,38,38,0.10)] text-[#DC2626]" },
@@ -146,11 +154,31 @@ const SENTIMENT_BADGE: Record<string, { label: string; cls: string }> = {
   positive: { label: "Positive",  cls: "bg-[rgba(31,138,91,0.10)] text-[#1F8A5B]" },
 };
 
+// ── Screen ────────────────────────────────────────────────────────────────────
+
 export function SentimentScreen() {
-  const [range, setRange] = useState<"7d" | "30d" | "90d">("90d");
+  const [range, setRange] = useState<"7d" | "30d" | "90d">("30d");
   const [aiResults, setAiResults] = useState<AnalysisResult[] | null>(null);
   const { mutate: analyze, isPending } = useSentimentAnalysis();
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
+
+  const appId =
+    selectedApp && typeof selectedApp === "object" && "id" in selectedApp
+      ? (selectedApp as { id: string }).id
+      : undefined;
+  const appName =
+    selectedApp && typeof selectedApp === "object" && "name" in selectedApp
+      ? (selectedApp as { name: string }).name
+      : typeof selectedApp === "string"
+        ? selectedApp
+        : "All apps";
+
+  const { data: overview, isLoading } = useSentimentOverview(appId, range);
+
+  const topics: SentimentTopic[] = overview?.topics ?? [];
+  const trendPos = overview?.trend.positive ?? [];
+  const trendNeg = overview?.trend.negative ?? [];
+  const hasChartData = trendPos.length >= 2;
 
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8 max-w-[1240px] mx-auto">
@@ -158,7 +186,7 @@ export function SentimentScreen() {
       {/* Header */}
       <header className="flex items-end justify-between gap-6">
         <div>
-          <div className="text-[12px] font-medium text-fg-3">{selectedApp || "All apps"}</div>
+          <div className="text-[12px] font-medium text-fg-3">{appName}</div>
           <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.022em] text-fg-1">
             Sentiment
           </h1>
@@ -183,10 +211,32 @@ export function SentimentScreen() {
 
       {/* KPI strip */}
       <section className="grid grid-cols-4 gap-3">
-        <MetricCard label="Avg rating"       value="4.62" delta="+0.42" positive sub="last 30 days" />
-        <MetricCard label="Reviews"          value="312"  delta="+18%"  positive sub="this week" />
-        <MetricCard label="Positive share"   value="64%"  delta="+3 pp" positive sub="of all reviews" />
-        <MetricCard label="Median reply time" value="14m"  delta="−6m"   positive sub="p50, last 7d" />
+        {isLoading ? (
+          Array.from({ length: 4 }).map((_, i) => <MetricSkeleton key={i} />)
+        ) : (
+          <>
+            <MetricCard
+              label="Avg rating"
+              value={overview?.avgRating != null ? overview.avgRating.toFixed(2) : "—"}
+              sub={`last ${range}`}
+            />
+            <MetricCard
+              label="Reviews"
+              value={(overview?.totalReviews ?? 0).toLocaleString()}
+              sub={`last ${range}`}
+            />
+            <MetricCard
+              label="Positive share"
+              value={`${overview?.positiveShare ?? 0}%`}
+              sub="of all reviews"
+            />
+            <MetricCard
+              label="Avg reply time"
+              value={fmtReply(overview?.avgReplyMinutes)}
+              sub="replied reviews"
+            />
+          </>
+        )}
       </section>
 
       {/* Trend chart */}
@@ -194,7 +244,7 @@ export function SentimentScreen() {
         <div className="flex items-center border-b border-[var(--rb-border-1)] px-5 py-4">
           <div>
             <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">Sentiment trend</div>
-            <div className="mt-0.5 text-[12px] text-fg-3">{selectedApp || "All apps"} · last {range}</div>
+            <div className="mt-0.5 text-[12px] text-fg-3">{appName} · last {range}</div>
           </div>
           <div className="ml-auto flex items-center gap-4">
             <span className="flex items-center gap-1.5 text-[12px] text-fg-2">
@@ -208,7 +258,15 @@ export function SentimentScreen() {
           </div>
         </div>
         <div className="p-5">
-          <SentimentChart />
+          {isLoading ? (
+            <div className="h-[200px] animate-pulse rounded-lg bg-[var(--rb-bg-sunken)]" />
+          ) : hasChartData ? (
+            <SentimentChart pos={trendPos} neg={trendNeg} />
+          ) : (
+            <div className="flex h-[200px] items-center justify-center text-[13px] text-fg-3">
+              No review data yet for this period. Reviews appear here once synced.
+            </div>
+          )}
         </div>
       </div>
 
@@ -217,12 +275,16 @@ export function SentimentScreen() {
         <div className="flex items-center border-b border-[var(--rb-border-1)] px-5 py-4">
           <div>
             <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">Topics · auto-clustered</div>
-            <div className="mt-0.5 text-[12px] text-fg-3">624 reviews grouped into 5 clusters</div>
+            <div className="mt-0.5 text-[12px] text-fg-3">
+              {isLoading
+                ? "Loading…"
+                : topics.length > 0
+                  ? `${overview?.totalReviews ?? 0} reviews · ${topics.length} topic${topics.length === 1 ? "" : "s"}`
+                  : "No tagged reviews yet"}
+            </div>
           </div>
           <button
-            onClick={() =>
-              analyze(mockReviews, { onSuccess: setAiResults })
-            }
+            onClick={() => analyze(mockReviews, { onSuccess: setAiResults })}
             disabled={isPending}
             className="ml-auto flex h-7 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50"
           >
@@ -234,51 +296,76 @@ export function SentimentScreen() {
             {isPending ? "Analysing…" : "Re-cluster with AI"}
           </button>
         </div>
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              {["Topic", "Reviews", "Share", "Trend", "Net sentiment"].map((h) => (
-                <th
-                  key={h}
-                  className="border-b border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-fg-3"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {TOPICS.map((t, i) => (
-              <tr key={t.topic} className="transition-colors hover:bg-[var(--rb-bg-hover)]">
-                <td className={cn("px-5 py-3 text-[13px] font-semibold text-fg-1", i < TOPICS.length - 1 && "border-b border-[var(--rb-border-1)]")}>
-                  {t.topic}
-                </td>
-                <td className={cn("px-5 py-3 tabular-nums text-[13px] text-fg-2", i < TOPICS.length - 1 && "border-b border-[var(--rb-border-1)]")}>
-                  {t.count}
-                </td>
-                <td className={cn("px-5 py-3", i < TOPICS.length - 1 && "border-b border-[var(--rb-border-1)]")}>
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-1.5 w-[100px] overflow-hidden rounded-full bg-[var(--rb-bg-sunken)]">
-                      <div
-                        className="h-full rounded-full bg-[#0A84FF]"
-                        style={{ width: t.share * 4 }}
-                      />
-                    </div>
-                    <span className="tabular-nums text-[12px] text-fg-3">{t.share}%</span>
-                  </div>
-                </td>
-                <td className={cn("px-5 py-3", i < TOPICS.length - 1 && "border-b border-[var(--rb-border-1)]")}>
-                  <Pill positive={t.trend === "up"}>
-                    {t.trend === "up" ? "↑ Rising" : t.trend === "down" ? "↓ Falling" : "→ Steady"}
-                  </Pill>
-                </td>
-                <td className={cn("px-5 py-3", i < TOPICS.length - 1 && "border-b border-[var(--rb-border-1)]")}>
-                  <SentimentBar value={t.sentiment} />
-                </td>
+
+        {!isLoading && topics.length === 0 ? (
+          <div className="py-12 text-center text-[13px] text-fg-3">
+            Tags appear here once reviews are synced and enriched.
+          </div>
+        ) : (
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                {["Topic", "Reviews", "Share", "Trend", "Net sentiment"].map((h) => (
+                  <th
+                    key={h}
+                    className="border-b border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-fg-3"
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {(isLoading
+                ? Array.from({ length: 5 }, (_, i) => ({
+                    topic: `__loading_${i}`,
+                    count: 0,
+                    share: 0,
+                    trend: "flat" as const,
+                    sentiment: 0,
+                  }))
+                : topics
+              ).map((t, i, arr) => (
+                <tr key={t.topic} className="transition-colors hover:bg-[var(--rb-bg-hover)]">
+                  <td className={cn("px-5 py-3 text-[13px] font-semibold text-fg-1", i < arr.length - 1 && "border-b border-[var(--rb-border-1)]")}>
+                    {isLoading ? <span className="inline-block h-3 w-28 animate-pulse rounded bg-[var(--rb-bg-sunken)]" /> : t.topic}
+                  </td>
+                  <td className={cn("px-5 py-3 tabular-nums text-[13px] text-fg-2", i < arr.length - 1 && "border-b border-[var(--rb-border-1)]")}>
+                    {isLoading ? <span className="inline-block h-3 w-10 animate-pulse rounded bg-[var(--rb-bg-sunken)]" /> : t.count}
+                  </td>
+                  <td className={cn("px-5 py-3", i < arr.length - 1 && "border-b border-[var(--rb-border-1)]")}>
+                    {isLoading ? (
+                      <span className="inline-block h-3 w-24 animate-pulse rounded bg-[var(--rb-bg-sunken)]" />
+                    ) : (
+                      <div className="flex items-center gap-2.5">
+                        <div className="h-1.5 w-[100px] overflow-hidden rounded-full bg-[var(--rb-bg-sunken)]">
+                          <div className="h-full rounded-full bg-[#0A84FF]" style={{ width: Math.min(t.share * 4, 100) }} />
+                        </div>
+                        <span className="tabular-nums text-[12px] text-fg-3">{t.share}%</span>
+                      </div>
+                    )}
+                  </td>
+                  <td className={cn("px-5 py-3", i < arr.length - 1 && "border-b border-[var(--rb-border-1)]")}>
+                    {isLoading ? (
+                      <span className="inline-block h-5 w-16 animate-pulse rounded-full bg-[var(--rb-bg-sunken)]" />
+                    ) : (
+                      <Pill positive={t.trend === "up"}>
+                        {t.trend === "up" ? "↑ Rising" : t.trend === "down" ? "↓ Falling" : "→ Steady"}
+                      </Pill>
+                    )}
+                  </td>
+                  <td className={cn("px-5 py-3", i < arr.length - 1 && "border-b border-[var(--rb-border-1)]")}>
+                    {isLoading ? (
+                      <span className="inline-block h-3 w-28 animate-pulse rounded bg-[var(--rb-bg-sunken)]" />
+                    ) : (
+                      <SentimentBar value={t.sentiment} />
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
 
       {/* AI Analysis results (shown after Re-cluster with AI) */}

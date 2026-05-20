@@ -16,6 +16,43 @@ import { GoogleGenerativeAI } from "@google/generative-ai";
 import type { AppReview, ReviewSentiment } from "@/types/review";
 import { compressReviewText } from "@/lib/prompt-utils";
 
+// ── generateReplyWithGemini ───────────────────────────────────────────────────
+
+/**
+ * Generate a reply to an app store review using Gemini Flash.
+ * Used as fallback when Groq is unavailable or rate-limited.
+ * Throws "AI_UNAVAILABLE" on failure.
+ */
+export async function generateReplyWithGemini(params: {
+  reviewBody: string;
+  rating: number;
+  tone: string;
+  systemPrompt: string;
+  charLimit?: number;
+}): Promise<string> {
+  const { reviewBody, rating, tone: _tone, systemPrompt, charLimit } = params;
+  void _tone; // used via systemPrompt
+
+  const client = getGeminiClient();
+  const model  = client.getGenerativeModel({
+    model: GEMINI_MODEL,
+    systemInstruction: systemPrompt,
+  });
+
+  const charNote = charLimit ? ` Stay under ${charLimit} characters.` : "";
+  const userContent = `Rating: ${rating}/5\n\nReview: ${reviewBody}${charNote}`;
+
+  try {
+    const result = await model.generateContent(userContent);
+    const text   = result.response.text().trim();
+    if (!text) throw new Error("AI_UNAVAILABLE");
+    return text;
+  } catch (err) {
+    if (err instanceof Error && err.message === "AI_UNAVAILABLE") throw err;
+    throw new Error("AI_UNAVAILABLE");
+  }
+}
+
 const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.0-flash-exp";
 
 // ── Singleton client ──────────────────────────────────────────────────────────

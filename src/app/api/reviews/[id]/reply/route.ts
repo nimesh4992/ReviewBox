@@ -12,8 +12,12 @@ import {
 } from "@/services/app-store/connect-api";
 
 interface ReplyRequestBody {
-  replyText: string;
-  status: "sent" | "draft";
+  replyText:    string;
+  status:       "sent" | "draft";
+  /** Which tier generated the draft (reply-kit|template|cache|groq|gemini|composer|manual) */
+  draftSource?: string;
+  /** True if the user edited the AI draft before sending */
+  draftEdited?: boolean;
 }
 
 interface RouteParams {
@@ -44,7 +48,7 @@ export async function POST(
 
     const { id: reviewId } = await params;
     const body = (await req.json()) as ReplyRequestBody;
-    const { replyText, status } = body;
+    const { replyText, status, draftSource, draftEdited } = body;
 
     if (!replyText?.trim() || !status) {
       return apiError("MISSING_FIELDS", 400);
@@ -103,6 +107,8 @@ export async function POST(
         reply_text:   replyText.trim(),
         reply_status: status === "sent" ? "replied" : "draft_ready",
         replied_at:   status === "sent" ? new Date().toISOString() : null,
+        ...(draftSource !== undefined && { draft_source: draftSource }),
+        ...(draftEdited !== undefined && { draft_edited: draftEdited }),
       })
       .eq("id", reviewId)
       .eq("workspace_id", workspaceId);

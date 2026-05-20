@@ -6,6 +6,11 @@ import { sendWelcomeEmail } from "@/lib/email/send-welcome";
 import { audit } from "@/lib/audit";
 import { rateLimit } from "@/lib/api-rate-limit";
 import { apiError } from "@/lib/api-response";
+import {
+  getBrandVoiceStub,
+  STARTER_REPLY_TEMPLATES,
+  type AppCategory,
+} from "@/lib/brand-voice-stubs";
 
 interface OnboardingBody {
   workspaceName: string;
@@ -13,6 +18,8 @@ interface OnboardingBody {
   appName:       string;
   platform:      "google-play" | "app-store";
   storeId?:      string;
+  /** App category selected during onboarding — used to pre-fill brand voice. */
+  appCategory?:  AppCategory;
 }
 
 const TRIAL_DAYS = 14;
@@ -32,7 +39,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const body = (await req.json()) as OnboardingBody;
-  const { workspaceName, workspaceSlug, appName, platform, storeId = "" } = body;
+  const { workspaceName, workspaceSlug, appName, platform, storeId = "", appCategory } = body;
 
   if (!workspaceName?.trim() || !workspaceSlug?.trim() || !appName?.trim()) {
     return apiError("MISSING_FIELDS", 400);
@@ -54,9 +61,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (existingMember?.workspace_id) {
     workspaceId = existingMember.workspace_id as string;
   } else {
+    // Pre-fill brand_voice from category stub so AI replies are good from day 1
+    const brandVoice = appCategory ? getBrandVoiceStub(appCategory) : undefined;
+
     const { data: workspace, error: wsError } = await sb
       .from("workspaces")
-      .insert({ name: workspaceName, slug: workspaceSlug, plan: "trial" })
+      .insert({
+        name:         workspaceName,
+        slug:         workspaceSlug,
+        plan:         "trial",
+        app_category: appCategory ?? null,
+        brand_voice:  brandVoice ?? null,
+      })
       .select("id")
       .single();
 
@@ -78,6 +94,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.error("[onboarding] member insert:", memberError);
       return apiError("INTERNAL_SERVER_ERROR", 500);
     }
+  }
+
+  // Seed starter Reply-Kit templates for new workspaces
+  // Non-blocking — fires only for freshly created workspaces
+  if (workspaceWasJustCreated) {
+    const templates = STARTER_REPLY_TEMPLATES.map((t) => ({
+      workspace_id: workspaceId,
+      name:         t.name,
+      content:      t.content,
+      tags:         t.tags,
+      rating_min:   t.rating_min,
+      rating_max:   t.rating_max,
+      usage_count:  0,
+    }));
+    sb.from("reply_templates")
+      .insert(templates)
+      .then(() => undefined)
+      .catch((err: unknown) => console.error("[onboarding] template seed:", err));
   }
 
   // Idempotency: only insert app if none exists for this workspace
