@@ -2,6 +2,16 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 
+export interface TopicReview {
+  id: string;
+  author: string;
+  rating: number;
+  text: string;
+  sentiment: string;
+  createdAt: string;
+  replyStatus: string;
+}
+
 export interface SentimentTopic {
   topic: string;
   tag: string;          // raw tag key — used for coloring in UI
@@ -9,6 +19,8 @@ export interface SentimentTopic {
   share: number;        // 0–100, 1dp
   trend: "up" | "down" | "flat";
   sentiment: number;    // -1 to +1, net sentiment score
+  /** Top 3 most-recent reviews carrying this tag */
+  topReviews: TopicReview[];
 }
 
 export interface CriticalReview {
@@ -31,6 +43,8 @@ export interface SentimentOverview {
   trend: { positive: number[]; negative: number[] }; // 14 data points, % each day
   /** [1★, 2★, 3★, 4★, 5★] as percentages summing to 100 */
   ratingDistribution: [number, number, number, number, number];
+  /** Google Play vs App Store review counts for this period */
+  platformSplit: { googlePlay: number; appStore: number };
   topics: SentimentTopic[];
   /** Last 5 critical/negative reviews for the quick-list */
   criticalReviews: CriticalReview[];
@@ -45,6 +59,7 @@ const EMPTY: SentimentOverview = {
   avgReplyMinutes: null,
   trend: { positive: [], negative: [] },
   ratingDistribution: [0, 0, 0, 0, 0],
+  platformSplit: { googlePlay: 0, appStore: 0 },
   topics: [],
   criticalReviews: [],
 };
@@ -222,11 +237,24 @@ export async function GET(req: Request): Promise<NextResponse> {
       trendNegative.push(b.total > 0 ? Math.round((b.neg / b.total) * 100) : 0);
     }
 
-    // ── 4. Topics ────────────────────────────────────────────────────────────
+    // ── 4. Platform split ────────────────────────────────────────────────────
+    const platformRows = await base()
+      .select("source")
+      .gte("store_created_at", windowStart.toISOString());
+
+    let gpCount = 0, asCount = 0;
+    for (const r of (platformRows.data ?? []) as { source: string }[]) {
+      if (r.source === "Google Play") gpCount++;
+      else if (r.source === "App Store") asCount++;
+    }
+    const platformSplit = { googlePlay: gpCount, appStore: asCount };
+
+    // ── 5. Topics ────────────────────────────────────────────────────────────
     const topicRows = await base()
-      .select("issue_tags, sentiment")
+      .select("id, author, rating, text, sentiment, store_created_at, reply_status, issue_tags")
       .gte("store_created_at", windowStart.toISOString())
-      .not("issue_tags", "is", null);
+      .not("issue_tags", "is", null)
+      .order("store_created_at", { ascending: false });
 
     // last 7d for trend comparison
     const prev7Start = new Date(now);
@@ -244,10 +272,32 @@ export async function GET(req: Request): Promise<NextResponse> {
         .gte("store_created_at", curr7Start.toISOString()),
     ]);
 
+    type TopicRow = {
+      id: string; author: string; rating: number; text: string;
+      sentiment: string; store_created_at: string; reply_status: string;
+      issue_tags: string[];
+    };
+    const topicRowsTyped = (topicRows.data ?? []) as TopicRow[];
+
     const tagCount: Record<string, number> = {};
-    for (const row of (topicRows.data ?? []) as { issue_tags: string[] }[]) {
+    // top 3 most-recent reviews per tag (rows already ordered desc by store_created_at)
+    const tagTopReviews: Record<string, TopicReview[]> = {};
+
+    for (const row of topicRowsTyped) {
       for (const tag of row.issue_tags ?? []) {
         tagCount[tag] = (tagCount[tag] ?? 0) + 1;
+        if (!tagTopReviews[tag]) tagTopReviews[tag] = [];
+        if (tagTopReviews[tag].length < 3) {
+          tagTopReviews[tag].push({
+            id:          row.id,
+            author:      row.author,
+            rating:      row.rating,
+            text:        row.text,
+            sentiment:   row.sentiment,
+            createdAt:   row.store_created_at,
+            replyStatus: row.reply_status,
+          });
+        }
       }
     }
 
@@ -280,14 +330,12 @@ export async function GET(req: Request): Promise<NextResponse> {
                 : "flat";
         return {
           tag,
-          topic: TAG_LABEL[tag] ?? tag,
+          topic:      TAG_LABEL[tag] ?? tag,
           count,
-          share:
-            totalReviews > 0
-              ? Math.round((count / totalReviews) * 1000) / 10
-              : 0,
+          share:      totalReviews > 0 ? Math.round((count / totalReviews) * 1000) / 10 : 0,
           trend,
-          sentiment: TAG_SENTIMENT[tag] ?? 0,
+          sentiment:  TAG_SENTIMENT[tag] ?? 0,
+          topReviews: tagTopReviews[tag] ?? [],
         };
       })
       .sort((a, b) => b.count - a.count)
@@ -329,6 +377,7 @@ export async function GET(req: Request): Promise<NextResponse> {
       avgReplyMinutes,
       trend: { positive: trendPositive, negative: trendNegative },
       ratingDistribution,
+      platformSplit,
       topics,
       criticalReviews,
     };

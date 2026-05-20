@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Loader2, MessageSquare, Sparkles, Star } from "lucide-react";
+import { ChevronDown, ChevronRight, Loader2, MessageSquare, Sparkles, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSentimentAnalysis } from "@/hooks/use-sentiment-analysis";
@@ -9,7 +9,7 @@ import { useSentimentOverview } from "@/hooks/use-sentiment-overview";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
 import { useReviewQueue } from "@/hooks/use-review-queue";
 import type { AnalysisResult } from "@/app/api/sentiment/analyze/route";
-import type { SentimentTopic, CriticalReview } from "@/app/api/sentiment/overview/route";
+import type { SentimentTopic, CriticalReview, TopicReview } from "@/app/api/sentiment/overview/route";
 
 // ── Shared primitives ─────────────────────────────────────────────────────────
 
@@ -136,6 +136,91 @@ function RatingDistribution({
             <span className="w-[32px] text-right text-[12px] tabular-nums text-fg-3">
               {pct}%
             </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Platform split ────────────────────────────────────────────────────────────
+
+function PlatformSplit({
+  googlePlay,
+  appStore,
+}: {
+  googlePlay: number;
+  appStore: number;
+}) {
+  const total = googlePlay + appStore || 1;
+  const gpPct = Math.round((googlePlay / total) * 100);
+  const asPct = 100 - gpPct;
+
+  return (
+    <div className="space-y-3">
+      {[
+        { label: "Google Play", count: googlePlay, pct: gpPct, color: "#1DB954" },
+        { label: "App Store",   count: appStore,   pct: asPct, color: "#0A84FF" },
+      ].map((p) => (
+        <div key={p.label}>
+          <div className="mb-1.5 flex items-center justify-between">
+            <span className="text-[12px] font-medium text-fg-2">{p.label}</span>
+            <span className="text-[12px] tabular-nums text-fg-3">
+              {p.count.toLocaleString()} · {p.pct}%
+            </span>
+          </div>
+          <div className="h-2 overflow-hidden rounded-full bg-[var(--rb-bg-sunken)]">
+            <div
+              className="h-full rounded-full transition-all duration-500"
+              style={{ width: `${p.pct}%`, backgroundColor: p.color }}
+            />
+          </div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Topic drill-down rows ─────────────────────────────────────────────────────
+
+function TopicDrillDown({ reviews }: { reviews: TopicReview[] }) {
+  const router = useRouter();
+  if (reviews.length === 0) {
+    return (
+      <div className="px-5 py-3 text-[12px] text-fg-3 italic">
+        No review samples available.
+      </div>
+    );
+  }
+  return (
+    <div className="divide-y divide-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)]">
+      {reviews.map((r) => {
+        const badge = SENTIMENT_BADGE[r.sentiment] ?? SENTIMENT_BADGE.mixed;
+        return (
+          <div
+            key={r.id}
+            className="group flex items-start gap-4 px-6 py-3 transition-colors hover:bg-[var(--rb-bg-hover)]"
+          >
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2 mb-1">
+                <span className="text-[12px] font-semibold text-fg-1">{r.author}</span>
+                <StarRating rating={r.rating} />
+                <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", badge.cls)}>
+                  {badge.label}
+                </span>
+                <span className="text-[11px] text-fg-3">{timeAgo(r.createdAt)}</span>
+              </div>
+              <p className="line-clamp-2 text-[12px] leading-relaxed text-fg-2">{r.text}</p>
+            </div>
+            {r.replyStatus === "needs_reply" && (
+              <button
+                onClick={() => router.push("/reviews")}
+                className="ml-2 mt-0.5 flex shrink-0 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-fg-1 opacity-0 transition-all hover:bg-[var(--rb-bg-hover)] group-hover:opacity-100"
+              >
+                <MessageSquare className="size-3" strokeWidth={1.5} />
+                Reply
+              </button>
+            )}
           </div>
         );
       })}
@@ -372,6 +457,7 @@ function AiResultsPanel({ results }: { results: AnalysisResult[] }) {
 export function SentimentScreen() {
   const [range, setRange] = useState<"7d" | "30d" | "90d">("30d");
   const [aiResults, setAiResults] = useState<AnalysisResult[] | null>(null);
+  const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
   const { mutate: analyze, isPending } = useSentimentAnalysis();
 
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
@@ -475,7 +561,7 @@ export function SentimentScreen() {
         )}
       </section>
 
-      {/* Trend chart + rating distribution side by side */}
+      {/* Trend chart + right-column widgets */}
       <div className="grid grid-cols-[1fr_280px] gap-4">
 
         {/* Trend chart */}
@@ -509,27 +595,60 @@ export function SentimentScreen() {
           </div>
         </div>
 
-        {/* Rating distribution */}
-        <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">
-          <div className="border-b border-[var(--rb-border-1)] px-5 py-4">
-            <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">Rating distribution</div>
-            <div className="mt-0.5 text-[12px] text-fg-3">last {range}</div>
+        {/* Right column: rating distribution + platform split */}
+        <div className="flex flex-col gap-4">
+
+          {/* Rating distribution */}
+          <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">
+            <div className="border-b border-[var(--rb-border-1)] px-5 py-3.5">
+              <div className="text-[13px] font-semibold tracking-[-0.01em] text-fg-1">Rating distribution</div>
+              <div className="mt-0.5 text-[11px] text-fg-3">last {range}</div>
+            </div>
+            <div className="p-4">
+              {isLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <div className="h-3 w-8 rounded bg-[var(--rb-bg-sunken)] animate-pulse" />
+                      <div className="h-2 flex-1 rounded-full bg-[var(--rb-bg-sunken)] animate-pulse" />
+                      <div className="h-3 w-8 rounded bg-[var(--rb-bg-sunken)] animate-pulse" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <RatingDistribution dist={overview?.ratingDistribution ?? [0, 0, 0, 0, 0]} />
+              )}
+            </div>
           </div>
-          <div className="p-5">
-            {isLoading ? (
-              <div className="space-y-3">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <div key={i} className="flex items-center gap-2">
-                    <div className="h-3 w-8 rounded bg-[var(--rb-bg-sunken)] animate-pulse" />
-                    <div className="h-2 flex-1 rounded-full bg-[var(--rb-bg-sunken)] animate-pulse" />
-                    <div className="h-3 w-8 rounded bg-[var(--rb-bg-sunken)] animate-pulse" />
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <RatingDistribution dist={overview?.ratingDistribution ?? [0, 0, 0, 0, 0]} />
-            )}
+
+          {/* Platform split */}
+          <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">
+            <div className="border-b border-[var(--rb-border-1)] px-5 py-3.5">
+              <div className="text-[13px] font-semibold tracking-[-0.01em] text-fg-1">By platform</div>
+              <div className="mt-0.5 text-[11px] text-fg-3">last {range}</div>
+            </div>
+            <div className="p-4">
+              {isLoading ? (
+                <div className="space-y-3">
+                  {[0, 1].map((i) => (
+                    <div key={i} className="space-y-1.5">
+                      <div className="flex justify-between">
+                        <div className="h-3 w-20 animate-pulse rounded bg-[var(--rb-bg-sunken)]" />
+                        <div className="h-3 w-12 animate-pulse rounded bg-[var(--rb-bg-sunken)]" />
+                      </div>
+                      <div className="h-2 w-full animate-pulse rounded-full bg-[var(--rb-bg-sunken)]" />
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <PlatformSplit
+                  googlePlay={overview?.platformSplit.googlePlay ?? 0}
+                  appStore={overview?.platformSplit.appStore ?? 0}
+                />
+              )}
+            </div>
           </div>
+
         </div>
       </div>
 
@@ -587,47 +706,79 @@ export function SentimentScreen() {
                     share: 0,
                     trend: "flat" as const,
                     sentiment: 0,
+                    topReviews: [],
                   }))
                 : topics
-              ).map((t, i, arr) => (
-                <tr key={t.tag} className="transition-colors hover:bg-[var(--rb-bg-hover)]">
-                  <td className={cn("px-5 py-3 text-[13px] font-semibold text-fg-1", i < arr.length - 1 && "border-b border-[var(--rb-border-1)]")}>
-                    {isLoading ? <span className="inline-block h-3 w-28 animate-pulse rounded bg-[var(--rb-bg-sunken)]" /> : t.topic}
-                  </td>
-                  <td className={cn("px-5 py-3 tabular-nums text-[13px] text-fg-2", i < arr.length - 1 && "border-b border-[var(--rb-border-1)]")}>
-                    {isLoading ? <span className="inline-block h-3 w-10 animate-pulse rounded bg-[var(--rb-bg-sunken)]" /> : t.count}
-                  </td>
-                  <td className={cn("px-5 py-3", i < arr.length - 1 && "border-b border-[var(--rb-border-1)]")}>
-                    {isLoading ? (
-                      <span className="inline-block h-3 w-24 animate-pulse rounded bg-[var(--rb-bg-sunken)]" />
-                    ) : (
-                      <div className="flex items-center gap-2.5">
-                        <div className="h-1.5 w-[100px] overflow-hidden rounded-full bg-[var(--rb-bg-sunken)]">
-                          <div
-                            className="h-full rounded-full bg-[#0A84FF] transition-all duration-500"
-                            style={{ width: `${maxShare > 0 ? (t.share / maxShare) * 100 : 0}%` }}
-                          />
-                        </div>
-                        <span className="tabular-nums text-[12px] text-fg-3">{t.share}%</span>
-                      </div>
+              ).map((t, i, arr) => {
+                const isExpanded = expandedTopic === t.tag;
+                const isLast = i === arr.length - 1;
+                return (
+                  <>
+                    <tr
+                      key={t.tag}
+                      onClick={() => !isLoading && setExpandedTopic(isExpanded ? null : t.tag)}
+                      className={cn(
+                        "transition-colors",
+                        !isLoading && "cursor-pointer hover:bg-[var(--rb-bg-hover)]",
+                        isExpanded && "bg-[var(--rb-bg-sunken)]",
+                      )}
+                    >
+                      <td className={cn("px-5 py-3 text-[13px] font-semibold text-fg-1", (!isLast || isExpanded) && "border-b border-[var(--rb-border-1)]")}>
+                        {isLoading ? (
+                          <span className="inline-block h-3 w-28 animate-pulse rounded bg-[var(--rb-bg-sunken)]" />
+                        ) : (
+                          <div className="flex items-center gap-2">
+                            {isExpanded
+                              ? <ChevronDown className="size-3.5 text-fg-3" strokeWidth={1.5} />
+                              : <ChevronRight className="size-3.5 text-fg-3" strokeWidth={1.5} />
+                            }
+                            {t.topic}
+                          </div>
+                        )}
+                      </td>
+                      <td className={cn("px-5 py-3 tabular-nums text-[13px] text-fg-2", (!isLast || isExpanded) && "border-b border-[var(--rb-border-1)]")}>
+                        {isLoading ? <span className="inline-block h-3 w-10 animate-pulse rounded bg-[var(--rb-bg-sunken)]" /> : t.count}
+                      </td>
+                      <td className={cn("px-5 py-3", (!isLast || isExpanded) && "border-b border-[var(--rb-border-1)]")}>
+                        {isLoading ? (
+                          <span className="inline-block h-3 w-24 animate-pulse rounded bg-[var(--rb-bg-sunken)]" />
+                        ) : (
+                          <div className="flex items-center gap-2.5">
+                            <div className="h-1.5 w-[100px] overflow-hidden rounded-full bg-[var(--rb-bg-sunken)]">
+                              <div
+                                className="h-full rounded-full bg-[#0A84FF] transition-all duration-500"
+                                style={{ width: `${maxShare > 0 ? (t.share / maxShare) * 100 : 0}%` }}
+                              />
+                            </div>
+                            <span className="tabular-nums text-[12px] text-fg-3">{t.share}%</span>
+                          </div>
+                        )}
+                      </td>
+                      <td className={cn("px-5 py-3", (!isLast || isExpanded) && "border-b border-[var(--rb-border-1)]")}>
+                        {isLoading ? (
+                          <span className="inline-block h-5 w-16 animate-pulse rounded-full bg-[var(--rb-bg-sunken)]" />
+                        ) : (
+                          <TrendPill trend={t.trend} tag={t.tag} />
+                        )}
+                      </td>
+                      <td className={cn("px-5 py-3", (!isLast || isExpanded) && "border-b border-[var(--rb-border-1)]")}>
+                        {isLoading ? (
+                          <span className="inline-block h-3 w-28 animate-pulse rounded bg-[var(--rb-bg-sunken)]" />
+                        ) : (
+                          <SentimentBar value={t.sentiment} />
+                        )}
+                      </td>
+                    </tr>
+                    {isExpanded && !isLoading && (
+                      <tr key={`${t.tag}-drill`}>
+                        <td colSpan={5} className={cn(!isLast && "border-b border-[var(--rb-border-1)]")}>
+                          <TopicDrillDown reviews={t.topReviews} />
+                        </td>
+                      </tr>
                     )}
-                  </td>
-                  <td className={cn("px-5 py-3", i < arr.length - 1 && "border-b border-[var(--rb-border-1)]")}>
-                    {isLoading ? (
-                      <span className="inline-block h-5 w-16 animate-pulse rounded-full bg-[var(--rb-bg-sunken)]" />
-                    ) : (
-                      <TrendPill trend={t.trend} tag={t.tag} />
-                    )}
-                  </td>
-                  <td className={cn("px-5 py-3", i < arr.length - 1 && "border-b border-[var(--rb-border-1)]")}>
-                    {isLoading ? (
-                      <span className="inline-block h-3 w-28 animate-pulse rounded bg-[var(--rb-bg-sunken)]" />
-                    ) : (
-                      <SentimentBar value={t.sentiment} />
-                    )}
-                  </td>
-                </tr>
-              ))}
+                  </>
+                );
+              })}
             </tbody>
           </table>
         )}
