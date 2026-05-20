@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Loader2, Sparkles, X, Plus, TrendingUp, Minus } from "lucide-react";
+import { Loader2, Sparkles, X, Plus, TrendingUp, Minus, Pencil, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAsoSuggestions } from "@/hooks/use-aso-suggestions";
-import { useAsoKeywords, useAddKeyword, useDeleteKeyword } from "@/hooks/use-aso-keywords";
+import { useAsoKeywords, useAddKeyword, useDeleteKeyword, useUpdateKeyword } from "@/hooks/use-aso-keywords";
 import { useMinedKeywords } from "@/hooks/use-mined-keywords";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
 import type { AsoKeyword } from "@/types/review";
@@ -267,7 +267,7 @@ function PhraseChip({
         <div className="mt-2 space-y-1.5">
           {p.examples.map((ex, i) => (
             <p key={i} className="rounded-[6px] border border-[var(--rb-border-1)] bg-surface px-2.5 py-1.5 text-[12px] italic text-fg-2 leading-relaxed">
-              "{ex}"
+              &ldquo;{ex}&rdquo;
             </p>
           ))}
         </div>
@@ -389,11 +389,89 @@ function OpportunitiesPanel({ appId }: { appId?: string }) {
   );
 }
 
+// ── Inline rank cell ──────────────────────────────────────────────────────────
+
+function RankCell({
+  kw,
+  bulkMode,
+  bulkValue,
+  onBulkChange,
+}: {
+  kw: AsoKeyword;
+  bulkMode: boolean;
+  bulkValue: string;
+  onBulkChange: (v: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const { mutate: update, isPending } = useUpdateKeyword();
+
+  const save = () => {
+    const n = parseInt(draft, 10);
+    if (!isNaN(n) && n > 0) {
+      update({ id: kw.id, current_rank: n });
+    }
+    setEditing(false);
+  };
+
+  if (bulkMode) {
+    return (
+      <input
+        type="number"
+        min={1}
+        placeholder="—"
+        value={bulkValue}
+        onChange={(e) => onBulkChange(e.target.value)}
+        className="w-[64px] rounded-[6px] border border-[var(--rb-border-2)] bg-[var(--rb-bg-sunken)] px-2 py-1 text-[12px] tabular-nums text-fg-1 outline-none focus:border-[#0A84FF]"
+      />
+    );
+  }
+
+  if (editing) {
+    return (
+      <div className="flex items-center gap-1">
+        <input
+          autoFocus
+          type="number"
+          min={1}
+          placeholder="rank"
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") save();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          onBlur={save}
+          className="w-[56px] rounded-[6px] border border-[#0A84FF] bg-[var(--rb-bg-sunken)] px-2 py-0.5 text-[12px] tabular-nums text-fg-1 outline-none"
+        />
+        <button onClick={save} className="text-[#0A84FF]">
+          <Check size={11} />
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <button
+      onClick={() => { setDraft(kw.currentRank != null ? String(kw.currentRank) : ""); setEditing(true); }}
+      disabled={isPending}
+      className="group flex items-center gap-1.5 tabular-nums text-[13px] font-bold text-fg-1"
+    >
+      {isPending ? <Loader2 size={12} className="animate-spin text-fg-3" /> : (
+        kw.currentRank != null ? `#${kw.currentRank}` : <span className="text-fg-3 font-normal text-[12px]">—</span>
+      )}
+      <Pencil size={10} className="opacity-0 group-hover:opacity-40 text-fg-3 transition-opacity" />
+    </button>
+  );
+}
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export function ASOScreen() {
   const [tab, setTab] = useState<"keywords" | "opportunities" | "ratings">("keywords");
   const [showAddRow, setShowAddRow] = useState(false);
+  const [bulkMode, setBulkMode] = useState(false);
+  const [bulkDrafts, setBulkDrafts] = useState<Record<string, string>>({});
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
   const { mutate: getSuggestions, isPending: suggestLoading, data: asoData } =
     useAsoSuggestions();
@@ -411,7 +489,18 @@ export function ASOScreen() {
 
   const { data: kwData, isLoading } = useAsoKeywords(appId);
   const { mutate: deleteKw } = useDeleteKeyword();
+  const { mutate: updateKw, isPending: bulkSaving } = useUpdateKeyword();
   const { mutate: addFromSuggestion } = useAddKeyword();
+
+  const saveBulkRanks = () => {
+    const entries = Object.entries(bulkDrafts).filter(([, v]) => v.trim() !== "");
+    for (const [id, val] of entries) {
+      const n = parseInt(val, 10);
+      if (!isNaN(n) && n > 0) updateKw({ id, current_rank: n });
+    }
+    setBulkMode(false);
+    setBulkDrafts({});
+  };
 
   const keywords = kwData?.keywords ?? [];
   const metrics = kwData?.metrics;
@@ -501,21 +590,49 @@ export function ASOScreen() {
             </div>
           </div>
           <div className="ml-auto flex items-center gap-2">
-            <button
-              onClick={() => getSuggestions(selectedApp)}
-              disabled={suggestLoading}
-              className="flex h-7 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50"
-            >
-              {suggestLoading ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3 text-[#0A84FF]" />}
-              {suggestLoading ? "Generating…" : "AI Suggestions"}
-            </button>
-            <button
-              onClick={() => setShowAddRow(true)}
-              className="flex h-7 items-center gap-1.5 rounded-[7px] bg-[#0A84FF] px-3 text-[12px] font-semibold text-white transition-colors hover:bg-[#006EE0]"
-            >
-              <Plus size={12} />
-              Add keyword
-            </button>
+            {bulkMode ? (
+              <>
+                <button
+                  onClick={() => { setBulkMode(false); setBulkDrafts({}); }}
+                  className="flex h-7 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-2 hover:bg-[var(--rb-bg-hover)]"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveBulkRanks}
+                  disabled={bulkSaving}
+                  className="flex h-7 items-center gap-1.5 rounded-[7px] bg-[#0A84FF] px-3 text-[12px] font-semibold text-white hover:bg-[#006EE0] disabled:opacity-50"
+                >
+                  {bulkSaving ? <Loader2 size={11} className="animate-spin" /> : <Check size={11} />}
+                  Save ranks
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  onClick={() => getSuggestions(selectedApp)}
+                  disabled={suggestLoading}
+                  className="flex h-7 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50"
+                >
+                  {suggestLoading ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3 text-[#0A84FF]" />}
+                  {suggestLoading ? "Generating…" : "AI Suggestions"}
+                </button>
+                <button
+                  onClick={() => setBulkMode(true)}
+                  className="flex h-7 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)]"
+                >
+                  <Pencil size={11} />
+                  Update ranks
+                </button>
+                <button
+                  onClick={() => setShowAddRow(true)}
+                  className="flex h-7 items-center gap-1.5 rounded-[7px] bg-[#0A84FF] px-3 text-[12px] font-semibold text-white transition-colors hover:bg-[#006EE0]"
+                >
+                  <Plus size={12} />
+                  Add keyword
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -569,8 +686,13 @@ export function ASOScreen() {
                   <td className={cn("px-5 py-3 text-[13px] font-semibold text-fg-1", i < keywords.length - 1 && "border-b border-[var(--rb-border-1)]")}>
                     {k.keyword}
                   </td>
-                  <td className={cn("px-5 py-3 tabular-nums text-[13px] font-bold text-fg-1", i < keywords.length - 1 && "border-b border-[var(--rb-border-1)]")}>
-                    {k.currentRank != null ? `#${k.currentRank}` : "—"}
+                  <td className={cn("px-5 py-3", i < keywords.length - 1 && "border-b border-[var(--rb-border-1)]")}>
+                    <RankCell
+                      kw={k}
+                      bulkMode={bulkMode}
+                      bulkValue={bulkDrafts[k.id] ?? ""}
+                      onBulkChange={(v) => setBulkDrafts((d) => ({ ...d, [k.id]: v }))}
+                    />
                   </td>
                   <td className={cn("px-5 py-3", i < keywords.length - 1 && "border-b border-[var(--rb-border-1)]")}>
                     <RankDelta kw={k} />
