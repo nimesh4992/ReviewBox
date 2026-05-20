@@ -2,7 +2,15 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
-import { Inbox, Loader2, Search, Sparkles, X } from "lucide-react";
+import {
+  CheckCheck,
+  Inbox,
+  Loader2,
+  MessageSquareDiff,
+  Search,
+  Sparkles,
+  X,
+} from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { AppReview, ReviewSentiment, AIReplyTone } from "@/types/review";
@@ -21,7 +29,8 @@ function Stars({ rating, size = 12 }: { rating: number; size?: number }) {
   return (
     <span className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((n) => (
-        <svg key={n} width={size} height={size} viewBox="0 0 20 20" fill={n <= rating ? "#F59E0B" : "var(--rb-border-2)"}>
+        <svg key={n} width={size} height={size} viewBox="0 0 20 20"
+          fill={n <= rating ? "#F59E0B" : "var(--rb-border-2)"}>
           <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
         </svg>
       ))}
@@ -47,12 +56,17 @@ const SENTIMENT_BADGE: Record<ReviewSentiment, { label: string; className: strin
 
 // ── App icon avatar ───────────────────────────────────────────────────────────
 
-function AppIconAvatar({ source, size = "sm" }: { source: AppReview["source"]; size?: "sm" | "xs" }) {
+function AppIconAvatar({ source, size = "sm" }: {
+  source: AppReview["source"];
+  size?: "sm" | "xs";
+}) {
   const isIos = source === "App Store";
   return (
     <div className={cn(
       "shrink-0 items-center justify-center rounded-[9px] text-[13px] font-bold text-white",
-      isIos ? "bg-gradient-to-br from-[#4592FF] to-[#0058B3]" : "bg-gradient-to-br from-[#34C759] to-[#1A8A36]",
+      isIos
+        ? "bg-gradient-to-br from-[#4592FF] to-[#0058B3]"
+        : "bg-gradient-to-br from-[#34C759] to-[#1A8A36]",
       size === "sm" ? "flex size-9" : "flex size-7 rounded-[7px] text-[11px]",
     )}>
       {isIos ? "A" : "G"}
@@ -80,9 +94,7 @@ function ReviewRow({ review, selected, onClick }: {
       onClick={onClick}
       className={cn(
         "flex cursor-pointer gap-3 border-b border-[var(--rb-border-1)] px-4 py-3.5 transition-colors",
-        selected
-          ? "bg-[var(--rb-bg-selected)]"
-          : "hover:bg-[var(--rb-bg-hover)]",
+        selected ? "bg-[var(--rb-bg-selected)]" : "hover:bg-[var(--rb-bg-hover)]",
       )}
     >
       <AppIconAvatar source={review.source} />
@@ -161,18 +173,18 @@ function ReplyComposer({
   onClose: () => void;
   onAdvance: (id: string) => void;
 }) {
-  const limit                                   = CHAR_LIMIT[review.source];
-  const alreadyReplied                          = review.replyStatus === "replied";
-  const [text, setText]                         = useState(review.replyText ?? "");
-  const [tone, setTone]                         = useState<AIReplyTone>("professional");
-  const [isGenerating, setIsGenerating]         = useState(false);
-  const [aiSuggestion, setAiSuggestion]         = useState<string | null>(null);
-  const [generateError, setGenerateError]       = useState<string | null>(null);
-  const [isSending, setIsSending]               = useState(false);
-  const [sendFeedback, setSendFeedback]         = useState<"success" | "error" | null>(null);
-  const [sendError, setSendError]               = useState<string | null>(null);
-  const [replyDone, setReplyDone]               = useState(alreadyReplied);
-  const prevToneRef                             = useRef(tone);
+  const limit                             = CHAR_LIMIT[review.source];
+  const alreadyReplied                    = review.replyStatus === "replied";
+  const [text, setText]                   = useState(review.replyText ?? "");
+  const [tone, setTone]                   = useState<AIReplyTone>("professional");
+  const [isGenerating, setIsGenerating]   = useState(false);
+  const [aiSuggestion, setAiSuggestion]   = useState<string | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [isSending, setIsSending]         = useState(false);
+  const [sendFeedback, setSendFeedback]   = useState<"success" | "error" | null>(null);
+  const [sendError, setSendError]         = useState<string | null>(null);
+  const [replyDone, setReplyDone]         = useState(alreadyReplied);
+  const prevToneRef                       = useRef(tone);
 
   const overLimit = text.length > limit;
   const badge     = SENTIMENT_BADGE[review.sentiment];
@@ -204,15 +216,13 @@ function ReplyComposer({
     }
   }, [review.id, review.text, review.rating, review.issueTags]);
 
-  // Auto-generate when composer mounts (skip if already replied)
+  // Auto-generate on mount (skip if already replied)
   useEffect(() => {
-    if (!alreadyReplied) {
-      handleGenerate(tone);
-    }
+    if (!alreadyReplied) handleGenerate(tone);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Regenerate when tone changes (only after first mount)
+  // Regenerate when tone changes
   useEffect(() => {
     if (prevToneRef.current !== tone) {
       prevToneRef.current = tone;
@@ -244,7 +254,6 @@ function ReplyComposer({
         return;
       }
       setReplyDone(true);
-      // Auto-advance to next unreplied after short delay
       setTimeout(() => onAdvance(review.id), 1200);
     } catch {
       setSendFeedback("error");
@@ -265,7 +274,6 @@ function ReplyComposer({
 
   return (
     <div className="flex w-[420px] shrink-0 flex-col border-l border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)]">
-
       {/* Header */}
       <div className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-[18px] py-[14px]">
         <AppIconAvatar source={review.source} size="xs" />
@@ -313,7 +321,7 @@ function ReplyComposer({
         </div>
       </div>
 
-      {/* Existing reply banner (for already-replied reviews) */}
+      {/* Existing reply banner */}
       {alreadyReplied && review.replyText && (
         <div className="border-b border-[var(--rb-border-1)] bg-[var(--rb-green-50)] px-[18px] py-3">
           <div className="mb-1 text-[11px] font-semibold text-[var(--rb-green-600)]">Your reply</div>
@@ -323,8 +331,7 @@ function ReplyComposer({
 
       {/* Composer */}
       <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-[18px] py-[14px]">
-
-        {/* AI suggestion (hidden if already replied) */}
+        {/* AI suggestion */}
         {!alreadyReplied && (
           <div className="rounded-[10px] border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-3">
             <div className="mb-2 flex items-center justify-between gap-2">
@@ -373,7 +380,7 @@ function ReplyComposer({
           </div>
         )}
 
-        {/* Reply textarea */}
+        {/* Textarea + char count */}
         <div>
           <textarea
             value={text}
@@ -388,7 +395,6 @@ function ReplyComposer({
             )}
             style={{ fontFamily: "var(--rb-font-text)" }}
           />
-          {/* Character count */}
           <div className="mt-1 flex items-center justify-between">
             <span className="text-[10px] text-[var(--rb-fg-3)]">
               {review.source === "Google Play" ? "Google Play · 350 char limit" : "App Store · 5,950 char limit"}
@@ -443,6 +449,367 @@ function ReplyComposer({
   );
 }
 
+// ── GroupReplyPanel ───────────────────────────────────────────────────────────
+// "Reply all similar" — write once, post to N reviews in one action.
+
+interface SendProgress {
+  done: number;
+  total: number;
+  currentAuthor?: string;
+}
+
+interface SendError {
+  reviewId: string;
+  author: string;
+  message: string;
+}
+
+function GroupReplyPanel({
+  reviews,
+  onDone,
+  onClose,
+}: {
+  reviews: AppReview[];
+  onDone: () => void;
+  onClose: () => void;
+}) {
+  // Only unreplied reviews are candidates
+  const candidates = reviews.filter((r) => r.replyStatus === "needs_reply");
+  const [selected, setSelected] = useState<Set<string>>(
+    new Set(candidates.map((r) => r.id)),
+  );
+  const [text, setText]                     = useState("");
+  const [tone, setTone]                     = useState<AIReplyTone>("professional");
+  const [isGenerating, setIsGenerating]     = useState(false);
+  const [generateError, setGenerateError]   = useState<string | null>(null);
+  const [isSending, setIsSending]           = useState(false);
+  const [progress, setProgress]             = useState<SendProgress | null>(null);
+  const [sendErrors, setSendErrors]         = useState<SendError[]>([]);
+  const [allDone, setAllDone]               = useState(false);
+  const prevToneRef                         = useRef(tone);
+
+  // Use the first candidate as the representative for AI generation
+  const rep = candidates[0];
+
+  // If any selected review is Google Play → enforce tighter limit
+  const selectedReviews = candidates.filter((r) => selected.has(r.id));
+  const hasGooglePlay   = selectedReviews.some((r) => r.source === "Google Play");
+  const limit           = hasGooglePlay ? 350 : 5950;
+  const overLimit       = text.length > limit;
+  const selectedCount   = selected.size;
+
+  const handleGenerate = useCallback(async (t: AIReplyTone) => {
+    if (!rep) return;
+    setIsGenerating(true);
+    setGenerateError(null);
+    try {
+      const res = await fetch("/api/reply/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          reviewId:   rep.id,
+          reviewBody: rep.text,
+          rating:     rep.rating,
+          tags:       rep.issueTags,
+          tone:       t,
+        }),
+      });
+      if (res.status === 429) { setGenerateError("Daily AI limit reached."); return; }
+      if (!res.ok)            { setGenerateError("Generation failed."); return; }
+      const data = (await res.json()) as { reply: string };
+      setText(data.reply);
+    } catch {
+      setGenerateError("Something went wrong.");
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [rep]);
+
+  // Auto-generate on mount
+  useEffect(() => {
+    handleGenerate(tone);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Regenerate when tone changes
+  useEffect(() => {
+    if (prevToneRef.current !== tone) {
+      prevToneRef.current = tone;
+      handleGenerate(tone);
+    }
+  }, [tone, handleGenerate]);
+
+  function toggleReview(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) { next.delete(id); } else { next.add(id); }
+      return next;
+    });
+  }
+
+  async function handleSendAll() {
+    if (!text.trim() || overLimit || selectedCount === 0) return;
+    const toSend = candidates.filter((r) => selected.has(r.id));
+    setIsSending(true);
+    setProgress({ done: 0, total: toSend.length });
+    const errs: SendError[] = [];
+
+    for (let i = 0; i < toSend.length; i++) {
+      const r = toSend[i];
+      setProgress({ done: i, total: toSend.length, currentAuthor: r.author });
+      try {
+        const res = await fetch(`/api/reviews/${r.id}/reply`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ replyText: text.trim(), status: "sent" }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({})) as { error?: string };
+          errs.push({ reviewId: r.id, author: r.author, message: data.error ?? "Failed" });
+        }
+      } catch {
+        errs.push({ reviewId: r.id, author: r.author, message: "Network error" });
+      }
+    }
+
+    setProgress({ done: toSend.length, total: toSend.length });
+    setSendErrors(errs);
+    setIsSending(false);
+    setAllDone(true);
+    if (errs.length === 0) {
+      setTimeout(() => onDone(), 2000);
+    }
+  }
+
+  // Derive top shared tags for the group label
+  const tagCounts: Record<string, number> = {};
+  for (const r of candidates) {
+    for (const t of r.issueTags) tagCounts[t] = (tagCounts[t] ?? 0) + 1;
+  }
+  const topTags = Object.entries(tagCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 3)
+    .map(([t]) => t);
+
+  return (
+    <div className="flex w-[480px] shrink-0 flex-col border-l border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)]">
+
+      {/* Header */}
+      <div className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-[18px] py-[14px]">
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-[7px] bg-[rgba(142,91,255,0.12)]">
+          <MessageSquareDiff className="size-3.5 text-[var(--rb-purple-500)]" strokeWidth={2} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-semibold text-[var(--rb-fg-1)]">Reply all similar</div>
+          <div className="text-[11px] text-[var(--rb-fg-3)]">
+            {candidates.length} unreplied · one reply posted to all selected
+          </div>
+        </div>
+        <button
+          onClick={onClose}
+          className="flex size-6 shrink-0 items-center justify-center rounded-md text-[var(--rb-fg-3)] transition-colors hover:bg-[var(--rb-bg-hover)] hover:text-[var(--rb-fg-2)]"
+        >
+          <X className="size-3.5" />
+        </button>
+      </div>
+
+      {/* Group context */}
+      {topTags.length > 0 && (
+        <div className="flex items-center gap-2 border-b border-[var(--rb-border-1)] px-[18px] py-2.5">
+          <span className="text-[11px] text-[var(--rb-fg-3)]">Common issues:</span>
+          {topTags.map((t) => (
+            <span
+              key={t}
+              className="inline-flex items-center gap-1 rounded-full bg-[rgba(142,91,255,0.10)] px-2 py-0.5 text-[10px] font-semibold text-[var(--rb-purple-500)]"
+            >
+              <Sparkles className="size-2" strokeWidth={2} />
+              {humanizeToken(t)}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* Review checklist */}
+      <div className="max-h-[200px] overflow-y-auto border-b border-[var(--rb-border-1)]">
+        {candidates.map((r) => (
+          <label
+            key={r.id}
+            className={cn(
+              "flex cursor-pointer items-center gap-3 border-b border-[var(--rb-border-1)] px-4 py-2.5 last:border-0 transition-colors",
+              selected.has(r.id) ? "bg-[var(--rb-bg-surface)]" : "bg-[var(--rb-bg-sunken)] opacity-60",
+            )}
+          >
+            <input
+              type="checkbox"
+              checked={selected.has(r.id)}
+              onChange={() => toggleReview(r.id)}
+              className="size-3.5 accent-[var(--rb-blue-500)]"
+            />
+            <AppIconAvatar source={r.source} size="xs" />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className="truncate text-[12px] font-semibold text-[var(--rb-fg-1)]">{r.author}</span>
+                <Stars rating={r.rating} size={10} />
+              </div>
+              <div className="truncate text-[11px] text-[var(--rb-fg-3)]">{r.text}</div>
+            </div>
+            {/* Per-review send state */}
+            {allDone && !sendErrors.find((e) => e.reviewId === r.id) && selected.has(r.id) && (
+              <CheckCheck className="size-3.5 shrink-0 text-[var(--rb-green-500)]" />
+            )}
+            {sendErrors.find((e) => e.reviewId === r.id) && (
+              <X className="size-3.5 shrink-0 text-[var(--rb-red-500)]" />
+            )}
+          </label>
+        ))}
+      </div>
+
+      {/* Composer area */}
+      <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-[18px] py-[14px]">
+
+        {/* AI suggestion */}
+        <div className="rounded-[10px] border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-3">
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--rb-purple-500)]">
+              <Sparkles className="size-2.5" strokeWidth={2} />
+              AI draft · based on top issue
+            </div>
+            <ToneSelector tone={tone} onChange={setTone} />
+          </div>
+          {isGenerating ? (
+            <div className="flex items-center gap-2 text-[12px] text-[var(--rb-fg-3)]">
+              <Loader2 className="size-3 animate-spin" strokeWidth={1.5} />
+              Generating…
+            </div>
+          ) : generateError ? (
+            <div>
+              <p className="mb-1.5 text-[12px] text-[var(--rb-red-500)]">{generateError}</p>
+              <button
+                onClick={() => handleGenerate(tone)}
+                className="h-[24px] rounded-md bg-[var(--rb-bg-surface)] px-2 text-[11px] font-semibold text-[var(--rb-fg-1)] shadow-[var(--rb-shadow-xs)]"
+              >
+                Retry
+              </button>
+            </div>
+          ) : text ? (
+            <div className="flex gap-1.5 mt-1">
+              <button
+                onClick={() => handleGenerate(tone)}
+                className="h-[24px] rounded-md px-2 text-[11px] font-semibold text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-fg-2)]"
+              >
+                Regenerate
+              </button>
+            </div>
+          ) : null}
+        </div>
+
+        {/* Textarea + char count */}
+        <div>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            placeholder="Edit the reply that will be sent to all selected reviews…"
+            rows={6}
+            disabled={isSending || allDone}
+            className={cn(
+              "w-full resize-none rounded-lg border bg-[var(--rb-bg-surface)] p-2.5 text-[13px] leading-relaxed text-[var(--rb-fg-1)] placeholder:text-[var(--rb-fg-3)] outline-none transition-colors disabled:opacity-60",
+              overLimit
+                ? "border-[var(--rb-red-400)] focus:border-[var(--rb-red-400)]"
+                : "border-[var(--rb-border-2)] focus:border-[var(--rb-blue-400)]",
+            )}
+            style={{ fontFamily: "var(--rb-font-text)" }}
+          />
+          <div className="mt-1 flex items-center justify-between">
+            <span className="text-[10px] text-[var(--rb-fg-3)]">
+              {hasGooglePlay ? "Google Play limit applies · 350 chars" : "App Store · 5,950 char limit"}
+            </span>
+            <span className={cn(
+              "tabular-nums text-[11px] font-medium",
+              overLimit ? "text-[var(--rb-red-500)]"
+                : text.length > limit * 0.85 ? "text-[var(--rb-amber-500)]"
+                : "text-[var(--rb-fg-3)]",
+            )}>
+              {text.length.toLocaleString()} / {limit.toLocaleString()}
+            </span>
+          </div>
+        </div>
+
+        {/* Progress bar */}
+        {progress && (
+          <div>
+            <div className="mb-1 flex items-center justify-between text-[11px]">
+              <span className="text-[var(--rb-fg-3)]">
+                {allDone
+                  ? sendErrors.length === 0
+                    ? "All replies sent"
+                    : `${progress.total - sendErrors.length} sent · ${sendErrors.length} failed`
+                  : `Sending to ${progress.currentAuthor ?? "…"}`}
+              </span>
+              <span className="tabular-nums text-[var(--rb-fg-3)]">
+                {progress.done} / {progress.total}
+              </span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-[var(--rb-bg-sunken)]">
+              <div
+                className={cn(
+                  "h-full rounded-full transition-all duration-300",
+                  sendErrors.length > 0 ? "bg-[var(--rb-amber-500)]" : "bg-[var(--rb-green-500)]",
+                )}
+                style={{ width: `${(progress.done / progress.total) * 100}%` }}
+              />
+            </div>
+          </div>
+        )}
+
+        {/* Success / errors */}
+        {allDone && sendErrors.length === 0 && (
+          <p className="text-[12px] font-semibold text-[var(--rb-green-500)]">
+            ✓ All {progress?.total} replies posted
+          </p>
+        )}
+        {allDone && sendErrors.length > 0 && (
+          <div className="rounded-[8px] border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-2.5">
+            <p className="mb-1.5 text-[11px] font-semibold text-[var(--rb-red-500)]">
+              {sendErrors.length} failed to send:
+            </p>
+            {sendErrors.map((e) => (
+              <p key={e.reviewId} className="text-[11px] text-[var(--rb-fg-3)]">
+                {e.author} — {e.message}
+              </p>
+            ))}
+          </div>
+        )}
+
+        {/* Actions */}
+        {!allDone && (
+          <div className="flex items-center gap-2">
+            <button
+              onClick={handleSendAll}
+              disabled={isSending || !text.trim() || overLimit || selectedCount === 0}
+              className="flex h-[30px] items-center gap-1.5 rounded-[7px] bg-[var(--rb-blue-500)] px-3 text-[12px] font-semibold text-white transition-colors hover:bg-[var(--rb-blue-600)] disabled:opacity-50"
+            >
+              {isSending ? (
+                <>
+                  <Loader2 className="size-3 animate-spin" />
+                  Posting…
+                </>
+              ) : (
+                <>
+                  <CheckCheck className="size-3" />
+                  Post {selectedCount} {selectedCount === 1 ? "reply" : "replies"}
+                </>
+              )}
+            </button>
+            <span className="text-[11px] text-[var(--rb-fg-3)]">
+              same reply · all selected
+            </span>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Empty state ───────────────────────────────────────────────────────────────
 
 function EmptyDetail() {
@@ -477,15 +844,16 @@ export function InboxScreen({
   isFetchingNextPage = false,
   fetchNextPage,
 }: InboxScreenProps) {
-  const [selectedId, setSelectedId]     = useState<string | null>(reviews[0]?.id ?? null);
-  const [activeFilter, setActiveFilter] = useState<InboxFilter>("all");
-  const [sort, setSort]                 = useState<InboxSort>("newest");
-  const [search, setSearch]             = useState("");
+  const [selectedId, setSelectedId]       = useState<string | null>(reviews[0]?.id ?? null);
+  const [activeFilter, setActiveFilter]   = useState<InboxFilter>("all");
+  const [sort, setSort]                   = useState<InboxSort>("newest");
+  const [search, setSearch]               = useState("");
   const [versionFilter, setVersionFilter] = useState<string>("all");
+  const [groupMode, setGroupMode]         = useState(false);
 
-  // Derive unique versions from loaded reviews (top 4 by recency)
+  // Unique versions from loaded reviews (top 4)
   const uniqueVersions = Array.from(
-    new Set(reviews.map((r) => r.appVersion).filter(Boolean))
+    new Set(reviews.map((r) => r.appVersion).filter(Boolean)),
   ).slice(0, 4);
 
   const unrepliedCount = reviews.filter((r) => r.replyStatus === "needs_reply").length;
@@ -507,31 +875,32 @@ export function InboxScreen({
     { value: "play_store", label: "Play Store" },
   ];
 
-  const filtered = reviews.filter((r) => {
-    if (activeFilter === "unreplied")  return r.replyStatus === "needs_reply";
-    if (activeFilter === "low_rating") return r.rating <= 2;
-    if (activeFilter === "app_store")  return r.source === "App Store";
-    if (activeFilter === "play_store") return r.source === "Google Play";
-    return true;
-  }).filter((r) => {
-    if (versionFilter !== "all") return r.appVersion === versionFilter;
-    return true;
-  }).filter((r) => {
-    if (!search.trim()) return true;
-    const q = search.toLowerCase();
-    return r.text.toLowerCase().includes(q) || r.author.toLowerCase().includes(q);
-  });
+  const filtered = reviews
+    .filter((r) => {
+      if (activeFilter === "unreplied")  return r.replyStatus === "needs_reply";
+      if (activeFilter === "low_rating") return r.rating <= 2;
+      if (activeFilter === "app_store")  return r.source === "App Store";
+      if (activeFilter === "play_store") return r.source === "Google Play";
+      return true;
+    })
+    .filter((r) => versionFilter !== "all" ? r.appVersion === versionFilter : true)
+    .filter((r) => {
+      if (!search.trim()) return true;
+      const q = search.toLowerCase();
+      return r.text.toLowerCase().includes(q) || r.author.toLowerCase().includes(q);
+    });
 
   const sorted = sort === "lowest"
     ? [...filtered].sort((a, b) => a.rating - b.rating)
     : filtered;
 
-  const selected = sorted.find((r) => r.id === selectedId) ?? null;
+  const selected     = sorted.find((r) => r.id === selectedId) ?? null;
+  const groupCount   = sorted.filter((r) => r.replyStatus === "needs_reply").length;
+  const showGroupBtn = groupCount >= 2 && !groupMode;
 
-  // Auto-advance: move to next unreplied (or just next) after a reply is sent
+  // Auto-advance after single reply
   const handleAdvance = useCallback((currentId: string) => {
     const currentIndex = sorted.findIndex((r) => r.id === currentId);
-    // Prefer next unreplied; fall back to next in list
     const nextUnreplied = sorted.slice(currentIndex + 1).find((r) => r.replyStatus === "needs_reply");
     const nextAny       = sorted[currentIndex + 1] ?? sorted[currentIndex - 1];
     const next          = nextUnreplied ?? nextAny;
@@ -554,27 +923,41 @@ export function InboxScreen({
                   <span className="ml-1 text-[var(--rb-blue-500)]">· {sorted.length} shown</span>
                 )}
               </div>
-              <h1 className="mt-1 text-[24px] font-semibold leading-tight tracking-[-0.022em] text-[var(--rb-fg-1)]"
-                  style={{ fontFamily: "var(--rb-font-display)" }}>
+              <h1
+                className="mt-1 text-[24px] font-semibold leading-tight tracking-[-0.022em] text-[var(--rb-fg-1)]"
+                style={{ fontFamily: "var(--rb-font-display)" }}
+              >
                 Inbox
               </h1>
             </div>
-            {/* Sort control */}
-            <div className="flex shrink-0 items-center rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-0.5">
-              {(["newest", "lowest"] as const).map((s) => (
+            <div className="flex items-center gap-2">
+              {/* Group reply button — appears when 2+ unreplied in current filter */}
+              {showGroupBtn && (
                 <button
-                  key={s}
-                  onClick={() => setSort(s)}
-                  className={cn(
-                    "h-6 rounded-md px-3 text-[12px] font-semibold capitalize transition-colors",
-                    sort === s
-                      ? "bg-[var(--rb-bg-surface)] text-[var(--rb-fg-1)] shadow-[var(--rb-shadow-xs)]"
-                      : "text-[var(--rb-fg-3)] hover:text-[var(--rb-fg-2)]",
-                  )}
+                  onClick={() => { setGroupMode(true); setSelectedId(null); }}
+                  className="flex h-8 items-center gap-1.5 rounded-[8px] bg-[rgba(142,91,255,0.10)] px-3 text-[12px] font-semibold text-[var(--rb-purple-500)] transition-colors hover:bg-[rgba(142,91,255,0.16)]"
                 >
-                  {s === "newest" ? "Newest" : "Lowest ★"}
+                  <MessageSquareDiff className="size-3.5" strokeWidth={2} />
+                  Reply all · {groupCount}
                 </button>
-              ))}
+              )}
+              {/* Sort */}
+              <div className="flex shrink-0 items-center rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-0.5">
+                {(["newest", "lowest"] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => setSort(s)}
+                    className={cn(
+                      "h-6 rounded-md px-3 text-[12px] font-semibold capitalize transition-colors",
+                      sort === s
+                        ? "bg-[var(--rb-bg-surface)] text-[var(--rb-fg-1)] shadow-[var(--rb-shadow-xs)]"
+                        : "text-[var(--rb-fg-3)] hover:text-[var(--rb-fg-2)]",
+                    )}
+                  >
+                    {s === "newest" ? "Newest" : "Lowest ★"}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -615,22 +998,11 @@ export function InboxScreen({
             ))}
           </div>
 
-          {/* Version filter chips (only shown when there are multiple versions) */}
+          {/* Version filter chips */}
           {uniqueVersions.length > 1 && (
             <div className="mt-2 flex flex-wrap gap-1.5">
               <span className="flex items-center text-[11px] text-[var(--rb-fg-3)] mr-0.5">v:</span>
-              <button
-                onClick={() => setVersionFilter("all")}
-                className={cn(
-                  "inline-flex h-6 items-center rounded-[6px] border px-2.5 text-[11px] font-semibold font-mono transition-colors",
-                  versionFilter === "all"
-                    ? "border-[var(--rb-border-3)] bg-[var(--rb-bg-sunken)] text-[var(--rb-fg-1)]"
-                    : "border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)] text-[var(--rb-fg-3)] hover:bg-[var(--rb-bg-hover)]",
-                )}
-              >
-                All
-              </button>
-              {uniqueVersions.map((v) => (
+              {["all", ...uniqueVersions].map((v) => (
                 <button
                   key={v}
                   onClick={() => setVersionFilter(v)}
@@ -641,7 +1013,7 @@ export function InboxScreen({
                       : "border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)] text-[var(--rb-fg-3)] hover:bg-[var(--rb-bg-hover)]",
                   )}
                 >
-                  {v}
+                  {v === "all" ? "All" : v}
                 </button>
               ))}
             </div>
@@ -658,9 +1030,7 @@ export function InboxScreen({
                   {search ? "No results" : "No reviews"}
                 </p>
                 <p className="mt-1 text-xs text-[var(--rb-fg-3)]">
-                  {search
-                    ? `Nothing matched "${search}"`
-                    : "Connect an app in Settings to start syncing."}
+                  {search ? `Nothing matched "${search}"` : "Connect an app in Settings to start syncing."}
                 </p>
               </div>
               {!search && (
@@ -678,8 +1048,8 @@ export function InboxScreen({
                 <ReviewRow
                   key={r.id}
                   review={r}
-                  selected={r.id === selectedId}
-                  onClick={() => setSelectedId(r.id)}
+                  selected={!groupMode && r.id === selectedId}
+                  onClick={() => { setGroupMode(false); setSelectedId(r.id); }}
                 />
               ))}
               {hasNextPage && (
@@ -698,14 +1068,27 @@ export function InboxScreen({
         </div>
       </div>
 
-      {/* ── Right — detail + composer ──────────────────────────────────────── */}
-      {selected
-        ? <ReplyComposer key={selected.id} review={selected} onClose={() => setSelectedId(null)} onAdvance={handleAdvance} />
-        : <EmptyDetail />
-      }
+      {/* ── Right — composer or group panel ───────────────────────────────── */}
+      {groupMode ? (
+        <GroupReplyPanel
+          key={sorted.map((r) => r.id).join(",")}
+          reviews={sorted}
+          onDone={() => { setGroupMode(false); setSelectedId(null); }}
+          onClose={() => setGroupMode(false)}
+        />
+      ) : selected ? (
+        <ReplyComposer
+          key={selected.id}
+          review={selected}
+          onClose={() => setSelectedId(null)}
+          onAdvance={handleAdvance}
+        />
+      ) : (
+        <EmptyDetail />
+      )}
     </div>
   );
 }
 
-// Keep backward-compat export name used by old /reviews page
+// Keep backward-compat export name
 export { InboxScreen as ReviewQueue };
