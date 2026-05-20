@@ -542,7 +542,7 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 **Active: S1.3 — Help Center**
 Last updated: 2026-05-20
 
-Completed sprints: S0.1 · S0.2 · S0.3 · S1.1 · S1.2
+Completed sprints: S0.1 · S0.2 · S0.3 · S1.1 · S1.2 · Reply Kit + Automations v2
 
 Key completions (S1.1 + S1.2 — earlier sessions):
 - ✅ `review-service.ts` — wired to Supabase, accepts workspaceId + filters
@@ -599,13 +599,16 @@ Key completions 2026-05-20:
 - ✅ **Compare page fix** — Slack alerts marked "Coming soon" (was incorrectly shown as built)
 - ✅ **ESLint worktree fix** — `.claude/worktrees/**` added to ignores (on all wiring branches)
 
+### Key completions 2026-05-20 (this session)
+- ✅ **Reply Kit v2** — template edit, KB edit, tag multi-select, char counter, AI styles persist (merged PR #13)
+- ✅ **Automations v2** — tag-equals bug fix, actionConfig pickers (apply_tag + template_reply), execution log + RunHistoryPanel (merged PR #14)
+- ✅ **Build fix** — 4 TS errors resolved (`onboarding/complete`, `reply/draft`, `sentiment/overview`)
+- ✅ **All 10 Supabase migrations run** — including 007_aso_keywords, 009_default_tone, 010_execution_log
+- ✅ **Cron schedule** — `0 8 * * *` (once daily 8am UTC); upgrade to `0 */4 * * *` deferred to paid plan
+- ℹ️ `007_aso_keywords.sql` naming collision with `007_workspace_brand_voice.sql` — cosmetic only, both run fine
+
 ### PRs awaiting founder merge (open in GitHub)
-| Branch | PR link | Founder action needed |
-|---|---|---|
-| `claude/landing-deai` | github.com/nimesh4992/ReviewBox/pull/new/claude/landing-deai | Merge |
-| `claude/sentiment-wiring` | github.com/nimesh4992/ReviewBox/pull/new/claude/sentiment-wiring | Merge |
-| `claude/aso-wiring` | github.com/nimesh4992/ReviewBox/pull/new/claude/aso-wiring | Run migration 007 first, then merge |
-| `claude/n3-detail-pages` | github.com/nimesh4992/ReviewBox/pull/new/claude/n3-detail-pages | Merge |
+None — all merged ✅
 
 Up next (S1.3):
 - [ ] Create 4 help pages: Getting Started · Connect Google Play · AI Replies · FAQ
