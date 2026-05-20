@@ -1,6 +1,8 @@
 /**
- * GET  /api/settings/workspace — fetch workspace settings (brand_voice, support_email)
- * PATCH /api/settings/workspace — update brand_voice and/or support_email
+ * GET  /api/settings/workspace — fetch workspace settings
+ * PATCH /api/settings/workspace — update one or more workspace settings
+ *
+ * Supported fields: supportEmail, brandVoice, appCategory, defaultTone
  */
 
 import { auth } from "@clerk/nextjs/server";
@@ -34,7 +36,7 @@ export async function GET(): Promise<NextResponse> {
   const sb = getServiceClient();
   const { data, error } = await sb
     .from("workspaces")
-    .select("name, support_email, brand_voice")
+    .select("name, support_email, brand_voice, default_tone")
     .eq("id", workspaceId)
     .single();
 
@@ -43,9 +45,10 @@ export async function GET(): Promise<NextResponse> {
   }
 
   return NextResponse.json({
-    name:         data.name         ?? "",
-    supportEmail: data.support_email ?? "",
-    brandVoice:   data.brand_voice   ?? "",
+    name:         data.name          ?? "",
+    supportEmail: data.support_email  ?? "",
+    brandVoice:   data.brand_voice    ?? "",
+    defaultTone:  data.default_tone   ?? "professional",
   });
 }
 
@@ -64,14 +67,17 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     supportEmail?: string;
     brandVoice?:   string;
     appCategory?:  string;
+    defaultTone?:  string;
   };
 
   const updates: Record<string, string | null> = {};
   if (typeof body.supportEmail === "string") updates.support_email = body.supportEmail.trim();
   if (typeof body.brandVoice   === "string") updates.brand_voice   = body.brandVoice.slice(0, 500).trim();
-  if (typeof body.appCategory  === "string") {
+  if (typeof body.defaultTone  === "string") updates.default_tone  = body.defaultTone;
+
+  if (typeof body.appCategory === "string") {
     updates.app_category = body.appCategory;
-    // If brand_voice not explicitly set, pre-fill from stub (non-destructive)
+    // Pre-fill brand_voice from category stub if not explicitly being set and currently empty
     if (typeof body.brandVoice !== "string") {
       const { data: current } = await getServiceClient()
         .from("workspaces").select("brand_voice").eq("id", workspaceId).single();
@@ -97,7 +103,6 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "UPDATE_FAILED" }, { status: 500 });
   }
 
-  // Bust persona cache so next reply draft picks up changes immediately
   await bustPersonaCache(workspaceId);
 
   return NextResponse.json({ ok: true });

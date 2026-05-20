@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Search, Trash2 } from "lucide-react";
+import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
 
 // Shape returned from the API (snake_case from Supabase)
 interface ApiTemplate {
@@ -17,6 +18,25 @@ interface ApiTemplate {
   created_at: string;
 }
 
+// ── Constants ─────────────────────────────────────────────────────────────────
+
+const ISSUE_TAGS = [
+  "crash",
+  "billing",
+  "login",
+  "performance",
+  "release-regression",
+  "feature-request",
+  "support-delay",
+  "localization",
+] as const;
+
+const LANGUAGES = ["English", "Spanish", "French", "German", "Portuguese", "Italian", "Japanese"];
+
+const CHAR_LIMIT = 350; // Google Play reply limit
+
+// ── Sub-components ────────────────────────────────────────────────────────────
+
 function TagChip({ tag }: { tag: string }) {
   return (
     <span className="inline-flex items-center rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600">
@@ -25,11 +45,217 @@ function TagChip({ tag }: { tag: string }) {
   );
 }
 
+// ── Tag pill multi-select ─────────────────────────────────────────────────────
+
+interface TagPickerProps {
+  selected: string[];
+  onChange: (tags: string[]) => void;
+}
+
+function TagPicker({ selected, onChange }: TagPickerProps) {
+  function toggle(tag: string) {
+    onChange(
+      selected.includes(tag)
+        ? selected.filter((t) => t !== tag)
+        : [...selected, tag],
+    );
+  }
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {ISSUE_TAGS.map((tag) => {
+        const active = selected.includes(tag);
+        return (
+          <button
+            key={tag}
+            type="button"
+            onClick={() => toggle(tag)}
+            className={cn(
+              "rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors",
+              active
+                ? "bg-indigo-600 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+            )}
+          >
+            {tag}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+// ── Char counter ──────────────────────────────────────────────────────────────
+
+function CharCounter({ count }: { count: number }) {
+  const colorClass =
+    count >= 340
+      ? "text-red-500"
+      : count >= 300
+        ? "text-amber-500"
+        : "text-gray-400";
+  return (
+    <span className={cn("text-xs transition-colors", colorClass)}>
+      {count}/{CHAR_LIMIT} chars
+    </span>
+  );
+}
+
+// ── Inline template form (shared between create + edit) ───────────────────────
+
+interface TemplateFormState {
+  name: string;
+  content: string;
+  tags: string[];
+  ratingMin: number;
+  ratingMax: number;
+  language: string;
+}
+
+const EMPTY_FORM: TemplateFormState = {
+  name: "",
+  content: "",
+  tags: [],
+  ratingMin: 1,
+  ratingMax: 5,
+  language: "English",
+};
+
+interface TemplateFormProps {
+  initial: TemplateFormState;
+  saving: boolean;
+  submitLabel: string;
+  onSubmit: (form: TemplateFormState) => void;
+  onCancel: () => void;
+}
+
+function TemplateForm({ initial, saving, submitLabel, onSubmit, onCancel }: TemplateFormProps) {
+  const [form, setForm] = useState<TemplateFormState>(initial);
+
+  function set<K extends keyof TemplateFormState>(key: K, val: TemplateFormState[K]) {
+    setForm((f) => ({ ...f, [key]: val }));
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.name.trim() || !form.content.trim()) return;
+    onSubmit(form);
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="mb-4 rounded-2xl border border-[#5B5BD6]/30 bg-[#5B5BD6]/5 p-5 space-y-3"
+    >
+      {/* Name */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-gray-600">Template name</label>
+        <input
+          type="text"
+          value={form.name}
+          onChange={(e) => set("name", e.target.value)}
+          placeholder="e.g. Thank you — 5 star"
+          required
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30"
+        />
+      </div>
+
+      {/* Content */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-gray-600">Content</label>
+        <textarea
+          value={form.content}
+          onChange={(e) => set("content", e.target.value)}
+          placeholder="Write your reply template…"
+          required
+          rows={4}
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30 resize-none"
+        />
+        <div className="flex items-center justify-between">
+          <CharCounter count={form.content.length} />
+          <span className="text-[11px] italic text-gray-400">
+            Placeholders: {"{appName}"} · {"{supportEmail}"} · {"{teamName}"}
+          </span>
+        </div>
+      </div>
+
+      {/* Tags */}
+      <div className="flex flex-col gap-1.5">
+        <label className="text-xs font-medium text-gray-600">Issue tags</label>
+        <TagPicker selected={form.tags} onChange={(t) => set("tags", t)} />
+      </div>
+
+      {/* Rating range */}
+      <div className="flex items-center gap-4">
+        <div className="flex flex-col gap-1 flex-1">
+          <label className="text-xs font-medium text-gray-600">Min rating</label>
+          <select
+            value={form.ratingMin}
+            onChange={(e) => set("ratingMin", Number(e.target.value))}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6]"
+          >
+            {[1, 2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>★{n}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1 flex-1">
+          <label className="text-xs font-medium text-gray-600">Max rating</label>
+          <select
+            value={form.ratingMax}
+            onChange={(e) => set("ratingMax", Number(e.target.value))}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6]"
+          >
+            {[1, 2, 3, 4, 5].map((n) => (
+              <option key={n} value={n}>★{n}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col gap-1 flex-1">
+          <label className="text-xs font-medium text-gray-600">Language</label>
+          <select
+            value={form.language}
+            onChange={(e) => set("language", e.target.value)}
+            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6]"
+          >
+            {LANGUAGES.map((l) => (
+              <option key={l} value={l}>{l}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-2 pt-1">
+        <Button
+          type="submit"
+          size="sm"
+          disabled={saving}
+          className="bg-[#5B5BD6] text-white hover:bg-[#4f4fbf] disabled:opacity-50"
+        >
+          {saving ? "Saving…" : submitLabel}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={onCancel}
+          className="text-gray-500"
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ── TemplateCard ──────────────────────────────────────────────────────────────
+
 function TemplateCard({
   template,
+  onEdit,
   onDelete,
 }: {
   template: ApiTemplate;
+  onEdit: (t: ApiTemplate) => void;
   onDelete: (id: string) => void;
 }) {
   const [deleting, setDeleting] = useState(false);
@@ -72,6 +298,14 @@ function TemplateCard({
           <Button
             variant="ghost"
             size="icon-sm"
+            onClick={() => onEdit(template)}
+            className="text-gray-400 hover:text-[#5B5BD6]"
+          >
+            <Pencil strokeWidth={1.5} className="size-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
             disabled={deleting}
             onClick={handleDelete}
             className="text-gray-400 hover:text-red-500"
@@ -84,20 +318,17 @@ function TemplateCard({
   );
 }
 
-interface NewTemplateForm {
-  name: string;
-  content: string;
-  language: string;
-}
-
-const LANGUAGES = ["English", "Spanish", "French", "German", "Portuguese", "Italian", "Japanese"];
+// ── TemplatesTab ──────────────────────────────────────────────────────────────
 
 export function TemplatesTab() {
   const [templates, setTemplates] = useState<ApiTemplate[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState<NewTemplateForm>({ name: "", content: "", language: "English" });
+
+  // Exactly one of these is non-null at a time
+  const [showCreate, setShowCreate] = useState(false);
+  const [editingTemplate, setEditingTemplate] = useState<ApiTemplate | null>(null);
+
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -119,11 +350,20 @@ export function TemplatesTab() {
 
   function handleDelete(id: string) {
     setTemplates((prev) => prev.filter((t) => t.id !== id));
+    if (editingTemplate?.id === id) setEditingTemplate(null);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.name.trim() || !form.content.trim()) return;
+  function openCreate() {
+    setEditingTemplate(null);
+    setShowCreate(true);
+  }
+
+  function openEdit(template: ApiTemplate) {
+    setShowCreate(false);
+    setEditingTemplate(template);
+  }
+
+  async function handleCreate(form: TemplateFormState) {
     setSubmitting(true);
     try {
       const res = await fetch("/api/reply-kit/templates", {
@@ -132,16 +372,54 @@ export function TemplatesTab() {
         body: JSON.stringify({
           name: form.name,
           content: form.content,
-          tags: [],
-          ratingMin: 1,
-          ratingMax: 5,
+          tags: form.tags,
+          ratingMin: form.ratingMin,
+          ratingMax: form.ratingMax,
           language: form.language,
         }),
       });
       const data = (await res.json()) as { template: ApiTemplate };
       setTemplates((prev) => [data.template, ...prev]);
-      setForm({ name: "", content: "", language: "English" });
-      setShowForm(false);
+      setShowCreate(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleEdit(form: TemplateFormState) {
+    if (!editingTemplate) return;
+    setSubmitting(true);
+    try {
+      await fetch(`/api/reply-kit/templates/${editingTemplate.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: form.name,
+          content: form.content,
+          tags: form.tags,
+          ratingMin: form.ratingMin,
+          ratingMax: form.ratingMax,
+          language: form.language,
+        }),
+      });
+      setTemplates((prev) =>
+        prev.map((t) =>
+          t.id === editingTemplate.id
+            ? {
+                ...t,
+                name: form.name,
+                content: form.content,
+                tags: form.tags,
+                rating_min: form.ratingMin,
+                rating_max: form.ratingMax,
+                language: form.language,
+              }
+            : t,
+        ),
+      );
+      setEditingTemplate(null);
     } catch (err) {
       console.error(err);
     } finally {
@@ -157,73 +435,40 @@ export function TemplatesTab() {
         <Button
           size="sm"
           className="bg-[#5B5BD6] text-white hover:bg-[#4f4fbf]"
-          onClick={() => setShowForm((v) => !v)}
+          onClick={openCreate}
         >
           <Plus strokeWidth={1.5} className="size-4" />
           New template
         </Button>
       </div>
 
-      {/* Inline new-template form */}
-      {showForm && (
-        <form
-          onSubmit={handleSubmit}
-          className="mb-4 rounded-2xl border border-[#5B5BD6]/30 bg-[#5B5BD6]/5 p-5 space-y-3"
-        >
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-600">Template name</label>
-            <input
-              type="text"
-              value={form.name}
-              onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-              placeholder="e.g. Thank you — 5 star"
-              required
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-600">Content</label>
-            <textarea
-              value={form.content}
-              onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
-              placeholder="Write your reply template…"
-              required
-              rows={4}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30 resize-none"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-600">Language</label>
-            <select
-              value={form.language}
-              onChange={(e) => setForm((f) => ({ ...f, language: e.target.value }))}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30"
-            >
-              {LANGUAGES.map((l) => (
-                <option key={l} value={l}>{l}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-2 pt-1">
-            <Button
-              type="submit"
-              size="sm"
-              disabled={submitting}
-              className="bg-[#5B5BD6] text-white hover:bg-[#4f4fbf] disabled:opacity-50"
-            >
-              {submitting ? "Saving…" : "Save template"}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => setShowForm(false)}
-              className="text-gray-500"
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
+      {/* Create form */}
+      {showCreate && (
+        <TemplateForm
+          initial={EMPTY_FORM}
+          saving={submitting}
+          submitLabel="Save template"
+          onSubmit={handleCreate}
+          onCancel={() => setShowCreate(false)}
+        />
+      )}
+
+      {/* Edit form */}
+      {editingTemplate && (
+        <TemplateForm
+          initial={{
+            name: editingTemplate.name,
+            content: editingTemplate.content,
+            tags: editingTemplate.tags ?? [],
+            ratingMin: editingTemplate.rating_min,
+            ratingMax: editingTemplate.rating_max,
+            language: editingTemplate.language,
+          }}
+          saving={submitting}
+          submitLabel="Save changes"
+          onSubmit={handleEdit}
+          onCancel={() => setEditingTemplate(null)}
+        />
       )}
 
       {/* Search */}
@@ -254,7 +499,12 @@ export function TemplatesTab() {
           </div>
         ) : filtered.length > 0 ? (
           filtered.map((template) => (
-            <TemplateCard key={template.id} template={template} onDelete={handleDelete} />
+            <TemplateCard
+              key={template.id}
+              template={template}
+              onEdit={openEdit}
+              onDelete={handleDelete}
+            />
           ))
         ) : (
           <p className="py-8 text-center text-sm text-gray-400">
