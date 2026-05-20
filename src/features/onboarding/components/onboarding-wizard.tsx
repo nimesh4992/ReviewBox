@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { Check, ChevronRight, Play, Plus, Smartphone, X } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { APP_CATEGORIES, type AppCategory } from "@/lib/brand-voice-stubs";
 
 // ── Step indicator ────────────────────────────────────────────────────────────
 
@@ -152,11 +153,25 @@ const MOCK_APPS = [
   { id: "4", name: "Acme Investments", platform: "App Store",   icon: "📈" },
 ];
 
-function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
-  const [selected, setSelected] = useState<string[]>(["1", "2"]);
+function Step2({
+  onNext,
+  onBack,
+  onCategoryChange,
+}: {
+  onNext: () => void;
+  onBack: () => void;
+  onCategoryChange: (c: AppCategory) => void;
+}) {
+  const [selected,  setSelected]  = useState<string[]>(["1", "2"]);
+  const [category,  setCategory]  = useState<AppCategory | null>(null);
 
   function toggle(id: string) {
     setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+  }
+
+  function pickCategory(c: AppCategory) {
+    setCategory(c);
+    onCategoryChange(c);
   }
 
   return (
@@ -198,6 +213,31 @@ function Step2({ onNext, onBack }: { onNext: () => void; onBack: () => void }) {
             </button>
           );
         })}
+      </div>
+
+      {/* App category — sets AI brand voice from day 1 */}
+      <div>
+        <p className="text-[13px] font-medium text-fg-1 mb-2">What type of app?</p>
+        <p className="text-[11px] text-fg-3 mb-3">
+          We use this to pre-fill your AI reply tone. You can customise it later.
+        </p>
+        <div className="grid grid-cols-5 gap-1.5">
+          {APP_CATEGORIES.map((cat) => (
+            <button
+              key={cat.id}
+              onClick={() => pickCategory(cat.id)}
+              className={cn(
+                "flex flex-col items-center gap-1 rounded-[8px] border px-1 py-2 text-center transition-colors",
+                category === cat.id
+                  ? "border-[#0A84FF]/40 bg-[#0A84FF]/[0.06] text-[#0A84FF]"
+                  : "border-[var(--rb-border-1)] bg-surface text-fg-2 hover:bg-[var(--rb-bg-hover)]",
+              )}
+            >
+              <span className="text-[18px] leading-none">{cat.emoji}</span>
+              <span className="text-[10px] font-medium leading-tight">{cat.label}</span>
+            </button>
+          ))}
+        </div>
       </div>
 
       <div className="flex items-center justify-between">
@@ -372,12 +412,25 @@ function Step4({ onFinish, onBack }: { onFinish: () => void; onBack: () => void 
 // ── Wizard shell ──────────────────────────────────────────────────────────────
 
 export function OnboardingWizard() {
-  const [step, setStep] = useState(1);
+  const [step,        setStep]        = useState(1);
+  const [appCategory, setAppCategory] = useState<AppCategory | null>(null);
   const router = useRouter();
 
   function next() { setStep((s) => Math.min(s + 1, 4)); }
   function back() { setStep((s) => Math.max(s - 1, 1)); }
-  function finish() { router.push("/dashboard"); }
+
+  async function finish() {
+    // Persist category so brand_voice stub is seeded via the settings API
+    // (full onboarding/complete wiring happens when workspace name is collected)
+    if (appCategory) {
+      fetch("/api/settings/workspace", {
+        method:  "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ appCategory }),
+      }).catch(() => undefined);
+    }
+    router.push("/dashboard");
+  }
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-canvas px-4 py-16">
@@ -397,7 +450,7 @@ export function OnboardingWizard() {
       {/* Card */}
       <div className="w-full max-w-[480px] rounded-[18px] border border-[var(--rb-border-1)] bg-surface p-8 shadow-[var(--rb-shadow-md)]">
         {step === 1 && <Step1 onNext={next} />}
-        {step === 2 && <Step2 onNext={next} onBack={back} />}
+        {step === 2 && <Step2 onNext={next} onBack={back} onCategoryChange={setAppCategory} />}
         {step === 3 && <Step3 onNext={next} onBack={back} />}
         {step === 4 && <Step4 onFinish={finish} onBack={back} />}
       </div>

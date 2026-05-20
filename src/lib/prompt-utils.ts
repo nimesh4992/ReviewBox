@@ -90,19 +90,38 @@ interface KbEntry {
   content: string;
 }
 
+interface SystemPromptOptions {
+  tone: string;
+  contextEntries?: KbEntry[];
+  /** 1-3 sentence brand voice description stored in workspace settings. */
+  brandVoice?: string;
+  /** Display name of the team for sign-off (e.g. "The Acme App Team"). */
+  teamName?: string;
+  /** Hard character limit for the reply (e.g. 350 for Google Play). */
+  charLimit?: number;
+}
+
 /**
- * Build a minimal system prompt for reply generation.
- * Uses at most one KB entry, trimmed to 80 characters.
+ * Build a system prompt for reply generation.
  *
  * Token budget:
- *  - Base prompt:  ~35 tokens
- *  - With context: ~45 tokens
- *  (Previous approach with 3 KB entries averaged ~245 tokens — 80%+ saving)
+ *  - Base (no brand voice, no KB): ~40 tokens
+ *  - With brand voice:             ~65 tokens
+ *  - With KB entry:                ~75 tokens
  */
 export function buildSystemPrompt(
-  tone: string,
+  toneOrOptions: string | SystemPromptOptions,
   contextEntries: KbEntry[] = [],
 ): string {
+  // Support both old call signature and new options object
+  const opts: SystemPromptOptions =
+    typeof toneOrOptions === "string"
+      ? { tone: toneOrOptions, contextEntries }
+      : { contextEntries, ...toneOrOptions };
+
+  const { tone, brandVoice, teamName, charLimit } = opts;
+  const entries = opts.contextEntries ?? contextEntries;
+
   const toneMap: Record<string, string> = {
     professional: "professional and concise",
     empathetic:   "warm and empathetic",
@@ -111,17 +130,28 @@ export function buildSystemPrompt(
     enthusiastic: "enthusiastic and positive",
   };
   const tonePhrase = toneMap[tone] ?? "professional and helpful";
+  const signoff    = teamName ?? "The Support Team";
+  const limitNote  = charLimit ? ` Stay under ${charLimit} characters total.` : " Under 120 words.";
 
+  // Brand voice block — most impactful quality lever
+  const brandBlock = brandVoice
+    ? ` Brand voice: ${brandVoice.slice(0, 200).trim()}.`
+    : "";
+
+  // KB context block — relevant known issues / FAQs
   let contextBlock = "";
-  if (contextEntries.length > 0) {
-    const entry = contextEntries[0];
-    const snippet = entry.content.slice(0, 80).trim();
-    contextBlock = ` Context: [${entry.category}] ${snippet}`;
+  if (entries.length > 0) {
+    const entry   = entries[0];
+    const snippet = entry.content.slice(0, 100).trim();
+    contextBlock  = ` Known context: [${entry.category}] ${snippet}`;
   }
 
   return (
-    `You are a mobile app support specialist. Reply to this app store review. ` +
-    `Be ${tonePhrase}. Under 120 words. Sign off as "The ReviewBox Team".` +
+    `You are a support agent replying to an app store review.` +
+    brandBlock +
+    ` Be ${tonePhrase}.` +
+    limitNote +
+    ` Sign off as "${signoff}".` +
     contextBlock
   );
 }
