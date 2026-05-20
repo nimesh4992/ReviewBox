@@ -21,6 +21,7 @@
   --rb-blue-900: #002654;
 
   /* ── Semantic colors ── */
+  --rb-green-50:  #F0FDF4;
   --rb-green-100: #DCFCE7;
   --rb-green-500: #1F8A5B;
   --rb-green-600: #157048;
@@ -28,9 +29,12 @@
   --rb-amber-500: #C97A00;
   --rb-amber-600: #9A5C00;
   --rb-red-100:   #FEE2E2;
+  --rb-red-400:   #F87171;
   --rb-red-500:   #DC2626;
   --rb-red-600:   #B91C1C;
+  --rb-purple-100:#EDE9FE;
   --rb-purple-500:#8E5BFF;
+  --rb-purple-600:#6D28D9;
 
   /* ── Font families ── */
   --rb-font-display: -apple-system, "SF Pro Display", var(--font-inter), "Inter", BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
