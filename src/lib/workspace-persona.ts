@@ -11,6 +11,7 @@
 
 import { Redis } from "@upstash/redis";
 import { getServiceClient } from "@/lib/supabase-server";
+import { getBrandVoiceStub } from "@/lib/brand-voice-stubs";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -77,14 +78,18 @@ export async function getWorkspacePersona(
     const sb = getServiceClient();
     const { data } = await sb
       .from("workspaces")
-      .select("name, support_email, brand_voice")
+      .select("name, support_email, brand_voice, app_category")
       .eq("id", workspaceId)
       .single();
 
     if (data) {
-      const name       = (data.name as string | null) ?? "";
-      const email      = (data.support_email as string | null) ?? DEFAULT_PERSONA.supportEmail;
-      const brandVoice = (data.brand_voice as string | null) ?? undefined;
+      const name        = (data.name as string | null) ?? "";
+      const email       = (data.support_email as string | null) ?? DEFAULT_PERSONA.supportEmail;
+      const savedVoice  = (data.brand_voice as string | null) ?? undefined;
+      const category    = (data.app_category as string | null) ?? undefined;
+      // If user hasn't customised brand_voice yet, use category-based stub.
+      // This means every workspace gets meaningful AI voice from day 1.
+      const brandVoice  = savedVoice || (category ? getBrandVoiceStub(category) : undefined);
       const persona: WorkspacePersona = {
         appName:      name || DEFAULT_PERSONA.appName,
         supportEmail: email,

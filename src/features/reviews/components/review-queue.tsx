@@ -184,6 +184,9 @@ function ReplyComposer({
   const [sendFeedback, setSendFeedback]   = useState<"success" | "error" | null>(null);
   const [sendError, setSendError]         = useState<string | null>(null);
   const [replyDone, setReplyDone]         = useState(alreadyReplied);
+  // Learning loop: track draft source + whether user edited before sending
+  const [draftSource, setDraftSource]     = useState<string | null>(null);
+  const [originalDraft, setOriginalDraft] = useState<string | null>(null);
   const prevToneRef                       = useRef(tone);
 
   const overLimit = text.length > limit;
@@ -207,8 +210,11 @@ function ReplyComposer({
       if (res.status === 429) { setGenerateError("Daily AI limit reached."); return; }
       if (res.status === 503) { setGenerateError("AI unavailable — try again shortly."); return; }
       if (!res.ok)            { setGenerateError("Something went wrong."); return; }
-      const data = (await res.json()) as { reply: string };
+      const data = (await res.json()) as { reply: string; source?: string };
       setAiSuggestion(data.reply);
+      // Store for learning loop — track source + original text before any edit
+      setDraftSource(data.source ?? null);
+      setOriginalDraft(data.reply);
     } catch {
       setGenerateError("Something went wrong.");
     } finally {
@@ -238,7 +244,13 @@ function ReplyComposer({
       const res = await fetch(`/api/reviews/${review.id}/reply`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ replyText: text, status: "sent" }),
+        body: JSON.stringify({
+          replyText:   text,
+          status:      "sent",
+          draftSource: draftSource ?? "manual",
+          // Edited = had a draft AND user changed it before sending
+          draftEdited: originalDraft !== null && text.trim() !== originalDraft.trim(),
+        }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({})) as { error?: string };

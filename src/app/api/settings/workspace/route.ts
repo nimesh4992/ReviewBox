@@ -7,6 +7,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { Redis } from "@upstash/redis";
+import { getBrandVoiceStub } from "@/lib/brand-voice-stubs";
 
 // Invalidate persona cache on save so next draft picks up changes immediately
 async function bustPersonaCache(workspaceId: string) {
@@ -62,11 +63,24 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   const body = (await req.json()) as {
     supportEmail?: string;
     brandVoice?:   string;
+    appCategory?:  string;
   };
 
-  const updates: Record<string, string> = {};
+  const updates: Record<string, string | null> = {};
   if (typeof body.supportEmail === "string") updates.support_email = body.supportEmail.trim();
   if (typeof body.brandVoice   === "string") updates.brand_voice   = body.brandVoice.slice(0, 500).trim();
+  if (typeof body.appCategory  === "string") {
+    updates.app_category = body.appCategory;
+    // If brand_voice not explicitly set, pre-fill from stub (non-destructive)
+    if (typeof body.brandVoice !== "string") {
+      const { data: current } = await getServiceClient()
+        .from("workspaces").select("brand_voice").eq("id", workspaceId).single();
+      const existing = (current?.brand_voice as string | null) ?? "";
+      if (!existing.trim()) {
+        updates.brand_voice = getBrandVoiceStub(body.appCategory);
+      }
+    }
+  }
 
   if (Object.keys(updates).length === 0) {
     return NextResponse.json({ error: "NO_FIELDS" }, { status: 400 });
