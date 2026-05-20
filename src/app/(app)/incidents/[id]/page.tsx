@@ -1,13 +1,49 @@
 import Link from "next/link";
 import { ArrowLeft, Clock, User } from "lucide-react";
+import { auth } from "@clerk/nextjs/server";
 
 import { PageHeader } from "@/components/layout/page-header";
-import { incidentAlerts } from "@/features/dashboard/data/operations"; // swap for Supabase query
 import { IncidentStatusActions } from "@/features/incidents/components/incident-status-actions";
+import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { cn } from "@/lib/utils";
 import type { IncidentAlert } from "@/types/review";
 
 export const dynamic = "force-dynamic";
+
+// ── DB row ─────────────────────────────────────────────────────────────────────
+
+interface DbIncident {
+  id: string;
+  title: string;
+  description: string | null;
+  severity: "critical" | "high" | "medium";
+  status: "active" | "investigating" | "resolved";
+  owner: string | null;
+  detected_at: string;
+  resolved_at: string | null;
+  created_at: string;
+}
+
+function mapIncident(row: DbIncident): IncidentAlert & { resolvedAt?: string } {
+  return {
+    id:          row.id,
+    title:       row.title,
+    description: row.description ?? "",
+    severity:    row.severity,
+    status:      row.status,
+    owner:       row.owner ?? "Unassigned",
+    detectedAt:  new Date(row.detected_at).toLocaleString("en-US", {
+                   month: "short", day: "numeric",
+                   hour: "numeric", minute: "2-digit",
+                 }),
+    resolvedAt:  row.resolved_at
+                   ? new Date(row.resolved_at).toLocaleString("en-US", {
+                       month: "short", day: "numeric",
+                       hour: "numeric", minute: "2-digit",
+                     })
+                   : undefined,
+  };
+}
 
 // ── Severity + status styling ─────────────────────────────────────────────────
 
@@ -16,17 +52,17 @@ const SEVERITY_STYLES: Record<
   { bar: string; badge: string; label: string }
 > = {
   critical: {
-    bar: "bg-red-400",
+    bar:   "bg-red-400",
     badge: "bg-red-50 text-red-700 border border-red-200",
     label: "Critical",
   },
   high: {
-    bar: "bg-amber-400",
+    bar:   "bg-amber-400",
     badge: "bg-amber-50 text-amber-700 border border-amber-200",
     label: "High",
   },
   medium: {
-    bar: "bg-gray-300",
+    bar:   "bg-gray-300",
     badge: "bg-gray-50 text-gray-600 border border-gray-200",
     label: "Medium",
   },
@@ -36,15 +72,9 @@ const STATUS_STYLES: Record<
   IncidentAlert["status"],
   { badge: string; label: string }
 > = {
-  active: { badge: "bg-red-50 text-red-700 border border-red-200", label: "Active" },
-  investigating: {
-    badge: "bg-amber-50 text-amber-700 border border-amber-200",
-    label: "Investigating",
-  },
-  resolved: {
-    badge: "bg-emerald-50 text-emerald-700 border border-emerald-200",
-    label: "Resolved",
-  },
+  active:       { badge: "bg-red-50 text-red-700 border border-red-200",           label: "Active" },
+  investigating:{ badge: "bg-amber-50 text-amber-700 border border-amber-200",     label: "Investigating" },
+  resolved:     { badge: "bg-emerald-50 text-emerald-700 border border-emerald-200", label: "Resolved" },
 };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -58,9 +88,27 @@ export default async function IncidentDetailPage({
 }: IncidentDetailPageProps) {
   const { id } = await params;
 
-  // Look up from mock data (replace with Supabase query once sync is live)
-  const incident = incidentAlerts.find((i) => i.id === id);
+  // ── Auth + workspace ──────────────────────────────────────────────────────
+  const session = await auth();
+  const userId  = session?.userId;
 
+  let incident: (IncidentAlert & { resolvedAt?: string }) | null = null;
+
+  if (userId) {
+    const workspaceId = await getWorkspaceId(userId);
+    if (workspaceId) {
+      const sb = getServiceClient();
+      const { data } = await sb
+        .from("incidents")
+        .select("id,title,description,severity,status,owner,detected_at,resolved_at,created_at")
+        .eq("id", id)
+        .eq("workspace_id", workspaceId)
+        .single();
+      if (data) incident = mapIncident(data as DbIncident);
+    }
+  }
+
+  // ── Not found ─────────────────────────────────────────────────────────────
   if (!incident) {
     return (
       <div className="min-w-0">
@@ -82,7 +130,7 @@ export default async function IncidentDetailPage({
     );
   }
 
-  const sev = SEVERITY_STYLES[incident.severity];
+  const sev    = SEVERITY_STYLES[incident.severity];
   const status = STATUS_STYLES[incident.status];
 
   return (
@@ -105,81 +153,72 @@ export default async function IncidentDetailPage({
 
         {/* Main card */}
         <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-          {/* Severity bar */}
           <div className={cn("h-1 w-full", sev.bar)} />
-
           <div className="p-5 space-y-4">
             {/* Badges */}
             <div className="flex flex-wrap items-center gap-2">
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-                  sev.badge,
-                )}
-              >
+              <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", sev.badge)}>
                 {sev.label}
               </span>
-              <span
-                className={cn(
-                  "inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium",
-                  status.badge,
-                )}
-              >
+              <span className={cn("inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium", status.badge)}>
                 {status.label}
               </span>
             </div>
 
             {/* Description */}
-            <p className="text-sm leading-6 text-gray-600">
-              {incident.description}
-            </p>
+            <p className="text-sm leading-6 text-gray-600">{incident.description}</p>
 
             {/* Meta */}
             <div className="flex flex-wrap items-center gap-5 text-xs text-gray-400">
               <span className="flex items-center gap-1.5">
                 <Clock className="size-3.5" strokeWidth={1.5} />
-                {incident.detectedAt}
+                Detected {incident.detectedAt}
               </span>
               <span className="flex items-center gap-1.5">
                 <User className="size-3.5" strokeWidth={1.5} />
                 {incident.owner}
               </span>
+              {incident.resolvedAt && (
+                <span className="flex items-center gap-1.5 text-emerald-600">
+                  <Clock className="size-3.5" strokeWidth={1.5} />
+                  Resolved {incident.resolvedAt}
+                </span>
+              )}
             </div>
 
-            {/* Status actions (client component) */}
-            <IncidentStatusActions
-              incidentId={incident.id}
-              currentStatus={incident.status}
-            />
+            {/* Status actions — client component */}
+            {incident.status !== "resolved" && (
+              <IncidentStatusActions
+                incidentId={incident.id}
+                currentStatus={incident.status}
+              />
+            )}
           </div>
-        </div>
-
-        {/* Related reviews */}
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5">
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">
-            Related reviews
-          </h2>
-          <p className="text-sm text-gray-400">
-            Reviews linked to this incident will appear here once Google Play
-            sync is connected.
-          </p>
         </div>
 
         {/* Timeline */}
         <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4">
-            Timeline
-          </h2>
+          <h2 className="text-sm font-semibold text-gray-900 mb-4">Timeline</h2>
           <ol className="relative border-l border-gray-200 ml-2 space-y-4">
             <li className="ml-4">
               <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-white bg-gray-300" />
-              <p className="text-xs font-semibold text-gray-700">
-                Incident detected
-              </p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {incident.detectedAt}
-              </p>
+              <p className="text-xs font-semibold text-gray-700">Incident detected</p>
+              <p className="text-xs text-gray-400 mt-0.5">{incident.detectedAt}</p>
             </li>
+            {incident.status === "investigating" && (
+              <li className="ml-4">
+                <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-white bg-amber-400" />
+                <p className="text-xs font-semibold text-amber-700">Investigation started</p>
+                <p className="text-xs text-gray-400 mt-0.5">{incident.owner}</p>
+              </li>
+            )}
+            {incident.resolvedAt && (
+              <li className="ml-4">
+                <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-white bg-emerald-400" />
+                <p className="text-xs font-semibold text-emerald-700">Resolved</p>
+                <p className="text-xs text-gray-400 mt-0.5">{incident.resolvedAt}</p>
+              </li>
+            )}
           </ol>
         </div>
       </div>
