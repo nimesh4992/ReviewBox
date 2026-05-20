@@ -108,10 +108,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       rating_max:   t.rating_max,
       usage_count:  0,
     }));
-    sb.from("reply_templates")
+    void sb.from("reply_templates")
       .insert(templates)
-      .then(() => undefined)
-      .catch((err: unknown) => console.error("[onboarding] template seed:", err));
+      .then(({ error }) => {
+        if (error) console.error("[onboarding] template seed:", error);
+      });
   }
 
   // Idempotency: only insert app if none exists for this workspace

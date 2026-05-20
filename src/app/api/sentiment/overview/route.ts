@@ -72,11 +72,11 @@ export async function GET(req: Request): Promise<NextResponse> {
     const windowStart = new Date(now);
     windowStart.setDate(windowStart.getDate() - days);
 
-    // base filter helper
-    const base = () => {
-      let q = sb.from("reviews").eq("workspace_id", workspaceId);
-      if (appId) q = (q as ReturnType<typeof sb.from>).eq("app_id", appId);
-      return q;
+    // base filter helper — select("*") first so .eq() is available on FilterBuilder
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const base = (): any => {
+      const q = sb.from("reviews").select("*").eq("workspace_id", workspaceId);
+      return appId ? q.eq("app_id", appId) : q;
     };
 
     // ── 1. KPI metrics ───────────────────────────────────────────────────────
