@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { Loader2, Sparkles, X, Plus } from "lucide-react";
+import { Loader2, Sparkles, X, Plus, TrendingUp, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useAsoSuggestions } from "@/hooks/use-aso-suggestions";
 import { useAsoKeywords, useAddKeyword, useDeleteKeyword } from "@/hooks/use-aso-keywords";
+import { useMinedKeywords } from "@/hooks/use-mined-keywords";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
 import type { AsoKeyword } from "@/types/review";
+import type { MinedPhrase } from "@/app/api/aso/mine/route";
 
 // ── Primitives ─────────────────────────────────────────────────────────────────
 
@@ -193,10 +195,204 @@ function AddKeywordRow({
   );
 }
 
+// ── Mined phrase chip ─────────────────────────────────────────────────────────
+
+function SentimentDot({ s }: { s: MinedPhrase["sentiment"] }) {
+  return (
+    <span
+      title={s}
+      className={cn(
+        "inline-block h-1.5 w-1.5 rounded-full flex-shrink-0",
+        s === "positive" && "bg-[#1F8A5B]",
+        s === "negative" && "bg-[#DC2626]",
+        s === "mixed"    && "bg-[#F59E0B]",
+      )}
+    />
+  );
+}
+
+function PhraseChip({
+  p,
+  onTrack,
+  tracking,
+}: {
+  p: MinedPhrase;
+  onTrack: () => void;
+  tracking: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div
+      className={cn(
+        "group relative rounded-[10px] border p-3 transition-colors",
+        p.tracked
+          ? "border-[#1F8A5B]/25 bg-[#1F8A5B]/5"
+          : "border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] hover:border-[#0A84FF]/40",
+      )}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <SentimentDot s={p.sentiment} />
+          <span className="truncate text-[13px] font-semibold text-fg-1">{p.phrase}</span>
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          <span className="rounded-full bg-[var(--rb-bg-raised)] px-2 py-0.5 text-[11px] font-semibold text-fg-2 border border-[var(--rb-border-1)]">
+            {p.count}
+          </span>
+          {p.tracked ? (
+            <span className="text-[10px] font-semibold text-[#1F8A5B]">tracked</span>
+          ) : (
+            <button
+              onClick={onTrack}
+              disabled={tracking}
+              className="text-[11px] font-semibold text-[#0A84FF] hover:underline disabled:opacity-50"
+            >
+              {tracking ? "…" : "+ Track"}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {p.examples.length > 0 && (
+        <button
+          onClick={() => setOpen((v) => !v)}
+          className="mt-1.5 flex items-center gap-1 text-[11px] text-fg-3 hover:text-fg-2"
+        >
+          {open ? <Minus size={10} /> : <TrendingUp size={10} />}
+          {open ? "hide" : `${p.examples.length} example${p.examples.length > 1 ? "s" : ""}`}
+        </button>
+      )}
+
+      {open && p.examples.length > 0 && (
+        <div className="mt-2 space-y-1.5">
+          {p.examples.map((ex, i) => (
+            <p key={i} className="rounded-[6px] border border-[var(--rb-border-1)] bg-surface px-2.5 py-1.5 text-[12px] italic text-fg-2 leading-relaxed">
+              "{ex}"
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Opportunities panel ───────────────────────────────────────────────────────
+
+function OpportunitiesPanel({ appId }: { appId?: string }) {
+  const { data, isLoading } = useMinedKeywords(appId);
+  const { mutate: addKw, isPending: addPending } = useAddKeyword();
+  const [tracking, setTracking] = useState<Set<string>>(new Set());
+
+  const track = (phrase: string) => {
+    setTracking((s) => new Set([...s, phrase]));
+    addKw({ keyword: phrase, appId });
+  };
+
+  const phrases = data?.phrases ?? [];
+  const gaps     = phrases.filter((p) => !p.tracked && p.score >= 3);
+  const tracked  = phrases.filter((p) => p.tracked);
+
+  return (
+    <div className="space-y-5">
+      {/* Summary strip */}
+      {data && !isLoading && (
+        <div className="grid grid-cols-3 gap-3">
+          <div className="rounded-[12px] border border-[var(--rb-border-1)] bg-surface p-4 shadow-[var(--rb-shadow-xs)]">
+            <div className="text-[11px] font-medium text-fg-3">Reviews analysed</div>
+            <div className="mt-1 text-[24px] font-semibold tabular-nums text-fg-1">{data.reviewsAnalyzed}</div>
+          </div>
+          <div className="rounded-[12px] border border-[#0A84FF]/20 bg-[#0A84FF]/5 p-4 shadow-[var(--rb-shadow-xs)]">
+            <div className="text-[11px] font-medium text-[#0A84FF]">Keyword gaps</div>
+            <div className="mt-1 text-[24px] font-semibold tabular-nums text-fg-1">{data.gapCount}</div>
+            <div className="mt-0.5 text-[10px] text-fg-3">high-score, not tracked</div>
+          </div>
+          <div className="rounded-[12px] border border-[#1F8A5B]/20 bg-[#1F8A5B]/5 p-4 shadow-[var(--rb-shadow-xs)]">
+            <div className="text-[11px] font-medium text-[#1F8A5B]">Already tracked</div>
+            <div className="mt-1 text-[24px] font-semibold tabular-nums text-fg-1">{data.trackedCount}</div>
+            <div className="mt-0.5 text-[10px] text-fg-3">of top phrases</div>
+          </div>
+        </div>
+      )}
+
+      {/* Gaps section */}
+      <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">
+        <div className="flex items-center gap-2 border-b border-[var(--rb-border-1)] px-5 py-4">
+          <TrendingUp className="size-4 text-[#0A84FF]" strokeWidth={1.5} />
+          <div>
+            <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">
+              Keyword gaps
+            </div>
+            <div className="mt-0.5 text-[12px] text-fg-3">
+              Phrases users write — not yet in your tracked list
+            </div>
+          </div>
+        </div>
+
+        <div className="p-5">
+          {isLoading && (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {Array.from({ length: 9 }).map((_, i) => (
+                <div key={i} className="h-[60px] animate-pulse rounded-[10px] bg-[var(--rb-bg-sunken)]" />
+              ))}
+            </div>
+          )}
+
+          {!isLoading && gaps.length === 0 && (
+            <div className="py-12 text-center text-[13px] text-fg-3">
+              {data?.reviewsAnalyzed === 0
+                ? "No reviews synced yet. Run a sync to mine keywords."
+                : "No gaps found — all top phrases are already tracked."}
+            </div>
+          )}
+
+          {!isLoading && gaps.length > 0 && (
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {gaps.map((p) => (
+                <PhraseChip
+                  key={p.phrase}
+                  p={p}
+                  onTrack={() => track(p.phrase)}
+                  tracking={tracking.has(p.phrase) && addPending}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* Already-tracked phrases */}
+      {!isLoading && tracked.length > 0 && (
+        <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">
+          <div className="flex items-center gap-2 border-b border-[var(--rb-border-1)] px-5 py-4">
+            <div>
+              <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">
+                Confirmed in reviews
+              </div>
+              <div className="mt-0.5 text-[12px] text-fg-3">
+                Tracked keywords that also appear in user-written text
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-2 p-5 sm:grid-cols-3">
+            {tracked.map((p) => (
+              <PhraseChip
+                key={p.phrase}
+                p={p}
+                onTrack={() => track(p.phrase)}
+                tracking={false}
+              />
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Screen ────────────────────────────────────────────────────────────────────
 
 export function ASOScreen() {
-  const [tab, setTab] = useState<"keywords" | "ratings">("keywords");
+  const [tab, setTab] = useState<"keywords" | "opportunities" | "ratings">("keywords");
   const [showAddRow, setShowAddRow] = useState(false);
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
   const { mutate: getSuggestions, isPending: suggestLoading, data: asoData } =
@@ -236,7 +432,7 @@ export function ASOScreen() {
           </h1>
         </div>
         <div className="flex items-center rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-0.5">
-          {(["keywords", "ratings"] as const).map((o) => (
+          {(["keywords", "opportunities", "ratings"] as const).map((o) => (
             <button
               key={o}
               onClick={() => setTab(o)}
@@ -288,8 +484,11 @@ export function ASOScreen() {
         )}
       </section>
 
+      {/* Opportunities tab */}
+      {tab === "opportunities" && <OpportunitiesPanel appId={appId} />}
+
       {/* Keywords table */}
-      <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">
+      {tab === "keywords" && <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">
         <div className="flex items-center border-b border-[var(--rb-border-1)] px-5 py-4">
           <div>
             <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">
@@ -395,10 +594,10 @@ export function ASOScreen() {
               ))}
           </tbody>
         </table>
-      </div>
+      </div>}
 
       {/* AI Keyword Suggestions */}
-      {asoData && (
+      {tab === "keywords" && asoData && (
         <div className="overflow-hidden rounded-[14px] border border-[#0A84FF]/20 bg-surface shadow-[var(--rb-shadow-xs)]">
           <div className="flex items-center gap-2 border-b border-[var(--rb-border-1)] px-5 py-4">
             <Sparkles className="size-4 text-[#0A84FF]" strokeWidth={1.5} />
