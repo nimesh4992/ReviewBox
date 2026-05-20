@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -181,8 +181,7 @@ function ConditionRow({ condition, onChange, onRemove }: ConditionRowProps) {
   const selectClass =
     "h-9 rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50 transition-[color,box-shadow]";
 
-  const operatorOptions =
-    OPERATOR_OPTIONS_BY_FIELD[condition.field] ?? [];
+  const operatorOptions = OPERATOR_OPTIONS_BY_FIELD[condition.field] ?? [];
 
   function handleFieldChange(field: AutomationConditionField) {
     const newOps = OPERATOR_OPTIONS_BY_FIELD[field];
@@ -198,9 +197,7 @@ function ConditionRow({ condition, onChange, onRemove }: ConditionRowProps) {
       {/* Field */}
       <select
         value={condition.field}
-        onChange={(e) =>
-          handleFieldChange(e.target.value as AutomationConditionField)
-        }
+        onChange={(e) => handleFieldChange(e.target.value as AutomationConditionField)}
         className={cn(selectClass, "min-w-[110px]")}
       >
         {FIELD_OPTIONS.map((f) => (
@@ -255,7 +252,11 @@ function ConditionRow({ condition, onChange, onRemove }: ConditionRowProps) {
 interface RuleBuilderModalProps {
   open: boolean;
   onClose: () => void;
-  onSave: (rule: Partial<AutomationRule>) => void;
+  onSave: (rule: Partial<AutomationRule>, editId?: string) => void;
+  /** When provided: modal is in edit mode, pre-populated with this rule */
+  initialRule?: Partial<AutomationRule>;
+  /** ID of the rule being edited (triggers PATCH instead of POST) */
+  editId?: string;
 }
 
 const DEFAULT_CONDITION: AutomationCondition = {
@@ -268,6 +269,8 @@ export function RuleBuilderModal({
   open,
   onClose,
   onSave,
+  initialRule,
+  editId,
 }: RuleBuilderModalProps) {
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -277,6 +280,34 @@ export function RuleBuilderModal({
   const [action, setAction] = useState<AutomationAction>("ai_reply");
   const [appsScope, setAppsScope] = useState<"all" | "specific">("all");
   const [specificApp, setSpecificApp] = useState("");
+
+  // Populate state when initialRule changes (edit mode)
+  useEffect(() => {
+    if (initialRule) {
+      setName(initialRule.name ?? "");
+      setDescription(initialRule.description ?? "");
+      setConditions(
+        initialRule.conditions && initialRule.conditions.length > 0
+          ? initialRule.conditions
+          : [{ ...DEFAULT_CONDITION }],
+      );
+      setAction(initialRule.action ?? "ai_reply");
+
+      const scope = initialRule.appsScope;
+      if (!scope || scope === "all") {
+        setAppsScope("all");
+        setSpecificApp("");
+      } else if (Array.isArray(scope)) {
+        setAppsScope("specific");
+        setSpecificApp(scope[0] ?? "");
+      } else {
+        setAppsScope("all");
+        setSpecificApp("");
+      }
+    } else {
+      reset();
+    }
+  }, [initialRule]);
 
   function reset() {
     setName("");
@@ -296,15 +327,18 @@ export function RuleBuilderModal({
     const resolvedScope: "all" | string[] =
       appsScope === "all" ? "all" : specificApp ? [specificApp] : "all";
 
-    onSave({
-      name,
-      description,
-      conditions,
-      action,
-      actionLabel: ACTION_LABELS[action],
-      appsScope: resolvedScope,
-      priority: 0,
-    });
+    onSave(
+      {
+        name,
+        description,
+        conditions,
+        action,
+        actionLabel: ACTION_LABELS[action],
+        appsScope: resolvedScope,
+        priority: initialRule?.priority ?? 0,
+      },
+      editId,
+    );
     reset();
   }
 
@@ -313,15 +347,14 @@ export function RuleBuilderModal({
   }
 
   function updateCondition(index: number, updated: AutomationCondition) {
-    setConditions((prev) =>
-      prev.map((c, i) => (i === index ? updated : c)),
-    );
+    setConditions((prev) => prev.map((c, i) => (i === index ? updated : c)));
   }
 
   function removeCondition(index: number) {
     setConditions((prev) => prev.filter((_, i) => i !== index));
   }
 
+  const isEditing = Boolean(editId);
   const labelClass = "text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block";
   const sectionClass = "space-y-3";
 
@@ -330,7 +363,7 @@ export function RuleBuilderModal({
       <DialogContent className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="text-base font-semibold text-gray-900">
-            New Automation Rule
+            {isEditing ? "Edit Rule" : "New Automation Rule"}
           </DialogTitle>
         </DialogHeader>
 
@@ -349,9 +382,7 @@ export function RuleBuilderModal({
           <div className={sectionClass}>
             <label className={labelClass}>
               Description{" "}
-              <span className="font-normal normal-case text-gray-400">
-                (optional)
-              </span>
+              <span className="font-normal normal-case text-gray-400">(optional)</span>
             </label>
             <Input
               value={description}
@@ -408,9 +439,7 @@ export function RuleBuilderModal({
                   <span
                     className={cn(
                       "text-sm font-medium",
-                      action === opt.value
-                        ? "text-[#5B5BD6]"
-                        : "text-gray-700",
+                      action === opt.value ? "text-[#5B5BD6]" : "text-gray-700",
                     )}
                   >
                     {opt.label}
@@ -471,7 +500,7 @@ export function RuleBuilderModal({
             disabled={!name.trim()}
             className="bg-[#5B5BD6] hover:bg-[#4a4ac4] text-white"
           >
-            Save rule
+            {isEditing ? "Update rule" : "Save rule"}
           </Button>
         </DialogFooter>
       </DialogContent>
