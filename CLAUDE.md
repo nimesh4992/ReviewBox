@@ -321,19 +321,21 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 
 ## Current Build Status
 
-### Frontend — complete (mock data)
+### Frontend
 | Feature | Status |
 |---|---|
 | App shell — sidebar, topnav, page-header | ✅ Done |
 | Sidebar — collapsible groups, app selector, AI triage panel | ✅ Done |
-| Dashboard — KPI metrics + sparklines + apps overview | ✅ Done |
-| Review queue — card layout, priority borders, AI draft dialog | ✅ Done |
-| Incident list — severity borders, status badges | ✅ Done |
+| Dashboard — KPI metrics + sparklines + apps overview | ✅ Done (real data) |
+| Review queue — card layout, priority borders, AI draft dialog | ✅ Done (real data) |
+| Incident list — severity borders, status badges | ✅ Done (real data) |
+| Incident detail — status actions, timeline | ✅ Done (real data) |
 | Release health table — rollout bars | ✅ Done |
-| Sentiment screen — trend chart + topic breakdown + AI recluster | ✅ Done |
-| Competitors screen — benchmark table + sparklines | ✅ Done |
-| ASO screen — keyword rank tracker + AI suggestions panel | ✅ Done |
-| Reports screen — report cards + run/configure | ✅ Done |
+| Release detail — rating dist, issue tags, reviews per version | ✅ Done (real data) |
+| Sentiment screen — trend chart + topic breakdown + AI recluster | ✅ Done (real data) |
+| Competitors screen — benchmark table + sparklines | ✅ Done (mock) |
+| ASO screen — keyword rank tracker + AI suggestions panel | ✅ Done (real data) |
+| Reports screen — report cards + run/configure | ✅ Done (mock) |
 | Onboarding wizard — 4-step (connect → apps → team → alerts) | ✅ Done |
 | Settings UI — alerts, profile, billing | ✅ Done |
 | Landing page — Apple-style light design | ✅ Done |
@@ -538,11 +540,11 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 ## Current Sprint
 
 **Active: S1.3 — Help Center**
-Last updated: 2026-05-19
+Last updated: 2026-05-20
 
 Completed sprints: S0.1 · S0.2 · S0.3 · S1.1 · S1.2
 
-Key completions this session (S1.1 + S1.2):
+Key completions (S1.1 + S1.2 — earlier sessions):
 - ✅ `review-service.ts` — wired to Supabase, accepts workspaceId + filters
 - ✅ `src/hooks/use-apps.ts` — React Query hook calling `/api/apps`
 - ✅ Dashboard `MOCK_APPS` → real apps from Supabase via `useApps()` hook
@@ -560,6 +562,50 @@ Key completions 2026-05-19:
   - 004: webhook_events dedup table (Stripe retry safety)
   - 005: workspace soft-delete column + pg_cron 30-day hard-delete job
   - 006: workspace_invites table + RLS
+- ✅ **N5** — `/compare/appfollow` full rewrite (branch `claude/n5-compare-appfollow-rewrite`, merged)
+  - Hero with price punch, 42-row feature table, ROI calculator widget, switch timeline, placeholder quotes
+  - New component: `src/components/marketing/roi-calculator.tsx`
+- ✅ **N7** — Marketing site mobile responsive (branch `claude/n7-marketing-responsive`, merged)
+  - `rb-marketing` class on `MarketingShell` + `@media (max-width: 768px/480px)` overrides in `globals.css`
+- ✅ **Landing page de-AI** — Removed AI template tells from `src/app/page.tsx` (branch `claude/landing-deai`, awaiting merge)
+  - Removed `groq · llama-3.3-70b` model attribution from hero card
+  - Renamed `AI DRAFT` → `Compose` (hero + demo section)
+  - Dropped REPLAY button; simplified 3-tag cluster to single KB grounding indicator
+  - Rewrote "busywork" copy (x2) and "smallest possible tool" copy
+  - Removed `01/02/03/04` numbered badges from Pillars + Free Tools
+  - Removed placeholder blue-gradient avatar from quote section
+  - Redesigned `Kicker` component: ALL-CAPS monospace → sentence case sans-serif
+  - Two items deferred to founder: hero gradient direction, quote photo (needs real customer)
+
+Key completions 2026-05-20:
+- ✅ **Sentiment screen wired** — `GET /api/sentiment/overview` + `useSentimentOverview` hook (branch `claude/sentiment-wiring`, awaiting merge)
+  - Real avg rating, review count, positive share, reply time from Supabase
+  - 14-day positive/negative trend chart from live review data
+  - Topics table from `issue_tags[]` array with trend direction (rising/falling/steady)
+  - Skeleton loading state + empty state for new workspaces
+- ✅ **ASO screen wired** — `aso_keywords` table + CRUD API + `useAsoKeywords` hook (branch `claude/aso-wiring`, awaiting merge)
+  - Migration `supabase/migrations/007_aso_keywords.sql` — **founder must run in Supabase SQL editor**
+  - `GET/POST /api/aso/keywords` + `DELETE /api/aso/keywords/[id]`
+  - Add keyword inline row, delete per-row, rank delta computed from previous_rank
+  - AI Suggestions "+ Track" button wires directly to `addKeyword` mutation
+- ✅ **Incident detail page wired** — `src/app/(app)/incidents/[id]/page.tsx` (branch `claude/n3-detail-pages`, awaiting merge)
+  - Drops mock lookup → live Supabase query on `incidents` table scoped to workspace
+  - Formats `detected_at`/`resolved_at` timestamps; shows resolved entry in timeline
+  - Status actions (Mark Investigating / Mark Resolved) already hit `PATCH /api/incidents/[id]`
+- ✅ **Release detail page wired** — `src/app/(app)/releases/[version]/page.tsx` (branch `claude/n3-detail-pages`, awaiting merge)
+  - Aggregates live reviews by `app_version` from Supabase
+  - Derives health status, avg rating, rating distribution bars, top issue tags, first 20 reviews inline
+  - Graceful empty state when no reviews synced for that version yet
+- ✅ **Compare page fix** — Slack alerts marked "Coming soon" (was incorrectly shown as built)
+- ✅ **ESLint worktree fix** — `.claude/worktrees/**` added to ignores (on all wiring branches)
+
+### PRs awaiting founder merge (open in GitHub)
+| Branch | PR link | Founder action needed |
+|---|---|---|
+| `claude/landing-deai` | github.com/nimesh4992/ReviewBox/pull/new/claude/landing-deai | Merge |
+| `claude/sentiment-wiring` | github.com/nimesh4992/ReviewBox/pull/new/claude/sentiment-wiring | Merge |
+| `claude/aso-wiring` | github.com/nimesh4992/ReviewBox/pull/new/claude/aso-wiring | Run migration 007 first, then merge |
+| `claude/n3-detail-pages` | github.com/nimesh4992/ReviewBox/pull/new/claude/n3-detail-pages | Merge |
 
 Up next (S1.3):
 - [ ] Create 4 help pages: Getting Started · Connect Google Play · AI Replies · FAQ
