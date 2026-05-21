@@ -1,10 +1,20 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { SignIn } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
 
 import { AuthShell } from "@/components/auth/auth-shell";
 import { CLERK_APPEARANCE } from "@/components/auth/clerk-appearance";
 
-export default function SignInPage() {
+export default async function SignInPage() {
+  // If the user already has a valid session, don't show an empty SignIn form —
+  // Clerk's component renders nothing when a session exists. Redirect to the
+  // app instead so the user understands what happened.
+  const { userId } = await auth();
+  if (userId) {
+    redirect("/dashboard");
+  }
+
   return (
     <AuthShell
       heading="Welcome back"
