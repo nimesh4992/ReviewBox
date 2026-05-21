@@ -119,9 +119,7 @@ export default clerkMiddleware(async (auth, request) => {
     return res;
   }
 
-  await auth.protect();
-
-  const { sessionClaims } = await auth();
+  const { sessionClaims } = await auth.protect();
   const metadata = (sessionClaims?.metadata ?? {}) as {
     onboarded?: boolean;
     plan?: string;
