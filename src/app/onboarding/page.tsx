@@ -83,6 +83,8 @@ export default function OnboardingPage() {
         if (cancelled) return;
 
         if (data.onboarded) {
+          // Reload session so middleware sees fresh JWT before navigating
+          await session?.reload();
           window.location.href = "/dashboard";
           return;
         }

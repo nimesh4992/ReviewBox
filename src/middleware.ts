@@ -158,11 +158,12 @@ export default clerkMiddleware(async (auth, request) => {
     nextUrl.pathname.startsWith("/invite/") ||
     nextUrl.pathname === "/api/account/accept-invite";
 
+  // Only gate non-onboarded users away from app routes.
+  // Do NOT redirect onboarded users away from /onboarding here — the page's
+  // own useEffect calls session.reload() first, then navigates. Doing it in
+  // middleware causes an infinite loop when the JWT is stale (60s TTL).
   if (!onboarded && !isOnboardingPath && !isInviteAcceptPath) {
     return NextResponse.redirect(new URL("/onboarding", request.url));
-  }
-  if (onboarded && nextUrl.pathname === "/onboarding") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
   // Trial expiry (only while plan === "trial")
