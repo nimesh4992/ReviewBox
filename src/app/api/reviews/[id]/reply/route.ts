@@ -46,6 +46,17 @@ export async function POST(
       return apiError("NO_WORKSPACE", 404);
     }
 
+    // Block writes if workspace is soft-deleted (in 30-day restore grace)
+    const sbCheck = getServiceClient();
+    const { data: ws } = await sbCheck
+      .from("workspaces")
+      .select("deleted_at")
+      .eq("id", workspaceId)
+      .maybeSingle();
+    if (ws?.deleted_at) {
+      return apiError("WORKSPACE_DELETED", 403);
+    }
+
     const { id: reviewId } = await params;
     const body = (await req.json()) as ReplyRequestBody;
     const { replyText, status, draftSource, draftEdited } = body;

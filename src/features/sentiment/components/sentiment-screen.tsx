@@ -5,8 +5,8 @@ import { Loader2, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useSentimentAnalysis } from "@/hooks/use-sentiment-analysis";
 import { useSentimentOverview } from "@/hooks/use-sentiment-overview";
+import { useReviewQueue } from "@/hooks/use-review-queue";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
-import { mockReviews } from "@/features/reviews/data/mock-reviews";
 import type { AnalysisResult } from "@/app/api/sentiment/analyze/route";
 import type { SentimentTopic } from "@/app/api/sentiment/overview/route";
 
@@ -174,11 +174,15 @@ export function SentimentScreen() {
         : "All apps";
 
   const { data: overview, isLoading } = useSentimentOverview(appId, range);
+  // Pull recent real reviews for the "Re-cluster with AI" button.
+  // Without real workspace data, we don't surface the button at all.
+  const { reviews: workspaceReviews } = useReviewQueue();
 
   const topics: SentimentTopic[] = overview?.topics ?? [];
   const trendPos = overview?.trend.positive ?? [];
   const trendNeg = overview?.trend.negative ?? [];
   const hasChartData = trendPos.length >= 2;
+  const canRecluster = workspaceReviews.length > 0;
 
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8 max-w-[1240px] mx-auto">
@@ -284,8 +288,11 @@ export function SentimentScreen() {
             </div>
           </div>
           <button
-            onClick={() => analyze(mockReviews, { onSuccess: setAiResults })}
-            disabled={isPending}
+            onClick={() =>
+              analyze(workspaceReviews.slice(0, 100), { onSuccess: setAiResults })
+            }
+            disabled={isPending || !canRecluster}
+            title={canRecluster ? "Run AI sentiment clustering on recent reviews" : "Sync reviews first"}
             className="ml-auto flex h-7 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50"
           >
             {isPending ? (

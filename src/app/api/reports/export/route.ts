@@ -68,6 +68,24 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const rating   = params.get("rating")   ?? null;
 
   const sb = getServiceClient();
+
+  // First: get total count matching filters (for X-Total-Count header)
+  let countQuery = sb
+    .from("reviews")
+    .select("id", { count: "exact", head: true })
+    .eq("workspace_id", workspaceId);
+
+  if (days !== "all") {
+    const since = new Date(Date.now() - Number(days) * 24 * 60 * 60 * 1000).toISOString();
+    countQuery = countQuery.gte("store_created_at", since);
+  }
+  if (appId)    countQuery = countQuery.eq("app_id", appId);
+  if (priority) countQuery = countQuery.eq("priority", priority);
+  if (rating)   countQuery = countQuery.eq("rating", Number(rating));
+
+  const { count: totalMatching } = await countQuery;
+
+  // Then: fetch up to 5000 rows for the actual export
   let query = sb
     .from("reviews")
     .select(
@@ -94,10 +112,16 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   const rows = data ?? [];
+  const truncated = (totalMatching ?? 0) > rows.length;
 
   // ── JSON format ──────────────────────────────────────────────────────────────
   if (format === "json") {
-    return NextResponse.json({ reviews: rows, count: rows.length });
+    return NextResponse.json({
+      reviews: rows,
+      count: rows.length,
+      totalMatching: totalMatching ?? rows.length,
+      truncated,
+    });
   }
 
   // ── CSV format ───────────────────────────────────────────────────────────────
@@ -131,6 +155,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       "Content-Type":        "text/csv; charset=utf-8",
       "Content-Disposition": `attachment; filename="reviews-${date}.csv"`,
       "Cache-Control":       "no-store",
+      "X-Total-Count":       String(totalMatching ?? rows.length),
+      "X-Returned-Count":    String(rows.length),
+      "X-Truncated":         truncated ? "true" : "false",
     },
   });
 }
