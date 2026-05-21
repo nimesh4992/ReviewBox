@@ -81,7 +81,7 @@ export default function OnboardingPage() {
         if (cancelled) return;
 
         if (data.onboarded) {
-          router.replace("/dashboard");
+          window.location.href = "/dashboard";
           return;
         }
 
@@ -288,7 +288,7 @@ export default function OnboardingPage() {
           <StepConnect platform={form.platform} onNext={saveAndAdvance} saving={saving} />
         )}
         {!hydrating && step === 4 && (
-          <StepDone onFinish={() => router.push("/dashboard")} />
+          <StepDone onFinish={() => { window.location.href = "/dashboard"; }} />
         )}
       </div>
 
