@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { APP_CATEGORIES, type AppCategory } from "@/lib/brand-voice-stubs";
 
 type Platform = "google-play" | "app-store";
 
@@ -20,6 +21,7 @@ interface FormState {
   appName: string;
   platform: Platform;
   storeId: string;
+  appCategory: AppCategory | null;
 }
 
 interface OnboardingResult {
@@ -59,6 +61,7 @@ export default function OnboardingPage() {
     appName: "",
     platform: "google-play",
     storeId: "",
+    appCategory: null,
   });
   const [slugError, setSlugError] = useState<string | null>(null);
   const [slugStatus, setSlugStatus] = useState<SlugStatus>({ state: "idle" });
@@ -165,13 +168,13 @@ export default function OnboardingPage() {
     };
   }, [form.workspaceSlug]);
 
-  const update = (key: keyof FormState, value: string) => {
+  const update = (key: keyof FormState, value: string | AppCategory | null) => {
     if (key === "workspaceName" || key === "workspaceSlug") {
       setSlugError(null);
     }
     setForm((prev) => {
       const next = { ...prev, [key]: value };
-      if (key === "workspaceName") {
+      if (key === "workspaceName" && typeof value === "string") {
         next.workspaceSlug = slugify(value);
       }
       return next;
@@ -194,6 +197,7 @@ export default function OnboardingPage() {
           appName: form.appName,
           platform: form.platform,
           storeId: form.storeId,
+          appCategory: form.appCategory,
         }),
       });
 
@@ -459,7 +463,7 @@ function StepApp({
   onNext,
 }: {
   form: FormState;
-  update: (k: keyof FormState, v: string) => void;
+  update: (k: keyof FormState, v: string | AppCategory | null) => void;
   onNext: () => void;
 }) {
   return (
@@ -532,6 +536,33 @@ function StepApp({
             {" · "}App Store:{" "}
             <code className="font-mono text-white/40">numeric ID</code>
           </p>
+        </div>
+
+        <div className="flex flex-col gap-1.5">
+          <Label className="text-white/60 text-xs font-medium uppercase tracking-wide">
+            Category <span className="text-white/30 normal-case">(optional)</span>
+          </Label>
+          <p className="text-[11px] text-white/25 -mt-0.5">
+            We use this to pre-tune your AI replies. You can change it later.
+          </p>
+          <div className="grid grid-cols-3 gap-1.5">
+            {APP_CATEGORIES.map((cat) => (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => update("appCategory", form.appCategory === cat.id ? null : cat.id)}
+                className={cn(
+                  "flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors",
+                  form.appCategory === cat.id
+                    ? "border-[#0A84FF] bg-[#0A84FF]/10 text-[#0A84FF]"
+                    : "border-white/[0.08] bg-[#0d0f14] text-white/50 hover:border-white/20 hover:text-white/80",
+                )}
+              >
+                <span>{cat.emoji}</span>
+                <span className="truncate">{cat.label}</span>
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 

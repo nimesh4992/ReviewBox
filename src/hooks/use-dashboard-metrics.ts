@@ -13,6 +13,9 @@ const EMPTY_METRICS: DashboardMetrics = {
   aiDraftsThisWeek: 0,
   reviewsToday: 0,
   totalReviews: 0,
+  reviewsWeekDelta: null,
+  avgRatingDelta: null,
+  ratingTrend: [],
 };
 
 async function fetchDashboardMetrics(): Promise<DashboardMetrics> {

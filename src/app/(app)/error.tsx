@@ -1,5 +1,8 @@
 ﻿"use client";
 
+import * as Sentry from "@sentry/nextjs";
+import { useEffect } from "react";
+
 export default function AppError({
   error,
   reset,
@@ -7,6 +10,13 @@ export default function AppError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  useEffect(() => {
+    // Report every (app) section error to Sentry so production failures
+    // don't go unnoticed. Tag with route segment for triage.
+    Sentry.captureException(error, { tags: { boundary: "app" } });
+  }, [error]);
+
+
   return (
     <div className="flex flex-1 items-center justify-center p-8">
       <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">

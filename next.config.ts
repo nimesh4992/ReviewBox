@@ -14,15 +14,9 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  // Type checking runs OOM in the build worker on this machine (2 GB worker cap).
-  // Types are still checked by the editor (tsserver) and can be verified via
-  // `npx tsc --noEmit` before deploying. Vercel cloud builds have more RAM.
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  eslint: {
-    ignoreDuringBuilds: true,
-  },
+  // TypeScript and ESLint are validated by CI (.github/workflows/ci.yml) on
+  // every PR via dedicated tsc + lint jobs. Local `next build` runs them too.
+  // No escape hatches here — if these fail, builds fail.
   async redirects() {
     return [
       {
