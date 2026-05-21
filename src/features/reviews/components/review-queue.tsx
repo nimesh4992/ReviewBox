@@ -11,10 +11,38 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
 import { AppReview, ReviewSentiment, AIReplyTone } from "@/types/review";
 import { humanizeToken, formatReviewDate } from "@/utils/format";
+
+// Helper — stamp a review as replied in the infinite query cache
+function useMarkReplied() {
+  const qc = useQueryClient();
+  return (reviewId: string, replyText: string) => {
+    qc.setQueriesData<{
+      pages: Array<{ reviews: AppReview[]; nextCursor: string | null; hasMore: boolean }>;
+      pageParams: unknown[];
+    }>(
+      { queryKey: ["reviews"] },
+      (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            reviews: page.reviews.map((r) =>
+              r.id === reviewId
+                ? { ...r, replyStatus: "replied" as const, replyText }
+                : r,
+            ),
+          })),
+        };
+      },
+    );
+  };
+}
 
 // ── Store char limits ─────────────────────────────────────────────────────────
 
@@ -189,8 +217,9 @@ function ReplyComposer({
   const [originalDraft, setOriginalDraft] = useState<string | null>(null);
   const prevToneRef                       = useRef(tone);
 
-  const overLimit = text.length > limit;
-  const badge     = SENTIMENT_BADGE[review.sentiment];
+  const overLimit   = text.length > limit;
+  const badge       = SENTIMENT_BADGE[review.sentiment];
+  const markReplied = useMarkReplied();
 
   const handleGenerate = useCallback(async (selectedTone: AIReplyTone) => {
     setIsGenerating(true);
@@ -265,6 +294,8 @@ function ReplyComposer({
         setTimeout(() => { setSendFeedback(null); setSendError(null); }, 4000);
         return;
       }
+      // Update cache — blue dot disappears, row shows as replied instantly
+      markReplied(review.id, text.trim());
       setReplyDone(true);
       setTimeout(() => onAdvance(review.id), 1200);
     } catch {
@@ -499,6 +530,7 @@ function GroupReplyPanel({
   const [sendErrors, setSendErrors]         = useState<SendError[]>([]);
   const [allDone, setAllDone]               = useState(false);
   const prevToneRef                         = useRef(tone);
+  const markReplied                         = useMarkReplied();
 
   // Use the first candidate as the representative for AI generation
   const rep = candidates[0];
@@ -578,6 +610,8 @@ function GroupReplyPanel({
         if (!res.ok) {
           const data = await res.json().catch(() => ({})) as { error?: string };
           errs.push({ reviewId: r.id, author: r.author, message: data.error ?? "Failed" });
+        } else {
+          markReplied(r.id, text.trim());
         }
       } catch {
         errs.push({ reviewId: r.id, author: r.author, message: "Network error" });

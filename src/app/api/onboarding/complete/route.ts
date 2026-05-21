@@ -64,7 +64,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Pre-fill brand_voice from category stub so AI replies are good from day 1
     const brandVoice = appCategory ? getBrandVoiceStub(appCategory) : undefined;
 
-    const { data: workspace, error: wsError } = await sb
+    let wsInsert = await sb
       .from("workspaces")
       .insert({
         name:         workspaceName,
@@ -75,6 +75,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       })
       .select("id")
       .single();
+
+    // 42703 = "column does not exist" — migrations 007/008 not yet run in prod.
+    // Fall back to inserting without those columns so onboarding still works.
+    if (wsInsert.error?.code === "42703") {
+      wsInsert = await sb
+        .from("workspaces")
+        .insert({ name: workspaceName, slug: workspaceSlug, plan: "trial" })
+        .select("id")
+        .single();
+    }
+
+    const { data: workspace, error: wsError } = wsInsert;
 
     if (wsError) {
       if (wsError.code === "23505") {

@@ -10,8 +10,11 @@ import {
 } from "@/services/app-store/connect-api";
 import { enrichReview } from "@/lib/rules-engine";
 import { sendRatingSpikeAlert } from "@/lib/email/send-rating-spike-alert";
+import { notifySlack, ratingSpike as slackRatingSpike, urgentReview as slackUrgentReview } from "@/lib/slack";
 import { runAutomationRules } from "@/lib/automation-executor";
 import type { AppReview } from "@/types/review";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
 
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
@@ -213,6 +216,18 @@ async function upsertAndFinalize(
     );
   }
 
+  // Urgent review → Slack (cap 3 per sync to avoid spam)
+  const urgentNew = unrepliedReviews.filter((r) => r.priority === "urgent");
+  for (const r of urgentNew.slice(0, 3)) {
+    void notifySlack(app.workspace_id, slackUrgentReview({
+      author:    r.author,
+      rating:    r.rating,
+      text:      r.text,
+      appName:   app.name,
+      reviewUrl: `${APP_URL}/reviews`,
+    }));
+  }
+
   // Rating spike detection — ≥5 reviews rated ≤2★ for same version in 24h
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: spikeRows } = await sb
@@ -361,5 +376,14 @@ async function notifyWorkspaceOwner(
   const email = clerkUser.emailAddresses[0]?.emailAddress;
   if (!email) return;
 
-  await sendRatingSpikeAlert(email, appName, version, count);
+  // Email + Slack in parallel (both best-effort)
+  await Promise.allSettled([
+    sendRatingSpikeAlert(email, appName, version, count),
+    notifySlack(workspaceId, slackRatingSpike({
+      appName,
+      avgRating: 1.5, // spike threshold is ≤2★ reviews
+      reviewCount: count,
+      appVersion: version,
+    })),
+  ]);
 }

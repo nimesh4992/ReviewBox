@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { estimateKeywordVolume } from "@/lib/gemini";
 import type { AsoKeyword } from "@/types/review";
 
 function mapRow(row: Record<string, unknown>): AsoKeyword {
@@ -81,6 +82,17 @@ export async function POST(req: Request): Promise<NextResponse> {
     if (!keyword) return NextResponse.json({ error: "MISSING_KEYWORD" }, { status: 400 });
 
     const sb = getServiceClient();
+
+    // Auto-estimate volume via Gemini if caller didn't supply one (best-effort, 3s cap)
+    let volumeEstimate = body.volumeEstimate ?? null;
+    if (volumeEstimate === null || volumeEstimate === undefined) {
+      const estimate = await Promise.race([
+        estimateKeywordVolume(keyword),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+      ]);
+      volumeEstimate = estimate;
+    }
+
     const { data, error } = await sb
       .from("aso_keywords")
       .upsert(
@@ -88,7 +100,7 @@ export async function POST(req: Request): Promise<NextResponse> {
           workspace_id: workspaceId,
           app_id: body.appId ?? null,
           keyword,
-          volume_estimate: body.volumeEstimate ?? null,
+          volume_estimate: volumeEstimate,
           updated_at: new Date().toISOString(),
         },
         { onConflict: "workspace_id,app_id,keyword" },

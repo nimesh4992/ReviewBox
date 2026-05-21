@@ -6,11 +6,13 @@ import { Input } from "@/components/ui/input";
 import { AlertPreferences } from "./alert-preferences";
 import { AppConnections } from "./app-connections";
 import { DataPrivacySection } from "./data-privacy-section";
+import { SlackIntegration } from "./slack-integration";
 
 export function SettingsSections() {
   return (
     <div className="flex flex-col gap-4">
       <AlertPreferences />
+      <SlackIntegration />
       <AppConnections />
       <DataPrivacySection />
     </div>

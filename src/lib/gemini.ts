@@ -140,6 +140,32 @@ function isValidSentiment(s: unknown): s is ReviewSentiment {
   );
 }
 
+// ── estimateKeywordVolume ─────────────────────────────────────────────────────
+
+/**
+ * Returns a rough monthly search volume estimate for a keyword on the Play Store.
+ * Gemini produces a single integer — caller should treat it as order-of-magnitude.
+ * Returns null on failure (caller falls back to showing no volume).
+ */
+export async function estimateKeywordVolume(keyword: string): Promise<number | null> {
+  try {
+    const client = getGeminiClient();
+    const model  = client.getGenerativeModel({ model: GEMINI_MODEL });
+
+    const prompt =
+      `You are an App Store Optimisation expert.\n` +
+      `Estimate the approximate monthly Google Play search volume for the keyword: "${keyword}"\n` +
+      `Return ONLY a single integer (no units, no text). Examples: 500, 2000, 15000, 80000`;
+
+    const result = await model.generateContent(prompt);
+    const raw    = result.response.text().trim().replace(/[^0-9]/g, "");
+    const num    = parseInt(raw, 10);
+    return isNaN(num) ? null : num;
+  } catch {
+    return null;
+  }
+}
+
 // ── suggestAsoKeywords ────────────────────────────────────────────────────────
 
 interface AsoSuggestParams {

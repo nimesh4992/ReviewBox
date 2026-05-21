@@ -36,7 +36,7 @@ export async function GET(): Promise<NextResponse> {
   const sb = getServiceClient();
   const { data, error } = await sb
     .from("workspaces")
-    .select("name, support_email, brand_voice, default_tone")
+    .select("name, support_email, brand_voice, default_tone, slack_webhook_url")
     .eq("id", workspaceId)
     .single();
 
@@ -45,10 +45,11 @@ export async function GET(): Promise<NextResponse> {
   }
 
   return NextResponse.json({
-    name:         data.name          ?? "",
-    supportEmail: data.support_email  ?? "",
-    brandVoice:   data.brand_voice    ?? "",
-    defaultTone:  data.default_tone   ?? "professional",
+    name:            data.name              ?? "",
+    supportEmail:    data.support_email      ?? "",
+    brandVoice:      data.brand_voice        ?? "",
+    defaultTone:     data.default_tone       ?? "professional",
+    slackWebhookUrl: (data as Record<string, unknown>).slack_webhook_url ?? null,
   });
 }
 
@@ -64,16 +65,22 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   }
 
   const body = (await req.json()) as {
-    supportEmail?: string;
-    brandVoice?:   string;
-    appCategory?:  string;
-    defaultTone?:  string;
+    supportEmail?:    string;
+    brandVoice?:      string;
+    appCategory?:     string;
+    defaultTone?:     string;
+    slackWebhookUrl?: string | null;
   };
 
   const updates: Record<string, string | null> = {};
   if (typeof body.supportEmail === "string") updates.support_email = body.supportEmail.trim();
   if (typeof body.brandVoice   === "string") updates.brand_voice   = body.brandVoice.slice(0, 500).trim();
   if (typeof body.defaultTone  === "string") updates.default_tone  = body.defaultTone;
+  if ("slackWebhookUrl" in body) {
+    updates.slack_webhook_url = body.slackWebhookUrl
+      ? body.slackWebhookUrl.trim()
+      : null;
+  }
 
   if (typeof body.appCategory === "string") {
     updates.app_category = body.appCategory;
