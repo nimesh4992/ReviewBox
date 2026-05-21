@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { useClerk } from "@clerk/nextjs";
 
 import { Check, ChevronRight, Plug, X, Loader2, Zap, MessageSquare, Bell } from "lucide-react";
 import { track } from "@/lib/analytics";
@@ -50,6 +51,7 @@ type SlugStatus =
 
 export default function OnboardingPage() {
   const router = useRouter();
+  const { session } = useClerk();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormState>({
     workspaceName: "",
@@ -288,7 +290,11 @@ export default function OnboardingPage() {
           <StepConnect platform={form.platform} onNext={saveAndAdvance} saving={saving} />
         )}
         {!hydrating && step === 4 && (
-          <StepDone onFinish={() => { window.location.href = "/dashboard"; }} />
+          <StepDone onFinish={async () => {
+            // Reload session so middleware sees onboarded=true before we navigate
+            await session?.reload();
+            window.location.href = "/dashboard";
+          }} />
         )}
       </div>
 
@@ -624,7 +630,14 @@ function StepConnect({
 /* Step 4 — Done                                                        */
 /* ------------------------------------------------------------------ */
 
-function StepDone({ onFinish }: { onFinish: () => void }) {
+function StepDone({ onFinish }: { onFinish: () => void | Promise<void> }) {
+  const [going, setGoing] = useState(false);
+
+  async function handleFinish() {
+    setGoing(true);
+    await onFinish();
+  }
+
   return (
     <div className="flex flex-col items-center gap-6 py-4 text-center">
       <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#0A84FF]/10">
@@ -637,11 +650,15 @@ function StepDone({ onFinish }: { onFinish: () => void }) {
         </p>
       </div>
       <Button
-        onClick={onFinish}
-        className="mt-2 w-full bg-[#0A84FF] text-white hover:bg-[#006EE0]"
+        onClick={handleFinish}
+        disabled={going}
+        className="mt-2 w-full bg-[#0A84FF] text-white hover:bg-[#006EE0] disabled:opacity-50"
       >
-        Go to Dashboard
-        <ChevronRight className="ml-1 size-4" strokeWidth={1.5} />
+        {going ? (
+          <><Loader2 className="mr-2 size-4 animate-spin" />Taking you in…</>
+        ) : (
+          <>Go to Dashboard<ChevronRight className="ml-1 size-4" strokeWidth={1.5} /></>
+        )}
       </Button>
     </div>
   );
