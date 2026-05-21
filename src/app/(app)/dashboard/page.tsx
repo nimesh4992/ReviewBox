@@ -19,17 +19,36 @@ const SEVERITY_COLOR: Record<string, string> = {
 
 // ── Sparkline chart ────────────────────────────────────────────────────────────
 
-function PortfolioSparkline() {
-  const data = [4.18, 4.20, 4.25, 4.32, 4.38, 4.40, 4.44, 4.46, 4.47, 4.48];
+function PortfolioSparkline({ data }: { data: number[] }) {
+  // Need at least 2 points to draw a line
+  if (data.length < 2) {
+    return (
+      <div className="flex h-[130px] items-center justify-center text-[12px] text-[#86868B]">
+        Trend appears here once 2+ days of reviews are synced.
+      </div>
+    );
+  }
+
   const w = 560, h = 130, padL = 28, padR = 8, padT = 10, padB = 20;
-  const lo = 4.1, hi = 4.6;
+  // Auto-scale Y axis to data range, padded by 0.1 on each side, clamped 1–5
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const lo = Math.max(1, Math.floor((min - 0.1) * 10) / 10);
+  const hi = Math.min(5, Math.ceil((max + 0.1) * 10) / 10);
+  const range = hi - lo || 0.5;
+
   const xs = (i: number) => padL + (i / (data.length - 1)) * (w - padL - padR);
-  const ys = (v: number) => padT + (1 - (v - lo) / (hi - lo)) * (h - padT - padB);
+  const ys = (v: number) => padT + (1 - (v - lo) / range) * (h - padT - padB);
   const d = data.map((v, i) => `${i === 0 ? "M" : "L"}${xs(i)},${ys(v)}`).join(" ");
+
+  // Y-axis gridlines: 4 evenly spaced ticks between lo and hi
+  const ticks = [lo, lo + range * 0.33, lo + range * 0.66, hi].map(
+    (v) => Math.round(v * 10) / 10,
+  );
 
   return (
     <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full" style={{ height: 130, display: "block" }}>
-      {[4.2, 4.3, 4.4, 4.5].map((g) => (
+      {ticks.map((g) => (
         <g key={g}>
           <line x1={padL} x2={w - padR} y1={ys(g)} y2={ys(g)} stroke="rgba(0,0,0,0.06)" />
           <text x={padL - 6} y={ys(g) + 3} fontSize="9" fill="#86868B" textAnchor="end" style={{ fontVariantNumeric: "tabular-nums" }}>{g.toFixed(1)}</text>
@@ -38,6 +57,12 @@ function PortfolioSparkline() {
       <path d={d} fill="none" stroke="#0A84FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
     </svg>
   );
+}
+
+function formatDelta(value: number | null, suffix = ""): string {
+  if (value === null) return "—";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value}${suffix}`;
 }
 
 // ── Page ───────────────────────────────────────────────────────────────────────
@@ -75,12 +100,48 @@ export default function DashboardPage() {
   const urgent    = isLoading ? 0 : (metrics?.urgentCount ?? 0);
   const reviewsToday = isLoading ? 0 : (metrics?.reviewsToday ?? 0);
   const aiDrafts  = isLoading ? 0 : (metrics?.aiDraftsThisWeek ?? 0);
+  const reviewsWeekDelta = metrics?.reviewsWeekDelta ?? null;
+  const avgRatingDelta   = metrics?.avgRatingDelta ?? null;
+  const ratingTrend      = metrics?.ratingTrend ?? [];
+
+  const reviewsDeltaKind: "positive" | "warning" | "neutral" =
+    reviewsWeekDelta === null ? "neutral"
+      : reviewsWeekDelta < 0 ? "warning"
+        : "positive";
+  const avgRatingDeltaKind: "positive" | "warning" | "neutral" =
+    avgRatingDelta === null ? "neutral"
+      : avgRatingDelta < 0 ? "warning"
+        : "positive";
 
   const kpis = [
-    { label: "Reviews today",       value: String(reviewsToday), delta: "+18%",            kind: "positive" as const, sub: "this week" },
-    { label: "AI drafts this week",  value: String(aiDrafts),    delta: "generated",       kind: "neutral"  as const, sub: "draft replies" },
-    { label: "Unreplied",           value: String(unreplied),    delta: `${urgent} urgent`, kind: urgent > 5 ? "warning" as const : "positive" as const, sub: "across apps" },
-    { label: "Avg. rating",         value: avgRating !== null ? avgRating.toFixed(2) : "—", delta: "+0.31", kind: "positive" as const, sub: `last ${range}` },
+    {
+      label: "Reviews today",
+      value: String(reviewsToday),
+      delta: formatDelta(reviewsWeekDelta, "%"),
+      kind: reviewsDeltaKind,
+      sub: reviewsWeekDelta !== null ? "vs last week" : "no prior week",
+    },
+    {
+      label: "AI drafts this week",
+      value: String(aiDrafts),
+      delta: aiDrafts > 0 ? "generated" : "none yet",
+      kind: "neutral" as const,
+      sub: "draft replies",
+    },
+    {
+      label: "Unreplied",
+      value: String(unreplied),
+      delta: `${urgent} urgent`,
+      kind: urgent > 5 ? ("warning" as const) : ("positive" as const),
+      sub: "across apps",
+    },
+    {
+      label: "Avg. rating",
+      value: avgRating !== null ? avgRating.toFixed(2) : "—",
+      delta: formatDelta(avgRatingDelta),
+      kind: avgRatingDeltaKind,
+      sub: `last ${range}`,
+    },
   ];
 
   return (
@@ -150,12 +211,25 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-          <div className="mt-3.5 flex items-center gap-2">
-            <span className="rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-green-700">
-              +0.31
-            </span>
-            <span className="text-xs text-[#86868B]">vs previous {range}</span>
-          </div>
+          {avgRatingDelta !== null ? (
+            <div className="mt-3.5 flex items-center gap-2">
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums",
+                  avgRatingDelta >= 0
+                    ? "bg-green-50 text-green-700"
+                    : "bg-red-50 text-red-700",
+                )}
+              >
+                {formatDelta(avgRatingDelta)}
+              </span>
+              <span className="text-xs text-[#86868B]">vs previous 30 days</span>
+            </div>
+          ) : (
+            <div className="mt-3.5 text-xs text-[#86868B]">
+              {avgRating !== null ? "No prior data to compare" : "Sync reviews to see your rating"}
+            </div>
+          )}
           <p className="mt-4 max-w-[260px] text-[13px] leading-relaxed text-[#86868B]">
             {unreplied > 0
               ? `${unreplied} reviews awaiting reply.${urgent > 0 ? ` ${urgent} marked urgent.` : ""}`
@@ -163,7 +237,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="min-w-0">
-          <PortfolioSparkline />
+          <PortfolioSparkline data={ratingTrend} />
         </div>
       </section>
 

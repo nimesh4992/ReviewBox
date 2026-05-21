@@ -10,6 +10,44 @@ export interface DashboardMetrics {
   aiDraftsThisWeek: number;
   reviewsToday: number;
   totalReviews: number;
+  /** % change in reviews-this-week vs previous week. Null if no prior data. */
+  reviewsWeekDelta: number | null;
+  /** Avg rating change vs previous 30 days. Null if no prior data. */
+  avgRatingDelta: number | null;
+  /** Daily avg rating for last 10 days (oldest → newest). Empty if no data. */
+  ratingTrend: number[];
+}
+
+/**
+ * Bucket review ratings into daily averages between `start` and `end`.
+ * Returns one value per day (oldest first). Days with no reviews are skipped
+ * so the sparkline doesn't show fake zero dips.
+ */
+function buildDailyTrend(
+  rows: { rating: number; store_created_at: string }[],
+  start: Date,
+  end: Date,
+): number[] {
+  const buckets: Map<string, { sum: number; n: number }> = new Map();
+  for (const r of rows) {
+    const key = new Date(r.store_created_at).toISOString().slice(0, 10);
+    const b = buckets.get(key) ?? { sum: 0, n: 0 };
+    b.sum += r.rating;
+    b.n += 1;
+    buckets.set(key, b);
+  }
+  const days: number[] = [];
+  const cursor = new Date(start);
+  cursor.setHours(0, 0, 0, 0);
+  const stop = new Date(end);
+  stop.setHours(0, 0, 0, 0);
+  while (cursor <= stop) {
+    const key = cursor.toISOString().slice(0, 10);
+    const b = buckets.get(key);
+    if (b && b.n > 0) days.push(parseFloat((b.sum / b.n).toFixed(2)));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+  return days;
 }
 
 // Zeroes — used when the user has no workspace yet or a query fails.
@@ -22,6 +60,9 @@ const EMPTY_METRICS: DashboardMetrics = {
   aiDraftsThisWeek: 0,
   reviewsToday: 0,
   totalReviews: 0,
+  reviewsWeekDelta: null,
+  avgRatingDelta: null,
+  ratingTrend: [],
 };
 
 export async function GET(): Promise<NextResponse> {
@@ -53,6 +94,15 @@ export async function GET(): Promise<NextResponse> {
     const sevenDaysAgo = new Date(now);
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
+    const fourteenDaysAgo = new Date(now);
+    fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14);
+
+    const sixtyDaysAgo = new Date(now);
+    sixtyDaysAgo.setDate(sixtyDaysAgo.getDate() - 60);
+
+    const tenDaysAgo = new Date(now);
+    tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
+
     // Run all queries in parallel
     const [
       unrepliedResult,
@@ -61,6 +111,10 @@ export async function GET(): Promise<NextResponse> {
       aiDraftsResult,
       reviewsTodayResult,
       totalReviewsResult,
+      reviewsThisWeekResult,
+      reviewsLastWeekResult,
+      prevAvgRatingResult,
+      trendRowsResult,
     ] = await Promise.all([
       // 1. Unreplied reviews
       sb
@@ -104,6 +158,37 @@ export async function GET(): Promise<NextResponse> {
         .from("reviews")
         .select("id", { count: "exact", head: true })
         .eq("workspace_id", workspaceId),
+
+      // 7. Reviews this week (for week-over-week delta)
+      sb
+        .from("reviews")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspaceId)
+        .gte("store_created_at", sevenDaysAgo.toISOString()),
+
+      // 8. Reviews last week (for week-over-week delta)
+      sb
+        .from("reviews")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspaceId)
+        .gte("store_created_at", fourteenDaysAgo.toISOString())
+        .lt("store_created_at", sevenDaysAgo.toISOString()),
+
+      // 9. Avg rating in the previous 30 days (for avg-rating delta)
+      sb
+        .from("reviews")
+        .select("rating")
+        .eq("workspace_id", workspaceId)
+        .gte("store_created_at", sixtyDaysAgo.toISOString())
+        .lt("store_created_at", thirtyDaysAgo.toISOString()),
+
+      // 10. Daily rating rows for last 10 days (for sparkline trend)
+      sb
+        .from("reviews")
+        .select("rating, store_created_at")
+        .eq("workspace_id", workspaceId)
+        .gte("store_created_at", tenDaysAgo.toISOString())
+        .order("store_created_at", { ascending: true }),
     ]);
 
     if (
@@ -132,9 +217,35 @@ export async function GET(): Promise<NextResponse> {
         ? parseFloat(
             (
               ratingRows.reduce((sum, r) => sum + r.rating, 0) / ratingRows.length
-            ).toFixed(1),
+            ).toFixed(2),
           )
         : null;
+
+    // Reviews this week vs last week — week-over-week delta
+    const thisWeek = reviewsThisWeekResult.count ?? 0;
+    const lastWeek = reviewsLastWeekResult.count ?? 0;
+    const reviewsWeekDelta =
+      lastWeek > 0
+        ? Math.round(((thisWeek - lastWeek) / lastWeek) * 100)
+        : thisWeek > 0
+          ? null // No prior data; growing from zero — don't show a misleading %
+          : null;
+
+    // Avg rating delta vs the prior 30-day window
+    const prevRatingRows = prevAvgRatingResult.data as { rating: number }[] | null;
+    const prevAvgRating =
+      prevRatingRows && prevRatingRows.length > 0
+        ? prevRatingRows.reduce((sum, r) => sum + r.rating, 0) / prevRatingRows.length
+        : null;
+    const avgRatingDelta =
+      avgRating !== null && prevAvgRating !== null
+        ? parseFloat((avgRating - prevAvgRating).toFixed(2))
+        : null;
+
+    // Daily rating trend for last 10 days
+    const trendRows =
+      (trendRowsResult.data as { rating: number; store_created_at: string }[] | null) ?? [];
+    const ratingTrend = buildDailyTrend(trendRows, tenDaysAgo, now);
 
     const metrics: DashboardMetrics = {
       unrepliedCount: unrepliedResult.count ?? 0,
@@ -143,6 +254,9 @@ export async function GET(): Promise<NextResponse> {
       aiDraftsThisWeek: aiDraftsResult.count ?? 0,
       reviewsToday: reviewsTodayResult.count ?? 0,
       totalReviews: totalReviewsResult.count ?? 0,
+      reviewsWeekDelta,
+      avgRatingDelta,
+      ratingTrend,
     };
 
     return NextResponse.json(metrics);
