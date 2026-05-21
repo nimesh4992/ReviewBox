@@ -83,8 +83,11 @@ export default function OnboardingPage() {
         if (cancelled) return;
 
         if (data.onboarded) {
-          // Reload session so middleware sees fresh JWT before navigating
-          await session?.reload();
+          // Reload session so middleware sees fresh JWT before navigating.
+          // If reload fails (e.g. Clerk hiccup), still navigate — the JWT
+          // will refresh naturally within 60s and the user just gets one
+          // extra middleware bounce instead of being stuck on this page.
+          try { await session?.reload(); } catch { /* non-fatal */ }
           window.location.href = "/dashboard";
           return;
         }
@@ -293,8 +296,9 @@ export default function OnboardingPage() {
         )}
         {!hydrating && step === 4 && (
           <StepDone onFinish={async () => {
-            // Reload session so middleware sees onboarded=true before we navigate
-            await session?.reload();
+            // Reload session so middleware sees onboarded=true before we navigate.
+            // Non-fatal if reload throws — the JWT refreshes within 60s anyway.
+            try { await session?.reload(); } catch { /* non-fatal */ }
             window.location.href = "/dashboard";
           }} />
         )}

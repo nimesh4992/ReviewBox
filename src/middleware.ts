@@ -119,11 +119,6 @@ export default clerkMiddleware(async (auth, request) => {
     return res;
   }
 
-  // TEMP: bypass auth for dashboard inspection — remove before real launch
-  if (process.env.BYPASS_AUTH === "true") {
-    return NextResponse.next();
-  }
-
   const { sessionClaims } = await auth.protect();
   const metadata = (sessionClaims?.metadata ?? {}) as {
     onboarded?: boolean;
