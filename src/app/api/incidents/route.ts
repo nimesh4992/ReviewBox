@@ -15,7 +15,8 @@ export async function GET(): Promise<NextResponse> {
   if (!session?.userId) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
 
   const workspaceId = await getWorkspaceId(session.userId);
-  if (!workspaceId) return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
+  // New user with no workspace yet — return empty so incidents page loads cleanly
+  if (!workspaceId) return NextResponse.json({ incidents: [] });
 
   const sb = getServiceClient();
   const { data, error } = await sb

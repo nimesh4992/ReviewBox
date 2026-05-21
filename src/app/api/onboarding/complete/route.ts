@@ -24,6 +24,16 @@ interface OnboardingBody {
 
 const TRIAL_DAYS = 14;
 
+// Same pattern as /api/onboarding/slug-check — keep in sync
+const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$/;
+const RESERVED_SLUGS = new Set([
+  "admin", "api", "app", "blog", "billing", "careers", "changelog", "compare",
+  "contact", "cookies", "customers", "dashboard", "dpa", "faq", "help",
+  "inbox", "incidents", "onboarding", "pricing", "privacy", "refund",
+  "releases", "reports", "reviews", "settings", "sign-in", "sign-up",
+  "status", "support", "terms", "www",
+]);
+
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const session = await auth();
   const userId  = session?.userId;
@@ -43,6 +53,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (!workspaceName?.trim() || !workspaceSlug?.trim() || !appName?.trim()) {
     return apiError("MISSING_FIELDS", 400);
+  }
+
+  const cleanSlug = workspaceSlug.trim().toLowerCase();
+  if (!SLUG_PATTERN.test(cleanSlug)) {
+    return apiError("INVALID_INPUT", 400, "Slug must be 3-40 lowercase letters, numbers, or hyphens.");
+  }
+  if (RESERVED_SLUGS.has(cleanSlug)) {
+    return apiError("SLUG_RESERVED", 409, "That URL is reserved.");
   }
 
   const sb = getServiceClient();
@@ -68,7 +86,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .from("workspaces")
       .insert({
         name:         workspaceName,
-        slug:         workspaceSlug,
+        slug:         cleanSlug,
         plan:         "trial",
         app_category: appCategory ?? null,
         brand_voice:  brandVoice ?? null,
@@ -81,7 +99,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (wsInsert.error?.code === "42703") {
       wsInsert = await sb
         .from("workspaces")
-        .insert({ name: workspaceName, slug: workspaceSlug, plan: "trial" })
+        .insert({ name: workspaceName, slug: cleanSlug, plan: "trial" })
         .select("id")
         .single();
     }
@@ -202,7 +220,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       action: "workspace.create",
       targetType: "workspace",
       targetId: workspaceId,
-      payload: { workspaceName, workspaceSlug, platform, appName },
+      payload: { workspaceName, workspaceSlug: cleanSlug, platform, appName },
       request: req,
     });
   }
