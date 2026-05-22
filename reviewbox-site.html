@@ -1,0 +1,752 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReviewBox — App Review Management</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#080809;
+  --bg-card:#0f1014;
+  --bg-raised:#141519;
+  --fg:#F5F5F7;
+  --fg-2:#86868B;
+  --fg-3:#48484A;
+  --blue:#0A84FF;
+  --blue-dim:rgba(10,132,255,0.1);
+  --border:rgba(255,255,255,0.06);
+  --border-2:rgba(255,255,255,0.10);
+  --font:'Inter',-apple-system,sans-serif;
+}
+html{scroll-behavior:smooth}
+body{background:var(--bg);color:var(--fg);font-family:var(--font);-webkit-font-smoothing:antialiased;overflow-x:hidden}
+
+/* --- Typography --- */
+.display-xl{font-size:clamp(52px,9vw,120px);font-weight:800;line-height:.93;letter-spacing:-.03em}
+.display-lg{font-size:clamp(36px,5.5vw,76px);font-weight:700;line-height:1;letter-spacing:-.025em}
+.display-md{font-size:clamp(28px,3.5vw,48px);font-weight:700;line-height:1.08;letter-spacing:-.02em}
+.label{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--fg-3)}
+
+/* --- Layout --- */
+.container{max-width:1160px;margin:0 auto;padding:0 32px}
+@media(max-width:768px){.container{padding:0 20px}}
+.section{padding:120px 0}
+
+/* --- Animations --- */
+@keyframes fadeUp{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulseDot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.5;transform:scale(.8)}}
+@keyframes ticker{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+.afu{opacity:0;animation:fadeUp .7s cubic-bezier(.16,1,.3,1) forwards}
+.d1{animation-delay:.1s}.d2{animation-delay:.2s}.d3{animation-delay:.3s}.d4{animation-delay:.4s}.d5{animation-delay:.5s}
+
+.reveal{opacity:0;transform:translateY(18px);transition:opacity .65s cubic-bezier(.16,1,.3,1),transform .65s cubic-bezier(.16,1,.3,1)}
+.reveal.in{opacity:1;transform:none}
+.rd1{transition-delay:.08s}.rd2{transition-delay:.16s}.rd3{transition-delay:.24s}
+
+/* --- Buttons --- */
+.btn{display:inline-flex;align-items:center;gap:6px;padding:10px 20px;border-radius:10px;font-size:14px;font-weight:500;text-decoration:none;transition:all .2s;cursor:pointer;border:none;font-family:var(--font)}
+.btn-primary{background:var(--blue);color:#fff}
+.btn-primary:hover{background:#006EE0;transform:translateY(-1px)}
+.btn-outline{border:1px solid var(--border-2);color:var(--fg-2);background:transparent}
+.btn-outline:hover{border-color:rgba(255,255,255,.2);color:var(--fg)}
+.btn-ghost{color:var(--fg-2);background:transparent}
+.btn-ghost:hover{color:var(--fg)}
+.btn-lg{padding:14px 28px;font-size:15px;border-radius:12px}
+
+/* ===================== NAV ===================== */
+nav{position:fixed;top:0;left:0;right:0;z-index:100;padding:18px 0;border-bottom:1px solid transparent;transition:border-color .3s,background .3s}
+nav.scrolled{background:rgba(8,8,9,.88);backdrop-filter:blur(24px);border-color:var(--border)}
+.nav-inner{display:flex;align-items:center;justify-content:space-between}
+.logo{display:flex;align-items:center;gap:10px;text-decoration:none}
+.logo-mark{width:30px;height:30px;background:var(--blue);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0}
+.logo-name{font-size:15px;font-weight:600;color:var(--fg);letter-spacing:-.02em}
+.nav-links{display:flex;align-items:center;gap:28px;list-style:none}
+.nav-links a{font-size:14px;color:var(--fg-2);text-decoration:none;transition:color .2s}
+.nav-links a:hover{color:var(--fg)}
+.nav-right{display:flex;align-items:center;gap:10px}
+@media(max-width:768px){.nav-links{display:none}}
+
+/* ===================== HERO ===================== */
+.hero{min-height:100vh;display:flex;flex-direction:column;justify-content:center;padding-top:90px;position:relative;overflow:hidden}
+.hero-glow{position:absolute;width:900px;height:900px;background:radial-gradient(circle,rgba(10,132,255,.06) 0%,transparent 70%);top:-250px;left:50%;transform:translateX(-50%);pointer-events:none}
+.hero-eyebrow{display:inline-flex;align-items:center;gap:8px;padding:5px 12px;background:var(--blue-dim);border:1px solid rgba(10,132,255,.2);border-radius:100px;margin-bottom:28px}
+.eyebrow-dot{width:6px;height:6px;background:var(--blue);border-radius:50%;animation:pulseDot 2s ease-in-out infinite}
+.hero-eyebrow span{font-size:12px;font-weight:500;color:var(--blue)}
+.hero-hl em{font-style:normal;color:var(--blue)}
+.hero-sub{margin-top:22px;max-width:500px;font-size:18px;line-height:1.65;color:var(--fg-2)}
+.hero-actions{display:flex;align-items:center;gap:12px;margin-top:36px;flex-wrap:wrap}
+.hero-fine{margin-top:16px;font-size:12px;color:var(--fg-3)}
+
+/* Product frame */
+.product-frame{margin-top:72px;border-radius:16px;border:1px solid var(--border-2);background:var(--bg-card);overflow:hidden;box-shadow:0 48px 96px rgba(0,0,0,.55),0 0 0 1px rgba(255,255,255,.03)}
+.frame-bar{height:38px;background:var(--bg-raised);border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 14px;gap:7px}
+.dot{width:10px;height:10px;border-radius:50%}
+.dot-r{background:#FF453A}.dot-y{background:#FFD60A}.dot-g{background:#30D158}
+.frame-body{display:grid;grid-template-columns:200px 1fr;gap:14px;padding:20px;height:340px}
+@media(max-width:700px){.frame-body{grid-template-columns:1fr;height:auto}}
+.frame-sidebar{background:var(--bg);border-radius:10px;padding:14px;display:flex;flex-direction:column;gap:2px}
+.sb-label{font-size:11px;font-weight:600;color:var(--fg);padding:8px 10px;margin-bottom:4px}
+.sb-item{padding:7px 10px;border-radius:7px;font-size:11px;color:var(--fg-2);display:flex;align-items:center;gap:7px}
+.sb-item.on{background:var(--blue-dim);color:var(--blue);font-weight:500}
+.frame-main{display:flex;flex-direction:column;gap:8px;overflow:hidden}
+.rc{background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;display:flex;align-items:flex-start;gap:10px}
+.rc.u{border-left:2px solid #FF453A}.rc.h{border-left:2px solid #FF9F0A}.rc.ok{border-left:2px solid #30D158}
+.av{width:26px;height:26px;border-radius:50%;background:var(--bg-raised);display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:700;color:var(--fg-3);flex-shrink:0}
+.rb{flex:1;min-width:0}
+.rm{display:flex;align-items:center;gap:5px;margin-bottom:3px}
+.ra{font-size:11px;font-weight:600;color:var(--fg)}
+.rs{font-size:10px;color:#FFD60A}
+.rt{font-size:11px;color:var(--fg-2);line-height:1.45;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.tag{display:inline-block;margin-top:5px;padding:2px 6px;border-radius:4px;font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.tag-crash{background:rgba(255,69,58,.1);color:#FF453A}
+.tag-perf{background:rgba(255,159,10,.1);color:#FF9F0A}
+.tag-ok{background:rgba(48,209,88,.1);color:#30D158}
+.ai-badge{flex-shrink:0;padding:3px 7px;background:var(--blue-dim);border:1px solid rgba(10,132,255,.2);border-radius:6px;font-size:9px;font-weight:700;color:var(--blue);white-space:nowrap;align-self:flex-start}
+
+/* ===================== TICKER ===================== */
+.ticker{border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:14px 0;overflow:hidden}
+.ticker-track{display:flex;gap:44px;width:max-content;animation:ticker 28s linear infinite}
+.ti{display:flex;align-items:center;gap:10px;font-size:12px;color:var(--fg-3);white-space:nowrap}
+.ti b{color:var(--fg);font-weight:500}
+.ti-sep{color:var(--border-2)}
+
+/* ===================== STATS ===================== */
+.stats-row{border-top:1px solid var(--border);border-bottom:1px solid var(--border);padding:48px 0}
+.stats-grid{display:grid;grid-template-columns:repeat(4,1fr)}
+@media(max-width:700px){.stats-grid{grid-template-columns:repeat(2,1fr);gap:28px}}
+.stat{padding:0 36px;border-right:1px solid var(--border)}
+.stat:first-child{padding-left:0}
+.stat:last-child{border-right:none}
+@media(max-width:700px){.stat{padding:0;border-right:none}}
+.stat-n{font-size:clamp(30px,4vw,48px);font-weight:800;letter-spacing:-.03em;line-height:1}
+.stat-n span{color:var(--blue)}
+.stat-l{font-size:12px;color:var(--fg-3);margin-top:5px;line-height:1.5}
+
+/* ===================== PROBLEM ===================== */
+.ed-num{font-size:clamp(72px,12vw,180px);font-weight:900;letter-spacing:-.05em;line-height:.85;color:transparent;-webkit-text-stroke:1px rgba(255,255,255,.05);user-select:none;margin-bottom:-16px}
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:72px;align-items:center}
+@media(max-width:768px){.two-col{grid-template-columns:1fr;gap:40px}}
+.problem-list{list-style:none;display:flex;flex-direction:column;gap:14px;margin-top:28px}
+.pi{display:flex;align-items:flex-start;gap:14px;padding:18px;border:1px solid var(--border);border-radius:14px;background:var(--bg-card);transition:border-color .2s}
+.pi:hover{border-color:var(--border-2)}
+.pi-icon{width:34px;height:34px;border-radius:10px;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:15px}
+.pi-icon.r{background:rgba(255,69,58,.1)}
+.pi-icon.o{background:rgba(255,159,10,.1)}
+.pi-icon.y{background:rgba(255,214,10,.1)}
+.pi h4{font-size:13px;font-weight:600;color:var(--fg);margin-bottom:4px}
+.pi p{font-size:12px;color:var(--fg-2);line-height:1.55}
+
+/* ===================== FEATURES ===================== */
+.feat-header{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:end;margin-bottom:56px}
+@media(max-width:768px){.feat-header{grid-template-columns:1fr;gap:20px}}
+.feat-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:1px;background:var(--border);border:1px solid var(--border);border-radius:20px;overflow:hidden}
+@media(max-width:900px){.feat-grid{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:560px){.feat-grid{grid-template-columns:1fr}}
+.fc{background:var(--bg);padding:28px;transition:background .2s;position:relative}
+.fc:hover{background:var(--bg-card)}
+.fc-icon{width:38px;height:38px;border-radius:11px;background:var(--blue-dim);border:1px solid rgba(10,132,255,.13);display:flex;align-items:center;justify-content:center;margin-bottom:18px;font-size:17px}
+.fc h3{font-size:14px;font-weight:600;color:var(--fg);margin-bottom:7px}
+.fc p{font-size:12px;color:var(--fg-2);line-height:1.6}
+.fc-tag{position:absolute;top:14px;right:14px;padding:2px 7px;background:rgba(48,209,88,.1);color:#30D158;border-radius:5px;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase}
+
+/* ===================== HOW IT WORKS ===================== */
+.how-grid{display:grid;grid-template-columns:1fr 1fr;gap:72px;align-items:start}
+@media(max-width:768px){.how-grid{grid-template-columns:1fr;gap:40px}}
+.step{display:flex;gap:18px;padding:22px 0;border-bottom:1px solid var(--border);cursor:pointer;position:relative;transition:opacity .2s}
+.step:last-child{border-bottom:none}
+.step:not(.on){opacity:.35}
+.step-bar{position:absolute;left:-1px;top:0;bottom:0;width:2px;background:var(--blue);opacity:0;transition:opacity .2s}
+.step.on .step-bar{opacity:1}
+.step-num{font-size:10px;font-weight:700;letter-spacing:.05em;color:var(--fg-3);padding-top:3px;min-width:22px}
+.step.on .step-num{color:var(--blue)}
+.step h3{font-size:15px;font-weight:600;color:var(--fg);margin-bottom:6px}
+.step p{font-size:12px;color:var(--fg-2);line-height:1.6}
+.how-visual{background:var(--bg-card);border:1px solid var(--border-2);border-radius:18px;overflow:hidden;aspect-ratio:4/3;position:relative;top:0}
+.vp{position:absolute;inset:0;padding:20px;opacity:0;transition:opacity .35s;pointer-events:none}
+.vp.on{opacity:1;pointer-events:auto}
+
+/* how-visual panels */
+.connect-c{display:flex;align-items:center;justify-content:center;height:100%}
+.connect-row{display:flex;align-items:center;gap:16px}
+.store-pill{padding:12px 18px;background:var(--bg-raised);border:1px solid var(--border-2);border-radius:12px;font-size:12px;font-weight:600;color:var(--fg);display:flex;align-items:center;gap:7px}
+.c-arrow{width:50px;height:1px;background:linear-gradient(90deg,var(--border-2),var(--blue),var(--border-2));position:relative}
+.c-arrow::after{content:'→';position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);color:var(--blue);font-size:13px;background:var(--bg-card);padding:0 4px}
+.metric-chips{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.mc{background:var(--bg-raised);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.mc-l{font-size:10px;color:var(--fg-3);margin-bottom:3px}
+.mc-v{font-size:18px;font-weight:700;color:var(--fg)}
+.mc-d{font-size:10px;color:#30D158;margin-top:2px}
+.mc-d.neg{color:#FF453A}
+.draft-box{height:100%;display:flex;flex-direction:column;gap:10px;background:var(--bg);border:1px solid var(--border);border-radius:12px;padding:14px}
+.draft-header{display:flex;align-items:center;justify-content:space-between}
+.draft-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-3)}
+.draft-ai{padding:2px 7px;background:var(--blue-dim);border:1px solid rgba(10,132,255,.2);border-radius:5px;font-size:8px;font-weight:700;color:var(--blue);text-transform:uppercase;letter-spacing:.05em}
+.draft-txt{font-size:11px;color:var(--fg-2);line-height:1.7;flex:1}
+.draft-acts{display:flex;gap:7px}
+.dbtn{padding:6px 12px;border-radius:7px;font-size:11px;font-weight:600;cursor:pointer;border:none;font-family:var(--font)}
+.dbtn-pub{background:var(--blue);color:#fff}
+.dbtn-sec{background:var(--bg-raised);color:var(--fg-2)}
+.alert-box{background:rgba(255,69,58,.07);border:1px solid rgba(255,69,58,.2);border-radius:12px;padding:16px;margin-bottom:10px}
+.alert-title{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:12px;font-weight:600;color:#FF453A}
+.alert-body{font-size:11px;color:var(--fg-2);line-height:1.6}
+.alert-tags{display:flex;gap:5px;margin-top:10px}
+.alert-tag{padding:2px 7px;background:rgba(255,69,58,.1);color:#FF453A;border-radius:5px;font-size:9px;font-weight:700}
+.email-row{padding:10px 12px;background:var(--bg);border:1px solid var(--border);border-radius:9px;font-size:11px;color:var(--fg-2)}
+
+/* ===================== PRICING ===================== */
+.pricing-head{text-align:center}
+.plan-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:52px}
+@media(max-width:860px){.plan-grid{grid-template-columns:1fr;max-width:380px;margin-left:auto;margin-right:auto}}
+.plan{background:var(--bg-card);border:1px solid var(--border);border-radius:20px;padding:28px;position:relative;transition:border-color .2s,transform .2s}
+.plan:hover{border-color:var(--border-2);transform:translateY(-2px)}
+.plan.feat{border-color:rgba(10,132,255,.4);background:linear-gradient(160deg,rgba(10,132,255,.05),var(--bg-card))}
+.plan.feat:hover{border-color:rgba(10,132,255,.6)}
+.plan-badge{position:absolute;top:-11px;left:50%;transform:translateX(-50%);padding:3px 12px;background:var(--blue);color:#fff;border-radius:100px;font-size:9px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+.plan-name{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--fg-3);margin-bottom:14px}
+.plan-price{display:flex;align-items:baseline;gap:3px;margin-bottom:5px}
+.plan-amt{font-size:38px;font-weight:800;letter-spacing:-.03em;color:var(--fg)}
+.plan-per{font-size:13px;color:var(--fg-3)}
+.plan-desc{font-size:12px;color:var(--fg-2);margin-bottom:24px;line-height:1.55}
+.plan-div{height:1px;background:var(--border);margin-bottom:20px}
+.plan-feats{list-style:none;display:flex;flex-direction:column;gap:10px;margin-bottom:24px}
+.pf{display:flex;align-items:center;gap:9px;font-size:12px;color:var(--fg-2)}
+.pfc{width:15px;height:15px;border-radius:50%;background:rgba(48,209,88,.1);color:#30D158;display:flex;align-items:center;justify-content:center;font-size:8px;flex-shrink:0}
+.plan-btn{width:100%;padding:11px;border-radius:11px;font-size:13px;font-weight:600;cursor:pointer;border:none;text-align:center;text-decoration:none;display:block;transition:all .2s;font-family:var(--font)}
+.plan-btn-def{background:var(--bg-raised);color:var(--fg-2)}
+.plan-btn-def:hover{background:rgba(255,255,255,.08);color:var(--fg)}
+.plan-btn-feat{background:var(--blue);color:#fff}
+.plan-btn-feat:hover{background:#006EE0}
+
+/* ===================== CTA ===================== */
+.cta-wrap{padding:120px 0}
+.cta-inner{background:var(--bg-card);border:1px solid var(--border-2);border-radius:24px;padding:72px 56px;text-align:center;position:relative;overflow:hidden}
+@media(max-width:700px){.cta-inner{padding:48px 24px}}
+.cta-glow{position:absolute;inset:0;background:radial-gradient(ellipse 60% 50% at 50% 0%,rgba(10,132,255,.07) 0%,transparent 100%);pointer-events:none}
+.cta-acts{display:flex;align-items:center;justify-content:center;gap:12px;margin-top:28px;flex-wrap:wrap}
+
+/* ===================== FOOTER ===================== */
+footer{border-top:1px solid var(--border);padding:40px 0}
+.foot-inner{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:16px}
+.foot-links{display:flex;gap:22px;list-style:none;flex-wrap:wrap}
+.foot-links a{font-size:12px;color:var(--fg-3);text-decoration:none;transition:color .2s}
+.foot-links a:hover{color:var(--fg-2)}
+.foot-copy{font-size:12px;color:var(--fg-3)}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav id="nav">
+  <div class="container">
+    <div class="nav-inner">
+      <a href="#" class="logo">
+        <div class="logo-mark">R</div>
+        <span class="logo-name">ReviewBox</span>
+      </a>
+      <ul class="nav-links">
+        <li><a href="#features">Features</a></li>
+        <li><a href="#how">How it works</a></li>
+        <li><a href="#pricing">Pricing</a></li>
+        <li><a href="https://help.tryreviewbox.com">Docs</a></li>
+      </ul>
+      <div class="nav-right">
+        <a href="/sign-in" class="btn btn-ghost">Sign in</a>
+        <a href="/sign-up" class="btn btn-primary">Start free trial →</a>
+      </div>
+    </div>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-glow"></div>
+  <div class="container">
+    <div class="hero-eyebrow afu">
+      <div class="eyebrow-dot"></div>
+      <span>Google Play &amp; App Store — both covered</span>
+    </div>
+    <h1 class="display-xl hero-hl afu d1">
+      Every review.<br><em>Replied.</em>
+    </h1>
+    <p class="hero-sub afu d2">
+      ReviewBox watches your app store reviews around the clock, triages them by priority, and drafts AI replies in your brand's voice — so nothing falls through.
+    </p>
+    <div class="hero-actions afu d3">
+      <a href="/sign-up" class="btn btn-primary btn-lg">Start free — 14 days →</a>
+      <a href="#how" class="btn btn-outline btn-lg">See how it works</a>
+    </div>
+    <p class="hero-fine afu d4">No credit card · Cancel anytime</p>
+
+    <!-- Product preview -->
+    <div class="product-frame afu d5">
+      <div class="frame-bar">
+        <div class="dot dot-r"></div>
+        <div class="dot dot-y"></div>
+        <div class="dot dot-g"></div>
+      </div>
+      <div class="frame-body">
+        <div class="frame-sidebar">
+          <div class="sb-label">ReviewBox</div>
+          <div class="sb-item">📊 Dashboard</div>
+          <div class="sb-item on">● Reviews</div>
+          <div class="sb-item">⚡ Incidents</div>
+          <div class="sb-item">🚀 Releases</div>
+          <div class="sb-item">💬 Reply Kit</div>
+          <div class="sb-item">📈 Sentiment</div>
+          <div class="sb-item">⚙️ Automations</div>
+        </div>
+        <div class="frame-main">
+          <div class="rc u">
+            <div class="av">JK</div>
+            <div class="rb">
+              <div class="rm"><span class="ra">James K.</span><span class="rs">★★☆☆☆</span></div>
+              <p class="rt">App crashes every time I try to check out. Lost my cart twice. Very frustrating.</p>
+              <span class="tag tag-crash">crash</span>
+            </div>
+            <span class="ai-badge">AI Draft ✦</span>
+          </div>
+          <div class="rc h">
+            <div class="av">SR</div>
+            <div class="rb">
+              <div class="rm"><span class="ra">Sarah R.</span><span class="rs">★★★☆☆</span></div>
+              <p class="rt">Loading is way too slow since the last update. Everything lags now.</p>
+              <span class="tag tag-perf">performance</span>
+            </div>
+            <span class="ai-badge">AI Draft ✦</span>
+          </div>
+          <div class="rc ok">
+            <div class="av">ML</div>
+            <div class="rb">
+              <div class="rm"><span class="ra">Maria L.</span><span class="rs">★★★★★</span></div>
+              <p class="rt">Best app in its category. Clean UI and support actually responds!</p>
+              <span class="tag tag-ok">positive</span>
+            </div>
+            <span class="ai-badge">Replied ✓</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- TICKER -->
+<div class="ticker">
+  <div class="ticker-track">
+    <div class="ti"><b>AI reply drafts</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>Google Play sync</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>App Store sync</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>Sentiment analysis</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>Rating spike alerts</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>Crash detection</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>Priority triage</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>Knowledge base</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>Release tracking</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>Team workflows</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>AI reply drafts</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>Google Play sync</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>App Store sync</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>Sentiment analysis</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>Rating spike alerts</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>Crash detection</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>Priority triage</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>Knowledge base</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>Release tracking</b><span class="ti-sep">·</span></div>
+    <div class="ti"><b>Team workflows</b><span class="ti-sep">·</span></div>
+  </div>
+</div>
+
+<!-- STATS -->
+<section class="stats-row">
+  <div class="container">
+    <div class="stats-grid">
+      <div class="stat reveal">
+        <div class="stat-n"><span>4h</span></div>
+        <div class="stat-l">Max time before your review<br>is triaged and prioritised</div>
+      </div>
+      <div class="stat reveal rd1">
+        <div class="stat-n">73<span>%</span></div>
+        <div class="stat-l">Fewer tokens used vs.<br>raw AI prompts</div>
+      </div>
+      <div class="stat reveal rd2">
+        <div class="stat-n"><span>$0</span></div>
+        <div class="stat-l">Cost until you hit<br>6K AI requests/day</div>
+      </div>
+      <div class="stat reveal rd3">
+        <div class="stat-n">2<span>×</span></div>
+        <div class="stat-l">Stores covered —<br>Google Play &amp; App Store</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PROBLEM -->
+<section class="section">
+  <div class="container">
+    <div class="two-col">
+      <div>
+        <div class="ed-num reveal">01</div>
+        <p class="label reveal" style="margin-top:4px">The Problem</p>
+        <h2 class="display-md reveal" style="margin-top:14px">
+          Reviews pile up.<br>Ratings drop.<br>You find out last.
+        </h2>
+        <p class="reveal" style="margin-top:18px;font-size:16px;line-height:1.7;color:var(--fg-2);max-width:420px">
+          Mobile teams are flying blind — reviews land faster than anyone can read, crashes go unacknowledged, and every unanswered 1-star drags your store ranking down.
+        </p>
+      </div>
+      <div>
+        <ul class="problem-list">
+          <li class="pi reveal">
+            <div class="pi-icon r">⚡</div>
+            <div>
+              <h4>You miss the critical ones</h4>
+              <p>Crash reports and billing complaints get buried in routine feedback. By the time you find them, the damage is done.</p>
+            </div>
+          </li>
+          <li class="pi reveal rd1">
+            <div class="pi-icon o">⏱</div>
+            <div>
+              <h4>Replying takes forever</h4>
+              <p>Open the store console, read context, write a thoughtful reply — repeat 40 times a week. It's a job nobody hired for.</p>
+            </div>
+          </li>
+          <li class="pi reveal rd2">
+            <div class="pi-icon y">📉</div>
+            <div>
+              <h4>Rating drops blindside you</h4>
+              <p>A bad release ships. Ratings spike downward. You find out three days later when the CEO notices the score changed.</p>
+            </div>
+          </li>
+        </ul>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- FEATURES -->
+<section class="section" id="features" style="padding-top:0">
+  <div class="container">
+    <div class="feat-header">
+      <div>
+        <div class="ed-num reveal">02</div>
+        <p class="label reveal" style="margin-top:4px">Features</p>
+        <h2 class="display-md reveal" style="margin-top:14px">
+          Everything your<br>review operation needs.
+        </h2>
+      </div>
+      <p class="reveal" style="font-size:16px;line-height:1.7;color:var(--fg-2)">
+        One tool that watches both stores, triages every review, drafts replies in your voice, and pings you before a bad release becomes a crisis.
+      </p>
+    </div>
+
+    <div class="feat-grid reveal">
+      <div class="fc">
+        <div class="fc-icon">🔄</div>
+        <h3>Auto-sync</h3>
+        <p>Pulls reviews from Google Play and App Store every 4 hours. No manual exports, no missed batches.</p>
+        <span class="fc-tag">Live</span>
+      </div>
+      <div class="fc">
+        <div class="fc-icon">🧠</div>
+        <h3>AI triage</h3>
+        <p>Every review gets a sentiment score, priority, and issue tag — crash, billing, login, performance — instantly.</p>
+      </div>
+      <div class="fc">
+        <div class="fc-icon">✍️</div>
+        <h3>Reply drafts</h3>
+        <p>One click generates a reply in your brand's voice, grounded by your knowledge base. Edit or publish directly.</p>
+      </div>
+      <div class="fc">
+        <div class="fc-icon">🚨</div>
+        <h3>Spike alerts</h3>
+        <p>5+ low reviews on the same version in 24 hours triggers an email alert before it escalates to an incident.</p>
+      </div>
+      <div class="fc">
+        <div class="fc-icon">📊</div>
+        <h3>Sentiment trends</h3>
+        <p>Track positive/negative ratio over time. Spot the exact release where sentiment shifted and what topics are rising.</p>
+      </div>
+      <div class="fc">
+        <div class="fc-icon">⚡</div>
+        <h3>Automations</h3>
+        <p>Build rules: IF rating ≤ 2 AND tag = crash → escalate to engineering + draft reply. Runs 24/7 without you.</p>
+      </div>
+      <div class="fc">
+        <div class="fc-icon">📦</div>
+        <h3>Release health</h3>
+        <p>Each version gets a health score. Rating delta, complaint volume, and rollout percentage side by side.</p>
+      </div>
+      <div class="fc">
+        <div class="fc-icon">🔑</div>
+        <h3>Reply Kit</h3>
+        <p>Knowledge base of approved answers, template library, brand voice control. AI replies that actually sound like you.</p>
+      </div>
+      <div class="fc">
+        <div class="fc-icon">🔍</div>
+        <h3>ASO keywords</h3>
+        <p>Track keyword rankings, monitor position changes, get AI suggestions tuned to your app category.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- HOW IT WORKS -->
+<section class="section" id="how">
+  <div class="container">
+    <div style="margin-bottom:56px">
+      <div class="ed-num reveal">03</div>
+      <p class="label reveal" style="margin-top:4px">How it works</p>
+      <h2 class="display-md reveal" style="margin-top:14px;max-width:520px">
+        Set up in minutes.<br>Running in hours.
+      </h2>
+    </div>
+
+    <div class="how-grid">
+      <div id="steps">
+        <div class="step on" data-i="0">
+          <div class="step-bar"></div>
+          <div class="step-num">01</div>
+          <div>
+            <h3>Connect your stores</h3>
+            <p>Link Google Play via a service account. App Store connects via App Store Connect API keys. One-time, under 5 minutes.</p>
+          </div>
+        </div>
+        <div class="step" data-i="1">
+          <div class="step-bar"></div>
+          <div class="step-num">02</div>
+          <div>
+            <h3>Reviews sync automatically</h3>
+            <p>ReviewBox pulls new reviews every 4 hours and enriches each one with sentiment, priority, and issue tags on arrival.</p>
+          </div>
+        </div>
+        <div class="step" data-i="2">
+          <div class="step-bar"></div>
+          <div class="step-num">03</div>
+          <div>
+            <h3>AI drafts replies for you</h3>
+            <p>Click any review to see a ready-to-publish AI draft grounded in your knowledge base and tuned to your brand voice.</p>
+          </div>
+        </div>
+        <div class="step" data-i="3">
+          <div class="step-bar"></div>
+          <div class="step-num">04</div>
+          <div>
+            <h3>Get alerted. Stay ahead.</h3>
+            <p>Rating spikes, crash clusters, and unreplied reviews trigger alerts before they become incidents. You always know first.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="how-visual">
+        <!-- Panel 0: Connect -->
+        <div class="vp on" id="vp-0">
+          <div class="connect-c">
+            <div class="connect-row">
+              <div class="store-pill">🤖 Google Play</div>
+              <div class="c-arrow"></div>
+              <div class="logo-mark" style="width:42px;height:42px;font-size:18px;border-radius:12px">R</div>
+              <div class="c-arrow" style="transform:scaleX(-1)"></div>
+              <div class="store-pill">🍎 App Store</div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 1: Triage -->
+        <div class="vp" id="vp-1">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-3);margin-bottom:8px">Live review feed</div>
+          <div class="rc u" style="margin-bottom:7px">
+            <div class="av" style="font-size:8px">JK</div>
+            <div class="rb">
+              <div class="rm"><span class="ra">James K.</span><span class="rs">★★☆☆☆</span></div>
+              <p class="rt">App crashes on checkout every time.</p>
+              <span class="tag tag-crash">crash · urgent</span>
+            </div>
+          </div>
+          <div class="rc h" style="margin-bottom:12px">
+            <div class="av" style="font-size:8px">SR</div>
+            <div class="rb">
+              <div class="rm"><span class="ra">Sarah R.</span><span class="rs">★★★☆☆</span></div>
+              <p class="rt">Really slow since the update.</p>
+              <span class="tag tag-perf">performance · high</span>
+            </div>
+          </div>
+          <div style="padding:12px;background:var(--bg);border-radius:9px;border:1px solid var(--border)">
+            <div style="font-size:10px;color:var(--fg-3);margin-bottom:4px">Enriched in</div>
+            <div style="font-size:22px;font-weight:800;color:var(--fg)">&lt;1<span style="font-size:12px;font-weight:400;color:var(--fg-3)">s per review</span></div>
+          </div>
+        </div>
+
+        <!-- Panel 2: AI Draft -->
+        <div class="vp" id="vp-2">
+          <div class="draft-box">
+            <div class="draft-header">
+              <span class="draft-lbl">AI Reply Draft</span>
+              <span class="draft-ai">✦ AI</span>
+            </div>
+            <p class="draft-txt">
+              Hi James — really sorry about the checkout crash, this is our top priority right now. Our engineering team has a fix in review. Could you email us at hello@tryreviewbox.com with your device model so we can make sure it's covered? We'll update you the moment it ships.
+            </p>
+            <div class="draft-acts">
+              <button class="dbtn dbtn-pub">Publish reply</button>
+              <button class="dbtn dbtn-sec">Edit</button>
+              <button class="dbtn dbtn-sec">Regenerate</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Panel 3: Alert -->
+        <div class="vp" id="vp-3">
+          <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--fg-3);margin-bottom:10px">Alert triggered</div>
+          <div class="alert-box">
+            <div class="alert-title">🚨 Rating spike detected</div>
+            <p class="alert-body">7 reviews rated ≤2★ on v4.2.1 in the last 24h. 6 tagged <strong>crash</strong>. Above your threshold of 5.</p>
+            <div class="alert-tags">
+              <span class="alert-tag">v4.2.1</span>
+              <span class="alert-tag">crash ×6</span>
+            </div>
+          </div>
+          <div class="email-row">📧 Alert sent to <strong style="color:var(--fg)">you@yourapp.com</strong></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- PRICING -->
+<section class="section" id="pricing">
+  <div class="container">
+    <div class="pricing-head">
+      <div class="ed-num reveal">04</div>
+      <p class="label reveal" style="margin-top:4px">Pricing</p>
+      <h2 class="display-md reveal" style="margin-top:14px">Simple, honest pricing.</h2>
+      <p class="reveal" style="margin-top:14px;font-size:16px;color:var(--fg-2)">Start free. No credit card until you're ready.</p>
+    </div>
+
+    <div class="plan-grid">
+      <div class="plan reveal">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price"><span class="plan-amt">$29</span><span class="plan-per">/mo</span></div>
+        <p class="plan-desc">For indie developers and solo app operators.</p>
+        <div class="plan-div"></div>
+        <ul class="plan-feats">
+          <li class="pf"><div class="pfc">✓</div> 1 app</li>
+          <li class="pf"><div class="pfc">✓</div> Google Play + App Store sync</li>
+          <li class="pf"><div class="pfc">✓</div> AI reply drafts (500/mo)</li>
+          <li class="pf"><div class="pfc">✓</div> Rating spike alerts</li>
+          <li class="pf"><div class="pfc">✓</div> 30-day review history</li>
+        </ul>
+        <a href="/sign-up" class="plan-btn plan-btn-def">Start free trial</a>
+      </div>
+
+      <div class="plan feat reveal rd1">
+        <div class="plan-badge">Most popular</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price"><span class="plan-amt">$79</span><span class="plan-per">/mo</span></div>
+        <p class="plan-desc">For growth-stage teams managing multiple apps.</p>
+        <div class="plan-div"></div>
+        <ul class="plan-feats">
+          <li class="pf"><div class="pfc">✓</div> Up to 5 apps</li>
+          <li class="pf"><div class="pfc">✓</div> Unlimited AI reply drafts</li>
+          <li class="pf"><div class="pfc">✓</div> Automations (unlimited rules)</li>
+          <li class="pf"><div class="pfc">✓</div> Reply Kit + knowledge base</li>
+          <li class="pf"><div class="pfc">✓</div> ASO keyword tracking</li>
+          <li class="pf"><div class="pfc">✓</div> Incident detection</li>
+          <li class="pf"><div class="pfc">✓</div> 3 team seats</li>
+        </ul>
+        <a href="/sign-up" class="plan-btn plan-btn-feat">Start free trial</a>
+      </div>
+
+      <div class="plan reveal rd2">
+        <div class="plan-name">Team</div>
+        <div class="plan-price"><span class="plan-amt">$199</span><span class="plan-per">/mo</span></div>
+        <p class="plan-desc">For product and CX teams operating at scale.</p>
+        <div class="plan-div"></div>
+        <ul class="plan-feats">
+          <li class="pf"><div class="pfc">✓</div> Unlimited apps</li>
+          <li class="pf"><div class="pfc">✓</div> Everything in Pro</li>
+          <li class="pf"><div class="pfc">✓</div> Unlimited team seats</li>
+          <li class="pf"><div class="pfc">✓</div> Weekly digest reports</li>
+          <li class="pf"><div class="pfc">✓</div> GDPR export + deletion</li>
+          <li class="pf"><div class="pfc">✓</div> Priority support</li>
+        </ul>
+        <a href="/sign-up" class="plan-btn plan-btn-def">Start free trial</a>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- CTA -->
+<div class="cta-wrap">
+  <div class="container">
+    <div class="cta-inner reveal">
+      <div class="cta-glow"></div>
+      <p class="label" style="color:var(--blue)">Get started today</p>
+      <h2 class="display-lg" style="margin-top:14px;max-width:600px;margin-left:auto;margin-right:auto">
+        Your reviews are already waiting.
+      </h2>
+      <p style="margin-top:16px;font-size:17px;color:var(--fg-2);max-width:420px;margin-left:auto;margin-right:auto;line-height:1.65">
+        Setup in 5 minutes. First reviews synced in under 4 hours. Free for 14 days.
+      </p>
+      <div class="cta-acts">
+        <a href="/sign-up" class="btn btn-primary btn-lg">Start free trial →</a>
+        <a href="mailto:hello@tryreviewbox.com" class="btn btn-outline btn-lg">Talk to us</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="container">
+    <div class="foot-inner">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div class="logo-mark" style="width:24px;height:24px;font-size:11px">R</div>
+        <span style="font-size:13px;font-weight:600;color:var(--fg-2)">ReviewBox</span>
+        <span class="foot-copy" style="margin-left:10px">© 2026 tryreviewbox.com</span>
+      </div>
+      <ul class="foot-links">
+        <li><a href="/privacy">Privacy</a></li>
+        <li><a href="/terms">Terms</a></li>
+        <li><a href="https://help.tryreviewbox.com">Help</a></li>
+        <li><a href="mailto:hello@tryreviewbox.com">hello@tryreviewbox.com</a></li>
+      </ul>
+    </div>
+  </div>
+</footer>
+
+<script>
+// Nav scroll glass effect
+const nav = document.getElementById('nav');
+addEventListener('scroll', () => nav.classList.toggle('scrolled', scrollY > 20));
+
+// Scroll reveal
+const observer = new IntersectionObserver(
+  entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('in'); }),
+  { threshold: 0.1, rootMargin: '0px 0px -32px 0px' }
+);
+document.querySelectorAll('.reveal').forEach(el => observer.observe(el));
+
+// How-it-works step tabs + auto-advance
+const steps = document.querySelectorAll('#steps .step');
+const panels = document.querySelectorAll('.vp');
+let cur = 0, timer;
+
+function activate(i) {
+  steps.forEach((s, j) => s.classList.toggle('on', j === i));
+  panels.forEach((p, j) => p.classList.toggle('on', j === i));
+  cur = i;
+}
+
+steps.forEach((s, i) => s.addEventListener('click', () => { clearInterval(timer); activate(i); startAuto(); }));
+
+function startAuto() {
+  timer = setInterval(() => activate((cur + 1) % steps.length), 3600);
+}
+startAuto();
+</script>
+</body>
+</html>
