@@ -19,8 +19,11 @@ export async function GET(): Promise<NextResponse<OnboardingState | { error: str
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
+  // Read the JWT claim — but treat it as a HINT, not source of truth.
+  // Clerk JWTs are cached up to 60s, so right after onboarding completes
+  // we'll still see onboarded=false here. The DB is authoritative below.
   const metadata = (session.sessionClaims?.metadata ?? {}) as { onboarded?: boolean };
-  const onboarded = metadata.onboarded === true;
+  const claimOnboarded = metadata.onboarded === true;
 
   const sb = getServiceClient();
 
@@ -65,6 +68,11 @@ export async function GET(): Promise<NextResponse<OnboardingState | { error: str
       };
     }
   }
+
+  // DB is authoritative. If user has a workspace + app, they're onboarded —
+  // regardless of what the stale JWT says. Prevents the post-completion
+  // loop where Clerk metadata hasn't propagated yet.
+  const onboarded = claimOnboarded || (!!workspace && !!app);
 
   return NextResponse.json({
     onboarded,
