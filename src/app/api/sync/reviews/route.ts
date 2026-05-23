@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { clerkClient } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 
-import { getServiceClient } from "@/lib/supabase-server";
+import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { fetchReviews as fetchGooglePlayReviews } from "@/services/google-play/publisher-api";
 import {
   buildJWT,
@@ -293,11 +293,28 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
 //   so we scale to ~500 workspaces per daily cron run without timeouts.
 
 async function handler(req: NextRequest): Promise<NextResponse> {
-  if (!isAuthorized(req)) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  // Two ways to authenticate:
+  // 1. Bearer CRON_SECRET — used by Vercel Cron and the onboarding/complete
+  //    trigger. Grants access to coordinator mode (all workspaces) AND
+  //    worker mode for any workspace.
+  // 2. Signed-in Clerk user — used by "Sync now" buttons in the UI. Only
+  //    allowed to sync their OWN workspace; the workspaceId param is
+  //    overridden with the workspace they're a member of.
+  const cronAuthed = isAuthorized(req);
+  let workspaceId = req.nextUrl.searchParams.get("workspaceId");
 
-  const workspaceId = req.nextUrl.searchParams.get("workspaceId");
+  if (!cronAuthed) {
+    const session = await auth();
+    if (!session?.userId) {
+      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    }
+    // Resolve the user's own workspace — ignore any workspaceId in the URL
+    // to prevent one user from syncing another workspace's reviews.
+    workspaceId = await getWorkspaceId(session.userId);
+    if (!workspaceId) {
+      return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
+    }
+  }
 
   // ── Worker mode ────────────────────────────────────────────────────────────
   if (workspaceId) {
@@ -314,6 +331,8 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   }
 
   // ── Coordinator mode ──────────────────────────────────────────────────────
+  // Only the cron can reach here (signed-in users get pinned to their own
+  // workspace above and end up in worker mode).
   const sb = getServiceClient();
   const { data: workspaces } = await sb
     .from("workspaces")

@@ -67,6 +67,7 @@ const isAppRoute = createRouteMatcher([
   "/api/gdpr(.*)",
   "/api/sentiment(.*)",
   "/api/aso(.*)",
+  "/api/google-play(.*)",
   "/api/reports/export(.*)",
   "/api/health(.*)",
   "/api/admin(.*)",
