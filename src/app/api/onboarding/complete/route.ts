@@ -177,6 +177,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     appId = app.id as string;
   }
 
+  // Kick off the first review sync immediately so the user doesn't have to
+  // wait up to 24h for the daily cron. Fire-and-forget — non-blocking so
+  // the response isn't held up by Google Play API latency.
+  // Google Play sync takes 5–15s; App Store needs credentials so it'll
+  // be a no-op until the user adds them in Settings.
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.startsWith("http")
+      ? process.env.NEXT_PUBLIC_APP_URL
+      : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000";
+  const cronSecret = process.env.CRON_SECRET;
+  void fetch(`${appUrl}/api/sync/reviews?workspaceId=${workspaceId}`, {
+    method: "GET",
+    headers: cronSecret ? { authorization: `Bearer ${cronSecret}` } : {},
+  }).catch((err) => {
+    console.error("[onboarding] first-sync trigger:", err);
+  });
+
   // Mark user as onboarded + set trial window + fire welcome email
   try {
     const clerk = await clerkClient();
