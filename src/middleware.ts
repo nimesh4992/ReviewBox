@@ -127,7 +127,13 @@ export default clerkMiddleware(async (auth, request) => {
     paymentFailedAt?: string;
     accountDeletedAt?: string;
   };
-  const onboarded = metadata.onboarded === true;
+  // Clerk JWTs are cached up to 60s. Right after onboarding completes, the
+  // `onboarded` claim is still false in the user's session token — which
+  // would bounce them back to /onboarding in an infinite loop.
+  // The `rb_onboarded` cookie is set by /api/onboarding/complete and trusted
+  // for 5 minutes, giving the JWT plenty of time to propagate.
+  const cookieOnboarded = request.cookies.get("rb_onboarded")?.value === "1";
+  const onboarded = metadata.onboarded === true || cookieOnboarded;
   const plan = metadata.plan ?? "trial";
   const trialEndsAt = metadata.trialEndsAt;
   const accountDeletedAt = metadata.accountDeletedAt;
