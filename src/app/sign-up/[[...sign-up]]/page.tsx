@@ -1,10 +1,18 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { SignUp } from "@clerk/nextjs";
+import { auth } from "@clerk/nextjs/server";
 
 import { AuthShell } from "@/components/auth/auth-shell";
 import { CLERK_APPEARANCE } from "@/components/auth/clerk-appearance";
 
-export default function SignUpPage() {
+export default async function SignUpPage() {
+  // Already signed in → skip the blank form, send them onward.
+  const { userId } = await auth();
+  if (userId) {
+    redirect("/dashboard");
+  }
+
   return (
     <AuthShell
       heading="Create your account"

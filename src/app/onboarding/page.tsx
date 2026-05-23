@@ -1,10 +1,12 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { useClerk } from "@clerk/nextjs";
 
-import { Check, ChevronRight, Plug, X, Loader2, Zap, MessageSquare, Bell } from "lucide-react";
+import {
+  Check, ChevronRight, Plug, X, Loader2, Zap, MessageSquare, Bell,
+  Search, ArrowLeft,
+} from "lucide-react";
 import { track } from "@/lib/analytics";
 
 import { Button } from "@/components/ui/button";
@@ -15,12 +17,19 @@ import { APP_CATEGORIES, type AppCategory } from "@/lib/brand-voice-stubs";
 
 type Platform = "google-play" | "app-store";
 
+interface SelectedApp {
+  storeId: string;
+  name: string;
+  developer: string;
+  icon: string | null;
+}
+
 interface FormState {
   workspaceName: string;
   workspaceSlug: string;
-  appName: string;
   platform: Platform;
-  storeId: string;
+  /** Selected app from search OR manual entry. null = nothing picked yet. */
+  selectedApp: SelectedApp | null;
   appCategory: AppCategory | null;
 }
 
@@ -52,20 +61,19 @@ type SlugStatus =
   | { state: "taken"; suggestions: string[] };
 
 export default function OnboardingPage() {
-  const router = useRouter();
   const { session } = useClerk();
   const [step, setStep] = useState(1);
   const [form, setForm] = useState<FormState>({
     workspaceName: "",
     workspaceSlug: "",
-    appName: "",
     platform: "google-play",
-    storeId: "",
+    selectedApp: null,
     appCategory: null,
   });
   const [slugError, setSlugError] = useState<string | null>(null);
   const [slugStatus, setSlugStatus] = useState<SlugStatus>({ state: "idle" });
   const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [hydrating, setHydrating] = useState(true);
   const slugCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -76,7 +84,7 @@ export default function OnboardingPage() {
       try {
         const res = await fetch("/api/onboarding/state");
         if (!res.ok) return;
-        const data = await res.json() as {
+        const data = (await res.json()) as {
           onboarded: boolean;
           hasWorkspace: boolean;
           hasApp: boolean;
@@ -86,10 +94,6 @@ export default function OnboardingPage() {
         if (cancelled) return;
 
         if (data.onboarded) {
-          // Reload session so middleware sees fresh JWT before navigating.
-          // If reload fails (e.g. Clerk hiccup), still navigate — the JWT
-          // will refresh naturally within 60s and the user just gets one
-          // extra middleware bounce instead of being stuck on this page.
           try { await session?.reload(); } catch { /* non-fatal */ }
           window.location.href = "/dashboard";
           return;
@@ -99,9 +103,15 @@ export default function OnboardingPage() {
           ...prev,
           workspaceName: data.workspace?.name ?? prev.workspaceName,
           workspaceSlug: data.workspace?.slug ?? prev.workspaceSlug,
-          appName: data.app?.name ?? prev.appName,
           platform: data.app?.platform === "app_store" ? "app-store" : prev.platform,
-          storeId: data.app?.storeId ?? prev.storeId,
+          selectedApp: data.app
+            ? {
+                storeId: data.app.storeId ?? "",
+                name: data.app.name ?? "",
+                developer: "",
+                icon: null,
+              }
+            : prev.selectedApp,
         }));
 
         if (data.hasWorkspace && data.hasApp) setStep(3);
@@ -113,12 +123,9 @@ export default function OnboardingPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [router]);
+  }, [session]);
 
-  // Debounced slug availability check.
-  // Safety: if the check hangs or errors, fall back to "idle" after 4s
-  // so the user is never stuck. Server-side /api/onboarding/complete
-  // re-validates and returns SLUG_TAKEN (409) if there's a conflict.
+  // Debounced slug availability check
   useEffect(() => {
     if (slugCheckTimer.current) clearTimeout(slugCheckTimer.current);
     const slug = form.workspaceSlug.trim();
@@ -128,36 +135,23 @@ export default function OnboardingPage() {
     }
     setSlugStatus({ state: "checking" });
 
-    // Timeout safety: never stay "checking" longer than 4s.
-    const fallback = setTimeout(() => {
-      setSlugStatus({ state: "idle" });
-    }, 4000);
+    const fallback = setTimeout(() => setSlugStatus({ state: "idle" }), 4000);
 
     slugCheckTimer.current = setTimeout(async () => {
       try {
         const res = await fetch(`/api/onboarding/slug-check?slug=${encodeURIComponent(slug)}`);
         clearTimeout(fallback);
-        if (!res.ok) {
-          // Endpoint failed; let the user proceed — server complete validates.
-          setSlugStatus({ state: "idle" });
-          return;
-        }
-        const data = await res.json() as {
+        if (!res.ok) { setSlugStatus({ state: "idle" }); return; }
+        const data = (await res.json()) as {
           available: boolean;
           reason?: "INVALID" | "RESERVED" | "TAKEN";
           suggestions: string[];
         };
-        if (data.available) {
-          setSlugStatus({ state: "available" });
-        } else if (data.reason === "INVALID") {
-          setSlugStatus({ state: "invalid" });
-        } else if (data.reason === "RESERVED") {
-          setSlugStatus({ state: "reserved", suggestions: data.suggestions });
-        } else {
-          setSlugStatus({ state: "taken", suggestions: data.suggestions });
-        }
+        if (data.available)            setSlugStatus({ state: "available" });
+        else if (data.reason === "INVALID")  setSlugStatus({ state: "invalid" });
+        else if (data.reason === "RESERVED") setSlugStatus({ state: "reserved", suggestions: data.suggestions });
+        else                                 setSlugStatus({ state: "taken",    suggestions: data.suggestions });
       } catch {
-        // Network error — let the user proceed; server complete validates.
         clearTimeout(fallback);
         setSlugStatus({ state: "idle" });
       }
@@ -168,14 +162,16 @@ export default function OnboardingPage() {
     };
   }, [form.workspaceSlug]);
 
-  const update = (key: keyof FormState, value: string | AppCategory | null) => {
-    if (key === "workspaceName" || key === "workspaceSlug") {
-      setSlugError(null);
-    }
+  const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
+    if (key === "workspaceName" || key === "workspaceSlug") setSlugError(null);
     setForm((prev) => {
       const next = { ...prev, [key]: value };
       if (key === "workspaceName" && typeof value === "string") {
         next.workspaceSlug = slugify(value);
+      }
+      // Changing platform invalidates the selected app
+      if (key === "platform") {
+        next.selectedApp = null;
       }
       return next;
     });
@@ -183,10 +179,17 @@ export default function OnboardingPage() {
 
   const next = () => setStep((s) => Math.min(s + 1, 4));
 
-  // Called when the user clicks Continue / Skip on step 3 (Connect)
   const saveAndAdvance = async () => {
+    if (!form.selectedApp) {
+      setSaveError("Please pick your app first.");
+      setStep(2);
+      return;
+    }
+
     setSaving(true);
+    setSaveError(null);
     setSlugError(null);
+
     try {
       const res = await fetch("/api/onboarding/complete", {
         method: "POST",
@@ -194,30 +197,29 @@ export default function OnboardingPage() {
         body: JSON.stringify({
           workspaceName: form.workspaceName,
           workspaceSlug: form.workspaceSlug,
-          appName: form.appName,
-          platform: form.platform,
-          storeId: form.storeId,
-          appCategory: form.appCategory,
+          appName:       form.selectedApp.name,
+          platform:      form.platform,
+          storeId:       form.selectedApp.storeId,
+          appCategory:   form.appCategory,
         }),
       });
 
       if (res.status === 409) {
         setSlugError("Workspace URL already taken — try a different one.");
-        // Go back to step 1 so user can fix the slug
         setStep(1);
         return;
       }
 
       if (!res.ok) {
-        setSlugError("Something went wrong. Please try again.");
+        setSaveError("Something went wrong. Please try again.");
         return;
       }
 
-      await res.json() as OnboardingResult;
+      await (res.json() as Promise<OnboardingResult>);
       track({ name: "onboarding_completed", properties: { platform: form.platform } });
       next();
     } catch {
-      setSlugError("Network error. Please try again.");
+      setSaveError("Network error. Please try again.");
     } finally {
       setSaving(false);
     }
@@ -225,19 +227,15 @@ export default function OnboardingPage() {
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#0d0f14] px-4 py-12">
-      {/* Logo mark */}
       <div className="mb-10 flex items-center gap-2.5">
         <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0A84FF]">
           <span className="text-sm font-bold text-white">R</span>
         </div>
-        <span className="text-lg font-semibold tracking-tight text-white">
-          ReviewBox
-        </span>
+        <span className="text-lg font-semibold tracking-tight text-white">ReviewBox</span>
       </div>
 
-      {/* Card */}
       <div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#1a1d27] p-8">
-        {/* Step dots + progress bar */}
+        {/* Step indicator + progress bar */}
         <div className="mb-8">
           <div className="mb-3 flex items-center justify-between">
             {STEPS.map((s, i) => {
@@ -246,29 +244,24 @@ export default function OnboardingPage() {
               const done = n < step;
               return (
                 <div key={s.label} className="flex flex-col items-center gap-1">
-                  <div
-                    className={cn(
-                      "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-colors",
-                      done && "bg-[#0A84FF] text-white",
-                      active && "bg-[#0A84FF] text-white ring-2 ring-[#0A84FF]/30",
-                      !done && !active && "bg-white/[0.06] text-white/30",
-                    )}
-                  >
+                  <div className={cn(
+                    "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-colors",
+                    done && "bg-[#0A84FF] text-white",
+                    active && "bg-[#0A84FF] text-white ring-2 ring-[#0A84FF]/30",
+                    !done && !active && "bg-white/[0.06] text-white/30",
+                  )}>
                     {done ? "✓" : n}
                   </div>
-                  <span
-                    className={cn(
-                      "text-[10px] font-medium",
-                      active ? "text-white/70" : "text-white/25",
-                    )}
-                  >
+                  <span className={cn(
+                    "text-[10px] font-medium",
+                    active ? "text-white/70" : "text-white/25",
+                  )}>
                     {s.label}
                   </span>
                 </div>
               );
             })}
           </div>
-          {/* Progress bar */}
           <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
             <div
               className="h-full rounded-full bg-[#0A84FF] transition-all duration-500"
@@ -277,7 +270,6 @@ export default function OnboardingPage() {
           </div>
         </div>
 
-        {/* Step content */}
         {hydrating && (
           <div className="flex items-center justify-center py-20 text-white/40">
             <Loader2 className="size-5 animate-spin" strokeWidth={1.5} />
@@ -286,32 +278,33 @@ export default function OnboardingPage() {
         {!hydrating && step === 1 && (
           <StepWorkspace
             form={form}
-            update={update}
+            update={updateField}
             onNext={next}
             slugError={slugError}
             slugStatus={slugStatus}
           />
         )}
         {!hydrating && step === 2 && (
-          <StepApp form={form} update={update} onNext={next} />
+          <StepApp form={form} update={updateField} onBack={() => setStep(1)} onNext={next} />
         )}
         {!hydrating && step === 3 && (
-          <StepConnect platform={form.platform} onNext={saveAndAdvance} saving={saving} />
+          <StepConnect
+            form={form}
+            onBack={() => setStep(2)}
+            onNext={saveAndAdvance}
+            saving={saving}
+            error={saveError}
+          />
         )}
         {!hydrating && step === 4 && (
           <StepDone onFinish={async () => {
-            // Reload session so middleware sees onboarded=true before we navigate.
-            // Non-fatal if reload throws — the JWT refreshes within 60s anyway.
             try { await session?.reload(); } catch { /* non-fatal */ }
             window.location.href = "/dashboard";
           }} />
         )}
       </div>
 
-      {/* Step counter */}
-      <p className="mt-6 text-xs text-white/20">
-        Step {step} of {STEPS.length}
-      </p>
+      <p className="mt-6 text-xs text-white/20">Step {step} of {STEPS.length}</p>
     </div>
   );
 }
@@ -328,7 +321,7 @@ function StepWorkspace({
   slugStatus,
 }: {
   form: FormState;
-  update: (k: keyof FormState, v: string) => void;
+  update: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
   onNext: () => void;
   slugError: string | null;
   slugStatus: SlugStatus;
@@ -340,9 +333,6 @@ function StepWorkspace({
         ? "border-emerald-500/60"
         : "border-white/[0.08]";
 
-  // Allow proceed in any state except hard-fail ones (taken/reserved/invalid).
-  // While we're still checking, server complete validates anyway — so we
-  // don't trap the user behind a slow or failed slug-check API call.
   const canContinue =
     form.workspaceName.trim().length > 0 &&
     slugStatus.state !== "taken" &&
@@ -352,9 +342,7 @@ function StepWorkspace({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h2 className="text-lg font-semibold text-white">
-          Tell us about your workspace
-        </h2>
+        <h2 className="text-lg font-semibold text-white">Tell us about your workspace</h2>
         <p className="mt-1 text-sm text-white/40">
           Your workspace is where your team collaborates on reviews.
         </p>
@@ -388,12 +376,8 @@ function StepWorkspace({
               className="flex-1 bg-transparent px-3 py-2 text-sm text-white outline-none placeholder:text-white/20"
             />
             <span className="pr-3">
-              {slugStatus.state === "checking" && (
-                <Loader2 className="size-4 animate-spin text-white/30" strokeWidth={1.5} />
-              )}
-              {slugStatus.state === "available" && (
-                <Check className="size-4 text-emerald-400" strokeWidth={2} />
-              )}
+              {slugStatus.state === "checking" && <Loader2 className="size-4 animate-spin text-white/30" strokeWidth={1.5} />}
+              {slugStatus.state === "available" && <Check className="size-4 text-emerald-400" strokeWidth={2} />}
               {(slugStatus.state === "taken" || slugStatus.state === "reserved" || slugStatus.state === "invalid") && (
                 <X className="size-4 text-red-400" strokeWidth={2} />
               )}
@@ -454,96 +438,275 @@ function SlugSuggestions({
 }
 
 /* ------------------------------------------------------------------ */
-/* Step 2 — App                                                         */
+/* Step 2 — App (search + select)                                       */
 /* ------------------------------------------------------------------ */
+
+interface SearchResult extends SelectedApp {
+  rating: number | null;
+  url: string;
+}
+
+type SearchState =
+  | { kind: "idle" }
+  | { kind: "searching" }
+  | { kind: "ok"; results: SearchResult[] }
+  | { kind: "no-results" }
+  | { kind: "error" };
 
 function StepApp({
   form,
   update,
+  onBack,
   onNext,
 }: {
   form: FormState;
-  update: (k: keyof FormState, v: string | AppCategory | null) => void;
+  update: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
+  onBack: () => void;
   onNext: () => void;
 }) {
+  const [query, setQuery] = useState("");
+  const [state, setState] = useState<SearchState>({ kind: "idle" });
+  const [showManual, setShowManual] = useState(false);
+  const [manualName, setManualName] = useState("");
+  const [manualId, setManualId] = useState("");
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Debounced search whenever query or platform changes
+  useEffect(() => {
+    if (searchTimer.current) clearTimeout(searchTimer.current);
+    if (query.trim().length < 2) {
+      setState({ kind: "idle" });
+      return;
+    }
+    setState({ kind: "searching" });
+    searchTimer.current = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ platform: form.platform, query: query.trim() });
+        const res = await fetch(`/api/onboarding/search-app?${params}`);
+        if (!res.ok) { setState({ kind: "error" }); return; }
+        const data = (await res.json()) as {
+          results: SearchResult[];
+          searchFailed?: boolean;
+        };
+        if (data.searchFailed)         setState({ kind: "error" });
+        else if (data.results.length)  setState({ kind: "ok", results: data.results });
+        else                           setState({ kind: "no-results" });
+      } catch {
+        setState({ kind: "error" });
+      }
+    }, 300);
+    return () => {
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
+  }, [query, form.platform]);
+
+  function pickResult(r: SearchResult) {
+    update("selectedApp", {
+      storeId: r.storeId,
+      name: r.name,
+      developer: r.developer,
+      icon: r.icon,
+    });
+  }
+
+  function clearSelection() {
+    update("selectedApp", null);
+    setShowManual(false);
+    setManualName("");
+    setManualId("");
+  }
+
+  function applyManual() {
+    if (!manualName.trim() || !manualId.trim()) return;
+    update("selectedApp", {
+      storeId: manualId.trim(),
+      name: manualName.trim(),
+      developer: "",
+      icon: null,
+    });
+  }
+
+  const canContinue = !!form.selectedApp;
+
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h2 className="text-lg font-semibold text-white">Add your first app</h2>
+        <h2 className="text-lg font-semibold text-white">Find your app</h2>
         <p className="mt-1 text-sm text-white/40">
-          You can add more apps later from Settings.
+          Pick your app from the store. You can add more later in Settings.
         </p>
       </div>
 
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-white/60 text-xs font-medium uppercase tracking-wide">
-            App name
-          </Label>
-          <Input
-            value={form.appName}
-            onChange={(e) => update("appName", e.target.value)}
-            placeholder="My Awesome App"
-            className="border-white/[0.08] bg-[#0d0f14] text-white placeholder:text-white/20 focus-visible:ring-[#0A84FF]/50 focus-visible:border-[#0A84FF]"
-          />
+      {/* Platform picker */}
+      <div className="flex flex-col gap-1.5">
+        <Label className="text-white/60 text-xs font-medium uppercase tracking-wide">Platform</Label>
+        <div className="grid grid-cols-2 gap-2">
+          {([
+            { value: "google-play", label: "Google Play" },
+            { value: "app-store",   label: "App Store"   },
+          ] as const).map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => { update("platform", opt.value); setQuery(""); setState({ kind: "idle" }); }}
+              className={cn(
+                "rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors",
+                form.platform === opt.value
+                  ? "border-[#0A84FF] bg-[#0A84FF]/10 text-[#0A84FF]"
+                  : "border-white/[0.08] bg-[#0d0f14] text-white/50 hover:border-white/20 hover:text-white/80",
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
         </div>
+      </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-white/60 text-xs font-medium uppercase tracking-wide">
-            Platform
-          </Label>
-          <div className="grid grid-cols-2 gap-2">
-            {(
-              [
-                { value: "google-play", label: "Google Play" },
-                { value: "app-store", label: "App Store" },
-              ] as const
-            ).map((opt) => (
-              <button
-                key={opt.value}
-                type="button"
-                onClick={() => update("platform", opt.value)}
-                className={cn(
-                  "rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors",
-                  form.platform === opt.value
-                    ? "border-[#0A84FF] bg-[#0A84FF]/10 text-[#0A84FF]"
-                    : "border-white/[0.08] bg-[#0d0f14] text-white/50 hover:border-white/20 hover:text-white/80",
-                )}
-              >
-                {opt.label}
-              </button>
-            ))}
+      {/* Selected app pill (if chosen) */}
+      {form.selectedApp ? (
+        <div className="flex items-center gap-3 rounded-xl border border-[#0A84FF]/40 bg-[#0A84FF]/10 p-3">
+          {form.selectedApp.icon ? (
+            <img
+              src={form.selectedApp.icon}
+              alt=""
+              className="size-10 shrink-0 rounded-lg object-cover"
+            />
+          ) : (
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-sm font-bold text-white/40">
+              {form.selectedApp.name[0]?.toUpperCase() ?? "?"}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-white">{form.selectedApp.name}</p>
+            <p className="truncate text-[11px] text-white/40 font-mono">{form.selectedApp.storeId}</p>
           </div>
+          <button
+            type="button"
+            onClick={clearSelection}
+            className="flex size-7 shrink-0 items-center justify-center rounded-md text-white/40 hover:bg-white/[0.06] hover:text-white"
+            aria-label="Change app"
+          >
+            <X size={14} />
+          </button>
         </div>
+      ) : (
+        <>
+          {/* Search box */}
+          <div className="flex flex-col gap-1.5">
+            <Label className="text-white/60 text-xs font-medium uppercase tracking-wide">
+              Search by app name
+            </Label>
+            <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-[#0d0f14] px-3 focus-within:border-[#0A84FF]">
+              <Search size={14} className="shrink-0 text-white/30" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={form.platform === "google-play" ? "Spotify, Notion, Headspace…" : "Spotify, Notion, Headspace…"}
+                className="flex-1 bg-transparent py-2 text-sm text-white outline-none placeholder:text-white/20"
+                autoFocus
+              />
+              {state.kind === "searching" && <Loader2 size={14} className="shrink-0 animate-spin text-white/30" />}
+            </div>
+          </div>
 
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-white/60 text-xs font-medium uppercase tracking-wide">
-            Store ID
-          </Label>
-          <Input
-            value={form.storeId}
-            onChange={(e) => update("storeId", e.target.value)}
-            placeholder={
-              form.platform === "google-play"
-                ? "com.example.app"
-                : "123456789"
-            }
-            className="border-white/[0.08] bg-[#0d0f14] text-white placeholder:text-white/20 focus-visible:ring-[#0A84FF]/50 focus-visible:border-[#0A84FF]"
-          />
-          <p className="text-[11px] text-white/25">
-            Google Play:{" "}
-            <code className="font-mono text-white/40">com.example.app</code>
-            {" · "}App Store:{" "}
-            <code className="font-mono text-white/40">numeric ID</code>
-          </p>
-        </div>
+          {/* Results / states */}
+          {state.kind === "ok" && (
+            <ul className="flex max-h-[280px] flex-col gap-1.5 overflow-y-auto -mt-2">
+              {state.results.map((r) => (
+                <li key={r.storeId}>
+                  <button
+                    type="button"
+                    onClick={() => pickResult(r)}
+                    className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-[#0d0f14] p-2.5 text-left transition-colors hover:border-[#0A84FF]/40 hover:bg-[#0A84FF]/5"
+                  >
+                    {r.icon ? (
+                      <img src={r.icon} alt="" className="size-10 shrink-0 rounded-lg object-cover" />
+                    ) : (
+                      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-sm font-bold text-white/40">
+                        {r.name[0]?.toUpperCase() ?? "?"}
+                      </div>
+                    )}
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-white">{r.name}</p>
+                      <p className="truncate text-[11px] text-white/40">
+                        {r.developer || r.storeId}
+                        {r.rating ? ` · ${r.rating.toFixed(1)}★` : ""}
+                      </p>
+                    </div>
+                    <ChevronRight size={14} className="shrink-0 text-white/30" />
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
 
+          {state.kind === "no-results" && (
+            <div className="rounded-xl border border-white/[0.06] bg-[#0d0f14] p-4 text-center">
+              <p className="text-sm text-white/60">No matches for &quot;{query}&quot;</p>
+              <p className="mt-1 text-[11px] text-white/30">Try a different name or enter manually below.</p>
+            </div>
+          )}
+
+          {state.kind === "error" && (
+            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-center">
+              <p className="text-sm text-amber-300">Couldn&apos;t search the store right now.</p>
+              <p className="mt-1 text-[11px] text-amber-300/70">Enter your app details manually below.</p>
+            </div>
+          )}
+
+          {/* Manual entry toggle */}
+          <button
+            type="button"
+            onClick={() => setShowManual((v) => !v)}
+            className="self-start text-[12px] font-medium text-white/40 transition-colors hover:text-white/70"
+          >
+            {showManual ? "Hide manual entry" : "Can't find your app? Enter manually →"}
+          </button>
+
+          {showManual && (
+            <div className="flex flex-col gap-3 rounded-xl border border-white/[0.06] bg-[#0d0f14] p-4">
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-white/60 text-[11px] font-medium uppercase tracking-wide">
+                  App name
+                </Label>
+                <Input
+                  value={manualName}
+                  onChange={(e) => setManualName(e.target.value)}
+                  placeholder="My Awesome App"
+                  className="border-white/[0.08] bg-[#0d0f14] text-white placeholder:text-white/20 focus-visible:ring-[#0A84FF]/50 focus-visible:border-[#0A84FF]"
+                />
+              </div>
+              <div className="flex flex-col gap-1.5">
+                <Label className="text-white/60 text-[11px] font-medium uppercase tracking-wide">
+                  {form.platform === "google-play" ? "Package name" : "Bundle ID"}
+                </Label>
+                <Input
+                  value={manualId}
+                  onChange={(e) => setManualId(e.target.value)}
+                  placeholder={form.platform === "google-play" ? "com.example.app" : "com.example.app"}
+                  className="border-white/[0.08] bg-[#0d0f14] text-white placeholder:text-white/20 focus-visible:ring-[#0A84FF]/50 focus-visible:border-[#0A84FF] font-mono text-[12px]"
+                />
+              </div>
+              <Button
+                onClick={applyManual}
+                disabled={!manualName.trim() || !manualId.trim()}
+                className="bg-white/[0.06] text-white hover:bg-white/[0.10] disabled:opacity-40"
+              >
+                Use these details
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+
+      {/* Category — only shown after app picked */}
+      {form.selectedApp && (
         <div className="flex flex-col gap-1.5">
           <Label className="text-white/60 text-xs font-medium uppercase tracking-wide">
             Category <span className="text-white/30 normal-case">(optional)</span>
           </Label>
           <p className="text-[11px] text-white/25 -mt-0.5">
-            We use this to pre-tune your AI replies. You can change it later.
+            Pre-tunes AI replies. Change anytime in Settings.
           </p>
           <div className="grid grid-cols-3 gap-1.5">
             {APP_CATEGORIES.map((cat) => (
@@ -564,16 +727,27 @@ function StepApp({
             ))}
           </div>
         </div>
-      </div>
+      )}
 
-      <Button
-        onClick={onNext}
-        disabled={!form.appName.trim() || !form.storeId.trim()}
-        className="w-full bg-[#0A84FF] text-white hover:bg-[#006EE0] disabled:opacity-40"
-      >
-        Continue
-        <ChevronRight className="ml-1 size-4" strokeWidth={1.5} />
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          onClick={onBack}
+          variant="ghost"
+          className="h-9 px-3 text-white/50 hover:bg-white/[0.06] hover:text-white"
+        >
+          <ArrowLeft className="size-4" strokeWidth={1.5} />
+          Back
+        </Button>
+        <Button
+          onClick={onNext}
+          disabled={!canContinue}
+          className="flex-1 bg-[#0A84FF] text-white hover:bg-[#006EE0] disabled:opacity-40"
+        >
+          Continue
+          <ChevronRight className="ml-1 size-4" strokeWidth={1.5} />
+        </Button>
+      </div>
     </div>
   );
 }
@@ -583,15 +757,19 @@ function StepApp({
 /* ------------------------------------------------------------------ */
 
 function StepConnect({
-  platform,
+  form,
+  onBack,
   onNext,
   saving,
+  error,
 }: {
-  platform: Platform;
+  form: FormState;
+  onBack: () => void;
   onNext: () => void;
   saving: boolean;
+  error: string | null;
 }) {
-  const isPlay = platform === "google-play";
+  const isPlay = form.platform === "google-play";
 
   const features = [
     {
@@ -601,21 +779,9 @@ function StepConnect({
         ? "Reviews pulled automatically every 4 hours."
         : "Sync after you add App Store Connect credentials.",
     },
-    {
-      icon: <Zap className="size-4 text-amber-400" strokeWidth={1.5} />,
-      title: "AI triage",
-      desc: "Every review gets a sentiment score, priority, and issue tags.",
-    },
-    {
-      icon: <MessageSquare className="size-4 text-emerald-400" strokeWidth={1.5} />,
-      title: "Smart reply drafts",
-      desc: "One-click AI drafts grounded in your knowledge base.",
-    },
-    {
-      icon: <Bell className="size-4 text-rose-400" strokeWidth={1.5} />,
-      title: "Spike alerts",
-      desc: "Email + Slack alert when ratings drop unexpectedly.",
-    },
+    { icon: <Zap className="size-4 text-amber-400" strokeWidth={1.5} />,         title: "AI triage",          desc: "Every review gets a sentiment score, priority, and issue tags." },
+    { icon: <MessageSquare className="size-4 text-emerald-400" strokeWidth={1.5} />, title: "Smart reply drafts", desc: "One-click AI drafts grounded in your knowledge base." },
+    { icon: <Bell className="size-4 text-rose-400" strokeWidth={1.5} />,         title: "Spike alerts",       desc: "Email + Slack alert when ratings drop unexpectedly." },
   ];
 
   return (
@@ -630,6 +796,25 @@ function StepConnect({
             : "Apple requires API credentials — add them in Settings after onboarding."}
         </p>
       </div>
+
+      {/* Show what they picked */}
+      {form.selectedApp && (
+        <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-[#0d0f14] p-3">
+          {form.selectedApp.icon ? (
+            <img src={form.selectedApp.icon} alt="" className="size-10 shrink-0 rounded-lg object-cover" />
+          ) : (
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-sm font-bold text-white/40">
+              {form.selectedApp.name[0]?.toUpperCase() ?? "?"}
+            </div>
+          )}
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-white">{form.selectedApp.name}</p>
+            <p className="truncate text-[11px] text-white/40">
+              {isPlay ? "Google Play" : "App Store"} · {form.selectedApp.storeId}
+            </p>
+          </div>
+        </div>
+      )}
 
       <ul className="flex flex-col gap-2">
         {features.map((f) => (
@@ -648,17 +833,33 @@ function StepConnect({
         ))}
       </ul>
 
-      <Button
-        onClick={onNext}
-        disabled={saving}
-        className="w-full bg-[#0A84FF] text-white hover:bg-[#006EE0] disabled:opacity-40"
-      >
-        {saving ? (
-          <><Loader2 className="mr-2 size-4 animate-spin" strokeWidth={2} />Creating workspace…</>
-        ) : (
-          <>{isPlay ? "Launch my workspace" : "Got it — continue"}<ChevronRight className="ml-1 size-4" strokeWidth={1.5} /></>
-        )}
-      </Button>
+      {error && (
+        <p className="text-xs text-red-400">{error}</p>
+      )}
+
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          onClick={onBack}
+          disabled={saving}
+          variant="ghost"
+          className="h-9 px-3 text-white/50 hover:bg-white/[0.06] hover:text-white disabled:opacity-30"
+        >
+          <ArrowLeft className="size-4" strokeWidth={1.5} />
+          Back
+        </Button>
+        <Button
+          onClick={onNext}
+          disabled={saving}
+          className="flex-1 bg-[#0A84FF] text-white hover:bg-[#006EE0] disabled:opacity-40"
+        >
+          {saving ? (
+            <><Loader2 className="mr-2 size-4 animate-spin" strokeWidth={2} />Creating workspace…</>
+          ) : (
+            <>{isPlay ? "Launch my workspace" : "Got it — continue"}<ChevronRight className="ml-1 size-4" strokeWidth={1.5} /></>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }
