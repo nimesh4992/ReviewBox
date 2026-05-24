@@ -4,6 +4,7 @@ import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { audit } from "@/lib/audit";
 import { apiError, captureAndError } from "@/lib/api-response";
+import { rateLimit } from "@/lib/api-rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const { userId } = await auth();
     if (!userId) {
       return apiError("UNAUTHORIZED", 401);
+    }
+
+    // Hard-delete is irreversible — 3 attempts per hour max
+    const rl = await rateLimit(req, userId, { bucket: "gdpr-delete", limit: 3, window: "1 h" });
+    if (!rl.allowed) {
+      return apiError("RATE_LIMITED", 429);
     }
 
     let body: unknown;

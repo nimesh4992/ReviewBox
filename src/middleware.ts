@@ -28,7 +28,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/sync/(.*)",
   "/api/reports/weekly-digest",
   "/api/reports/unreplied-alert",
-  "/api/health/(.*)",
+  "/api/health(.*)",
   "/api/demo/(.*)",
   "/monitoring(.*)",
 ]);

@@ -553,8 +553,8 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 
 ## Current Sprint
 
-**Active branch:** `claude/picture-perfect` (PR open, awaiting merge)
-Last updated: 2026-05-22
+**Active branch:** `feat/bootstrap-reviews`
+Last updated: 2026-05-24
 
 ### Completed (2026-05-19 → 2026-05-22)
 
@@ -620,9 +620,50 @@ Last updated: 2026-05-22
   - Middleware honors the cookie even if Clerk JWT still says `onboarded=false`
   - `/api/onboarding/state` now returns `onboarded=true` if DB has workspace+app (DB is source of truth, not stale JWT)
 
-### Next milestones (S1.3 — Help Center, then M2)
+### Completed (2026-05-23 → 2026-05-24) — Security audit pass 1–3
 
-- [ ] Merge `claude/picture-perfect` PR
+**Bootstrap reviews + Google Play invite modal:**
+- ✅ `src/services/bootstrap-reviews.ts` — scrapes 50 public reviews on first sync (Google Play + App Store) so users see real data immediately, no credentials needed
+- ✅ `src/components/dashboard/google-play-invite-modal.tsx` — one-time modal with service account email + Play Console instructions; localStorage key scoped per app ID
+- ✅ `src/lib/email/send-health-nudge.ts` + `/api/health/user-check` — daily cron detects never_synced / sync_failing / spike_unreplied and sends targeted emails
+
+**Security audit pass 1 (branch `feat/bootstrap-reviews`):**
+- ✅ All cron `isAuthorized()` changed to fail-closed when `CRON_SECRET` unset
+- ✅ Dashboard error banner: showed nothing for re-failing apps that had previously succeeded
+- ✅ `gplay.reviews()` wrapped in 15s timeout
+- ✅ `/api/health(.*)` dead code removed from `isAppRoute`
+- ✅ `unreplied-alert`: `.single()` → `.maybeSingle()` (throws on no-owner workspace)
+
+**Security audit pass 2:**
+- ✅ `ai_reply` automation: was calling HTTP route (always 401 — no Clerk session); now calls `generateReply()` directly
+- ✅ `health/user-check`: was emailing owners of soft-deleted workspaces; now filters to active only
+- ✅ `knowledge-base` + `templates` PATCH: raw body passed to Supabase (workspace_id injection possible); now field-whitelisted
+- ✅ `accept-invite`: double `clerkClient()` call creating TOCTOU window; fixed to reuse instance
+- ✅ `vercel.json`: sync cron was `0 8 * * *` (once daily) → `0 */4 * * *` (every 4h)
+- ✅ `DELETE /api/apps/[id]`: hard-deleted rows (cascaded all review history); now soft-deletes
+- ✅ Automation scope check: `review.id.startsWith(appId)` never matched (external ID vs UUID); `runAutomationRules` now takes `appId` param
+- ✅ `export`: unvalidated `days`/`rating` params could produce NaN → Supabase crash; now allowlist-validated
+- ✅ `demo/reply`: no input length cap on `reviewBody`; capped at 500 chars
+- ✅ `slackWebhookUrl`: stored without validation; now requires `https://hooks.slack.com/` prefix
+- ✅ `aso/mine`: selected nonexistent `text` column (correct: `body`); n-gram mining now actually works
+
+**Security audit pass 3:**
+- ✅ `middleware.ts`: `/api/health` root path not matched by `/(.*)`  pattern → blocked by auth.protect(); fixed to `(.*)`
+- ✅ `rate-limit.ts`: double Redis prefix bug (`ai_draft:ai_draft:userId`); fixed to pass userId only
+- ✅ `reply/draft`: no length cap on `reviewBody` (quota abuse); capped at 5000 chars; no-workspace users now get 403
+- ✅ `incidents` POST: unvalidated severity + unbounded title/description written to DB; now allowlist + length caps
+- ✅ `automations/rules` POST: unvalidated action string + unbounded name/conditions; now allowlist + caps
+- ✅ `settings/alerts` POST: unbounded array upsert; now capped at 20 items
+- ✅ `gdpr/delete`: no rate limit on hard-delete endpoint; now 3/hour
+- ✅ `settings/workspace` PATCH: `defaultTone` accepted any string; now validated against known tones
+- ✅ `sync/reviews`: bootstrap rows double-counted in `last_sync_review_count`; `reviewsBefore` now captured after bootstrap
+- ✅ `publisher-api.ts`: raw googleapis error logged (can contain auth tokens); now logs `.message` only
+
+### Next milestones
+
+- [ ] Merge `feat/bootstrap-reviews` PR (open at github.com/nimesh4992/ReviewBox)
+- [ ] Founder: run DB migration for `apps.deleted_at` column (soft-delete) — needed before DELETE /api/apps works
+- [ ] Founder: add `CRON_SECRET` in Vercel env vars — without it all 4 crons silently return 401
 - [ ] Enable GitHub branch protection on `master` requiring CI to pass
 - [ ] Run `docs/LAUNCH_CHECKLIST.md` end-to-end
 - [ ] Create 4 help pages: Getting Started · Connect Google Play · AI Replies · FAQ

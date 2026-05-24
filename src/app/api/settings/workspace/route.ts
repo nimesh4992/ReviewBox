@@ -75,7 +75,13 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   const updates: Record<string, string | null> = {};
   if (typeof body.supportEmail === "string") updates.support_email = body.supportEmail.trim();
   if (typeof body.brandVoice   === "string") updates.brand_voice   = body.brandVoice.slice(0, 500).trim();
-  if (typeof body.defaultTone  === "string") updates.default_tone  = body.defaultTone;
+  const VALID_TONES = new Set(["professional", "empathetic", "casual", "direct"]);
+  if (typeof body.defaultTone === "string") {
+    if (!VALID_TONES.has(body.defaultTone)) {
+      return NextResponse.json({ error: "INVALID_TONE", message: "defaultTone must be professional|empathetic|casual|direct" }, { status: 400 });
+    }
+    updates.default_tone = body.defaultTone;
+  }
   if ("slackWebhookUrl" in body) {
     if (body.slackWebhookUrl) {
       const url = body.slackWebhookUrl.trim();

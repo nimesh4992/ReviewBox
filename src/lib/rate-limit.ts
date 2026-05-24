@@ -37,7 +37,9 @@ export async function checkAiRateLimit(
     prefix: "ai_draft",
   });
 
-  const { success, remaining } = await ratelimit.limit(`ai_draft:${userId}`);
+  // Pass just userId — the Ratelimit prefix option already namespaces the key.
+  // Passing "ai_draft:userId" would produce "ai_draft:ai_draft:userId" in Redis.
+  const { success, remaining } = await ratelimit.limit(userId);
 
   return { allowed: success, remaining };
 }

@@ -48,8 +48,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
   }
 
-  // 3. Parse body
-  const preferences = (await req.json()) as AlertPreference[];
+  // 3. Parse + validate body
+  const rawPrefs = (await req.json()) as unknown;
+  if (!Array.isArray(rawPrefs) || rawPrefs.length > 20) {
+    return NextResponse.json({ error: "INVALID_INPUT", message: "preferences must be an array of at most 20 items" }, { status: 400 });
+  }
+  const preferences = rawPrefs as AlertPreference[];
 
   // 4. Upsert each preference keyed by (workspace_id, type)
   const sb = getServiceClient();

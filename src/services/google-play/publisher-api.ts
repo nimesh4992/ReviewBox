@@ -41,7 +41,10 @@ export async function fetchReviews(packageName: string) {
 
     return response.data.reviews || [];
   } catch (error) {
-    console.error("Failed to fetch Google Play reviews:", error);
+    // Log message only — raw googleapis errors can contain auth tokens in certain
+    // error conditions (e.g. 401 response body echoing the Authorization header).
+    const msg = error instanceof Error ? error.message : String(error);
+    console.error("Failed to fetch Google Play reviews:", msg);
     throw error;
   }
 }

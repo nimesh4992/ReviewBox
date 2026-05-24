@@ -142,15 +142,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // ── Parse body ─────────────────────────────────────────────────────────
     const body        = (await req.json()) as DraftRequestBody;
-    const { reviewId, reviewBody, rating, tags, charLimit } = body;
+    const { reviewId, reviewBody, rating, charLimit } = body;
+    // Cap tags array and reviewBody to prevent quota abuse
+    const tags        = Array.isArray(body.tags) ? body.tags.slice(0, 20) : [];
     const tone        = normaliseTone(body.tone);
-    const review      = buildReview(body);
+
+    if (!reviewBody || reviewBody.length > 5000) {
+      return NextResponse.json({ error: "INVALID_INPUT", message: "reviewBody must be 1–5000 chars" }, { status: 400 });
+    }
+
+    const review = buildReview({ ...body, tags });
 
     // ── Workspace context ──────────────────────────────────────────────────
     const workspaceId = await getWorkspaceId(userId);
-    const persona     = workspaceId
-      ? await getWorkspacePersona(workspaceId)
-      : DEFAULT_PERSONA;
+    // Require a workspace — users who haven't completed onboarding should not
+    // burn AI quota against a null workspace context.
+    if (!workspaceId) {
+      return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 403 });
+    }
+    const persona = await getWorkspacePersona(workspaceId);
 
     const log = (source: ReplySource, extra?: Record<string, unknown>) =>
       console.log(JSON.stringify({ userId, plan, source, reviewId, ...extra }));
@@ -159,7 +169,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // TIER 0 — Reply-Kit: user's own saved templates
     // Matched by tag overlap + rating range. Highest priority.
     // ══════════════════════════════════════════════════════════════════════
-    if (workspaceId) {
+    {
       const sb = getServiceClient();
       const { data: kitTemplates } = await sb
         .from("reply_templates")
@@ -243,7 +253,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     // Fetch KB entry for context (best-effort)
     let kbEntries: Array<{ category: string; title: string; content: string }> = [];
-    if (workspaceId) {
+    {
       const sb = getServiceClient();
       const { data } = await sb
         .from("knowledge_base")

@@ -334,7 +334,6 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
         .eq("id", app.id);
     } catch { /* best-effort */ }
 
-    const reviewsBefore = summary.reviewsUpserted;
     try {
       // First sync: fetch up to 50 public reviews before hitting the Publisher API.
       // This gives users immediate data without needing Play Console credentials.
@@ -352,6 +351,10 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
           console.warn(`[sync] bootstrap failed for ${app.store_id}:`, err instanceof Error ? err.message : err);
         }
       }
+
+      // Capture AFTER bootstrap so reviewCount only reflects the Publisher API fetch,
+      // not the combined bootstrap+publisher total (would double-count on first sync).
+      const reviewsBefore = summary.reviewsUpserted;
 
       if (app.platform === "google_play")     await syncGooglePlayApp(app, summary);
       else if (app.platform === "app_store")  await syncAppStoreApp(app, summary);

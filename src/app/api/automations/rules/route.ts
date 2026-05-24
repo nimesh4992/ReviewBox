@@ -63,9 +63,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
   }
 
-  // 3. Parse body
+  // 3. Parse + validate body
   const body = (await req.json()) as CreateRuleBody;
   const { name, description, conditions, action, actionLabel, actionConfig, appsScope, priority } = body;
+
+  const VALID_ACTIONS = new Set<AutomationAction>(["ai_reply", "template_reply", "apply_tag", "escalate", "report_spam"]);
+  if (!name?.trim()) {
+    return NextResponse.json({ error: "MISSING_FIELDS", message: "name is required" }, { status: 400 });
+  }
+  if (!VALID_ACTIONS.has(action)) {
+    return NextResponse.json({ error: "INVALID_ACTION", message: `action must be one of: ${[...VALID_ACTIONS].join(", ")}` }, { status: 400 });
+  }
+  if (!Array.isArray(conditions) || conditions.length === 0 || conditions.length > 20) {
+    return NextResponse.json({ error: "INVALID_CONDITIONS", message: "conditions must be a non-empty array with at most 20 items" }, { status: 400 });
+  }
 
   // 4. Insert
   const sb = getServiceClient();
@@ -73,8 +84,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .from("automation_rules")
     .insert({
       workspace_id:  workspaceId,
-      name,
-      description:   description ?? "",
+      name:          name.trim().slice(0, 100),
+      description:   (description ?? "").slice(0, 500),
       conditions,
       action,
       action_label:  actionLabel,

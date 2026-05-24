@@ -44,17 +44,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     appName?:     string;
   };
 
-  if (!body.title?.trim() || !body.severity) {
-    return NextResponse.json({ error: "MISSING_FIELDS" }, { status: 400 });
+  const VALID_SEVERITIES = new Set(["critical", "high", "medium", "low"]);
+  if (!body.title?.trim()) {
+    return NextResponse.json({ error: "MISSING_FIELDS", message: "title is required" }, { status: 400 });
   }
+  if (!body.severity || !VALID_SEVERITIES.has(body.severity)) {
+    return NextResponse.json({ error: "INVALID_SEVERITY", message: "severity must be critical|high|medium|low" }, { status: 400 });
+  }
+
+  const title       = body.title.trim().slice(0, 200);
+  const description = body.description?.trim().slice(0, 2000) ?? null;
 
   const sb = getServiceClient();
   const { data, error } = await sb
     .from("incidents")
     .insert({
       workspace_id: workspaceId,
-      title:        body.title.trim(),
-      description:  body.description?.trim() ?? null,
+      title,
+      description,
       severity:     body.severity,
       status:       "active",
       detected_at:  new Date().toISOString(),
