@@ -802,14 +802,34 @@ function StepConnect({
     <div className="flex flex-col gap-6">
       <div>
         <h2 className="text-lg font-semibold text-white">
-          {isPlay ? "You're almost ready" : "Nearly there"}
+          One thing before reviews can sync
         </h2>
         <p className="mt-1 text-sm text-white/40">
           {isPlay
-            ? "ReviewBox will start syncing your reviews right after setup."
-            : "Apple requires API credentials — add them in Settings after onboarding."}
+            ? "Google Play needs you to invite us as a teammate so we can fetch reviews. Takes 3 minutes."
+            : "App Store needs an API key from your Apple developer account. Takes 5 minutes."}
         </p>
       </div>
+
+      <a
+        href={isPlay ? "/help/connect-google-play" : "/help/connect-app-store"}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex items-center gap-3 rounded-xl border border-[#0A84FF]/30 bg-[#0A84FF]/[0.06] px-4 py-3 transition-colors hover:bg-[#0A84FF]/[0.10]"
+      >
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#0A84FF]/20 text-[14px]">
+          📖
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[13px] font-semibold text-white">
+            {isPlay ? "Step-by-step Google Play setup guide" : "Step-by-step App Store setup guide"}
+          </p>
+          <p className="mt-0.5 text-[11px] text-white/50">
+            Opens in new tab · we&apos;ll wait for you
+          </p>
+        </div>
+        <ChevronRight className="size-4 shrink-0 text-[#0A84FF]" strokeWidth={1.5} />
+      </a>
 
       {/* Show what they picked */}
       {form.selectedApp && (

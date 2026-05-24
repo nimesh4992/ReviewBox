@@ -75,9 +75,19 @@ function AppStoreForm({
 
   return (
     <div className="mt-3 space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-4">
-      <p className="text-xs font-medium text-gray-600">
-        App Store Connect credentials
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-gray-600">
+          App Store Connect credentials
+        </p>
+        <a
+          href="/help/connect-app-store"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[11px] font-semibold text-[#0A84FF] hover:underline"
+        >
+          Full guide →
+        </a>
+      </div>
       <ol className="space-y-1.5 text-xs text-gray-500 leading-relaxed">
         <li>
           <span className="font-semibold text-gray-700">1.</span>{" "}
@@ -246,9 +256,18 @@ function GooglePlayInfo({ app }: { app: WorkspaceApp }) {
         <li>
           <span className="font-semibold text-gray-700">4.</span> Scope to your app{" "}
           <code className="rounded bg-gray-100 px-1 py-0.5 font-mono text-[10px] text-gray-600">{app.store_id}</code>
-          {" "}then Send invitation. Sync runs every 4 hours, or hit the sync button above.
+          {" "}then Send invitation. Click <strong>Sync now</strong> above when done.
         </li>
       </ol>
+
+      <a
+        href="/help/connect-google-play"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0A84FF] hover:underline"
+      >
+        Full walkthrough with screenshots →
+      </a>
 
       <div className="flex items-center gap-1.5 border-t border-gray-200 pt-2.5 text-xs text-emerald-600">
         <CheckCircle2 className="size-3.5" />
