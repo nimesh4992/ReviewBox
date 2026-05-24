@@ -29,6 +29,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/reports/weekly-digest",
   "/api/reports/unreplied-alert",
   "/api/demo/(.*)",
+  "/api/auth/clear-onboarded-cookie",
   "/monitoring(.*)",
 ]);
 

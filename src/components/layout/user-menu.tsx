@@ -59,6 +59,14 @@ export function UserMenu({
   async function handleSignOut() {
     setSigningOut(true);
     try {
+      // Clear our rb_onboarded cookie BEFORE Clerk's signOut so the next
+      // user signing in on this browser isn't incorrectly classified as
+      // onboarded by middleware. Best-effort — non-fatal if it fails.
+      try {
+        await fetch("/api/auth/clear-onboarded-cookie", { method: "POST" });
+      } catch {
+        /* non-fatal */
+      }
       // signOut clears the Clerk session; redirectUrl ensures we land on
       // /sign-in via a full page load so all in-memory state is dropped.
       await signOut({ redirectUrl: "/sign-in" });
