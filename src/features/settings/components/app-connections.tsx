@@ -176,19 +176,46 @@ function AppStoreForm({
 
 // ── Google Play info panel ────────────────────────────────────────────────────
 
+type EmailState =
+  | { kind: "loading" }
+  | { kind: "ready"; email: string }
+  | { kind: "not_configured" }
+  | { kind: "error"; message: string };
+
 function GooglePlayInfo({ app }: { app: WorkspaceApp }) {
-  const [email, setEmail] = useState<string | null>(null);
+  const [emailState, setEmailState] = useState<EmailState>({ kind: "loading" });
   const [copied, setCopied] = useState(false);
+  const email = emailState.kind === "ready" ? emailState.email : null;
 
   useEffect(() => {
     let cancelled = false;
     (async () => {
       try {
         const res = await fetch("/api/google-play/service-account");
-        if (!res.ok) return;
-        const data = (await res.json()) as { email: string | null };
-        if (!cancelled) setEmail(data.email);
-      } catch { /* silent */ }
+        if (!res.ok) {
+          if (!cancelled) {
+            setEmailState({
+              kind: "error",
+              message: `Service account lookup failed (HTTP ${res.status}).`,
+            });
+          }
+          return;
+        }
+        const data = (await res.json()) as {
+          email: string | null;
+          configured?: boolean;
+        };
+        if (cancelled) return;
+        if (data.email) {
+          setEmailState({ kind: "ready", email: data.email });
+        } else {
+          setEmailState({ kind: "not_configured" });
+        }
+      } catch {
+        if (!cancelled) {
+          setEmailState({ kind: "error", message: "Network error contacting our server." });
+        }
+      }
     })();
     return () => { cancelled = true; };
   }, []);
@@ -221,20 +248,46 @@ function GooglePlayInfo({ app }: { app: WorkspaceApp }) {
         </li>
         <li>
           <span className="font-semibold text-gray-700">2.</span> Invite this email:
-          <div className="mt-1.5 flex items-center gap-2 rounded-md border border-gray-200 bg-white px-2.5 py-1.5">
-            <code className="flex-1 truncate font-mono text-[11px] text-gray-700">
-              {email ?? "Loading…"}
-            </code>
-            <button
-              type="button"
-              onClick={copyEmail}
-              disabled={!email}
-              className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-[#0A84FF] hover:bg-[#0A84FF]/10 disabled:opacity-30"
-            >
-              <Copy className="size-3" />
-              {copied ? "Copied!" : "Copy"}
-            </button>
-          </div>
+          {emailState.kind === "ready" && (
+            <div className="mt-1.5 flex items-center gap-2 rounded-md border border-gray-200 bg-white px-2.5 py-1.5">
+              <code className="flex-1 truncate font-mono text-[11px] text-gray-700">
+                {emailState.email}
+              </code>
+              <button
+                type="button"
+                onClick={copyEmail}
+                className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-[#0A84FF] hover:bg-[#0A84FF]/10"
+              >
+                <Copy className="size-3" />
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+          )}
+          {emailState.kind === "loading" && (
+            <div className="mt-1.5 flex items-center gap-2 rounded-md border border-gray-200 bg-white px-2.5 py-1.5">
+              <Loader2 className="size-3 animate-spin text-gray-300" />
+              <code className="text-[11px] text-gray-400">Loading…</code>
+            </div>
+          )}
+          {emailState.kind === "not_configured" && (
+            <div className="mt-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-2.5">
+              <p className="text-[11px] font-semibold text-red-700">
+                Service account not configured (founder action required)
+              </p>
+              <p className="mt-1 text-[11px] leading-relaxed text-red-700/90">
+                Set the <code className="rounded bg-red-100 px-1 font-mono">GOOGLE_CLIENT_EMAIL</code>{" "}
+                and <code className="rounded bg-red-100 px-1 font-mono">GOOGLE_PRIVATE_KEY</code>{" "}
+                env vars in Vercel from a Google Cloud service account with access to the Play Console Developer API. This is a one-time setup for the whole product, not per-user.
+              </p>
+            </div>
+          )}
+          {emailState.kind === "error" && (
+            <div className="mt-1.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
+              <p className="text-[11px] font-semibold text-amber-700">
+                {emailState.message}
+              </p>
+            </div>
+          )}
         </li>
         <li>
           <span className="font-semibold text-gray-700">3.</span> Grant these permissions:
