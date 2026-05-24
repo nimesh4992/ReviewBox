@@ -10,6 +10,7 @@ import { useApps } from "@/hooks/use-apps";
 import { useIncidents } from "@/hooks/use-incidents";
 import { TrialBanner } from "@/components/dashboard/trial-banner";
 import { UpgradeToast } from "@/components/dashboard/upgrade-toast";
+import { EmptyWorkspaceWelcome } from "@/components/dashboard/empty-workspace-welcome";
 
 const SEVERITY_COLOR: Record<string, string> = {
   critical: "#DC2626",
@@ -156,6 +157,12 @@ export default function DashboardPage() {
       sub: `last ${range}`,
     },
   ];
+
+  // No apps yet → show the welcome / "connect your first app" empty state
+  // instead of an empty dashboard. Skips the loop-prone middleware redirect.
+  if (!appsLoading && apps.length === 0) {
+    return <EmptyWorkspaceWelcome />;
+  }
 
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8" style={{ maxWidth: 1240, margin: "0 auto" }}>
