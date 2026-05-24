@@ -258,6 +258,105 @@ async function upsertAndFinalize(
 
 // ── Worker: sync one workspace's apps ──────────────────────────────────────────
 
+/**
+ * Classify a raw error message into an actionable status code + user-friendly
+ * message. The dashboard surfaces the message directly so the user knows what
+ * to do (e.g. "Invite this email to Play Console").
+ */
+function classifySyncError(
+  platform: "google_play" | "app_store",
+  errMsg: string,
+): { status: string; message: string } {
+  const lower = errMsg.toLowerCase();
+
+  if (platform === "google_play") {
+    if (lower.includes("403") || lower.includes("permission") || lower.includes("forbidden")) {
+      return {
+        status: "needs_play_console_access",
+        message:
+          "Google Play Console hasn't authorized ReviewBox yet. Open Settings → Apps to find the service account email — invite it to your Play Console with View+Reply permissions.",
+      };
+    }
+    if (lower.includes("401") || lower.includes("unauthorized")) {
+      return {
+        status: "google_credentials_invalid",
+        message:
+          "Google service account credentials are invalid. Contact support — this is on our side.",
+      };
+    }
+    if (lower.includes("404") || lower.includes("not found")) {
+      return {
+        status: "package_not_found",
+        message:
+          "Google Play couldn't find this app's package name. Double-check the package ID in Settings → Apps.",
+      };
+    }
+  }
+
+  if (platform === "app_store") {
+    if (lower.includes("missing credentials")) {
+      return {
+        status: "needs_app_store_credentials",
+        message:
+          "App Store needs API credentials. Open Settings → Apps → expand this app and paste your .p8 key, Key ID, and Issuer ID.",
+      };
+    }
+    if (lower.includes("could not resolve app id")) {
+      return {
+        status: "bundle_id_not_found",
+        message:
+          "App Store Connect couldn't find this bundle ID under your API key. Check that the key has access to this app.",
+      };
+    }
+    if (lower.includes("401") || lower.includes("403")) {
+      return {
+        status: "app_store_unauthorized",
+        message:
+          "App Store API key is invalid or doesn't have permission. Regenerate the key in App Store Connect and re-upload.",
+      };
+    }
+  }
+
+  return {
+    status: "store_api_error",
+    message: errMsg.slice(0, 300),
+  };
+}
+
+async function recordSyncResult(
+  appId: string,
+  result:
+    | { ok: true; reviewCount: number }
+    | { ok: false; platform: "google_play" | "app_store"; errMsg: string },
+): Promise<void> {
+  const sb = getServiceClient();
+  const now = new Date().toISOString();
+
+  if (result.ok) {
+    await sb
+      .from("apps")
+      .update({
+        last_synced_at:           now,
+        last_sync_attempted_at:   now,
+        last_sync_status:         "success",
+        last_sync_error:          null,
+        last_sync_review_count:   result.reviewCount,
+      })
+      .eq("id", appId);
+    return;
+  }
+
+  const classified = classifySyncError(result.platform, result.errMsg);
+  await sb
+    .from("apps")
+    .update({
+      last_sync_attempted_at: now,
+      last_sync_status:       classified.status,
+      last_sync_error:        classified.message,
+    })
+    .eq("id", appId);
+}
+
 async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
   const sb = getServiceClient();
   const summary: SyncSummary = { appsProcessed: 0, reviewsUpserted: 0, spikesDetected: 0, errors: [] };
@@ -272,12 +371,42 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
   if (!apps?.length) return summary;
 
   for (const app of apps as DbApp[]) {
+    // Mark "attempted" up front so the dashboard can show "we tried 30s ago".
+    const attemptedAt = new Date().toISOString();
+    try {
+      await getServiceClient()
+        .from("apps")
+        .update({ last_sync_attempted_at: attemptedAt })
+        .eq("id", app.id);
+    } catch { /* best-effort */ }
+
+    const reviewsBefore = summary.reviewsUpserted;
     try {
       if (app.platform === "google_play")     await syncGooglePlayApp(app, summary);
       else if (app.platform === "app_store")  await syncAppStoreApp(app, summary);
+
+      const platformErr = summary.errors.find((e) => e.includes(app.id));
+      if (platformErr) {
+        // syncAppStoreApp pushes errors to summary instead of throwing for
+        // some cases (missing credentials). Catch those here.
+        await recordSyncResult(app.id, {
+          ok: false,
+          platform: app.platform,
+          errMsg: platformErr,
+        });
+      } else {
+        const fetched = summary.reviewsUpserted - reviewsBefore;
+        await recordSyncResult(app.id, { ok: true, reviewCount: fetched });
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       summary.errors.push(`${app.platform} app ${app.store_id}: ${msg}`);
+      await recordSyncResult(app.id, {
+        ok: false,
+        platform: app.platform,
+        errMsg: msg,
+      });
+      console.error(`[sync] ${app.platform} ${app.store_id} failed:`, msg);
     }
   }
 

@@ -71,6 +71,7 @@ const isAppRoute = createRouteMatcher([
   "/api/reports/export(.*)",
   "/api/health(.*)",
   "/api/admin(.*)",
+  "/api/debug(.*)",
 ]);
 
 // Routes that require an active paid plan

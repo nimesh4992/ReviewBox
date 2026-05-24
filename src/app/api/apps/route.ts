@@ -11,12 +11,12 @@ export async function GET() {
   if (!workspaceId) return NextResponse.json({ apps: [] });
 
   const sb = getServiceClient();
-  // Try the full select first. If migration 012 isn't applied yet, fall back
-  // to the original columns so /api/apps doesn't break in that intermediate state.
+  // Try the full select first. If migrations 012/013 aren't applied yet, fall
+  // back to the original columns so /api/apps doesn't break in that state.
   const full = await sb
     .from("apps")
     .select(
-      "id, name, platform, store_id, last_synced_at, access_token, refresh_token, icon_url, developer, lifetime_rating, lifetime_review_count",
+      "id, name, platform, store_id, last_synced_at, access_token, refresh_token, icon_url, developer, lifetime_rating, lifetime_review_count, last_sync_attempted_at, last_sync_status, last_sync_error, last_sync_review_count",
     )
     .eq("workspace_id", workspaceId)
     .order("created_at");
@@ -43,6 +43,10 @@ export async function GET() {
     lifetime_rating:        (r.lifetime_rating as number | null) ?? null,
     lifetime_review_count:  (r.lifetime_review_count as number | null) ?? null,
     has_credentials:        !!(r.access_token && r.refresh_token),
+    last_sync_attempted_at: (r.last_sync_attempted_at as string | null) ?? null,
+    last_sync_status:       (r.last_sync_status as string | null) ?? null,
+    last_sync_error:        (r.last_sync_error as string | null) ?? null,
+    last_sync_review_count: (r.last_sync_review_count as number | null) ?? null,
   }));
 
   return NextResponse.json({ apps: mapped });
