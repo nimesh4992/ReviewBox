@@ -202,7 +202,12 @@ function SidebarNavGroup({
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
-interface App { id: string; name: string; platform: string }
+interface App {
+  id: string;
+  name: string;
+  platform: string;
+  icon_url?: string | null;
+}
 
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
@@ -284,9 +289,17 @@ export function Sidebar({ className }: { className?: string }) {
             {apps.length > 0 ? apps.map((app) => (
               <DropdownMenuItem
                 key={app.id}
-                className="text-[#48484D] focus:bg-black/[0.04] focus:text-[#1D1D1F]"
+                className="gap-2 text-[#48484D] focus:bg-black/[0.04] focus:text-[#1D1D1F]"
                 onClick={() => setSelectedApp(app.name)}
               >
+                {app.icon_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={app.icon_url} alt="" className="size-4 shrink-0 rounded object-cover" />
+                ) : (
+                  <span className="size-4 shrink-0 rounded bg-gray-200 text-[8px] font-bold leading-4 text-center text-gray-500">
+                    {app.name[0]?.toUpperCase()}
+                  </span>
+                )}
                 <span className="truncate">{app.name}</span>
                 {selectedApp === app.name && (
                   <span className="ml-auto text-[#0A84FF]">✓</span>

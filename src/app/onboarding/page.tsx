@@ -211,6 +211,10 @@ export default function OnboardingPage() {
           platform:      form.platform,
           storeId:       form.selectedApp.storeId,
           appCategory:   form.appCategory,
+          // App metadata captured at search time. Server refetches from the
+          // store but these are the immediate-display values.
+          icon:          form.selectedApp.icon,
+          developer:     form.selectedApp.developer,
         }),
       });
 

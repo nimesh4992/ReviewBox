@@ -11,18 +11,39 @@ export async function GET() {
   if (!workspaceId) return NextResponse.json({ apps: [] });
 
   const sb = getServiceClient();
-  const { data: apps } = await sb
+  // Try the full select first. If migration 012 isn't applied yet, fall back
+  // to the original columns so /api/apps doesn't break in that intermediate state.
+  const full = await sb
     .from("apps")
-    .select("id, name, platform, store_id, last_synced_at, access_token, refresh_token")
+    .select(
+      "id, name, platform, store_id, last_synced_at, access_token, refresh_token, icon_url, developer, lifetime_rating, lifetime_review_count",
+    )
     .eq("workspace_id", workspaceId)
     .order("created_at");
 
-  const mapped = (apps ?? []).map(
-    ({ access_token, refresh_token, ...rest }) => ({
-      ...rest,
-      has_credentials: !!(access_token && refresh_token),
-    }),
-  );
+  let apps: Record<string, unknown>[] = (full.data as Record<string, unknown>[] | null) ?? [];
+
+  if (full.error?.code === "42703") {
+    const minimal = await sb
+      .from("apps")
+      .select("id, name, platform, store_id, last_synced_at, access_token, refresh_token")
+      .eq("workspace_id", workspaceId)
+      .order("created_at");
+    apps = (minimal.data as Record<string, unknown>[] | null) ?? [];
+  }
+
+  const mapped = apps.map((r) => ({
+    id:                     r.id as string,
+    name:                   r.name as string,
+    platform:               r.platform as string,
+    store_id:               r.store_id as string,
+    last_synced_at:         (r.last_synced_at as string | null) ?? null,
+    icon_url:               (r.icon_url as string | null) ?? null,
+    developer:              (r.developer as string | null) ?? null,
+    lifetime_rating:        (r.lifetime_rating as number | null) ?? null,
+    lifetime_review_count:  (r.lifetime_review_count as number | null) ?? null,
+    has_credentials:        !!(r.access_token && r.refresh_token),
+  }));
 
   return NextResponse.json({ apps: mapped });
 }
