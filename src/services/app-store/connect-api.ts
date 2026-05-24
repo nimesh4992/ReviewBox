@@ -9,6 +9,11 @@
 
 const BASE = "https://api.appstoreconnect.apple.com/v1";
 
+/** Returns an AbortSignal that fires after `ms` milliseconds. */
+function timeoutSignal(ms: number): AbortSignal {
+  return AbortSignal.timeout(ms);
+}
+
 // ── JWT ───────────────────────────────────────────────────────────────────────
 
 function b64url(data: Uint8Array | ArrayBuffer): string {
@@ -69,6 +74,7 @@ export async function buildJWT(
 
 async function asc<T>(path: string, jwt: string, init?: RequestInit): Promise<T> {
   const res = await fetch(`${BASE}${path}`, {
+    signal: timeoutSignal(15_000),
     ...init,
     headers: {
       Authorization: `Bearer ${jwt}`,
@@ -178,8 +184,13 @@ export async function submitReply(
  * Delete an existing developer reply.
  */
 export async function deleteReply(responseId: string, jwt: string): Promise<void> {
-  await fetch(`${BASE}/customerReviewResponses/${responseId}`, {
+  const res = await fetch(`${BASE}/customerReviewResponses/${responseId}`, {
     method: "DELETE",
     headers: { Authorization: `Bearer ${jwt}` },
+    signal: timeoutSignal(15_000),
   });
+  if (!res.ok && res.status !== 404) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`App Store Connect DELETE ${res.status}: ${body.slice(0, 200)}`);
+  }
 }

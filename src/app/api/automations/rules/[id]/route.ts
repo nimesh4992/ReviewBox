@@ -3,6 +3,19 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { audit } from "@/lib/audit";
+import type { AutomationAction } from "@/types/review";
+
+// Allowlist — must stay in sync with AutomationAction union in types/review.ts
+const VALID_ACTIONS: AutomationAction[] = [
+  "ai_reply",
+  "template_reply",
+  "apply_tag",
+  "escalate",
+  "report_spam",
+];
+
+const NAME_MAX_LEN = 120;
+const CONDITIONS_MAX = 10;
 
 interface PatchRuleBody {
   name?: string;
@@ -38,9 +51,19 @@ export async function PATCH(
   // 3. Parse body
   const body = (await req.json()) as PatchRuleBody;
 
+  // Validate action if provided
+  if (body.action !== undefined && !VALID_ACTIONS.includes(body.action as AutomationAction)) {
+    return NextResponse.json({ error: "INVALID_ACTION", valid: VALID_ACTIONS }, { status: 400 });
+  }
+
+  // Validate conditions count
+  if (body.conditions !== undefined && Array.isArray(body.conditions) && body.conditions.length > CONDITIONS_MAX) {
+    return NextResponse.json({ error: "TOO_MANY_CONDITIONS", max: CONDITIONS_MAX }, { status: 400 });
+  }
+
   // Build update payload — only include fields that were sent
   const updates: Record<string, unknown> = {};
-  if (body.name !== undefined) updates.name = body.name;
+  if (body.name !== undefined) updates.name = String(body.name).slice(0, NAME_MAX_LEN);
   if (body.description !== undefined) updates.description = body.description;
   if (body.enabled !== undefined) updates.enabled = body.enabled;
   if (body.conditions !== undefined) updates.conditions = body.conditions;

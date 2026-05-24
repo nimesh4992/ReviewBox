@@ -7,12 +7,14 @@ import { AlertPreferences } from "./alert-preferences";
 import { AppConnections } from "./app-connections";
 import { DataPrivacySection } from "./data-privacy-section";
 import { SlackIntegration } from "./slack-integration";
+import { TeamMembers } from "./team-members";
 
 export function SettingsSections() {
   return (
     <div className="flex flex-col gap-4">
       <AlertPreferences />
       <SlackIntegration />
+      <TeamMembers />
       <AppConnections />
       <DataPrivacySection />
     </div>

@@ -58,7 +58,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     await audit({
       workspaceId: null,
       actorUserId: userId,
-      action: "workspace.delete",
+      action: "gdpr.delete",
       targetType: "workspace",
       targetId: workspaceId,
       payload: { mode: "gdpr_hard_delete" },

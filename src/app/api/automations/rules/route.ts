@@ -5,6 +5,17 @@ import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { audit } from "@/lib/audit";
 import type { AutomationAction, AutomationCondition } from "@/types/review";
 
+// Allowlist — must stay in sync with AutomationAction union in types/review.ts
+const VALID_ACTIONS: AutomationAction[] = [
+  "ai_reply",
+  "template_reply",
+  "apply_tag",
+  "escalate",
+  "report_spam",
+];
+const NAME_MAX_LEN = 120;
+const CONDITIONS_MAX = 10;
+
 interface CreateRuleBody {
   name: string;
   description?: string;
@@ -67,13 +78,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const body = (await req.json()) as CreateRuleBody;
   const { name, description, conditions, action, actionLabel, actionConfig, appsScope, priority } = body;
 
+  // 3a. Validate
+  if (!name?.trim()) {
+    return NextResponse.json({ error: "MISSING_FIELDS", detail: "name required" }, { status: 400 });
+  }
+  if (!VALID_ACTIONS.includes(action)) {
+    return NextResponse.json({ error: "INVALID_ACTION", valid: VALID_ACTIONS }, { status: 400 });
+  }
+  if (!Array.isArray(conditions) || conditions.length === 0 || conditions.length > CONDITIONS_MAX) {
+    return NextResponse.json({ error: "INVALID_CONDITIONS", max: CONDITIONS_MAX }, { status: 400 });
+  }
+
   // 4. Insert
   const sb = getServiceClient();
   const { data, error } = await sb
     .from("automation_rules")
     .insert({
       workspace_id:  workspaceId,
-      name,
+      name:          name.trim().slice(0, NAME_MAX_LEN),
       description:   description ?? "",
       conditions,
       action,

@@ -1,7 +1,8 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { canAddApp } from "@/lib/plan-enforcement";
+import { audit } from "@/lib/audit";
 
 export async function GET() {
   const { userId } = await auth();
@@ -19,6 +20,7 @@ export async function GET() {
       "id, name, platform, store_id, last_synced_at, access_token, refresh_token, icon_url, developer, lifetime_rating, lifetime_review_count, last_sync_attempted_at, last_sync_status, last_sync_error, last_sync_review_count",
     )
     .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
     .order("created_at");
 
   let apps: Record<string, unknown>[] = (full.data as Record<string, unknown>[] | null) ?? [];
@@ -28,6 +30,7 @@ export async function GET() {
       .from("apps")
       .select("id, name, platform, store_id, last_synced_at, access_token, refresh_token")
       .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
       .order("created_at");
     apps = (minimal.data as Record<string, unknown>[] | null) ?? [];
   }
@@ -59,7 +62,7 @@ interface CreateAppBody {
   bundleId?: string;
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   // 1. Auth
   const { userId, sessionClaims } = await auth();
   if (!userId) {
@@ -125,6 +128,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 
-  // 7. Return new app
+  // 7. Audit
+  await audit({
+    workspaceId,
+    actorUserId: userId,
+    action: "app.create",
+    targetType: "app",
+    targetId: (app as { id: string }).id,
+    payload: { name: body.name, platform: body.platform, storeId },
+    request,
+  });
+
+  // 8. Return new app
   return NextResponse.json({ app }, { status: 201 });
 }

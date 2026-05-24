@@ -7,6 +7,9 @@ import type { IncidentStatus } from "@/types/review";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
 
+const VALID_STATUSES: IncidentStatus[] = ["active", "investigating", "resolved"];
+const OWNER_MAX_LEN = 120;
+
 interface PatchIncidentBody {
   status?: IncidentStatus;
   owner?: string;
@@ -71,8 +74,21 @@ export async function PATCH(
   const body = (await req.json()) as PatchIncidentBody;
 
   const updates: Record<string, unknown> = {};
-  if (body.status !== undefined) updates.status = body.status;
-  if (body.owner !== undefined) updates.owner = body.owner;
+
+  if (body.status !== undefined) {
+    if (!VALID_STATUSES.includes(body.status)) {
+      return NextResponse.json(
+        { error: "INVALID_STATUS", valid: VALID_STATUSES },
+        { status: 400 },
+      );
+    }
+    updates.status = body.status;
+  }
+
+  if (body.owner !== undefined) {
+    const owner = String(body.owner).slice(0, OWNER_MAX_LEN).trim();
+    if (owner) updates.owner = owner;
+  }
 
   // 4. Update — scoped to workspace
   const sb = getServiceClient();
