@@ -671,7 +671,7 @@ Last updated: 2026-05-24
 
 **Founder-only (blocking):**
 - [x] Merge `feat/bootstrap-reviews` PR #30 — ✅ DONE
-- [ ] Run migration `supabase/migrations/014_apps_soft_delete.sql` — needed before DELETE /api/apps works
+- [x] Run migration `supabase/migrations/014_apps_soft_delete.sql` — ✅ DONE (2026-05-24)
 - [ ] Add `CRON_SECRET` in Vercel env vars — all 4 crons silently 401 without it
 - [ ] Verify `hello@tryreviewbox.com` domain in Resend — emails go to spam until done
 - [ ] Enable GitHub branch protection on `master` requiring CI to pass
