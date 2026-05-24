@@ -11,6 +11,7 @@ import { useIncidents } from "@/hooks/use-incidents";
 import { TrialBanner } from "@/components/dashboard/trial-banner";
 import { UpgradeToast } from "@/components/dashboard/upgrade-toast";
 import { EmptyWorkspaceWelcome } from "@/components/dashboard/empty-workspace-welcome";
+import { GooglePlayInviteModal } from "@/components/dashboard/google-play-invite-modal";
 
 const SEVERITY_COLOR: Record<string, string> = {
   critical: "#DC2626",
@@ -164,8 +165,11 @@ export default function DashboardPage() {
     return <EmptyWorkspaceWelcome />;
   }
 
+  const hasGooglePlayApp = apps.some((a) => a.platform === "google_play");
+
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8" style={{ maxWidth: 1240, margin: "0 auto" }}>
+      <GooglePlayInviteModal hasGooglePlayApp={hasGooglePlayApp} />
       <Suspense fallback={null}>
         <UpgradeToast />
       </Suspense>
