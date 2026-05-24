@@ -112,20 +112,36 @@ function shortTitle(text: string): string {
 
 // ── ReviewRow ─────────────────────────────────────────────────────────────────
 
-function ReviewRow({ review, selected, onClick }: {
+function ReviewRow({ review, selected, onClick, selectMode, isChecked, onCheck }: {
   review: AppReview;
   selected: boolean;
   onClick: () => void;
+  selectMode?: boolean;
+  isChecked?: boolean;
+  onCheck?: (id: string) => void;
 }) {
   return (
     <div
-      onClick={onClick}
+      onClick={selectMode ? () => onCheck?.(review.id) : onClick}
       className={cn(
         "flex cursor-pointer gap-3 border-b border-[var(--rb-border-1)] px-4 py-3.5 transition-colors",
-        selected ? "bg-[var(--rb-bg-selected)]" : "hover:bg-[var(--rb-bg-hover)]",
+        selected && !selectMode ? "bg-[var(--rb-bg-selected)]" : "hover:bg-[var(--rb-bg-hover)]",
+        isChecked && "bg-[var(--rb-blue-50)]",
       )}
     >
-      <AppIconAvatar source={review.source} />
+      {selectMode ? (
+        <div className="flex shrink-0 items-center">
+          <input
+            type="checkbox"
+            checked={isChecked ?? false}
+            onChange={() => onCheck?.(review.id)}
+            onClick={(e) => e.stopPropagation()}
+            className="size-3.5 accent-[var(--rb-blue-500)]"
+          />
+        </div>
+      ) : (
+        <AppIconAvatar source={review.source} />
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
           <span className="min-w-0 truncate text-[13px] font-semibold text-[var(--rb-fg-1)]">
@@ -938,12 +954,17 @@ export function InboxScreen({
   isFetchingNextPage = false,
   fetchNextPage,
 }: InboxScreenProps) {
-  const [selectedId, setSelectedId]       = useState<string | null>(reviews[0]?.id ?? null);
-  const [activeFilter, setActiveFilter]   = useState<InboxFilter>("all");
-  const [sort, setSort]                   = useState<InboxSort>("newest");
-  const [search, setSearch]               = useState("");
-  const [versionFilter, setVersionFilter] = useState<string>("all");
-  const [groupMode, setGroupMode]         = useState(false);
+  const [selectedId, setSelectedId]         = useState<string | null>(reviews[0]?.id ?? null);
+  const [activeFilter, setActiveFilter]     = useState<InboxFilter>("all");
+  const [sort, setSort]                     = useState<InboxSort>("newest");
+  const [search, setSearch]                 = useState("");
+  const [versionFilter, setVersionFilter]   = useState<string>("all");
+  const [groupMode, setGroupMode]           = useState(false);
+  const [selectMode, setSelectMode]           = useState(false);
+  const [manuallySelected, setManuallySelected] = useState<Set<string>>(new Set());
+  const [bulkWorking, setBulkWorking]         = useState(false);
+  const [groupReviewsOverride, setGroupReviewsOverride] = useState<AppReview[] | null>(null);
+  const markRepliedBulk                       = useMarkReplied();
 
   // Unique versions from loaded reviews (top 4)
   const uniqueVersions = Array.from(
@@ -992,6 +1013,41 @@ export function InboxScreen({
   const groupCount   = sorted.filter((r) => r.replyStatus === "needs_reply").length;
   const showGroupBtn = groupCount >= 2 && !groupMode;
 
+  function toggleSelect(id: string) {
+    setManuallySelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setManuallySelected(new Set());
+  }
+
+  async function handleBulkMarkReplied() {
+    if (manuallySelected.size === 0) return;
+    setBulkWorking(true);
+    try {
+      const ids = Array.from(manuallySelected);
+      const res = await fetch("/api/reviews/bulk-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, action: "mark_replied" }),
+      });
+      if (res.ok) {
+        // Update cache for each selected review
+        for (const id of ids) {
+          markRepliedBulk(id, "");
+        }
+        exitSelectMode();
+      }
+    } finally {
+      setBulkWorking(false);
+    }
+  }
+
   // Auto-advance after single reply
   const handleAdvance = useCallback((currentId: string) => {
     const currentIndex = sorted.findIndex((r) => r.id === currentId);
@@ -1005,7 +1061,7 @@ export function InboxScreen({
     <div className="flex flex-1 min-h-0 overflow-hidden">
 
       {/* ── Left — review list ─────────────────────────────────────────────── */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
 
         {/* Header */}
         <div className="shrink-0 border-b border-[var(--rb-border-1)] px-7 pb-3.5 pt-5">
@@ -1026,15 +1082,27 @@ export function InboxScreen({
             </div>
             <div className="flex items-center gap-2">
               {/* Group reply button — appears when 2+ unreplied in current filter */}
-              {showGroupBtn && (
+              {showGroupBtn && !selectMode && (
                 <button
-                  onClick={() => { setGroupMode(true); setSelectedId(null); }}
+                  onClick={() => { setGroupMode(true); setSelectedId(null); setGroupReviewsOverride(null); }}
                   className="flex h-8 items-center gap-1.5 rounded-[8px] bg-[rgba(142,91,255,0.10)] px-3 text-[12px] font-semibold text-[var(--rb-purple-500)] transition-colors hover:bg-[rgba(142,91,255,0.16)]"
                 >
                   <MessageSquareDiff className="size-3.5" strokeWidth={2} />
                   Reply all · {groupCount}
                 </button>
               )}
+              {/* Select / cancel select */}
+              <button
+                onClick={() => { if (selectMode) exitSelectMode(); else { setSelectMode(true); setGroupMode(false); setSelectedId(null); } }}
+                className={cn(
+                  "h-8 rounded-[8px] px-3 text-[12px] font-semibold transition-colors",
+                  selectMode
+                    ? "bg-[var(--rb-bg-sunken)] text-[var(--rb-fg-1)]"
+                    : "text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)]",
+                )}
+              >
+                {selectMode ? "Cancel" : "Select"}
+              </button>
               {/* Sort */}
               <div className="flex shrink-0 items-center rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-0.5">
                 {(["newest", "lowest"] as const).map((s) => (
@@ -1174,6 +1242,9 @@ export function InboxScreen({
                   review={r}
                   selected={!groupMode && r.id === selectedId}
                   onClick={() => { setGroupMode(false); setSelectedId(r.id); }}
+                  selectMode={selectMode}
+                  isChecked={manuallySelected.has(r.id)}
+                  onCheck={toggleSelect}
                 />
               ))}
               {hasNextPage && (
@@ -1190,15 +1261,57 @@ export function InboxScreen({
             </>
           )}
         </div>
+
+        {/* ── Bulk action bar — floats above review list when items selected ─ */}
+        {selectMode && manuallySelected.size > 0 && (
+          <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
+            <div className="flex items-center gap-2 rounded-[10px] border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] px-3 py-2 shadow-[var(--rb-shadow-sm)]">
+              <span className="text-[12px] font-semibold text-[var(--rb-fg-1)]">
+                {manuallySelected.size} selected
+              </span>
+              <div className="mx-1 h-4 w-px bg-[var(--rb-border-2)]" />
+              <button
+                onClick={handleBulkMarkReplied}
+                disabled={bulkWorking}
+                className="flex h-7 items-center gap-1.5 rounded-[7px] bg-[var(--rb-green-500)] px-3 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {bulkWorking ? <Loader2 className="size-3 animate-spin" strokeWidth={1.5} /> : <CheckCheck className="size-3" strokeWidth={2} />}
+                Mark replied
+              </button>
+              <button
+                onClick={() => {
+                  const selected = sorted.filter((r) => manuallySelected.has(r.id));
+                  if (selected.length > 0) {
+                    setGroupReviewsOverride(selected);
+                    setGroupMode(true);
+                    setSelectedId(null);
+                    setSelectMode(false);
+                    setManuallySelected(new Set());
+                  }
+                }}
+                className="flex h-7 items-center gap-1.5 rounded-[7px] bg-[rgba(142,91,255,0.10)] px-3 text-[11px] font-semibold text-[var(--rb-purple-500)] transition-colors hover:bg-[rgba(142,91,255,0.16)]"
+              >
+                <MessageSquareDiff className="size-3" strokeWidth={2} />
+                Reply all
+              </button>
+              <button
+                onClick={exitSelectMode}
+                className="ml-1 text-[11px] text-[var(--rb-fg-3)] hover:text-[var(--rb-fg-2)]"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Right — composer or group panel ───────────────────────────────── */}
       {groupMode ? (
         <GroupReplyPanel
-          key={sorted.map((r) => r.id).join(",")}
-          reviews={sorted}
-          onDone={() => { setGroupMode(false); setSelectedId(null); }}
-          onClose={() => setGroupMode(false)}
+          key={(groupReviewsOverride ?? sorted).map((r) => r.id).join(",")}
+          reviews={groupReviewsOverride ?? sorted}
+          onDone={() => { setGroupMode(false); setSelectedId(null); setGroupReviewsOverride(null); }}
+          onClose={() => { setGroupMode(false); setGroupReviewsOverride(null); }}
         />
       ) : selected ? (
         <ReplyComposer
