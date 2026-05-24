@@ -633,6 +633,26 @@ Last updated: 2026-05-22
 
 ## Known Issues (read before debugging)
 
+### ⚠️ Vercel Hobby plan: cron jobs MUST be daily-or-less-frequent
+
+`vercel.json` cron schedules cannot fire more than once per day on the Hobby plan. Schedules like `0 */4 * * *` or `*/30 * * * *` will be rejected at deploy time with:
+
+> This cron expression would run more than once per day. Upgrade to the Pro plan to unlock all Cron Jobs features on Vercel.
+
+Current schedules are all daily-or-less-frequent:
+- `/api/sync/reviews` → `0 8 * * *` (daily 8am UTC)
+- `/api/reports/weekly-digest` → `0 9 * * 1` (Mondays 9am)
+- `/api/reports/unreplied-alert` → `0 10 * * *` (daily 10am)
+
+**Do NOT change these to higher frequencies without upgrading the Vercel project to Pro first**, or the deploy fails entirely (taking the whole app offline).
+
+For fresher data without upgrading Vercel:
+1. New workspaces get an immediate one-off sync via `/api/onboarding/complete` (fire-and-forget)
+2. Settings → Apps "Sync now" button hits the per-workspace worker
+3. Future option: Supabase `pg_cron` + `pg_net` can call the sync endpoint on any schedule for free
+
+**Also: `vercel.json` schema rejects `_comment` and other unknown top-level keys.** Use `$schema` for IDE hints but don't add custom comment fields — keep the rationale here in CLAUDE.md instead.
+
 ### ⚠️ Onboarding loop after completing setup (FIXED on `claude/picture-perfect`)
 
 **Symptom:** User completes step 2 (app details) → step 3 (Connect) → clicks "Launch my workspace" → instead of reaching step 4 / dashboard, they bounce back to step 3.
