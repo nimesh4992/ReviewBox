@@ -59,20 +59,6 @@ export function WorkspaceDefaults() {
         <p className="mt-0.5 text-xs text-gray-400">Applied across all connected apps</p>
         <div className="mt-4 space-y-3.5">
           <label className="block">
-            <span className="text-xs font-medium text-gray-600">Reply SLA</span>
-            <Input
-              defaultValue="4 business hours"
-              className="mt-1.5 h-8 border-gray-200 bg-gray-50 text-sm text-gray-700 focus:bg-white"
-            />
-          </label>
-          <label className="block">
-            <span className="text-xs font-medium text-gray-600">Critical rating floor</span>
-            <Input
-              defaultValue="2 stars"
-              className="mt-1.5 h-8 border-gray-200 bg-gray-50 text-sm text-gray-700 focus:bg-white"
-            />
-          </label>
-          <label className="block">
             <span className="text-xs font-medium text-gray-600">Support email</span>
             <Input
               type="email"
@@ -81,6 +67,9 @@ export function WorkspaceDefaults() {
               placeholder="support@yourapp.com"
               className="mt-1.5 h-8 border-gray-200 bg-gray-50 text-sm text-gray-700 focus:bg-white"
             />
+            <span className="mt-1 block text-[11px] text-gray-400">
+              Shown in AI reply suggestions and escalation templates.
+            </span>
           </label>
         </div>
         <Button
