@@ -25,7 +25,7 @@ async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
 }
 
 export function useDashboardMetrics() {
-  const { data, isLoading, isError } = useQuery<DashboardMetrics>({
+  const { data, isLoading, isError, refetch } = useQuery<DashboardMetrics>({
     queryKey: ["dashboard-metrics"],
     queryFn: fetchDashboardMetrics,
     staleTime: 5 * 60 * 1000, // 5 minutes
@@ -36,5 +36,6 @@ export function useDashboardMetrics() {
     data: data ?? EMPTY_METRICS,
     isLoading,
     isError,
+    refetch,
   };
 }

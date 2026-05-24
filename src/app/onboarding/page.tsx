@@ -76,9 +76,17 @@ export default function OnboardingPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [hydrating, setHydrating] = useState(true);
   const slugCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const hydratedRef = useRef(false);
+  // Capture session in a ref so the hydration effect doesn't re-fire every
+  // render when Clerk's session object reference changes. Effect runs once.
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
 
-  // Resume: hydrate from server state on mount
+  // Resume: hydrate from server state on mount — RUN EXACTLY ONCE
   useEffect(() => {
+    if (hydratedRef.current) return;
+    hydratedRef.current = true;
+
     let cancelled = false;
     (async () => {
       try {
@@ -94,7 +102,7 @@ export default function OnboardingPage() {
         if (cancelled) return;
 
         if (data.onboarded) {
-          try { await session?.reload(); } catch { /* non-fatal */ }
+          try { await sessionRef.current?.reload(); } catch { /* non-fatal */ }
           window.location.href = "/dashboard";
           return;
         }
@@ -123,7 +131,9 @@ export default function OnboardingPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [session]);
+    // Intentionally empty — hydration runs once. sessionRef stays current.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Debounced slug availability check
   useEffect(() => {
@@ -201,6 +211,10 @@ export default function OnboardingPage() {
           platform:      form.platform,
           storeId:       form.selectedApp.storeId,
           appCategory:   form.appCategory,
+          // App metadata captured at search time. Server refetches from the
+          // store but these are the immediate-display values.
+          icon:          form.selectedApp.icon,
+          developer:     form.selectedApp.developer,
         }),
       });
 

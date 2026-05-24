@@ -3,26 +3,23 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
-import { useAuth, useUser } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import {
-  Activity,
   AlertTriangle,
   BarChart2,
   BookOpen,
-  Bug,
   ChevronDown,
-  ChevronUp,
   FileBarChart,
   Gauge,
   Inbox,
-  MessageSquareReply,
   Rocket,
   Search,
   Settings,
   Trophy,
   Workflow,
-  Zap,
 } from "lucide-react";
+
+import { UserMenu } from "@/components/layout/user-menu";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -50,6 +47,9 @@ type NavGroup = {
   items: NavItem[];
 };
 
+// Signal numbers were previously hardcoded ("127" inbox, "2" incidents).
+// Until they're wired to real counts via React Query, all set to null so
+// we don't lie to users about what's in their workspace.
 const navGroups: NavGroup[] = [
   {
     label: null,
@@ -60,9 +60,9 @@ const navGroups: NavGroup[] = [
   {
     label: "Inbox",
     items: [
-      { name: "Inbox",       href: "/inbox",       icon: Inbox,    signal: "127" },
-      { name: "Automations", href: "/automations", icon: Workflow,  signal: null  },
-      { name: "Reply Kit",   href: "/reply-kit",   icon: BookOpen,  signal: null  },
+      { name: "Inbox",       href: "/inbox",       icon: Inbox,    signal: null },
+      { name: "Automations", href: "/automations", icon: Workflow,  signal: null },
+      { name: "Reply Kit",   href: "/reply-kit",   icon: BookOpen,  signal: null },
     ],
   },
   {
@@ -77,7 +77,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Monitor",
     items: [
-      { name: "Incidents", href: "/incidents", icon: AlertTriangle, signal: "2" },
+      { name: "Incidents", href: "/incidents", icon: AlertTriangle, signal: null },
       { name: "Releases",  href: "/releases",  icon: Rocket,        signal: null },
     ],
   },
@@ -202,16 +202,17 @@ function SidebarNavGroup({
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
-interface App { id: string; name: string; platform: string }
+interface App {
+  id: string;
+  name: string;
+  platform: string;
+  icon_url?: string | null;
+}
 
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
   const { user, isLoaded } = useUser();
-  const { sessionClaims } = useAuth();
-  const planLabel = sessionClaims?.metadata && typeof (sessionClaims.metadata as Record<string, unknown>).plan === "string"
-    ? String((sessionClaims.metadata as Record<string, unknown>).plan)
-    : "Free Plan";
-  const { selectedApp, setSelectedApp, environment, setEnvironment } = useWorkspaceStore();
+  const { selectedApp, setSelectedApp } = useWorkspaceStore();
   const [apps, setApps] = useState<App[]>([]);
 
   useEffect(() => {
@@ -220,7 +221,6 @@ export function Sidebar({ className }: { className?: string }) {
       .then((data: { apps: App[] } | null) => {
         if (data?.apps?.length) {
           setApps(data.apps);
-          // Auto-select the first app if nothing valid is selected
           const names = data.apps.map((a) => a.name);
           if (!selectedApp || !names.includes(selectedApp)) {
             setSelectedApp(data.apps[0].name);
@@ -228,20 +228,9 @@ export function Sidebar({ className }: { className?: string }) {
         }
       })
       .catch(() => null);
+    // selectedApp/setSelectedApp from store are stable; intentionally not in deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  const initials =
-    user?.firstName && user?.lastName
-      ? `${user.firstName[0]}${user.lastName[0]}`
-      : user?.firstName?.[0]?.toUpperCase() ??
-        user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ??
-        "U";
-
-  const displayName =
-    user?.fullName ??
-    user?.firstName ??
-    user?.emailAddresses?.[0]?.emailAddress?.split("@")[0] ??
-    "User";
 
   return (
     <aside
@@ -300,30 +289,35 @@ export function Sidebar({ className }: { className?: string }) {
             {apps.length > 0 ? apps.map((app) => (
               <DropdownMenuItem
                 key={app.id}
-                className="text-[#48484D] focus:bg-black/[0.04] focus:text-[#1D1D1F]"
+                className="gap-2 text-[#48484D] focus:bg-black/[0.04] focus:text-[#1D1D1F]"
                 onClick={() => setSelectedApp(app.name)}
               >
+                {app.icon_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={app.icon_url} alt="" className="size-4 shrink-0 rounded object-cover" />
+                ) : (
+                  <span className="size-4 shrink-0 rounded bg-gray-200 text-[8px] font-bold leading-4 text-center text-gray-500">
+                    {app.name[0]?.toUpperCase()}
+                  </span>
+                )}
                 <span className="truncate">{app.name}</span>
                 {selectedApp === app.name && (
                   <span className="ml-auto text-[#0A84FF]">✓</span>
                 )}
               </DropdownMenuItem>
             )) : (
-              <DropdownMenuItem
-                className="text-[#86868B] focus:bg-black/[0.04]"
-                onClick={() => {}}
-              >
+              <DropdownMenuItem disabled className="text-[#86868B]">
                 No apps connected
               </DropdownMenuItem>
             )}
             <DropdownMenuSeparator className="bg-black/[0.06]" />
-            <DropdownMenuItem
-              className="text-[#48484D] focus:bg-black/[0.04] focus:text-[#1D1D1F]"
-              onClick={() =>
-                setEnvironment(environment === "production" ? "staging" : "production")
-              }
-            >
-              Switch to {environment === "production" ? "Staging" : "Production"}
+            <DropdownMenuItem asChild>
+              <Link
+                href="/settings"
+                className="cursor-pointer text-[#0A84FF] focus:bg-black/[0.04] focus:text-[#0A84FF]"
+              >
+                + Connect another app
+              </Link>
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -343,59 +337,9 @@ export function Sidebar({ className }: { className?: string }) {
         ))}
       </nav>
 
-      <div className="mx-3 h-px bg-black/[0.06] dark:bg-white/[0.06]" />
-
-      {/* AI triage panel */}
-      <div className="p-3">
-        <div className="rounded-lg border border-black/[0.06] bg-black/[0.02] p-3 dark:border-white/[0.06] dark:bg-white/[0.03]">
-          <div className="mb-2.5 flex items-center justify-between">
-            <span className="flex items-center gap-1.5 text-[11px] font-medium text-[#48484D] dark:text-[#C7C7CC]">
-              <Zap className="size-3 text-[#0A84FF]" strokeWidth={1.5} />
-              AI triage
-            </span>
-            <span className="flex items-center gap-1 text-[10px] font-medium text-emerald-600">
-              <span className="size-1.5 rounded-full bg-emerald-500" />
-              live
-            </span>
-          </div>
-          <div className="space-y-2">
-            <div className="flex items-center justify-between gap-2 text-[11px]">
-              <span className="flex items-center gap-1.5 text-[#86868B]">
-                <Bug className="size-3 text-red-500" strokeWidth={1.5} />
-                Crash cluster
-              </span>
-              <span className="font-medium text-[#48484D] dark:text-[#C7C7CC]">21</span>
-            </div>
-            <div className="flex items-center justify-between gap-2 text-[11px]">
-              <span className="flex items-center gap-1.5 text-[#86868B]">
-                <MessageSquareReply className="size-3 text-amber-500" strokeWidth={1.5} />
-                Needs reply
-              </span>
-              <span className="font-medium text-[#48484D] dark:text-[#C7C7CC]">46</span>
-            </div>
-            <div className="flex items-center justify-between gap-2 text-[11px]">
-              <span className="flex items-center gap-1.5 text-[#86868B]">
-                <Activity className="size-3 text-indigo-500" strokeWidth={1.5} />
-                SLA window
-              </span>
-              <span className="font-medium text-amber-600">2h 14m</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* User profile */}
+      {/* Account menu (real — opens dropdown with profile + settings + sign out) */}
       <div className="border-t border-black/[0.06] px-3 py-2.5 dark:border-white/[0.06]">
-        <div className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 transition-colors hover:bg-black/[0.04] dark:hover:bg-white/[0.06]">
-          <div className="flex size-7 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-[#4592FF] to-[#0058B3] text-[11px] font-bold text-white">
-            {initials}
-          </div>
-          <div className="min-w-0 flex-1">
-            <div className="truncate text-[12px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">{displayName}</div>
-            <div className="text-[10px] text-[#86868B]">{planLabel}</div>
-          </div>
-          <ChevronUp className="size-3.5 shrink-0 text-[#86868B]" strokeWidth={1.5} />
-        </div>
+        <UserMenu variant="row" />
       </div>
     </aside>
   );

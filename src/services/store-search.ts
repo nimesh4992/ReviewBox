@@ -93,15 +93,16 @@ interface ScrapedPlayResult {
 
 /**
  * Extract apps from a Play Store search HTML page.
- * Looks for app rows in the embedded JSON blob (AF_initDataCallback) and falls
- * back to scanning for `/store/apps/details?id=` links if that fails.
+ *
+ * Google embeds search results as anchors with aria-label="NAME". For
+ * icon + rating we look at the surrounding markup near each anchor. The
+ * Play Store HTML rotates often — if a pattern stops matching, the row
+ * falls back to "name only" instead of disappearing.
  */
 function parsePlayHtml(html: string, limit: number): ScrapedPlayResult[] {
   const out: ScrapedPlayResult[] = [];
   const seen = new Set<string>();
 
-  // Primary: extract package names + names from anchor tags. Play renders
-  // <a href="/store/apps/details?id=PACKAGE" aria-label="NAME">.
   const anchorRegex =
     /href="\/store\/apps\/details\?id=([a-zA-Z0-9._]+)(?:&[^"]*)?"\s+aria-label="([^"]+)"/g;
   let match;
@@ -110,7 +111,26 @@ function parsePlayHtml(html: string, limit: number): ScrapedPlayResult[] {
     const name = match[2];
     if (seen.has(storeId)) continue;
     seen.add(storeId);
-    out.push({ storeId, name, developer: "", icon: null, rating: null });
+
+    // Look at a window of ~3KB around this match for icon + rating.
+    const windowStart = Math.max(0, match.index - 1500);
+    const windowEnd   = Math.min(html.length, match.index + 1500);
+    const ctx = html.slice(windowStart, windowEnd);
+
+    const iconMatch = ctx.match(
+      /https:\/\/play-lh\.googleusercontent\.com\/[A-Za-z0-9_\-=/]+(?:=w\d+(?:-h\d+)?(?:-[a-z0-9-]+)*)?/,
+    );
+    const ratingMatch =
+      ctx.match(/aria-label="Rated (\d(?:\.\d)?) stars/i) ??
+      ctx.match(/>(\d\.\d)<\/span>\s*<span[^>]*>star/i);
+
+    out.push({
+      storeId,
+      name,
+      developer: "",
+      icon: iconMatch ? iconMatch[0] : null,
+      rating: ratingMatch ? parseFloat(ratingMatch[1]) : null,
+    });
   }
 
   // Fallback: just package IDs (in case aria-label changes)
@@ -167,4 +187,114 @@ export async function searchStore(
   if (!query.trim()) return [];
   if (platform === "app-store") return searchAppStore(query, limit);
   return searchGooglePlay(query, limit);
+}
+
+// ── Single-app metadata (icon, lifetime rating, lifetime review count) ───────
+//
+// Used after a user picks their app to populate apps.icon_url +
+// apps.lifetime_rating + apps.lifetime_review_count. Search results don't
+// always have the lifetime count — need to fetch the detail page once.
+
+export interface AppMetadata {
+  storeId: string;
+  name: string;
+  developer: string;
+  icon: string | null;
+  /** Lifetime average rating (matches what users see on the store) */
+  rating: number | null;
+  /** Lifetime review count (matches what users see on the store) */
+  reviewCount: number | null;
+}
+
+/** Fetch a Google Play app's metadata from its detail page. */
+export async function fetchGooglePlayMetadata(
+  packageName: string,
+): Promise<AppMetadata | null> {
+  const url = `https://play.google.com/store/apps/details?id=${encodeURIComponent(packageName)}&hl=en`;
+  try {
+    const res = await fetch(url, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+      },
+      signal: AbortSignal.timeout(7000),
+    });
+    if (!res.ok) return null;
+    const html = await res.text();
+
+    const nameMatch =
+      html.match(/<title[^>]*>([^<]+?)\s*-\s*Apps on Google Play<\/title>/i) ??
+      html.match(/itemprop="name"[^>]*>([^<]+)</i);
+
+    const iconMatch = html.match(
+      /https:\/\/play-lh\.googleusercontent\.com\/[A-Za-z0-9_\-=/]+=w(\d+)-h(\d+)/,
+    );
+
+    const ratingMatch =
+      html.match(/"ratingValue":\s*"?(\d(?:\.\d)?)"?/i) ??
+      html.match(/aria-label="(?:Average rating|Rated)\s+(\d(?:\.\d)?)/i);
+
+    const countMatch =
+      html.match(/"ratingCount":\s*"?(\d+)"?/i) ??
+      html.match(/(\d[\d,]*)\s+reviews?\s*<\//i);
+
+    return {
+      storeId: packageName,
+      name: nameMatch ? nameMatch[1].trim() : packageName,
+      developer: "",
+      icon: iconMatch ? iconMatch[0] : null,
+      rating: ratingMatch ? parseFloat(ratingMatch[1]) : null,
+      reviewCount: countMatch ? parseInt(countMatch[1].replace(/,/g, ""), 10) : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Fetch an App Store app's metadata via iTunes Lookup. */
+export async function fetchAppStoreMetadata(
+  bundleId: string,
+): Promise<AppMetadata | null> {
+  try {
+    const url = `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(bundleId)}&country=us`;
+    const res = await fetch(url, {
+      headers: { "User-Agent": "ReviewBox/1.0 (+https://tryreviewbox.com)" },
+      signal: AbortSignal.timeout(5000),
+    });
+    if (!res.ok) return null;
+    const json = (await res.json()) as {
+      resultCount: number;
+      results: Array<{
+        bundleId?: string;
+        trackName?: string;
+        artistName?: string;
+        artworkUrl100?: string;
+        artworkUrl512?: string;
+        averageUserRating?: number;
+        userRatingCount?: number;
+      }>;
+    };
+    const r = json.results?.[0];
+    if (!r) return null;
+    return {
+      storeId: bundleId,
+      name: r.trackName ?? bundleId,
+      developer: r.artistName ?? "",
+      icon: r.artworkUrl512 ?? r.artworkUrl100 ?? null,
+      rating: typeof r.averageUserRating === "number" ? r.averageUserRating : null,
+      reviewCount: typeof r.userRatingCount === "number" ? r.userRatingCount : null,
+    };
+  } catch {
+    return null;
+  }
+}
+
+/** Dispatch metadata fetch by platform. */
+export async function fetchAppMetadata(
+  platform: StorePlatform,
+  storeId: string,
+): Promise<AppMetadata | null> {
+  if (platform === "app-store") return fetchAppStoreMetadata(storeId);
+  return fetchGooglePlayMetadata(storeId);
 }

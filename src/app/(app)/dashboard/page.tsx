@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertOctagon, Download } from "lucide-react";
+import { AlertOctagon, Download, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
@@ -68,11 +68,24 @@ function formatDelta(value: number | null, suffix = ""): string {
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { data: metrics, isLoading } = useDashboardMetrics();
-  const { apps, isLoading: appsLoading } = useApps();
+  const { data: metrics, isLoading, refetch: refetchMetrics } = useDashboardMetrics();
+  const { apps, isLoading: appsLoading, refetch: refetchApps } = useApps();
   const { data: incidents } = useIncidents();
   const [range, setRange] = useState<"7d" | "30d" | "90d">("30d");
   const [exporting, setExporting] = useState(false);
+
+  // Poll metrics + apps every 10s while any app is still in its first sync,
+  // so the dashboard updates without a manual refresh when reviews arrive.
+  // Stops polling automatically once last_synced_at is set on every app.
+  const hasUnsyncedApp = apps.some((a) => a.last_synced_at === null);
+  useEffect(() => {
+    if (!hasUnsyncedApp) return;
+    const id = setInterval(() => {
+      refetchMetrics();
+      refetchApps();
+    }, 10_000);
+    return () => clearInterval(id);
+  }, [hasUnsyncedApp, refetchMetrics, refetchApps]);
 
   async function handleExport() {
     setExporting(true);
@@ -150,6 +163,21 @@ export default function DashboardPage() {
         <UpgradeToast />
       </Suspense>
       <TrialBanner />
+
+      {/* First-sync banner — shown until every connected app has last_synced_at set */}
+      {hasUnsyncedApp && apps.length > 0 && (
+        <div className="flex items-start gap-3 rounded-xl border border-[#0A84FF]/20 bg-[#0A84FF]/[0.04] px-4 py-3">
+          <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-[#0A84FF]" strokeWidth={2} />
+          <div className="flex-1">
+            <div className="text-[13px] font-semibold text-[#1D1D1F]">
+              Syncing your reviews from the store…
+            </div>
+            <div className="mt-0.5 text-[11px] text-[#86868B]">
+              First sync usually completes within 30 seconds. Reviews will appear here automatically — no refresh needed.
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Page header */}
       <header className="flex items-end justify-between gap-6">
@@ -355,15 +383,43 @@ export default function DashboardPage() {
                   i < apps.length - 1 && "border-b border-gray-50",
                 )}
               >
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[12px] font-bold text-[#86868B]">
-                  {a.name[0]}
-                </div>
+                {a.icon_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={a.icon_url}
+                    alt=""
+                    className="size-8 shrink-0 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[12px] font-bold text-[#86868B]">
+                    {a.name[0]?.toUpperCase()}
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
-                  <div className="text-[13px] font-semibold text-[#1D1D1F]">{a.name}</div>
-                  <div className="mt-0.5 text-[11px] text-[#86868B]">
-                    {a.platform === "google_play" ? "Google Play" : "App Store"}
+                  <div className="truncate text-[13px] font-semibold text-[#1D1D1F]">{a.name}</div>
+                  <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[#86868B]">
+                    <span>{a.platform === "google_play" ? "Google Play" : "App Store"}</span>
+                    {a.lifetime_rating !== null && (
+                      <>
+                        <span>·</span>
+                        <span className="tabular-nums">{a.lifetime_rating.toFixed(1)}★</span>
+                      </>
+                    )}
+                    {a.lifetime_review_count !== null && a.lifetime_review_count > 0 && (
+                      <>
+                        <span>·</span>
+                        <span className="tabular-nums">
+                          {a.lifetime_review_count.toLocaleString()} reviews
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
+                {a.last_synced_at === null && (
+                  <span className="shrink-0 rounded-full bg-[#0A84FF]/10 px-2 py-0.5 text-[10px] font-semibold text-[#0A84FF]">
+                    Syncing…
+                  </span>
+                )}
               </div>
             ))
           )}

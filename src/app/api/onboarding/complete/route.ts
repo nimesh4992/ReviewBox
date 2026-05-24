@@ -11,6 +11,7 @@ import {
   STARTER_REPLY_TEMPLATES,
   type AppCategory,
 } from "@/lib/brand-voice-stubs";
+import { fetchAppMetadata } from "@/services/store-search";
 
 interface OnboardingBody {
   workspaceName: string;
@@ -20,6 +21,10 @@ interface OnboardingBody {
   storeId?:      string;
   /** App category selected during onboarding — used to pre-fill brand voice. */
   appCategory?:  AppCategory;
+  /** App metadata captured at search time. We refresh from the store too. */
+  icon?:         string | null;
+  developer?:    string | null;
+  rating?:       number | null;
 }
 
 const TRIAL_DAYS = 14;
@@ -159,22 +164,64 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     appId = existingApp.id as string;
   } else {
     const dbPlatform = platform.replace("-", "_");
-    const { data: app, error: appError } = await sb
+
+    // Fetch lifetime metadata from the store. Falls back to the values the
+    // client sent (from search), then nulls if the store fetch fails too.
+    // Done before insert so the app row has icon + rating from row 1.
+    let metaIcon = body.icon ?? null;
+    let metaDeveloper = body.developer ?? null;
+    let metaRating = body.rating ?? null;
+    let metaReviewCount: number | null = null;
+    if (storeId) {
+      try {
+        const fetched = await fetchAppMetadata(platform, storeId);
+        if (fetched) {
+          metaIcon         = fetched.icon ?? metaIcon;
+          metaDeveloper    = fetched.developer || metaDeveloper;
+          metaRating       = fetched.rating ?? metaRating;
+          metaReviewCount  = fetched.reviewCount ?? null;
+        }
+      } catch (err) {
+        console.warn("[onboarding] app metadata fetch failed:", err);
+      }
+    }
+
+    let appInsert = await sb
       .from("apps")
       .insert({
-        workspace_id: workspaceId,
-        name:         appName,
-        platform:     dbPlatform,
-        store_id:     storeId,
+        workspace_id:           workspaceId,
+        name:                   appName,
+        platform:               dbPlatform,
+        store_id:               storeId,
+        icon_url:               metaIcon,
+        developer:              metaDeveloper,
+        lifetime_rating:        metaRating,
+        lifetime_review_count:  metaReviewCount,
+        metadata_refreshed_at:  metaIcon || metaRating ? new Date().toISOString() : null,
       })
       .select("id")
       .single();
 
-    if (appError) {
-      console.error("[onboarding] app insert:", appError);
+    // 42703 = column does not exist — migration 012 not yet applied. Fall
+    // back to inserting without metadata columns so onboarding still works.
+    if (appInsert.error?.code === "42703") {
+      appInsert = await sb
+        .from("apps")
+        .insert({
+          workspace_id: workspaceId,
+          name:         appName,
+          platform:     dbPlatform,
+          store_id:     storeId,
+        })
+        .select("id")
+        .single();
+    }
+
+    if (appInsert.error) {
+      console.error("[onboarding] app insert:", appInsert.error);
       return apiError("INTERNAL_SERVER_ERROR", 500);
     }
-    appId = app.id as string;
+    appId = appInsert.data!.id as string;
   }
 
   // Kick off the first review sync immediately so the user doesn't have to
