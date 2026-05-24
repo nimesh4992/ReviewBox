@@ -1064,6 +1064,36 @@ export function InboxScreen({
               ))}
             </div>
           )}
+
+          {/* KPI metrics strip — derived from currently filtered set */}
+          {sorted.length > 0 && (() => {
+            const sortedReplied   = sorted.filter((r) => r.replyStatus === "replied").length;
+            const sortedUnreplied = sorted.filter((r) => r.replyStatus === "needs_reply").length;
+            const avgRating       = sorted.reduce((s, r) => s + r.rating, 0) / sorted.length;
+            const replyRate       = sorted.length > 0 ? Math.round((sortedReplied / sorted.length) * 100) : 0;
+            const stats = [
+              { label: "Shown",        value: String(sorted.length)             },
+              { label: "Avg ★",        value: avgRating.toFixed(1)              },
+              { label: "Needs reply",  value: String(sortedUnreplied),  alert: sortedUnreplied > 0 },
+              { label: "Replied",      value: String(sortedReplied)             },
+              { label: "Reply rate",   value: replyRate + "%"                   },
+            ];
+            return (
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 border-t border-[var(--rb-border-1)] pt-2.5">
+                {stats.map((s) => (
+                  <div key={s.label} className="flex items-baseline gap-1.5">
+                    <span className={cn(
+                      "text-[13px] font-semibold tabular-nums leading-none",
+                      s.alert ? "text-[var(--rb-blue-500)]" : "text-[var(--rb-fg-1)]",
+                    )}>
+                      {s.value}
+                    </span>
+                    <span className="text-[11px] text-[var(--rb-fg-3)]">{s.label}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Review rows */}

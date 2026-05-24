@@ -361,6 +361,63 @@ export default function DashboardPage() {
         ))}
       </section>
 
+      {/* Vitals strip */}
+      <section className="rounded-xl border border-[var(--rb-border-1)] bg-surface px-5 py-4 shadow-[var(--rb-shadow-xs)]">
+        <div className="flex items-center gap-1.5 mb-3">
+          <span className="text-[11px] font-semibold uppercase tracking-[0.06em] text-fg-3">Vitals</span>
+        </div>
+        <div className="flex flex-wrap gap-4">
+          {[
+            {
+              label: "Avg rating",
+              value: metrics.avgRating != null ? metrics.avgRating.toFixed(2) + " ★" : "—",
+              delta: metrics.avgRatingDelta != null
+                ? (metrics.avgRatingDelta >= 0 ? "+" : "") + metrics.avgRatingDelta.toFixed(2)
+                : null,
+              positive: (metrics.avgRatingDelta ?? 0) >= 0,
+            },
+            {
+              label: "Unreplied",
+              value: String(metrics.unrepliedCount),
+              delta: null,
+              positive: metrics.unrepliedCount === 0,
+            },
+            {
+              label: "Reviews this week",
+              value: metrics.reviewsWeekDelta != null
+                ? (metrics.reviewsWeekDelta >= 0 ? "+" : "") + metrics.reviewsWeekDelta
+                : String(metrics.reviewsToday),
+              delta: null,
+              positive: true,
+            },
+            {
+              label: "Total reviews",
+              value: metrics.totalReviews.toLocaleString(),
+              delta: null,
+              positive: true,
+            },
+            {
+              label: "Urgent",
+              value: String(metrics.urgentCount),
+              delta: null,
+              positive: metrics.urgentCount === 0,
+            },
+          ].map((v) => (
+            <div key={v.label} className="flex flex-col gap-0.5 min-w-[90px]">
+              <span className="text-[11px] text-fg-3">{v.label}</span>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-[18px] font-semibold tabular-nums text-fg-1 leading-none">{v.value}</span>
+                {v.delta && (
+                  <span className={cn("text-[11px] font-medium tabular-nums", v.positive ? "text-[#1F8A5B]" : "text-[#DC2626]")}>
+                    {v.delta}
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Two-column lower */}
       <section className="grid gap-4" style={{ gridTemplateColumns: "1.4fr 1fr" }}>
 
@@ -496,6 +553,71 @@ export default function DashboardPage() {
 
       {/* AI Review Summary */}
       <AiSummaryPanel />
+
+      {/* 3-column bottom cards */}
+      <section className="grid grid-cols-3 gap-4">
+
+        {/* Rating card */}
+        <div className="rounded-xl border border-[var(--rb-border-1)] bg-surface p-5 shadow-[var(--rb-shadow-xs)] flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] font-semibold text-fg-1">Ratings</span>
+            <Link href="/alerts" className="text-[11px] font-medium text-[#0A84FF] hover:underline">Set alert →</Link>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[36px] font-semibold tabular-nums leading-none text-fg-1">
+              {metrics.avgRating != null ? metrics.avgRating.toFixed(1) : "—"}
+            </span>
+            <span className="text-[14px] text-fg-3">★</span>
+            {metrics.avgRatingDelta != null && (
+              <span className={cn("text-[12px] font-medium tabular-nums", metrics.avgRatingDelta >= 0 ? "text-[#1F8A5B]" : "text-[#DC2626]")}>
+                {metrics.avgRatingDelta >= 0 ? "+" : ""}{metrics.avgRatingDelta.toFixed(2)}
+              </span>
+            )}
+          </div>
+          <div className="text-[11px] text-fg-3">vs previous period</div>
+        </div>
+
+        {/* Reviews card */}
+        <div className="rounded-xl border border-[var(--rb-border-1)] bg-surface p-5 shadow-[var(--rb-shadow-xs)] flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] font-semibold text-fg-1">Reviews</span>
+            <Link href="/reviews" className="text-[11px] font-medium text-[#0A84FF] hover:underline">View all →</Link>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[36px] font-semibold tabular-nums leading-none text-fg-1">
+              {metrics.totalReviews.toLocaleString()}
+            </span>
+          </div>
+          <div className="flex gap-3 text-[11px] text-fg-3">
+            <span>{metrics.unrepliedCount} unreplied</span>
+            <span>·</span>
+            <span>{metrics.urgentCount} urgent</span>
+          </div>
+        </div>
+
+        {/* Feedback insights card */}
+        <div className="rounded-xl border border-[var(--rb-border-1)] bg-surface p-5 shadow-[var(--rb-shadow-xs)] flex flex-col gap-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[13px] font-semibold text-fg-1">Feedback</span>
+            <Link href="/reports" className="text-[11px] font-medium text-[#0A84FF] hover:underline">Full report →</Link>
+          </div>
+          <div className="flex flex-col gap-2">
+            {[
+              { label: "Crash / bugs", color: "#DC2626" },
+              { label: "Feature requests", color: "#D97706" },
+              { label: "Login / billing", color: "#0A84FF" },
+            ].map((tag) => (
+              <div key={tag.label} className="flex items-center gap-2">
+                <div className="h-1.5 w-1.5 rounded-full shrink-0" style={{ backgroundColor: tag.color }} />
+                <span className="text-[12px] text-fg-2 flex-1">{tag.label}</span>
+                <span className="text-[11px] text-fg-3 tabular-nums">—</span>
+              </div>
+            ))}
+          </div>
+          <div className="text-[11px] text-fg-3">Sync reviews to see tag breakdown</div>
+        </div>
+
+      </section>
 
     </div>
   );
