@@ -221,6 +221,28 @@ function ReplyComposer({
   const badge       = SENTIMENT_BADGE[review.sentiment];
   const markReplied = useMarkReplied();
 
+  // Translation state
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [sourceLang, setSourceLang]         = useState<string | null>(null);
+  const [showTranslation, setShowTranslation] = useState(false);
+
+  async function handleTranslate() {
+    if (translatedText) { setShowTranslation((v) => !v); return; }
+    setIsTranslating(true);
+    try {
+      const res = await fetch(`/api/reviews/${review.id}/translate`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json() as { translatedText: string; sourceLang: string };
+        setTranslatedText(data.translatedText);
+        setSourceLang(data.sourceLang);
+        setShowTranslation(true);
+      }
+    } finally {
+      setIsTranslating(false);
+    }
+  }
+
   const handleGenerate = useCallback(async (selectedTone: AIReplyTone) => {
     setIsGenerating(true);
     setGenerateError(null);
@@ -344,7 +366,7 @@ function ReplyComposer({
           {shortTitle(review.text)}
         </p>
         <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--rb-fg-2)]">{review.text}</p>
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           <span className={cn(
             "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
             badge.className,
@@ -361,7 +383,33 @@ function ReplyComposer({
               {humanizeToken(tag)}
             </span>
           ))}
+          {/* Translate button */}
+          <button
+            onClick={handleTranslate}
+            disabled={isTranslating}
+            className="ml-auto flex items-center gap-1 rounded-full border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--rb-fg-2)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50"
+          >
+            {isTranslating ? (
+              <Loader2 className="size-2.5 animate-spin" strokeWidth={2} />
+            ) : (
+              <span className="text-[10px]">🌐</span>
+            )}
+            {showTranslation ? "Original" : "Translate"}
+          </button>
         </div>
+
+        {/* Translated text */}
+        {showTranslation && translatedText && sourceLang !== "en" && (
+          <div className="mt-2 rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--rb-fg-3)]">
+              Translated from {sourceLang?.toUpperCase() ?? "?"}
+            </div>
+            <p className="text-[13px] leading-relaxed text-[var(--rb-fg-2)]">{translatedText}</p>
+          </div>
+        )}
+        {showTranslation && sourceLang === "en" && (
+          <p className="mt-1.5 text-[11px] text-[var(--rb-fg-3)]">Already in English.</p>
+        )}
       </div>
 
       {/* Existing reply banner */}
