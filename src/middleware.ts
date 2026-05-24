@@ -122,19 +122,11 @@ export default clerkMiddleware(async (auth, request) => {
 
   const { sessionClaims } = await auth.protect();
   const metadata = (sessionClaims?.metadata ?? {}) as {
-    onboarded?: boolean;
     plan?: string;
     trialEndsAt?: string;
     paymentFailedAt?: string;
     accountDeletedAt?: string;
   };
-  // Clerk JWTs are cached up to 60s. Right after onboarding completes, the
-  // `onboarded` claim is still false in the user's session token — which
-  // would bounce them back to /onboarding in an infinite loop.
-  // The `rb_onboarded` cookie is set by /api/onboarding/complete and trusted
-  // for 5 minutes, giving the JWT plenty of time to propagate.
-  const cookieOnboarded = request.cookies.get("rb_onboarded")?.value === "1";
-  const onboarded = metadata.onboarded === true || cookieOnboarded;
   const plan = metadata.plan ?? "trial";
   const trialEndsAt = metadata.trialEndsAt;
   const accountDeletedAt = metadata.accountDeletedAt;
@@ -151,22 +143,16 @@ export default clerkMiddleware(async (auth, request) => {
     }
   }
 
-  // Onboarding gate — accept-invite paths bypass so invitees can join
-  const isOnboardingPath =
-    nextUrl.pathname === "/onboarding" ||
-    nextUrl.pathname.startsWith("/onboarding/") ||
-    nextUrl.pathname.startsWith("/api/onboarding");
-  const isInviteAcceptPath =
-    nextUrl.pathname.startsWith("/invite/") ||
-    nextUrl.pathname === "/api/account/accept-invite";
-
-  // Only gate non-onboarded users away from app routes.
-  // Do NOT redirect onboarded users away from /onboarding here — the page's
-  // own useEffect calls session.reload() first, then navigates. Doing it in
-  // middleware causes an infinite loop when the JWT is stale (60s TTL).
-  if (!onboarded && !isOnboardingPath && !isInviteAcceptPath) {
-    return NextResponse.redirect(new URL("/onboarding", request.url));
-  }
+  // NOTE: There is NO onboarding-state check in middleware. Reading the
+  // `onboarded` flag from Clerk's session JWT causes infinite redirect loops
+  // when the JWT is stale (Clerk caches metadata up to 60s after we update
+  // it server-side). Onboarding routing is handled at the PAGE level:
+  //   - Signed-in user with no workspace → dashboard renders an empty-state
+  //     CTA pointing to /onboarding.
+  //   - User on /onboarding who already has a workspace → onboarding page
+  //     redirects to /dashboard via useEffect.
+  // Both checks read fresh state from /api/onboarding/state (DB-authoritative),
+  // never from the JWT.
 
   // Trial expiry (only while plan === "trial")
   if (plan === "trial" && trialEndsAt) {

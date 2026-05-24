@@ -291,18 +291,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
   }
 
-  // Cookie hint for middleware. Clerk JWTs are cached up to 60s, so
-  // immediately after this route succeeds, middleware would still see
-  // onboarded=false in sessionClaims and bounce the user back to /onboarding,
-  // creating an infinite loop. This short-lived cookie tells middleware
-  // "trust me, this user just completed onboarding" until the JWT catches up.
-  const res = NextResponse.json({ workspaceId, appId }, { status: 200 });
-  res.cookies.set("rb_onboarded", "1", {
-    maxAge: 60 * 5, // 5 minutes — JWT typically refreshes in <60s, this is buffer
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-  });
-  return res;
+  // Middleware no longer enforces an onboarding gate, so no cookie hint
+  // is needed. Onboarding routing is page-level — see middleware.ts comment.
+  return NextResponse.json({ workspaceId, appId }, { status: 200 });
 }
