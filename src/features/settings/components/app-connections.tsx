@@ -23,6 +23,13 @@ import { formatReviewDate } from "@/utils/format";
 
 // ── App Store credential form ─────────────────────────────────────────────────
 
+interface TestResult {
+  ok: boolean;
+  message: string;
+  appStoreId?: string;
+  verifiedAt: string;
+}
+
 function AppStoreForm({
   app,
   onSaved,
@@ -34,8 +41,31 @@ function AppStoreForm({
   const [issuerId, setIssuerId] = useState("");
   const [p8Key, setP8Key] = useState("");
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
+
+  // Validate field formats inline so users see issues before submit.
+  const keyIdLooksValid    = keyId.length === 0 || /^[A-Z0-9]{8,12}$/i.test(keyId.trim());
+  const issuerIdLooksValid = issuerId.length === 0 || /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(issuerId.trim());
+
+  async function testConnection() {
+    setTesting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/apps/${app.id}/test-credentials`, { method: "POST" });
+      const data = (await res.json()) as TestResult;
+      setTestResult(data);
+    } catch {
+      setTestResult({
+        ok: false,
+        message: "Network error — couldn't reach our server. Try again.",
+        verifiedAt: new Date().toISOString(),
+      });
+    } finally {
+      setTesting(false);
+    }
+  }
 
   async function handleSave() {
     if (!keyId.trim() || !issuerId.trim() || !p8Key.trim()) {
@@ -46,7 +76,12 @@ function AppStoreForm({
       setError("Private key must include the full PEM block (-----BEGIN PRIVATE KEY-----).");
       return;
     }
+    if (!keyIdLooksValid || !issuerIdLooksValid) {
+      setError("Key ID or Issuer ID format looks wrong — double-check you copied them correctly.");
+      return;
+    }
     setError(null);
+    setTestResult(null);
     setSaving(true);
     try {
       const res = await fetch(`/api/apps/${app.id}`, {
@@ -59,13 +94,26 @@ function AppStoreForm({
         setError(body.error ?? "Save failed.");
         return;
       }
-      const ts = Date.now();
-      setSavedAt(ts);
       setKeyId("");
       setIssuerId("");
       setP8Key("");
       onSaved();
-      setTimeout(() => setSavedAt((prev) => (prev === ts ? null : prev)), 3000);
+      // Auto-test the credentials we just saved so the user sees if Apple
+      // accepts them BEFORE they wait for the next sync cron.
+      setTesting(true);
+      try {
+        const testRes = await fetch(`/api/apps/${app.id}/test-credentials`, { method: "POST" });
+        const data = (await testRes.json()) as TestResult;
+        setTestResult(data);
+      } catch {
+        setTestResult({
+          ok: false,
+          message: "Saved — but verification network call failed. Click 'Test connection' to retry.",
+          verifiedAt: new Date().toISOString(),
+        });
+      } finally {
+        setTesting(false);
+      }
     } catch {
       setError("Network error — please try again.");
     } finally {
@@ -110,18 +158,71 @@ function AppStoreForm({
         </li>
       </ol>
 
-      {app.has_credentials && (
-        <div className="flex items-center gap-1.5 text-xs text-emerald-600">
-          <CheckCircle2 className="size-3.5" />
-          Credentials saved — enter new values below to rotate them
+      {app.has_credentials && !testResult && (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-white px-3 py-2">
+          <div className="flex items-center gap-1.5 text-xs text-gray-600">
+            <CheckCircle2 className="size-3.5 text-emerald-500" />
+            Credentials saved. Verify they work with Apple:
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={testConnection}
+            disabled={testing}
+            className="h-7 text-[11px]"
+          >
+            {testing ? (
+              <><Loader2 className="mr-1 size-3 animate-spin" />Testing…</>
+            ) : (
+              "Test connection"
+            )}
+          </Button>
+        </div>
+      )}
+
+      {testResult && (
+        <div
+          className={cn(
+            "rounded-md border px-3 py-2.5",
+            testResult.ok
+              ? "border-emerald-200 bg-emerald-50"
+              : "border-red-200 bg-red-50",
+          )}
+        >
+          <div className={cn(
+            "flex items-center gap-1.5 text-xs font-semibold",
+            testResult.ok ? "text-emerald-700" : "text-red-700",
+          )}>
+            {testResult.ok ? <CheckCircle2 className="size-3.5" /> : <TriangleAlert className="size-3.5" />}
+            {testResult.ok ? "Verified" : "Verification failed"}
+          </div>
+          <p className={cn(
+            "mt-1 text-[11px] leading-relaxed",
+            testResult.ok ? "text-emerald-700/90" : "text-red-700/90",
+          )}>
+            {testResult.message}
+          </p>
+          {testResult.ok && (
+            <div className="mt-2 flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={testConnection}
+                disabled={testing}
+                className="h-6 text-[10px]"
+              >
+                Re-test
+              </Button>
+              <span className="text-[10px] text-emerald-700/70">
+                Now click <strong>Sync now</strong> above to pull reviews.
+              </span>
+            </div>
+          )}
         </div>
       )}
 
       {error && (
         <p className="text-xs text-red-600">{error}</p>
-      )}
-      {savedAt && (
-        <p className="text-xs text-emerald-600">Credentials saved successfully.</p>
       )}
 
       <label className="block">
@@ -129,9 +230,17 @@ function AppStoreForm({
         <Input
           value={keyId}
           onChange={(e) => setKeyId(e.target.value)}
-          placeholder="XXXXXXXXXX"
-          className="mt-1 h-8 border-gray-200 bg-white text-sm font-mono"
+          placeholder="XXXXXXXXXX (10 chars)"
+          className={cn(
+            "mt-1 h-8 bg-white text-sm font-mono",
+            keyIdLooksValid ? "border-gray-200" : "border-amber-300",
+          )}
         />
+        {!keyIdLooksValid && (
+          <span className="mt-0.5 text-[10px] text-amber-600">
+            Key ID is usually 10 uppercase chars (letters + digits).
+          </span>
+        )}
       </label>
 
       <label className="block">
@@ -140,8 +249,16 @@ function AppStoreForm({
           value={issuerId}
           onChange={(e) => setIssuerId(e.target.value)}
           placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-          className="mt-1 h-8 border-gray-200 bg-white text-sm font-mono"
+          className={cn(
+            "mt-1 h-8 bg-white text-sm font-mono",
+            issuerIdLooksValid ? "border-gray-200" : "border-amber-300",
+          )}
         />
+        {!issuerIdLooksValid && (
+          <span className="mt-0.5 text-[10px] text-amber-600">
+            Issuer ID should be a UUID (36 chars with dashes).
+          </span>
+        )}
       </label>
 
       <label className="block">
@@ -158,16 +275,17 @@ function AppStoreForm({
       <Button
         size="sm"
         onClick={handleSave}
-        disabled={saving}
+        disabled={saving || testing}
         className="h-8 bg-[#0A84FF] text-white hover:bg-[#0070e0]"
       >
         {saving ? (
-          <>
-            <Loader2 className="mr-1.5 size-3 animate-spin" />
-            Saving…
-          </>
+          <><Loader2 className="mr-1.5 size-3 animate-spin" />Saving…</>
+        ) : testing ? (
+          <><Loader2 className="mr-1.5 size-3 animate-spin" />Verifying with Apple…</>
+        ) : app.has_credentials ? (
+          "Replace credentials"
         ) : (
-          "Save credentials"
+          "Save & verify"
         )}
       </Button>
     </div>
