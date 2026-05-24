@@ -171,20 +171,67 @@ export default function DashboardPage() {
       </Suspense>
       <TrialBanner />
 
-      {/* First-sync banner — shown until every connected app has last_synced_at set */}
-      {hasUnsyncedApp && apps.length > 0 && (
-        <div className="flex items-start gap-3 rounded-xl border border-[#0A84FF]/20 bg-[#0A84FF]/[0.04] px-4 py-3">
-          <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-[#0A84FF]" strokeWidth={2} />
-          <div className="flex-1">
-            <div className="text-[13px] font-semibold text-[#1D1D1F]">
-              Syncing your reviews from the store…
+      {/* Sync status banner per app — shows real attempts, errors, action */}
+      {apps.map((app) => {
+        // Already-synced and no error → no banner
+        if (app.last_synced_at && app.last_sync_status === "success") return null;
+
+        const hasError = app.last_sync_status && app.last_sync_status !== "success";
+        const isPending = !app.last_synced_at && !hasError;
+
+        if (isPending) {
+          return (
+            <div
+              key={app.id}
+              className="flex items-start gap-3 rounded-xl border border-[#0A84FF]/20 bg-[#0A84FF]/[0.04] px-4 py-3"
+            >
+              <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-[#0A84FF]" strokeWidth={2} />
+              <div className="flex-1">
+                <div className="text-[13px] font-semibold text-[#1D1D1F]">
+                  Syncing {app.name} from {app.platform === "google_play" ? "Google Play" : "App Store"}…
+                </div>
+                <div className="mt-0.5 text-[11px] text-[#86868B]">
+                  First sync usually takes 10–30 seconds. Reviews will appear automatically.
+                </div>
+              </div>
             </div>
-            <div className="mt-0.5 text-[11px] text-[#86868B]">
-              First sync usually completes within 30 seconds. Reviews will appear here automatically — no refresh needed.
+          );
+        }
+
+        return (
+          <div
+            key={app.id}
+            className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
+          >
+            <AlertOctagon className="mt-0.5 size-4 shrink-0 text-amber-600" strokeWidth={2} />
+            <div className="flex-1">
+              <div className="text-[13px] font-semibold text-[#1D1D1F]">
+                {app.name} hasn&apos;t synced yet — action needed
+              </div>
+              <div className="mt-1 text-[12px] leading-relaxed text-[#48484D]">
+                {app.last_sync_error ?? "Unknown sync error. Try Settings → Apps → Sync now."}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <Link
+                  href="/settings"
+                  className="rounded-md bg-amber-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-amber-700"
+                >
+                  Open Settings
+                </Link>
+                <button
+                  onClick={async () => {
+                    await fetch("/api/sync/reviews");
+                    setTimeout(() => { refetchApps(); refetchMetrics(); }, 3000);
+                  }}
+                  className="rounded-md border border-amber-300 bg-white px-3 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100"
+                >
+                  Retry sync
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        );
+      })}
 
       {/* Page header */}
       <header className="flex items-end justify-between gap-6">

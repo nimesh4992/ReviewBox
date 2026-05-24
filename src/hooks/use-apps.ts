@@ -13,6 +13,11 @@ export interface WorkspaceApp {
   developer: string | null;
   lifetime_rating: number | null;
   lifetime_review_count: number | null;
+  /** Visible-status fields for the dashboard sync banner. Null until migration 013. */
+  last_sync_attempted_at: string | null;
+  last_sync_status: string | null;
+  last_sync_error: string | null;
+  last_sync_review_count: number | null;
 }
 
 async function fetchApps(): Promise<WorkspaceApp[]> {
