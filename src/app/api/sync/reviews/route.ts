@@ -1,21 +1,25 @@
 import { NextRequest, NextResponse } from "next/server";
-import { clerkClient } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 
-import { getServiceClient } from "@/lib/supabase-server";
+import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { fetchReviews as fetchGooglePlayReviews } from "@/services/google-play/publisher-api";
 import {
   buildJWT,
   fetchAppStoreId,
   fetchReviews as fetchAppStoreReviews,
 } from "@/services/app-store/connect-api";
-import { enrichReview } from "@/lib/rules-engine";
+import { buildEnrichedRow } from "@/lib/review-mapper";
+import { bootstrapReviews } from "@/services/bootstrap-reviews";
 import { sendRatingSpikeAlert } from "@/lib/email/send-rating-spike-alert";
+import { notifySlack, ratingSpike as slackRatingSpike, urgentReview as slackUrgentReview } from "@/lib/slack";
 import { runAutomationRules } from "@/lib/automation-executor";
 import type { AppReview } from "@/types/review";
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
+
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
+  if (!secret) return false;
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 
@@ -25,8 +29,9 @@ interface DbApp {
   name: string;
   platform: "google_play" | "app_store";
   store_id: string;
-  access_token: string | null;   // App Store: JSON { keyId, issuerId }
-  refresh_token: string | null;  // App Store: .p8 private key
+  access_token: string | null;        // App Store: JSON { keyId, issuerId }
+  refresh_token: string | null;       // App Store: .p8 private key
+  last_sync_attempted_at: string | null;
 }
 
 interface SyncSummary {
@@ -34,54 +39,6 @@ interface SyncSummary {
   reviewsUpserted: number;
   spikesDetected: number;
   errors: string[];
-}
-
-// ── Shared helpers ─────────────────────────────────────────────────────────────
-
-function buildEnrichedRow(
-  appId: string,
-  workspaceId: string,
-  externalId: string,
-  source: "google_play" | "app_store",
-  author: string,
-  rating: number,
-  body: string,
-  appVersion: string | null,
-  device: string | null,
-  country: string | null,
-  storeCreatedAt: string,
-  hasDevReply: boolean,
-  devReplyText: string | null,
-) {
-  const clampedRating = Math.min(5, Math.max(1, rating)) as 1 | 2 | 3 | 4 | 5;
-  const partial = {
-    rating: clampedRating,
-    text: body,
-    createdAt: storeCreatedAt,
-    replyStatus: (hasDevReply ? "replied" : "needs_reply") as AppReview["replyStatus"],
-  } as AppReview;
-  const enriched = enrichReview(partial);
-
-  return {
-    app_id:           appId,
-    workspace_id:     workspaceId,
-    external_id:      externalId,
-    source,
-    author,
-    rating:           clampedRating,
-    body,
-    app_version:      appVersion,
-    device,
-    country,
-    store_created_at: storeCreatedAt,
-    sentiment:        enriched.sentiment,
-    priority:         enriched.priority,
-    issue_tags:       enriched.issueTags,
-    escalation_state: enriched.escalationState,
-    reply_status:     hasDevReply ? "replied" : "needs_reply",
-    reply_text:       devReplyText,
-    has_ai_suggestion: false,
-  };
 }
 
 // ── Google Play sync ───────────────────────────────────────────────────────────
@@ -213,6 +170,18 @@ async function upsertAndFinalize(
     );
   }
 
+  // Urgent review → Slack (cap 3 per sync to avoid spam)
+  const urgentNew = unrepliedReviews.filter((r) => r.priority === "urgent");
+  for (const r of urgentNew.slice(0, 3)) {
+    void notifySlack(app.workspace_id, slackUrgentReview({
+      author:    r.author,
+      rating:    r.rating,
+      text:      r.text,
+      appName:   app.name,
+      reviewUrl: `${APP_URL}/reviews`,
+    }));
+  }
+
   // Rating spike detection — ≥5 reviews rated ≤2★ for same version in 24h
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
   const { data: spikeRows } = await sb
@@ -243,13 +212,112 @@ async function upsertAndFinalize(
 
 // ── Worker: sync one workspace's apps ──────────────────────────────────────────
 
+/**
+ * Classify a raw error message into an actionable status code + user-friendly
+ * message. The dashboard surfaces the message directly so the user knows what
+ * to do (e.g. "Invite this email to Play Console").
+ */
+function classifySyncError(
+  platform: "google_play" | "app_store",
+  errMsg: string,
+): { status: string; message: string } {
+  const lower = errMsg.toLowerCase();
+
+  if (platform === "google_play") {
+    if (lower.includes("403") || lower.includes("permission") || lower.includes("forbidden")) {
+      return {
+        status: "needs_play_console_access",
+        message:
+          "Google Play Console hasn't authorized ReviewBox yet. Open Settings → Apps to find the service account email — invite it to your Play Console with View+Reply permissions.",
+      };
+    }
+    if (lower.includes("401") || lower.includes("unauthorized")) {
+      return {
+        status: "google_credentials_invalid",
+        message:
+          "Google service account credentials are invalid. Contact support — this is on our side.",
+      };
+    }
+    if (lower.includes("404") || lower.includes("not found")) {
+      return {
+        status: "package_not_found",
+        message:
+          "Google Play couldn't find this app's package name. Double-check the package ID in Settings → Apps.",
+      };
+    }
+  }
+
+  if (platform === "app_store") {
+    if (lower.includes("missing credentials")) {
+      return {
+        status: "needs_app_store_credentials",
+        message:
+          "App Store needs API credentials. Open Settings → Apps → expand this app and paste your .p8 key, Key ID, and Issuer ID.",
+      };
+    }
+    if (lower.includes("could not resolve app id")) {
+      return {
+        status: "bundle_id_not_found",
+        message:
+          "App Store Connect couldn't find this bundle ID under your API key. Check that the key has access to this app.",
+      };
+    }
+    if (lower.includes("401") || lower.includes("403")) {
+      return {
+        status: "app_store_unauthorized",
+        message:
+          "App Store API key is invalid or doesn't have permission. Regenerate the key in App Store Connect and re-upload.",
+      };
+    }
+  }
+
+  return {
+    status: "store_api_error",
+    message: errMsg.slice(0, 300),
+  };
+}
+
+async function recordSyncResult(
+  appId: string,
+  result:
+    | { ok: true; reviewCount: number }
+    | { ok: false; platform: "google_play" | "app_store"; errMsg: string },
+): Promise<void> {
+  const sb = getServiceClient();
+  const now = new Date().toISOString();
+
+  if (result.ok) {
+    await sb
+      .from("apps")
+      .update({
+        last_synced_at:           now,
+        last_sync_attempted_at:   now,
+        last_sync_status:         "success",
+        last_sync_error:          null,
+        last_sync_review_count:   result.reviewCount,
+      })
+      .eq("id", appId);
+    return;
+  }
+
+  const classified = classifySyncError(result.platform, result.errMsg);
+  await sb
+    .from("apps")
+    .update({
+      last_sync_attempted_at: now,
+      last_sync_status:       classified.status,
+      last_sync_error:        classified.message,
+    })
+    .eq("id", appId);
+}
+
 async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
   const sb = getServiceClient();
   const summary: SyncSummary = { appsProcessed: 0, reviewsUpserted: 0, spikesDetected: 0, errors: [] };
 
   const { data: apps } = await sb
     .from("apps")
-    .select("id, workspace_id, name, platform, store_id, access_token, refresh_token")
+    .select("id, workspace_id, name, platform, store_id, access_token, refresh_token, last_sync_attempted_at")
     .eq("workspace_id", workspaceId)
     .not("store_id", "is", null)
     .not("store_id", "eq", "");
@@ -257,12 +325,59 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
   if (!apps?.length) return summary;
 
   for (const app of apps as DbApp[]) {
+    // Mark "attempted" up front so the dashboard can show "we tried 30s ago".
+    const attemptedAt = new Date().toISOString();
     try {
+      await getServiceClient()
+        .from("apps")
+        .update({ last_sync_attempted_at: attemptedAt })
+        .eq("id", app.id);
+    } catch { /* best-effort */ }
+
+    const reviewsBefore = summary.reviewsUpserted;
+    try {
+      // First sync: fetch up to 50 public reviews before hitting the Publisher API.
+      // This gives users immediate data without needing Play Console credentials.
+      if (!app.last_sync_attempted_at) {
+        try {
+          const bootstrapRows = await bootstrapReviews(app.platform, app.id, app.workspace_id, app.store_id);
+          if (bootstrapRows.length) {
+            const sb = getServiceClient();
+            await sb.from("reviews").upsert(bootstrapRows, { onConflict: "app_id,external_id" });
+            summary.reviewsUpserted += bootstrapRows.length;
+            console.log(`[sync] bootstrap ${app.store_id}: ${bootstrapRows.length} reviews`);
+          }
+        } catch (err) {
+          // Bootstrap is best-effort — don't fail the whole sync if scraping breaks.
+          console.warn(`[sync] bootstrap failed for ${app.store_id}:`, err instanceof Error ? err.message : err);
+        }
+      }
+
       if (app.platform === "google_play")     await syncGooglePlayApp(app, summary);
       else if (app.platform === "app_store")  await syncAppStoreApp(app, summary);
+
+      const platformErr = summary.errors.find((e) => e.includes(app.id));
+      if (platformErr) {
+        // syncAppStoreApp pushes errors to summary instead of throwing for
+        // some cases (missing credentials). Catch those here.
+        await recordSyncResult(app.id, {
+          ok: false,
+          platform: app.platform,
+          errMsg: platformErr,
+        });
+      } else {
+        const fetched = summary.reviewsUpserted - reviewsBefore;
+        await recordSyncResult(app.id, { ok: true, reviewCount: fetched });
+      }
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       summary.errors.push(`${app.platform} app ${app.store_id}: ${msg}`);
+      await recordSyncResult(app.id, {
+        ok: false,
+        platform: app.platform,
+        errMsg: msg,
+      });
+      console.error(`[sync] ${app.platform} ${app.store_id} failed:`, msg);
     }
   }
 
@@ -278,11 +393,28 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
 //   so we scale to ~500 workspaces per daily cron run without timeouts.
 
 async function handler(req: NextRequest): Promise<NextResponse> {
-  if (!isAuthorized(req)) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  // Two ways to authenticate:
+  // 1. Bearer CRON_SECRET — used by Vercel Cron and the onboarding/complete
+  //    trigger. Grants access to coordinator mode (all workspaces) AND
+  //    worker mode for any workspace.
+  // 2. Signed-in Clerk user — used by "Sync now" buttons in the UI. Only
+  //    allowed to sync their OWN workspace; the workspaceId param is
+  //    overridden with the workspace they're a member of.
+  const cronAuthed = isAuthorized(req);
+  let workspaceId = req.nextUrl.searchParams.get("workspaceId");
 
-  const workspaceId = req.nextUrl.searchParams.get("workspaceId");
+  if (!cronAuthed) {
+    const session = await auth();
+    if (!session?.userId) {
+      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    }
+    // Resolve the user's own workspace — ignore any workspaceId in the URL
+    // to prevent one user from syncing another workspace's reviews.
+    workspaceId = await getWorkspaceId(session.userId);
+    if (!workspaceId) {
+      return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
+    }
+  }
 
   // ── Worker mode ────────────────────────────────────────────────────────────
   if (workspaceId) {
@@ -299,6 +431,8 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   }
 
   // ── Coordinator mode ──────────────────────────────────────────────────────
+  // Only the cron can reach here (signed-in users get pinned to their own
+  // workspace above and end up in worker mode).
   const sb = getServiceClient();
   const { data: workspaces } = await sb
     .from("workspaces")
@@ -361,5 +495,14 @@ async function notifyWorkspaceOwner(
   const email = clerkUser.emailAddresses[0]?.emailAddress;
   if (!email) return;
 
-  await sendRatingSpikeAlert(email, appName, version, count);
+  // Email + Slack in parallel (both best-effort)
+  await Promise.allSettled([
+    sendRatingSpikeAlert(email, appName, version, count),
+    notifySlack(workspaceId, slackRatingSpike({
+      appName,
+      avgRating: 1.5, // spike threshold is ≤2★ reviews
+      reviewCount: count,
+      appVersion: version,
+    })),
+  ]);
 }

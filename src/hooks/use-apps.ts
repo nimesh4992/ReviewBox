@@ -9,6 +9,15 @@ export interface WorkspaceApp {
   store_id: string;
   last_synced_at: string | null;
   has_credentials: boolean;
+  icon_url: string | null;
+  developer: string | null;
+  lifetime_rating: number | null;
+  lifetime_review_count: number | null;
+  /** Visible-status fields for the dashboard sync banner. Null until migration 013. */
+  last_sync_attempted_at: string | null;
+  last_sync_status: string | null;
+  last_sync_error: string | null;
+  last_sync_review_count: number | null;
 }
 
 async function fetchApps(): Promise<WorkspaceApp[]> {
@@ -19,13 +28,13 @@ async function fetchApps(): Promise<WorkspaceApp[]> {
 }
 
 export function useApps() {
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch } = useQuery({
     queryKey: ["apps"],
     queryFn: fetchApps,
     staleTime: 5 * 60 * 1000,
   });
 
-  return { apps: data ?? [], isLoading };
+  return { apps: data ?? [], isLoading, refetch };
 }
 
 export function useInvalidateApps() {

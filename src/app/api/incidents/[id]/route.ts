@@ -2,7 +2,10 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { notifySlack } from "@/lib/slack";
 import type { IncidentStatus } from "@/types/review";
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
 
 interface PatchIncidentBody {
   status?: IncidentStatus;
@@ -83,10 +86,33 @@ export async function PATCH(
 
   if (error) {
     console.error("incidents PATCH error:", error);
-    return NextResponse.json(
-      { error: "INTERNAL_SERVER_ERROR" },
-      { status: 500 },
-    );
+    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
+  }
+
+  // Slack notification on status transitions
+  if (body.status && body.status !== "active") {
+    const row = data as { title: string; severity: string; status: string };
+    const emoji = body.status === "resolved" ? "✅" : "🔍";
+    const label = body.status === "resolved" ? "Incident resolved" : "Incident investigating";
+    void notifySlack(workspaceId, {
+      text: `${emoji} ${label}: ${row.title}`,
+      blocks: [
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `${emoji} *${label}*\n*${row.title}*\nSeverity: ${row.severity} · Status: ${body.status}`,
+          },
+        },
+        {
+          type: "section",
+          text: {
+            type: "mrkdwn",
+            text: `<${APP_URL}/incidents/${id}|View in ReviewBox →>`,
+          },
+        },
+      ],
+    });
   }
 
   return NextResponse.json({ incident: data }, { status: 200 });

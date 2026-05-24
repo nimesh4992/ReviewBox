@@ -19,26 +19,36 @@ export async function GET(): Promise<NextResponse<OnboardingState | { error: str
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
+  // Read the JWT claim — but treat it as a HINT, not source of truth.
+  // Clerk JWTs are cached up to 60s, so right after onboarding completes
+  // we'll still see onboarded=false here. The DB is authoritative below.
   const metadata = (session.sessionClaims?.metadata ?? {}) as { onboarded?: boolean };
-  const onboarded = metadata.onboarded === true;
+  const claimOnboarded = metadata.onboarded === true;
 
   const sb = getServiceClient();
 
+  // Two separate queries — avoids PostgREST embedded-join ambiguity
   const { data: member } = await sb
     .from("workspace_members")
-    .select("workspace_id, workspaces(id, name, slug)")
+    .select("workspace_id")
     .eq("clerk_user_id", userId)
     .maybeSingle();
 
-  const workspaceRow = member?.workspaces as
-    | { id: string; name: string; slug: string }
-    | { id: string; name: string; slug: string }[]
-    | null
-    | undefined;
-
-  const workspace = Array.isArray(workspaceRow)
-    ? workspaceRow[0] ?? null
-    : workspaceRow ?? null;
+  let workspace: { id: string; name: string; slug: string } | null = null;
+  if (member?.workspace_id) {
+    const { data: wsRow } = await sb
+      .from("workspaces")
+      .select("id, name, slug")
+      .eq("id", member.workspace_id as string)
+      .maybeSingle();
+    if (wsRow) {
+      workspace = {
+        id: wsRow.id as string,
+        name: wsRow.name as string,
+        slug: (wsRow.slug as string) ?? "",
+      };
+    }
+  }
 
   let app: OnboardingState["app"] = null;
   if (workspace?.id) {
@@ -58,6 +68,11 @@ export async function GET(): Promise<NextResponse<OnboardingState | { error: str
       };
     }
   }
+
+  // DB is authoritative. If user has a workspace + app, they're onboarded —
+  // regardless of what the stale JWT says. Prevents the post-completion
+  // loop where Clerk metadata hasn't propagated yet.
+  const onboarded = claimOnboarded || (!!workspace && !!app);
 
   return NextResponse.json({
     onboarded,

@@ -85,6 +85,20 @@ export interface PlatformHealth {
   ratingDistribution: [number, number, number, number, number];
 }
 
+// ── ASO ───────────────────────────────────────────────────────────────────────
+
+export interface AsoKeyword {
+  id: string;
+  keyword: string;
+  appId?: string;
+  currentRank: number | null;
+  previousRank: number | null;
+  volumeEstimate: number | null;
+  /** Last 6 rank snapshots, newest last (lower = better) */
+  trendData: number[];
+  addedAt: string;
+}
+
 // ── Automation Hub ────────────────────────────────────────────────────────────
 
 export type AutomationAction =
@@ -117,12 +131,28 @@ export interface AutomationRule {
   conditions: AutomationCondition[];
   action: AutomationAction;
   actionLabel: string;
+  /** Action-specific config: tag name for apply_tag, template ID for template_reply */
+  actionConfig?: string;
   appsScope: "all" | string[];
   priority: number;
   timesRun: number;
   lastRunAt: string | null;
   createdAt: string;
   isRecommended?: boolean;
+}
+
+export interface AutomationExecutionLog {
+  id: string;
+  workspaceId: string;
+  ruleId: string;
+  ruleName: string;
+  reviewId: string;
+  reviewRating: number | null;
+  reviewSnippet: string | null;
+  action: AutomationAction;
+  status: "success" | "error";
+  errorMessage: string | null;
+  executedAt: string;
 }
 
 export interface AutomationPreset {

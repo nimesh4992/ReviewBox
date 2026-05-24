@@ -1,155 +1,177 @@
 import Link from "next/link";
-import { CheckCircle, AlertCircle, ChevronRight } from "lucide-react";
+import { CheckCircle, AlertCircle, ChevronRight, Copy } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
 export const metadata = {
   title: "Connect Google Play — ReviewBox Help",
   description:
-    "Step-by-step guide to connecting your Google Play app to ReviewBox using a Google Cloud service account.",
+    "Step-by-step guide to grant ReviewBox access to your Google Play Console so we can sync your reviews and post replies.",
 };
 
-const STEPS = [
+// The actual production service account email lives in GOOGLE_CLIENT_EMAIL.
+// Surface it server-side at request time — never hardcode.
+function getServiceAccountEmail(): string {
+  return process.env.GOOGLE_CLIENT_EMAIL ?? "(check Settings → Apps for your email)";
+}
+
+const TROUBLESHOOTING = [
   {
-    id: "create-project",
-    title: "Open Google Cloud Console",
-    content: (
-      <>
-        <p>
-          Go to{" "}
-          <a
-            href="https://console.cloud.google.com"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#0A84FF] hover:underline"
-          >
-            console.cloud.google.com
-          </a>{" "}
-          and sign in with the Google account that owns your Google Play Console.
-        </p>
-        <p className="mt-3">
-          If you don&apos;t have a project yet, click <strong>Select a project → New Project</strong>. Name it something like <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">reviewbox-integration</code>.
-        </p>
-      </>
-    ),
+    q: "I added the email but reviews still aren't appearing",
+    a: "Permission propagation in Google Play can take 5–60 minutes. Click 'Sync now' in Settings → Apps after waiting. If you still see the amber error banner after an hour, double-check that 'Reply to reviews' is enabled in the permissions.",
   },
   {
-    id: "enable-api",
-    title: "Enable the Google Play Android Developer API",
-    content: (
-      <>
-        <p>
-          In the Google Cloud Console, go to <strong>APIs &amp; Services → Library</strong>. Search for{" "}
-          <strong>Google Play Android Developer API</strong> and click <strong>Enable</strong>.
-        </p>
-        <div className="mt-4 flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-100 p-4">
-          <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-amber-800">
-            This is a different API from the Play Console. Make sure you enable the <em>Android Developer</em> API, not the Play Games API.
-          </p>
-        </div>
-      </>
-    ),
+    q: "I see 'Service account not authorized' even after granting access",
+    a: "Make sure you scoped the access to the right app (or all apps), and that BOTH permissions are checked: 'View app information & download bulk reports' AND 'Reply to reviews'. View-only is not enough — we need reply permission to draft + send replies.",
   },
   {
-    id: "create-service-account",
-    title: "Create a service account",
-    content: (
-      <>
-        <p>
-          Go to <strong>IAM &amp; Admin → Service Accounts → Create Service Account</strong>.
-        </p>
-        <ol className="mt-3 space-y-2 text-sm list-decimal list-inside text-gray-600">
-          <li>Name it <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">reviewbox</code> (or any name you prefer)</li>
-          <li>Click <strong>Create and continue</strong></li>
-          <li>Skip the optional role and user access steps — click <strong>Done</strong></li>
-        </ol>
-        <p className="mt-3">
-          You&apos;ll see your new service account in the list. Click it, then go to the <strong>Keys</strong> tab.
-        </p>
-        <p className="mt-2">
-          Click <strong>Add Key → Create new key → JSON → Create</strong>. A <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">.json</code> file will download. Keep it safe — you&apos;ll need it in step 5.
-        </p>
-      </>
-    ),
+    q: "Where do I find my package name?",
+    a: "Open your Google Play app listing in a browser. The URL contains it: play.google.com/store/apps/details?id=com.your.app — the part after id= is your package name.",
   },
   {
-    id: "grant-play-access",
-    title: "Grant the service account access in Google Play Console",
-    content: (
-      <>
-        <p>
-          Open{" "}
-          <a
-            href="https://play.google.com/console"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="text-[#0A84FF] hover:underline"
-          >
-            play.google.com/console
-          </a>{" "}
-          and go to <strong>Setup → API access</strong>.
-        </p>
-        <ol className="mt-3 space-y-3 text-sm list-decimal list-inside text-gray-600">
-          <li>
-            If prompted, link your Play Console account to your Google Cloud project — select the project you created in step 1.
-          </li>
-          <li>
-            Under <strong>Service accounts</strong>, find the account you created and click <strong>Manage Play Console permissions</strong>.
-          </li>
-          <li>
-            Under <strong>Account permissions</strong>, enable <strong>Reply to reviews</strong>.
-          </li>
-          <li>
-            Click <strong>Invite user → Send invitation</strong>.
-          </li>
-        </ol>
-        <div className="mt-4 flex items-start gap-3 rounded-xl bg-blue-50 border border-blue-100 p-4">
-          <AlertCircle className="h-4 w-4 text-blue-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-blue-800">
-            Permissions can take up to 24 hours to propagate from Google Play Console. If the first sync fails with a permission error, wait an hour and try again.
-          </p>
-        </div>
-      </>
-    ),
-  },
-  {
-    id: "add-to-reviewbox",
-    title: "Add the credentials to ReviewBox",
-    content: (
-      <>
-        <p>
-          In ReviewBox, go to <strong>Settings → Apps → Add app → Google Play</strong>.
-        </p>
-        <ol className="mt-3 space-y-2 text-sm list-decimal list-inside text-gray-600">
-          <li>Enter your <strong>Package name</strong> (e.g. <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">com.yourcompany.yourapp</code>)</li>
-          <li>Paste the full contents of the <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">.json</code> key file you downloaded</li>
-          <li>Click <strong>Verify connection</strong></li>
-        </ol>
-        <div className="mt-4 flex items-start gap-3 rounded-xl bg-emerald-50 border border-emerald-100 p-4">
-          <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-emerald-800">
-            ReviewBox will immediately try to fetch your most recent reviews. If verification succeeds, your first batch (up to 500 reviews) will appear within 2 minutes.
-          </p>
-        </div>
-      </>
-    ),
+    q: "Will this give ReviewBox access to my whole Play Console?",
+    a: "No. You scope the invite to the apps you choose. Only 'View app information' and 'Reply to reviews' permissions are needed — we cannot upload builds, change pricing, or modify any app metadata.",
   },
 ];
 
-const RELATED = [
-  { title: "Connect the App Store", href: "/help/connect-app-store" },
-  { title: "How AI replies work", href: "/help/ai-replies" },
-  { title: "How often do reviews sync?", href: "/faq" },
-  { title: "Reply to a review", href: "#" },
-];
+export default async function ConnectGooglePlayPage() {
+  const email = getServiceAccountEmail();
 
-export default function ConnectGooglePlayPage() {
+  const STEPS = [
+    {
+      id: "open-console",
+      title: "Open Google Play Console",
+      content: (
+        <>
+          <p>
+            Sign in to{" "}
+            <a
+              href="https://play.google.com/console"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#0A84FF] hover:underline"
+            >
+              play.google.com/console
+            </a>{" "}
+            with the account that owns your app.
+          </p>
+          <p className="mt-3 text-sm text-gray-500">
+            You need to be an Admin or have user-management permission. If you&apos;re not, send this guide to whoever does.
+          </p>
+        </>
+      ),
+    },
+    {
+      id: "users-permissions",
+      title: "Navigate to Users & Permissions",
+      content: (
+        <p>
+          In the left sidebar, click <strong>Users and permissions</strong>. You&apos;ll see a list of people already on your team. Click the <strong>Invite new users</strong> button at the top right.
+        </p>
+      ),
+    },
+    {
+      id: "paste-email",
+      title: "Invite the ReviewBox service account",
+      content: (
+        <>
+          <p>Paste this email address:</p>
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-sm">
+            <code className="flex-1 truncate font-mono text-[12px] text-gray-800">{email}</code>
+            <span className="text-[10px] font-medium text-gray-400">Copy from Settings → Apps in-product</span>
+          </div>
+          <p className="mt-3 text-sm text-gray-500">
+            This is our service account. It&apos;s not a human — Google Play treats it as a teammate so it can read your reviews and post replies through their API.
+          </p>
+        </>
+      ),
+    },
+    {
+      id: "set-permissions",
+      title: "Grant exactly two permissions",
+      content: (
+        <>
+          <p>Under <strong>App permissions</strong>, check the box next to:</p>
+          <ul className="mt-3 space-y-1.5 text-sm text-gray-700">
+            <li className="flex items-start gap-2">
+              <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+              <span><strong>View app information &amp; download bulk reports</strong></span>
+            </li>
+            <li className="flex items-start gap-2">
+              <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+              <span><strong>Reply to reviews</strong></span>
+            </li>
+          </ul>
+          <div className="mt-4 flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50 p-4">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+            <p className="text-sm text-amber-800">
+              Don&apos;t grant any other permissions. We don&apos;t need to publish builds, change pricing, or access financial data — and granting more access could be a security risk for you.
+            </p>
+          </div>
+        </>
+      ),
+    },
+    {
+      id: "scope-to-app",
+      title: "Scope to your app (recommended)",
+      content: (
+        <>
+          <p>
+            Choose <strong>Specific apps</strong> and select the app(s) you want ReviewBox to manage. This is safer than granting access to your entire Play Console.
+          </p>
+          <p className="mt-2 text-sm text-gray-500">
+            If you only have one app, you can use <strong>All apps</strong> — same result, slightly less safety if you launch more apps later.
+          </p>
+        </>
+      ),
+    },
+    {
+      id: "send-invite",
+      title: "Send the invitation",
+      content: (
+        <>
+          <p>
+            Click <strong>Invite user</strong> → <strong>Send invitation</strong>. Service accounts auto-accept — there&apos;s no email back-and-forth.
+          </p>
+          <p className="mt-3 text-sm text-gray-500">
+            Google may take 5–60 minutes to propagate the permission. Most users see it within 5 minutes.
+          </p>
+        </>
+      ),
+    },
+    {
+      id: "verify",
+      title: "Verify the connection",
+      content: (
+        <>
+          <p>
+            Back in ReviewBox, go to{" "}
+            <Link href="/settings" className="text-[#0A84FF] hover:underline">
+              Settings → Apps
+            </Link>{" "}
+            and click <strong>Sync now</strong> next to your app.
+          </p>
+          <div className="mt-4 flex items-start gap-3 rounded-xl border border-emerald-100 bg-emerald-50 p-4">
+            <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+            <p className="text-sm text-emerald-800">
+              You should see reviews appear within 30 seconds. If the amber error banner says &quot;Service account not authorized&quot;, wait another 5–10 minutes for Google&apos;s propagation and try again.
+            </p>
+          </div>
+        </>
+      ),
+    },
+  ];
+
+  const RELATED = [
+    { title: "Connect the App Store", href: "/help/connect-app-store" },
+    { title: "How AI replies work", href: "/help/ai-replies" },
+    { title: "Help center home", href: "/help" },
+  ];
+
   return (
     <div className="min-h-screen bg-[#F5F5F7]">
       <MarketingNav />
 
-      {/* Breadcrumb */}
       <div className="mx-auto max-w-screen-xl px-6 py-3">
         <nav className="flex items-center gap-1.5 text-xs text-gray-400">
           <Link href="/" className="hover:text-gray-600">Home</Link>
@@ -163,18 +185,17 @@ export default function ConnectGooglePlayPage() {
       <main className="mx-auto max-w-screen-xl px-6 pb-32">
         <div className="pt-10 pb-8 max-w-3xl">
           <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-blue-600">
-            Getting started · 5 min
+            Getting started · 3 min
           </span>
           <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
             Connect Google Play
           </h1>
           <p className="mt-3 text-gray-500 leading-relaxed">
-            ReviewBox uses a Google Cloud service account to read and reply to your Play Store reviews. This guide walks through the complete setup — from creating the service account to verifying the connection in ReviewBox.
+            You don&apos;t need to create any developer accounts or download files. Just invite ReviewBox&apos;s service account email to your Play Console with two permissions. Total time: 3 minutes.
           </p>
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[1fr_260px] max-w-5xl">
-          {/* Steps */}
           <div className="space-y-6">
             {STEPS.map((step, i) => (
               <div
@@ -196,22 +217,33 @@ export default function ConnectGooglePlayPage() {
               </div>
             ))}
 
-            {/* Done */}
             <div className="flex items-start gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
               <CheckCircle className="h-6 w-6 text-emerald-500 shrink-0 mt-0.5" />
               <div>
                 <h3 className="font-semibold text-emerald-900">You&apos;re connected!</h3>
                 <p className="mt-1 text-sm text-emerald-800 leading-relaxed">
-                  Reviews will sync automatically every 4 hours. You can also trigger a manual sync from{" "}
-                  <strong>Settings → Apps</strong> at any time.
+                  Reviews sync automatically each day. Click{" "}
+                  <strong>Sync now</strong> in{" "}
+                  <Link href="/settings" className="underline">Settings → Apps</Link>{" "}
+                  any time you want fresh data.
                 </p>
               </div>
             </div>
+
+            <div className="rounded-2xl border border-gray-200 bg-white p-6">
+              <h2 className="font-semibold text-gray-900">Troubleshooting</h2>
+              <ul className="mt-4 space-y-4">
+                {TROUBLESHOOTING.map((t) => (
+                  <li key={t.q}>
+                    <p className="text-sm font-semibold text-gray-800">{t.q}</p>
+                    <p className="mt-1.5 text-sm leading-relaxed text-gray-600">{t.a}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
 
-          {/* Sidebar */}
           <div className="space-y-6">
-            {/* On this page */}
             <div className="rounded-2xl border border-gray-200 bg-white p-5">
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
                 On this page
@@ -231,10 +263,9 @@ export default function ConnectGooglePlayPage() {
               </ul>
             </div>
 
-            {/* Related */}
             <div className="rounded-2xl border border-gray-200 bg-white p-5">
               <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
-                Related articles
+                Related
               </p>
               <ul className="space-y-1">
                 {RELATED.map((r) => (
@@ -251,16 +282,15 @@ export default function ConnectGooglePlayPage() {
               </ul>
             </div>
 
-            {/* Still stuck */}
             <div className="rounded-2xl border border-gray-200 bg-white p-5 text-center">
               <p className="text-sm font-semibold text-gray-900">Still stuck?</p>
-              <p className="mt-1 text-xs text-gray-500">We respond within one business day.</p>
-              <Link
-                href="/contact"
+              <p className="mt-1 text-xs text-gray-500">We reply within one business day.</p>
+              <a
+                href="mailto:hello@tryreviewbox.com"
                 className="mt-4 inline-flex rounded-lg bg-[#0A84FF] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0070e0]"
               >
                 Email us
-              </Link>
+              </a>
             </div>
           </div>
         </div>

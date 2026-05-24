@@ -1,61 +1,56 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertOctagon, Download, Sparkles, TrendingUp, Users } from "lucide-react";
+import { AlertOctagon, Download, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
 import { useApps } from "@/hooks/use-apps";
+import { useIncidents } from "@/hooks/use-incidents";
 import { TrialBanner } from "@/components/dashboard/trial-banner";
 import { UpgradeToast } from "@/components/dashboard/upgrade-toast";
+import { EmptyWorkspaceWelcome } from "@/components/dashboard/empty-workspace-welcome";
+import { GooglePlayInviteModal } from "@/components/dashboard/google-play-invite-modal";
 
-// ── Static attention items (real data from incident feed — wire later) ─────────
-
-const ATTENTION_ITEMS = [
-  {
-    icon: AlertOctagon,
-    color: "#DC2626",
-    title: "Rating spike detected",
-    subtitle: "14 reviews in 2h · 11 mention crash on latest version",
-    time: "2h ago",
-  },
-  {
-    icon: Sparkles,
-    color: "#8E5BFF",
-    title: "New AI topic cluster",
-    subtitle: "8 reviews about \"login slow\" — none last week",
-    time: "4h ago",
-  },
-  {
-    icon: TrendingUp,
-    color: "#1F8A5B",
-    title: "Onboarding praise rising",
-    subtitle: "+0.18 ★ on first-run reviews · 18 positive in 24h",
-    time: "Yesterday",
-  },
-  {
-    icon: Users,
-    color: "#86868B",
-    title: "Competitor rating dropped",
-    subtitle: "Rival app −0.05 vs prior week · opportunity",
-    time: "Yesterday",
-  },
-];
+const SEVERITY_COLOR: Record<string, string> = {
+  critical: "#DC2626",
+  high:     "#D97706",
+  medium:   "#6B7280",
+};
 
 // ── Sparkline chart ────────────────────────────────────────────────────────────
 
-function PortfolioSparkline() {
-  const data = [4.18, 4.20, 4.25, 4.32, 4.38, 4.40, 4.44, 4.46, 4.47, 4.48];
+function PortfolioSparkline({ data }: { data: number[] }) {
+  // Need at least 2 points to draw a line
+  if (data.length < 2) {
+    return (
+      <div className="flex h-[130px] items-center justify-center text-[12px] text-[#86868B]">
+        Trend appears here once 2+ days of reviews are synced.
+      </div>
+    );
+  }
+
   const w = 560, h = 130, padL = 28, padR = 8, padT = 10, padB = 20;
-  const lo = 4.1, hi = 4.6;
+  // Auto-scale Y axis to data range, padded by 0.1 on each side, clamped 1–5
+  const min = Math.min(...data);
+  const max = Math.max(...data);
+  const lo = Math.max(1, Math.floor((min - 0.1) * 10) / 10);
+  const hi = Math.min(5, Math.ceil((max + 0.1) * 10) / 10);
+  const range = hi - lo || 0.5;
+
   const xs = (i: number) => padL + (i / (data.length - 1)) * (w - padL - padR);
-  const ys = (v: number) => padT + (1 - (v - lo) / (hi - lo)) * (h - padT - padB);
+  const ys = (v: number) => padT + (1 - (v - lo) / range) * (h - padT - padB);
   const d = data.map((v, i) => `${i === 0 ? "M" : "L"}${xs(i)},${ys(v)}`).join(" ");
+
+  // Y-axis gridlines: 4 evenly spaced ticks between lo and hi
+  const ticks = [lo, lo + range * 0.33, lo + range * 0.66, hi].map(
+    (v) => Math.round(v * 10) / 10,
+  );
 
   return (
     <svg viewBox={`0 0 ${w} ${h}`} preserveAspectRatio="none" className="w-full" style={{ height: 130, display: "block" }}>
-      {[4.2, 4.3, 4.4, 4.5].map((g) => (
+      {ticks.map((g) => (
         <g key={g}>
           <line x1={padL} x2={w - padR} y1={ys(g)} y2={ys(g)} stroke="rgba(0,0,0,0.06)" />
           <text x={padL - 6} y={ys(g) + 3} fontSize="9" fill="#86868B" textAnchor="end" style={{ fontVariantNumeric: "tabular-nums" }}>{g.toFixed(1)}</text>
@@ -66,12 +61,50 @@ function PortfolioSparkline() {
   );
 }
 
+function formatDelta(value: number | null, suffix = ""): string {
+  if (value === null) return "—";
+  const sign = value > 0 ? "+" : "";
+  return `${sign}${value}${suffix}`;
+}
+
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { data: metrics, isLoading } = useDashboardMetrics();
-  const { apps, isLoading: appsLoading } = useApps();
+  const { data: metrics, isLoading, refetch: refetchMetrics } = useDashboardMetrics();
+  const { apps, isLoading: appsLoading, refetch: refetchApps } = useApps();
+  const { data: incidents } = useIncidents();
   const [range, setRange] = useState<"7d" | "30d" | "90d">("30d");
+  const [exporting, setExporting] = useState(false);
+
+  // Poll metrics + apps every 10s while any app hasn't had its first sync
+  // attempt yet. Stops as soon as last_sync_attempted_at is set — which
+  // happens at the start of every sync run, even if the Publisher API fails.
+  // After that the error banner explains what to do; no need to keep polling.
+  const hasUnsyncedApp = apps.some((a) => a.last_sync_attempted_at === null);
+  useEffect(() => {
+    if (!hasUnsyncedApp) return;
+    const id = setInterval(() => {
+      refetchMetrics();
+      refetchApps();
+    }, 10_000);
+    return () => clearInterval(id);
+  }, [hasUnsyncedApp, refetchMetrics, refetchApps]);
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const res  = await fetch("/api/reports/export?days=30");
+      const blob = await res.blob();
+      const href = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = href;
+      a.download = `reviews-${new Date().toISOString().split("T")[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(href);
+    } finally {
+      setExporting(false);
+    }
+  }
 
   const now = new Date();
   const hour = now.getHours();
@@ -83,20 +116,134 @@ export default function DashboardPage() {
   const urgent    = isLoading ? 0 : (metrics?.urgentCount ?? 0);
   const reviewsToday = isLoading ? 0 : (metrics?.reviewsToday ?? 0);
   const aiDrafts  = isLoading ? 0 : (metrics?.aiDraftsThisWeek ?? 0);
+  const reviewsWeekDelta = metrics?.reviewsWeekDelta ?? null;
+  const avgRatingDelta   = metrics?.avgRatingDelta ?? null;
+  const ratingTrend      = metrics?.ratingTrend ?? [];
+
+  const reviewsDeltaKind: "positive" | "warning" | "neutral" =
+    reviewsWeekDelta === null ? "neutral"
+      : reviewsWeekDelta < 0 ? "warning"
+        : "positive";
+  const avgRatingDeltaKind: "positive" | "warning" | "neutral" =
+    avgRatingDelta === null ? "neutral"
+      : avgRatingDelta < 0 ? "warning"
+        : "positive";
 
   const kpis = [
-    { label: "Reviews today",       value: String(reviewsToday), delta: "+18%",            kind: "positive" as const, sub: "this week" },
-    { label: "AI drafts this week",  value: String(aiDrafts),    delta: "generated",       kind: "neutral"  as const, sub: "draft replies" },
-    { label: "Unreplied",           value: String(unreplied),    delta: `${urgent} urgent`, kind: urgent > 5 ? "warning" as const : "positive" as const, sub: "across apps" },
-    { label: "Avg. rating",         value: avgRating !== null ? avgRating.toFixed(2) : "—", delta: "+0.31", kind: "positive" as const, sub: `last ${range}` },
+    {
+      label: "Reviews today",
+      value: String(reviewsToday),
+      delta: formatDelta(reviewsWeekDelta, "%"),
+      kind: reviewsDeltaKind,
+      sub: reviewsWeekDelta !== null ? "vs last week" : "no prior week",
+    },
+    {
+      label: "AI drafts this week",
+      value: String(aiDrafts),
+      delta: aiDrafts > 0 ? "generated" : "none yet",
+      kind: "neutral" as const,
+      sub: "draft replies",
+    },
+    {
+      label: "Unreplied",
+      value: String(unreplied),
+      delta: `${urgent} urgent`,
+      kind: urgent > 5 ? ("warning" as const) : ("positive" as const),
+      sub: "across apps",
+    },
+    {
+      label: "Avg. rating",
+      value: avgRating !== null ? avgRating.toFixed(2) : "—",
+      delta: formatDelta(avgRatingDelta),
+      kind: avgRatingDeltaKind,
+      sub: `last ${range}`,
+    },
   ];
+
+  // No apps yet → show the welcome / "connect your first app" empty state
+  // instead of an empty dashboard. Skips the loop-prone middleware redirect.
+  if (!appsLoading && apps.length === 0) {
+    return <EmptyWorkspaceWelcome />;
+  }
+
+  const hasGooglePlayApp = apps.some((a) => a.platform === "google_play");
 
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8" style={{ maxWidth: 1240, margin: "0 auto" }}>
+      <GooglePlayInviteModal hasGooglePlayApp={hasGooglePlayApp} />
       <Suspense fallback={null}>
         <UpgradeToast />
       </Suspense>
       <TrialBanner />
+
+      {/* Sync status banner per app — shows real attempts, errors, action */}
+      {apps.map((app) => {
+        // Already-synced and no error → no banner
+        if (app.last_synced_at && app.last_sync_status === "success") return null;
+
+        const hasError = app.last_sync_status && app.last_sync_status !== "success";
+        const isPending = !app.last_synced_at && !hasError;
+
+        if (isPending) {
+          return (
+            <div
+              key={app.id}
+              className="flex items-start gap-3 rounded-xl border border-[#0A84FF]/20 bg-[#0A84FF]/[0.04] px-4 py-3"
+            >
+              <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-[#0A84FF]" strokeWidth={2} />
+              <div className="flex-1">
+                <div className="text-[13px] font-semibold text-[#1D1D1F]">
+                  Syncing {app.name} from {app.platform === "google_play" ? "Google Play" : "App Store"}…
+                </div>
+                <div className="mt-0.5 text-[11px] text-[#86868B]">
+                  First sync usually takes 10–30 seconds. Reviews will appear automatically.
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={app.id}
+            className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
+          >
+            <AlertOctagon className="mt-0.5 size-4 shrink-0 text-amber-600" strokeWidth={2} />
+            <div className="flex-1">
+              <div className="text-[13px] font-semibold text-[#1D1D1F]">
+                {app.name} hasn&apos;t synced yet — action needed
+              </div>
+              <div className="mt-1 text-[12px] leading-relaxed text-[#48484D]">
+                {app.last_sync_error ?? "Unknown sync error. Try Settings → Apps → Sync now."}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <Link
+                  href={app.platform === "google_play" ? "/help/connect-google-play" : "/help/connect-app-store"}
+                  target="_blank"
+                  className="rounded-md bg-amber-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-amber-700"
+                >
+                  Step-by-step guide
+                </Link>
+                <Link
+                  href="/settings"
+                  className="rounded-md border border-amber-300 bg-white px-3 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100"
+                >
+                  Open Settings
+                </Link>
+                <button
+                  onClick={async () => {
+                    await fetch("/api/sync/reviews");
+                    setTimeout(() => { refetchApps(); refetchMetrics(); }, 3000);
+                  }}
+                  className="rounded-md border border-amber-300 bg-white px-3 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100"
+                >
+                  Retry sync
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })}
 
       {/* Page header */}
       <header className="flex items-end justify-between gap-6">
@@ -124,9 +271,13 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
-          <button className="flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3.5 text-[13px] font-medium text-[#48484D] transition-colors hover:bg-gray-50">
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3.5 text-[13px] font-medium text-[#48484D] transition-colors hover:bg-gray-50 disabled:opacity-50"
+          >
             <Download className="size-3.5" strokeWidth={2} />
-            Export
+            {exporting ? "Exporting…" : "Export"}
           </button>
         </div>
       </header>
@@ -154,12 +305,25 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-          <div className="mt-3.5 flex items-center gap-2">
-            <span className="rounded-full bg-green-50 px-2 py-0.5 text-[11px] font-semibold tabular-nums text-green-700">
-              +0.31
-            </span>
-            <span className="text-xs text-[#86868B]">vs previous {range}</span>
-          </div>
+          {avgRatingDelta !== null ? (
+            <div className="mt-3.5 flex items-center gap-2">
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums",
+                  avgRatingDelta >= 0
+                    ? "bg-green-50 text-green-700"
+                    : "bg-red-50 text-red-700",
+                )}
+              >
+                {formatDelta(avgRatingDelta)}
+              </span>
+              <span className="text-xs text-[#86868B]">vs previous 30 days</span>
+            </div>
+          ) : (
+            <div className="mt-3.5 text-xs text-[#86868B]">
+              {avgRating !== null ? "No prior data to compare" : "Sync reviews to see your rating"}
+            </div>
+          )}
           <p className="mt-4 max-w-[260px] text-[13px] leading-relaxed text-[#86868B]">
             {unreplied > 0
               ? `${unreplied} reviews awaiting reply.${urgent > 0 ? ` ${urgent} marked urgent.` : ""}`
@@ -167,7 +331,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div className="min-w-0">
-          <PortfolioSparkline />
+          <PortfolioSparkline data={ratingTrend} />
         </div>
       </section>
 
@@ -199,38 +363,63 @@ export default function DashboardPage() {
       {/* Two-column lower */}
       <section className="grid gap-4" style={{ gridTemplateColumns: "1.4fr 1fr" }}>
 
-        {/* Needs your eyes */}
+        {/* Needs your eyes — live incidents */}
         <div className="overflow-hidden rounded-[14px] border border-gray-100 bg-white shadow-sm">
           <div className="flex items-center border-b border-gray-100 px-5 py-4">
             <div>
-              <div className="text-sm font-semibold text-[#1D1D1F]">Needs your eyes</div>
-              <div className="mt-0.5 text-xs text-[#86868B]">{urgent} things flagged today</div>
+              <div className="text-sm font-semibold text-[#1D1D1F]">Active incidents</div>
+              <div className="mt-0.5 text-xs text-[#86868B]">
+                {incidents
+                  ? `${incidents.filter((i) => i.status !== "resolved").length} open`
+                  : "Loading…"}
+              </div>
             </div>
-            <Link href="/inbox" className="ml-auto text-xs font-semibold text-[#0A84FF] hover:underline">
-              Open inbox →
+            <Link href="/incidents" className="ml-auto text-xs font-semibold text-[#0A84FF] hover:underline">
+              View all →
             </Link>
           </div>
-          {ATTENTION_ITEMS.map((e, i) => (
-            <div
-              key={i}
-              className={cn(
-                "flex cursor-pointer items-center gap-3.5 px-5 py-3.5 transition-colors hover:bg-gray-50",
-                i < ATTENTION_ITEMS.length - 1 && "border-b border-gray-50",
-              )}
-            >
-              <div
-                className="flex size-7 shrink-0 items-center justify-center rounded-lg"
-                style={{ background: e.color + "1A", color: e.color }}
-              >
-                <e.icon className="size-3.5" strokeWidth={2} />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="text-[13px] font-semibold tracking-[-0.005em] text-[#1D1D1F]">{e.title}</div>
-                <div className="mt-0.5 text-xs leading-snug text-[#86868B]">{e.subtitle}</div>
-              </div>
-              <div className="shrink-0 tabular-nums text-[11px] text-[#86868B]">{e.time}</div>
+          {!incidents ? (
+            <div className="px-5 py-8 text-center text-xs text-[#86868B]">Loading…</div>
+          ) : incidents.filter((i) => i.status !== "resolved").length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-10 text-center">
+              <AlertOctagon className="size-8 text-gray-200" strokeWidth={1.5} />
+              <div className="mt-3 text-[13px] font-medium text-[#86868B]">No active incidents</div>
+              <div className="mt-1 text-[11px] text-[#86868B]">ReviewBox monitors for rating spikes automatically</div>
             </div>
-          ))}
+          ) : (
+            incidents
+              .filter((i) => i.status !== "resolved")
+              .slice(0, 4)
+              .map((inc, i, arr) => {
+                const color = SEVERITY_COLOR[inc.severity] ?? "#6B7280";
+                return (
+                  <Link
+                    key={inc.id}
+                    href={`/incidents/${inc.id}`}
+                    className={cn(
+                      "flex cursor-pointer items-center gap-3.5 px-5 py-3.5 transition-colors hover:bg-gray-50",
+                      i < arr.length - 1 && "border-b border-gray-50",
+                    )}
+                  >
+                    <div
+                      className="flex size-7 shrink-0 items-center justify-center rounded-lg"
+                      style={{ background: color + "1A", color }}
+                    >
+                      <AlertOctagon className="size-3.5" strokeWidth={2} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-[13px] font-semibold tracking-[-0.005em] text-[#1D1D1F] truncate">
+                        {inc.title}
+                      </div>
+                      <div className="mt-0.5 text-xs leading-snug text-[#86868B] truncate">
+                        {inc.severity} · {inc.owner}
+                      </div>
+                    </div>
+                    <div className="shrink-0 tabular-nums text-[11px] text-[#86868B]">{inc.detectedAt}</div>
+                  </Link>
+                );
+              })
+          )}
         </div>
 
         {/* Apps overview */}
@@ -260,15 +449,43 @@ export default function DashboardPage() {
                   i < apps.length - 1 && "border-b border-gray-50",
                 )}
               >
-                <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[12px] font-bold text-[#86868B]">
-                  {a.name[0]}
-                </div>
+                {a.icon_url ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={a.icon_url}
+                    alt=""
+                    className="size-8 shrink-0 rounded-lg object-cover"
+                  />
+                ) : (
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-gray-100 text-[12px] font-bold text-[#86868B]">
+                    {a.name[0]?.toUpperCase()}
+                  </div>
+                )}
                 <div className="min-w-0 flex-1">
-                  <div className="text-[13px] font-semibold text-[#1D1D1F]">{a.name}</div>
-                  <div className="mt-0.5 text-[11px] text-[#86868B]">
-                    {a.platform === "google_play" ? "Google Play" : "App Store"}
+                  <div className="truncate text-[13px] font-semibold text-[#1D1D1F]">{a.name}</div>
+                  <div className="mt-0.5 flex items-center gap-1.5 text-[11px] text-[#86868B]">
+                    <span>{a.platform === "google_play" ? "Google Play" : "App Store"}</span>
+                    {a.lifetime_rating !== null && (
+                      <>
+                        <span>·</span>
+                        <span className="tabular-nums">{a.lifetime_rating.toFixed(1)}★</span>
+                      </>
+                    )}
+                    {a.lifetime_review_count !== null && a.lifetime_review_count > 0 && (
+                      <>
+                        <span>·</span>
+                        <span className="tabular-nums">
+                          {a.lifetime_review_count.toLocaleString()} reviews
+                        </span>
+                      </>
+                    )}
                   </div>
                 </div>
+                {a.last_synced_at === null && (
+                  <span className="shrink-0 rounded-full bg-[#0A84FF]/10 px-2 py-0.5 text-[10px] font-semibold text-[#0A84FF]">
+                    Syncing…
+                  </span>
+                )}
               </div>
             ))
           )}

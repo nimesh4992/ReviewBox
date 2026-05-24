@@ -21,6 +21,7 @@
   --rb-blue-900: #002654;
 
   /* ── Semantic colors ── */
+  --rb-green-50:  #F0FDF4;
   --rb-green-100: #DCFCE7;
   --rb-green-500: #1F8A5B;
   --rb-green-600: #157048;
@@ -28,9 +29,12 @@
   --rb-amber-500: #C97A00;
   --rb-amber-600: #9A5C00;
   --rb-red-100:   #FEE2E2;
+  --rb-red-400:   #F87171;
   --rb-red-500:   #DC2626;
   --rb-red-600:   #B91C1C;
+  --rb-purple-100:#EDE9FE;
   --rb-purple-500:#8E5BFF;
+  --rb-purple-600:#6D28D9;
 
   /* ── Font families ── */
   --rb-font-display: -apple-system, "SF Pro Display", var(--font-inter), "Inter", BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
@@ -359,6 +363,7 @@ textarea {
   .rb-marketing [style*="gap: 40"]  { gap: 20px !important; }
 
   /* Reduce section padding — both shorthand and individual */
+  /* Reduce section padding */
   .rb-marketing section { padding-left: 20px !important; padding-right: 20px !important; }
   .rb-marketing [style*="padding: 56px 0"],
   .rb-marketing [style*="padding: 80px 0"],
@@ -369,6 +374,7 @@ textarea {
   .rb-marketing [style*="padding: 44px 0"] { padding: 24px 0 !important; }
 
   /* Scale down the hero-sized fonts */
+  /* Scale down hero-sized fonts */
   .rb-marketing [style*="font-size: 88"] { font-size: 38px !important; line-height: 1.1 !important; letter-spacing: -0.01em !important; }
   .rb-marketing [style*="font-size: 80"] { font-size: 36px !important; line-height: 1.1 !important; }
   .rb-marketing [style*="font-size: 72"] { font-size: 34px !important; line-height: 1.1 !important; }
@@ -392,6 +398,7 @@ textarea {
   }
 
   /* Prevent fixed-width children from forcing horizontal scroll */
+  /* Prevent fixed-width media from forcing horizontal scroll */
   .rb-marketing img,
   .rb-marketing video,
   .rb-marketing svg {
@@ -402,6 +409,8 @@ textarea {
   /* The desktop "Mac browser window" mockup is intentionally dense;
      allow it to scroll horizontally within its own container instead
      of pushing the entire page wider than viewport. */
+  /* Dense desktop mockups scroll within their container rather than
+     blowing out the page width */
   .rb-marketing [style*="display: grid"][style*="overflow: hidden"] {
     overflow-x: auto !important;
   }

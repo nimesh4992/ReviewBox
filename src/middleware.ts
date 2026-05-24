@@ -26,6 +26,9 @@ const isPublicRoute = createRouteMatcher([
   "/invite(.*)",
   "/api/stripe/webhook",
   "/api/sync/(.*)",
+  "/api/reports/weekly-digest",
+  "/api/reports/unreplied-alert",
+  "/api/health/(.*)",
   "/api/demo/(.*)",
   "/monitoring(.*)",
 ]);
@@ -65,8 +68,11 @@ const isAppRoute = createRouteMatcher([
   "/api/gdpr(.*)",
   "/api/sentiment(.*)",
   "/api/aso(.*)",
+  "/api/google-play(.*)",
+  "/api/reports/export(.*)",
   "/api/health(.*)",
   "/api/admin(.*)",
+  "/api/debug(.*)",
 ]);
 
 // Routes that require an active paid plan
@@ -116,17 +122,13 @@ export default clerkMiddleware(async (auth, request) => {
     return res;
   }
 
-  await auth.protect();
-
-  const { sessionClaims } = await auth();
+  const { sessionClaims } = await auth.protect();
   const metadata = (sessionClaims?.metadata ?? {}) as {
-    onboarded?: boolean;
     plan?: string;
     trialEndsAt?: string;
     paymentFailedAt?: string;
     accountDeletedAt?: string;
   };
-  const onboarded = metadata.onboarded === true;
   const plan = metadata.plan ?? "trial";
   const trialEndsAt = metadata.trialEndsAt;
   const accountDeletedAt = metadata.accountDeletedAt;
@@ -143,21 +145,16 @@ export default clerkMiddleware(async (auth, request) => {
     }
   }
 
-  // Onboarding gate — accept-invite paths bypass so invitees can join
-  const isOnboardingPath =
-    nextUrl.pathname === "/onboarding" ||
-    nextUrl.pathname.startsWith("/onboarding/") ||
-    nextUrl.pathname.startsWith("/api/onboarding");
-  const isInviteAcceptPath =
-    nextUrl.pathname.startsWith("/invite/") ||
-    nextUrl.pathname === "/api/account/accept-invite";
-
-  if (!onboarded && !isOnboardingPath && !isInviteAcceptPath) {
-    return NextResponse.redirect(new URL("/onboarding", request.url));
-  }
-  if (onboarded && nextUrl.pathname === "/onboarding") {
-    return NextResponse.redirect(new URL("/dashboard", request.url));
-  }
+  // NOTE: There is NO onboarding-state check in middleware. Reading the
+  // `onboarded` flag from Clerk's session JWT causes infinite redirect loops
+  // when the JWT is stale (Clerk caches metadata up to 60s after we update
+  // it server-side). Onboarding routing is handled at the PAGE level:
+  //   - Signed-in user with no workspace → dashboard renders an empty-state
+  //     CTA pointing to /onboarding.
+  //   - User on /onboarding who already has a workspace → onboarding page
+  //     redirects to /dashboard via useEffect.
+  // Both checks read fresh state from /api/onboarding/state (DB-authoritative),
+  // never from the JWT.
 
   // Trial expiry (only while plan === "trial")
   if (plan === "trial" && trialEndsAt) {

@@ -26,3 +26,13 @@ yarn-error.log*
 # Sentry Config File
 .env.sentry-build-plugin
 .env.local
+
+# Local Claude tooling — should never be committed
+.agents/
+.claude/skills/
+.claude/worktrees/
+.claude/launch.json
+
+# IDE
+*.tsbuildinfo
+

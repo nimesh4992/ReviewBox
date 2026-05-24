@@ -100,29 +100,31 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const sb = getServiceClient();
 
-    // Fetch app metadata
+    // Fetch app metadata — apps table has `name` only; description/keywords
+    // are not stored, so we derive context from reviews instead.
     const { data: app } = await sb
       .from("apps")
-      .select("name, description, current_keywords")
+      .select("name")
       .eq("id", appId)
       .eq("workspace_id", workspaceId)
-      .single();
+      .maybeSingle();
 
     if (!app) {
       return NextResponse.json({ error: "App not found" }, { status: 404 });
     }
 
     // Fetch 20 recent reviews and compress to a ~300-char summary
+    // (reviews table column is `body`, not `text`)
     const { data: recentReviews } = await sb
       .from("reviews")
-      .select("text, rating")
+      .select("body, rating")
       .eq("app_id", appId)
-      .order("created_at", { ascending: false })
+      .order("store_created_at", { ascending: false })
       .limit(20);
 
     const reviewSummary = (recentReviews ?? [])
-      .map((r: { text: string; rating: number }) =>
-        compressReviewText(r.text ?? "", 60),
+      .map((r: { body: string; rating: number }) =>
+        compressReviewText(r.body ?? "", 60),
       )
       .join("; ")
       .slice(0, 300);
@@ -130,9 +132,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     let keywords: string[] = [];
     try {
       keywords = await suggestAsoKeywords({
-        appName:         app.name ?? "",
-        appDescription:  app.description ?? "",
-        currentKeywords: app.current_keywords ?? [],
+        appName:         (app.name as string) ?? "",
+        appDescription:  "",
+        currentKeywords: [],
         reviewSummary,
       });
     } catch (err) {
