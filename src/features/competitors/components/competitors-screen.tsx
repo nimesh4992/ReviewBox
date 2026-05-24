@@ -112,9 +112,12 @@ export function CompetitorsScreen() {
             <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">Competitive benchmark</div>
             <div className="mt-0.5 text-[12px] text-fg-3">Finance · iOS · last {range}</div>
           </div>
-          <button className="ml-auto h-7 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)]">
-            Add competitor
-          </button>
+          <span
+            title="Competitor tracking coming soon — you'll be able to add any app by store URL"
+            className="ml-auto flex h-7 cursor-default items-center rounded-[7px] border border-dashed border-[var(--rb-border-2)] px-3 text-[12px] font-medium text-fg-3"
+          >
+            Add competitor · coming soon
+          </span>
         </div>
         <table className="w-full border-collapse">
           <thead>
