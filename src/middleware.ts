@@ -70,7 +70,6 @@ const isAppRoute = createRouteMatcher([
   "/api/aso(.*)",
   "/api/google-play(.*)",
   "/api/reports/export(.*)",
-  "/api/health(.*)",
   "/api/admin(.*)",
   "/api/debug(.*)",
 ]);

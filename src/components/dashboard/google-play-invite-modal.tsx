@@ -9,25 +9,32 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 
-const DISMISSED_KEY = "rb_gplay_invite_dismissed";
-
 interface Props {
   /** Pass the apps list so we only show this for workspaces with a Google Play app. */
   hasGooglePlayApp: boolean;
+  /**
+   * Unique key scoping the "dismissed" flag to this workspace.
+   * Use a Google Play app ID so different workspaces each get their own flag.
+   */
+  scopeKey?: string;
 }
 
-export function GooglePlayInviteModal({ hasGooglePlayApp }: Props) {
+export function GooglePlayInviteModal({ hasGooglePlayApp, scopeKey }: Props) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const dismissedKey = scopeKey
+    ? `rb_gplay_invite_dismissed_${scopeKey}`
+    : "rb_gplay_invite_dismissed";
 
   // Determine whether to show on mount (client-only: reads localStorage).
   useEffect(() => {
     if (!hasGooglePlayApp) return;
     if (typeof window === "undefined") return;
-    if (localStorage.getItem(DISMISSED_KEY)) return;
+    if (localStorage.getItem(dismissedKey)) return;
     setOpen(true);
-  }, [hasGooglePlayApp]);
+  }, [hasGooglePlayApp, dismissedKey]);
 
   // Fetch the service account email once the modal opens.
   useEffect(() => {
@@ -39,7 +46,7 @@ export function GooglePlayInviteModal({ hasGooglePlayApp }: Props) {
   }, [open]);
 
   function dismiss() {
-    localStorage.setItem(DISMISSED_KEY, "1");
+    localStorage.setItem(dismissedKey, "1");
     setOpen(false);
   }
 

@@ -166,11 +166,12 @@ export default function DashboardPage() {
     return <EmptyWorkspaceWelcome />;
   }
 
-  const hasGooglePlayApp = apps.some((a) => a.platform === "google_play");
+  const googlePlayApp   = apps.find((a) => a.platform === "google_play");
+  const hasGooglePlayApp = !!googlePlayApp;
 
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8" style={{ maxWidth: 1240, margin: "0 auto" }}>
-      <GooglePlayInviteModal hasGooglePlayApp={hasGooglePlayApp} />
+      <GooglePlayInviteModal hasGooglePlayApp={hasGooglePlayApp} scopeKey={googlePlayApp?.id} />
       <Suspense fallback={null}>
         <UpgradeToast />
       </Suspense>
@@ -178,11 +179,11 @@ export default function DashboardPage() {
 
       {/* Sync status banner per app — shows real attempts, errors, action */}
       {apps.map((app) => {
-        // Already-synced and no error → no banner
-        if (app.last_synced_at && app.last_sync_status === "success") return null;
-
         const hasError = app.last_sync_status && app.last_sync_status !== "success";
-        const isPending = !app.last_synced_at && !hasError;
+        const isPending = !app.last_sync_attempted_at && !hasError;
+
+        // Clean: synced at least once with no current error → no banner
+        if (!hasError && !isPending) return null;
 
         if (isPending) {
           return (

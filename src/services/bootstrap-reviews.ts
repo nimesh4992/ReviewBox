@@ -47,13 +47,19 @@ export async function bootstrapGooglePlayReviews(
   workspaceId: string,
   packageName: string,
 ): Promise<ReturnType<typeof buildEnrichedRow>[]> {
-  const { data } = await gplay.reviews({
-    appId: packageName,
-    lang: "en",
-    country: "us",
-    sort: gplay.sort.NEWEST,
-    num: BOOTSTRAP_LIMIT,
-  });
+  const timeout = new Promise<never>((_, reject) =>
+    setTimeout(() => reject(new Error("gplay.reviews timeout")), 15_000),
+  );
+  const { data } = await Promise.race([
+    gplay.reviews({
+      appId: packageName,
+      lang: "en",
+      country: "us",
+      sort: gplay.sort.NEWEST,
+      num: BOOTSTRAP_LIMIT,
+    }),
+    timeout,
+  ]);
 
   return data.map((r) =>
     buildEnrichedRow(
