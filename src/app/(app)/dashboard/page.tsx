@@ -12,6 +12,7 @@ import { TrialBanner } from "@/components/dashboard/trial-banner";
 import { UpgradeToast } from "@/components/dashboard/upgrade-toast";
 import { EmptyWorkspaceWelcome } from "@/components/dashboard/empty-workspace-welcome";
 import { GooglePlayInviteModal } from "@/components/dashboard/google-play-invite-modal";
+import { AiSummaryPanel } from "@/features/dashboard/components/ai-summary-panel";
 
 const SEVERITY_COLOR: Record<string, string> = {
   critical: "#DC2626",
@@ -492,6 +493,10 @@ export default function DashboardPage() {
         </div>
 
       </section>
+
+      {/* AI Review Summary */}
+      <AiSummaryPanel />
+
     </div>
   );
 }

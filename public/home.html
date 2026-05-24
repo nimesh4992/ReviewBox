@@ -1,0 +1,2816 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ReviewBox — Keyboard-First Review Operations Console</title>
+  
+  <!-- Google Fonts: Geist & Geist Mono for that premium, developer-focused aesthetic -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@300;400;500;600;700&family=Geist:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <style>
+    /* ──────────────────────────────────────────────────────────────────────────
+       CSS DESIGN SYSTEM & RESET (Pure Vanilla CSS)
+       ────────────────────────────────────────────────────────────────────────── */
+    :root {
+      --bg-canvas: #000000;
+      --bg-surface: #070709;
+      --bg-sunken: #030304;
+      --bg-raised: #0d0d12;
+      --bg-hover: #121218;
+      
+      --accent-blue: #2997ff;
+      --accent-blue-glow: rgba(41, 151, 255, 0.15);
+      --accent-purple: #bf7fff;
+      --accent-purple-glow: rgba(191, 127, 255, 0.15);
+      --accent-red: #ff453a;
+      --accent-red-glow: rgba(255, 69, 58, 0.15);
+      --accent-green: #30d158;
+      --accent-green-glow: rgba(48, 209, 88, 0.15);
+      --accent-yellow: #ffd60a;
+      
+      --text-primary: #f5f5f7;
+      --text-secondary: #86868b;
+      --text-muted: #424245;
+      
+      --border-subtle: #16161a;
+      --border-strong: #2c2c2e;
+      --border-focus: #3a3a3c;
+      
+      --font-sans: 'Geist', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono: 'Geist Mono', monospace;
+      
+      --shadow-sm: 0 4px 12px rgba(0, 0, 0, 0.6);
+      --shadow-md: 0 12px 32px rgba(0, 0, 0, 0.8);
+      --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.9);
+      
+      --transition-fast: 100ms cubic-bezier(0.16, 1, 0.3, 1);
+      --transition-normal: 200ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      -webkit-font-smoothing: antialiased;
+      -moz-osx-font-smoothing: grayscale;
+    }
+
+    html {
+      scroll-behavior: smooth;
+    }
+
+    body {
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      line-height: 1.5;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    a {
+      color: inherit;
+      text-decoration: none;
+      transition: color var(--transition-fast);
+    }
+
+    /* Custom Scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-canvas);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: var(--border-strong);
+      border-radius: 3px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--text-muted);
+    }
+
+    /* ──────────────────────────────────────────────────────────────────────────
+       GLOBAL BACKGROUND DOT GRID & GLOWS
+       ────────────────────────────────────────────────────────────────────────── */
+    .global-grid-container {
+      position: absolute;
+      inset: 0;
+      pointer-events: none;
+      z-index: 1;
+      overflow: hidden;
+    }
+    .global-dot-grid {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(rgba(255, 255, 255, 0.07) 1px, transparent 1px);
+      background-size: 24px 24px;
+      opacity: 0.85;
+    }
+    /* Pointer tracked radial glow lights up the dots under mouse coordinate */
+    .global-grid-glow {
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(
+        350px circle at var(--gmx, 50%) var(--gmy, 20%),
+        rgba(41, 151, 255, 0.05) 0%,
+        rgba(191, 127, 255, 0.02) 40%,
+        transparent 80%
+      );
+      transition: opacity 0.2s ease;
+    }
+
+    /* ──────────────────────────────────────────────────────────────────────────
+       UTILITY CLASSES & INTERACTION SHADERS
+       ────────────────────────────────────────────────────────────────────────── */
+    .container {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 0 24px;
+      position: relative;
+      z-index: 2;
+    }
+
+    .mono {
+      font-family: var(--font-mono);
+    }
+
+    /* Raise Card Panel spotlight borders */
+    .glow-card {
+      position: relative;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 28px;
+      overflow: hidden;
+      transition: border-color var(--transition-normal), background-color var(--transition-normal), transform var(--transition-normal);
+    }
+    .glow-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: radial-gradient(
+        250px circle at var(--mx, 0px) var(--my, 0px),
+        rgba(255, 255, 255, 0.04),
+        transparent 80%
+      );
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity var(--transition-normal);
+    }
+    .glow-card:hover::before {
+      opacity: 1;
+    }
+    .glow-card:hover {
+      border-color: var(--border-strong);
+      background: var(--bg-raised);
+      transform: translateY(-2px);
+    }
+
+    /* High-contrast raise keycaps (Raycast lookalike) */
+    .kbd {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      font-weight: 500;
+      color: var(--text-secondary);
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-bottom: 2px solid rgba(255, 255, 255, 0.15);
+      border-radius: 4px;
+      padding: 1.5px 5px;
+      margin-left: 4px;
+      display: inline-flex;
+      align-items: center;
+      vertical-align: middle;
+      box-shadow: 0 1px 1px rgba(0, 0, 0, 0.3);
+      transition: transform var(--transition-fast), background var(--transition-fast);
+    }
+
+    /* Monospace kicker tag */
+    .kicker {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: var(--text-secondary);
+      margin-bottom: 14px;
+    }
+    .kicker-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-blue);
+      box-shadow: 0 0 8px var(--accent-blue);
+    }
+
+    /* ──────────────────────────────────────────────────────────────────────────
+       NAVIGATION BAR
+       ────────────────────────────────────────────────────────────────────────── */
+    header {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: rgba(0, 0, 0, 0.85);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .nav-inner {
+      height: 64px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .logo-container {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-weight: 700;
+      font-size: 16px;
+      letter-spacing: -0.02em;
+    }
+    .logo-box {
+      width: 24px;
+      height: 24px;
+      border-radius: 6px;
+      background: var(--accent-blue);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #000;
+      font-family: var(--font-mono);
+      font-weight: 800;
+      font-size: 13px;
+      box-shadow: 0 0 12px var(--accent-blue-glow);
+    }
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 24px;
+      font-size: 13px;
+      color: var(--text-secondary);
+    }
+    .nav-links a:hover {
+      color: var(--text-primary);
+    }
+    .nav-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      height: 34px;
+      padding: 0 14px;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      border: none;
+      outline: none;
+    }
+    .btn-secondary {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-primary);
+    }
+    .btn-secondary:hover {
+      background: rgba(255, 255, 255, 0.08);
+      border-color: var(--border-strong);
+    }
+    .btn-primary {
+      background: var(--text-primary);
+      color: var(--bg-canvas);
+    }
+    .btn-primary:hover {
+      background: #e5e5e7;
+    }
+
+    /* ──────────────────────────────────────────────────────────────────────────
+       HERO SECTION
+       ────────────────────────────────────────────────────────────────────────── */
+    .hero {
+      padding: 90px 0;
+      text-align: center;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .hero-tagline {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 14px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      border-radius: 99px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-bottom: 28px;
+      transition: all var(--transition-fast);
+    }
+    .hero-tagline:hover {
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+    .hero-tagline-status {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent-green);
+      box-shadow: 0 0 6px var(--accent-green);
+    }
+
+    .hero h1 {
+      font-size: 60px;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1.05;
+      max-width: 840px;
+      margin: 0 auto 20px;
+      background: linear-gradient(180deg, #ffffff 30%, #a2a2a6 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    @media (max-width: 768px) {
+      .hero h1 { font-size: 40px; }
+    }
+
+    .hero-desc {
+      font-size: 17px;
+      color: var(--text-secondary);
+      max-width: 580px;
+      margin: 0 auto 36px;
+      line-height: 1.55;
+    }
+
+    .hero-actions {
+      display: flex;
+      justify-content: center;
+      gap: 16px;
+      margin-bottom: 70px;
+    }
+    .hero-actions .btn {
+      height: 44px;
+      padding: 0 24px;
+      font-size: 14px;
+      border-radius: 8px;
+    }
+
+    /* ──────────────────────────────────────────────────────────────────────────
+       EMBEDDED COMMAND PALETTE WIDGET
+       ────────────────────────────────────────────────────────────────────────── */
+    .terminal-container {
+      max-width: 820px;
+      margin: 0 auto;
+      position: relative;
+    }
+    .terminal-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.12em;
+      color: var(--text-muted);
+      margin-bottom: 12px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .terminal {
+      background: #030304;
+      border: 1px solid var(--border-subtle);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--shadow-lg), 0 0 0 1px rgba(255, 255, 255, 0.01);
+      text-align: left;
+      transition: border-color var(--transition-normal), box-shadow var(--transition-normal);
+    }
+    .terminal:focus-within {
+      border-color: var(--border-strong);
+      box-shadow: var(--shadow-lg), 0 0 32px rgba(41, 151, 255, 0.06);
+    }
+
+    /* Search Bar */
+    .term-header {
+      display: flex;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.03);
+      gap: 14px;
+      background: rgba(5, 5, 7, 0.6);
+    }
+    .term-search-icon {
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+    .term-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-size: 14px;
+      font-family: var(--font-sans);
+    }
+    .term-input::placeholder {
+      color: var(--text-muted);
+    }
+    .term-meta {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      color: var(--text-muted);
+      font-size: 11px;
+      font-family: var(--font-mono);
+    }
+
+    /* Main Body */
+    .term-body {
+      display: flex;
+      height: 360px;
+      background: rgba(3, 3, 4, 0.4);
+    }
+    .term-catalog {
+      flex: 1.1;
+      overflow-y: auto;
+      padding: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      border-right: 1px solid rgba(255, 255, 255, 0.03);
+    }
+    .term-section-header {
+      padding: 8px 12px 4px;
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    
+    /* Rows */
+    .term-row {
+      display: flex;
+      align-items: center;
+      padding: 10px 12px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      gap: 12px;
+      border: 1px solid transparent;
+    }
+    .term-row-icon {
+      width: 28px;
+      height: 28px;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      flex-shrink: 0;
+      transition: all var(--transition-fast);
+    }
+    .term-row-details {
+      flex: 1;
+      min-width: 0;
+    }
+    .term-row-title {
+      font-weight: 500;
+      color: var(--text-primary);
+      font-size: 13px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .term-row-desc {
+      font-size: 11px;
+      color: var(--text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      margin-top: 1px;
+    }
+    .term-row-category {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      padding: 2px 6px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .term-row-action {
+      display: none;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--accent-blue);
+      align-items: center;
+      gap: 4px;
+    }
+
+    /* States */
+    .term-row:hover, .term-row.selected {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.06);
+    }
+    .term-row.selected .term-row-action {
+      display: flex;
+    }
+    .term-row.selected .term-row-category {
+      display: none;
+    }
+
+    /* Catalog Tip Sidebar */
+    .term-sidebar {
+      width: 240px;
+      padding: 20px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: rgba(0, 0, 0, 0.25);
+    }
+    .term-tip-title {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.08em;
+      margin-bottom: 8px;
+    }
+    .term-tip-body {
+      font-size: 12px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+    .term-tip-card {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 8px;
+      padding: 12px;
+      margin-top: auto;
+    }
+    .term-tip-card-title {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      color: var(--text-secondary);
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    .term-tip-card-body {
+      font-size: 10px;
+      color: var(--text-muted);
+      line-height: 1.4;
+    }
+
+    /* ──────────────────────────────────────────────────────────────────────────
+       SIMULATOR SCREENS LAYOUTS
+       ────────────────────────────────────────────────────────────────────────── */
+    .term-screen {
+      display: none;
+      width: 100%;
+      height: 100%;
+      padding: 24px;
+      flex-direction: column;
+      justify-content: space-between;
+      background: rgba(5, 5, 7, 0.15);
+      animation: termFadeIn 150ms cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .term-screen.active {
+      display: flex;
+    }
+    @keyframes termFadeIn {
+      from { opacity: 0; transform: translateY(4px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .screen-header {
+      margin-bottom: 16px;
+    }
+    .screen-title {
+      font-size: 15px;
+      font-weight: 700;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .screen-subtitle {
+      font-size: 12px;
+      color: var(--text-secondary);
+      margin-top: 2px;
+    }
+
+    /* Ingestion Sync Screen */
+    .sync-progress-bar {
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 99px;
+      overflow: hidden;
+      margin: 16px 0;
+      border: 1px solid rgba(255, 255, 255, 0.02);
+    }
+    .sync-progress-fill {
+      height: 100%;
+      width: 0%;
+      background: var(--accent-blue);
+      border-radius: 99px;
+      box-shadow: 0 0 12px var(--accent-blue);
+      transition: width 200ms ease;
+    }
+    .sync-log-box {
+      background: #000;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 8px;
+      padding: 12px 16px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      height: 130px;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .sync-log-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .sync-log-row.green { color: var(--accent-green); }
+    .sync-log-row.blue { color: var(--accent-blue); }
+
+    /* Grounded AI Draft Reply Screen */
+    .draft-layout {
+      display: flex;
+      gap: 16px;
+      height: 180px;
+    }
+    .draft-review-side {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 8px;
+      padding: 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .draft-meta {
+      display: flex;
+      justify-content: space-between;
+      font-size: 10px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+    .draft-stars {
+      color: var(--accent-yellow);
+      font-size: 11px;
+      letter-spacing: 1px;
+    }
+    .draft-review-title {
+      font-weight: 700;
+      font-size: 12px;
+      color: var(--text-primary);
+    }
+    .draft-review-text {
+      font-size: 11.5px;
+      color: var(--text-secondary);
+      line-height: 1.45;
+    }
+    .draft-ai-side {
+      flex: 1.1;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+    .draft-ai-kicker {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: var(--accent-purple);
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .draft-ai-box {
+      flex: 1;
+      background: rgba(191, 127, 255, 0.02);
+      border: 1px solid rgba(191, 127, 255, 0.18);
+      border-radius: 8px;
+      padding: 14px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.45;
+      color: var(--text-primary);
+      overflow-y: auto;
+      position: relative;
+    }
+    .draft-cursor {
+      display: inline-block;
+      width: 5px;
+      height: 11px;
+      background: var(--accent-purple);
+      margin-left: 2px;
+      animation: blink 800ms infinite;
+    }
+    @keyframes blink {
+      0%, 100% { opacity: 0; }
+      50% { opacity: 1; }
+    }
+    .draft-grounding-pills {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+    .grounding-pill {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      padding: 2px 8px;
+      border-radius: 99px;
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--text-secondary);
+    }
+    .grounding-pill.purple {
+      background: rgba(191, 127, 255, 0.08);
+      border-color: rgba(191, 127, 255, 0.2);
+      color: #d1b3f7;
+    }
+
+    /* Slack Triage Incident Screen */
+    .incident-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      align-items: stretch;
+      height: 180px;
+    }
+    .incident-info-panel {
+      background: rgba(255, 69, 58, 0.02);
+      border: 1px solid rgba(255, 69, 58, 0.15);
+      border-radius: 8px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .incident-badge-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .incident-badge {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      font-weight: 700;
+      color: #fff;
+      background: var(--accent-red);
+      padding: 2px 8px;
+      border-radius: 4px;
+    }
+    .incident-payload-panel {
+      background: #000;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 8px;
+      padding: 12px;
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-secondary);
+      overflow-y: auto;
+    }
+    .btn-incident {
+      background: var(--accent-red);
+      color: #fff;
+      font-weight: 700;
+      height: 32px;
+      border-radius: 4px;
+      box-shadow: 0 0 12px rgba(255, 69, 58, 0.25);
+    }
+    .btn-incident:hover {
+      background: #ff5c52;
+    }
+
+    /* ASO Keywords Screen */
+    .aso-table-wrapper {
+      height: 130px;
+      overflow-y: auto;
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 6px;
+      background: #000;
+      margin-bottom: 12px;
+    }
+    .aso-kw-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 11px;
+    }
+    .aso-kw-table th {
+      text-align: left;
+      padding: 6px 12px;
+      color: var(--text-muted);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      background: #030304;
+      position: sticky;
+      top: 0;
+    }
+    .aso-kw-table td {
+      padding: 8px 12px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.02);
+    }
+    .aso-input-row {
+      display: flex;
+      gap: 8px;
+    }
+    .aso-input {
+      flex: 1;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 6px 12px;
+      color: #fff;
+      outline: none;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      transition: all var(--transition-fast);
+    }
+    .aso-input:focus {
+      border-color: var(--accent-green);
+    }
+    .btn-aso {
+      background: var(--accent-green);
+      color: #000;
+      font-weight: 700;
+      border-radius: 6px;
+      height: 28px;
+      padding: 0 12px;
+      font-size: 11px;
+    }
+    .btn-aso:hover {
+      background: #42d768;
+    }
+
+    /* ROI Math Screen */
+    .roi-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      height: 180px;
+      justify-content: center;
+    }
+    .roi-slider-row {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+    .roi-slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .roi-slider-label strong {
+      color: #fff;
+    }
+    .roi-slider {
+      width: 100%;
+      height: 4px;
+      background: rgba(255, 255, 255, 0.08);
+      outline: none;
+      border-radius: 2px;
+      accent-color: var(--accent-yellow);
+    }
+    .roi-metrics-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 6px;
+    }
+    .roi-metric-box {
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      border-radius: 8px;
+      padding: 10px 8px;
+      text-align: center;
+    }
+    .roi-metric-num {
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      margin-top: 2px;
+    }
+    .roi-metric-num.green {
+      color: var(--accent-green);
+    }
+
+    /* Screen Footer */
+    .term-screen-footer {
+      border-top: 1px solid rgba(255, 255, 255, 0.03);
+      padding-top: 14px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+    .term-back-btn {
+      color: var(--accent-blue);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: color var(--transition-fast);
+    }
+    .term-back-btn:hover {
+      color: #58a6ff;
+    }
+
+    /* ──────────────────────────────────────────────────────────────────────────
+       FLOATING ⌘K COMMAND MENU OVERLAY (RAYCAST STYLE)
+       ────────────────────────────────────────────────────────────────────────── */
+    .cmd-backdrop {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.75);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity var(--transition-normal);
+    }
+    .cmd-backdrop.active {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .cmd-modal {
+      width: 640px;
+      background: #070709;
+      border: 1px solid var(--border-strong);
+      border-radius: 12px;
+      box-shadow: 0 30px 70px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.02);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      transform: scale(0.96);
+      transition: transform var(--transition-normal);
+    }
+    .cmd-backdrop.active .cmd-modal {
+      transform: scale(1);
+    }
+    .cmd-header {
+      display: flex;
+      align-items: center;
+      padding: 16px 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      gap: 12px;
+      background: rgba(10, 10, 14, 0.5);
+    }
+    .cmd-input {
+      flex: 1;
+      background: transparent;
+      border: none;
+      outline: none;
+      color: var(--text-primary);
+      font-size: 15px;
+      font-family: var(--font-sans);
+    }
+    .cmd-input::placeholder {
+      color: var(--text-muted);
+    }
+    .cmd-meta {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--text-muted);
+    }
+
+    /* Modal Main Body */
+    .cmd-body {
+      display: flex;
+      height: 330px;
+    }
+    .cmd-catalog {
+      flex: 1.1;
+      overflow-y: auto;
+      padding: 8px;
+      display: flex;
+      flex-direction: column;
+      gap: 2px;
+      border-right: 1px solid rgba(255, 255, 255, 0.03);
+    }
+    .cmd-row {
+      display: flex;
+      align-items: center;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all var(--transition-fast);
+      gap: 12px;
+      border: 1px solid transparent;
+    }
+    .cmd-row-icon {
+      width: 24px;
+      height: 24px;
+      border-radius: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      flex-shrink: 0;
+    }
+    .cmd-row-details {
+      flex: 1;
+      min-width: 0;
+    }
+    .cmd-row-title {
+      font-weight: 500;
+      color: var(--text-primary);
+      font-size: 12.5px;
+    }
+    .cmd-row-category {
+      font-family: var(--font-mono);
+      font-size: 9.5px;
+      color: var(--text-muted);
+      background: rgba(255, 255, 255, 0.02);
+      border: 1px solid rgba(255, 255, 255, 0.04);
+      padding: 1px 5px;
+      border-radius: 4px;
+      flex-shrink: 0;
+    }
+    .cmd-row-action {
+      display: none;
+      font-size: 11px;
+      font-family: var(--font-mono);
+      color: var(--accent-blue);
+      align-items: center;
+      gap: 4px;
+    }
+    .cmd-row:hover, .cmd-row.selected {
+      background: rgba(255, 255, 255, 0.04);
+      border-color: rgba(255, 255, 255, 0.05);
+    }
+    .cmd-row.selected .cmd-row-action {
+      display: flex;
+    }
+    .cmd-row.selected .cmd-row-category {
+      display: none;
+    }
+
+    .cmd-sidebar {
+      width: 220px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      background: rgba(0, 0, 0, 0.2);
+    }
+    .cmd-screen-modal {
+      display: none;
+      width: 100%;
+      height: 100%;
+      background: #030304;
+      padding: 24px;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .cmd-screen-modal.active {
+      display: flex;
+    }
+
+    /* ──────────────────────────────────────────────────────────────────────────
+       TRUST / LOGO STRIP
+       ────────────────────────────────────────────────────────────────────────── */
+    .trust {
+      padding: 42px 0;
+      background: #000;
+      border-bottom: 1px solid var(--border-subtle);
+      overflow: hidden;
+    }
+    .trust-title {
+      font-family: var(--font-mono);
+      font-size: 10px;
+      color: var(--text-muted);
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 0.15em;
+      margin-bottom: 24px;
+    }
+    .marquee {
+      display: flex;
+      width: 200%;
+      animation: marquee 20s linear infinite;
+    }
+    .marquee-content {
+      display: flex;
+      justify-content: space-around;
+      width: 50%;
+    }
+    .marquee-item {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: -0.02em;
+    }
+    @keyframes marquee {
+      0% { transform: translateX(0); }
+      100% { transform: translateX(-50%); }
+    }
+
+    /* ──────────────────────────────────────────────────────────────────────────
+       PILLARS GRID (High contrast, raise grids)
+       ────────────────────────────────────────────────────────────────────────── */
+    .pillars {
+      padding: 90px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .pillars-header {
+      max-width: 600px;
+      margin-bottom: 50px;
+    }
+    .section-title {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      line-height: 1.05;
+      margin-top: 8px;
+    }
+    .grid-4 {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 24px;
+    }
+    @media (max-width: 768px) {
+      .grid-4 { grid-template-columns: 1fr; }
+    }
+
+    .pillar-icon {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      background: rgba(255, 255, 255, 0.03);
+      border: 1px solid rgba(255, 255, 255, 0.06);
+    }
+    .pillar-icon.blue { color: var(--accent-blue); background: var(--accent-blue-glow); border-color: rgba(41, 151, 255, 0.1); }
+    .pillar-icon.purple { color: var(--accent-purple); background: var(--accent-purple-glow); border-color: rgba(191, 127, 255, 0.15); }
+    .pillar-icon.red { color: var(--accent-red); background: var(--accent-red-glow); border-color: rgba(255, 69, 58, 0.1); }
+    .pillar-icon.green { color: var(--accent-green); background: var(--accent-green-glow); border-color: rgba(48, 209, 88, 0.1); }
+
+    .pillar-title {
+      font-size: 16px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+    .pillar-body {
+      font-size: 13.5px;
+      color: var(--text-secondary);
+      line-height: 1.55;
+    }
+    .pillar-footer {
+      margin-top: 24px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    /* ──────────────────────────────────────────────────────────────────────────
+       PAIN INDEX INDEX GRID
+       ────────────────────────────────────────────────────────────────────────── */
+    .metrics {
+      padding: 90px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .metrics-row {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      overflow: hidden;
+      background: rgba(5, 5, 7, 0.3);
+    }
+    @media (max-width: 768px) {
+      .metrics-row { grid-template-columns: 1fr; }
+    }
+    .metrics-col {
+      padding: 32px;
+      border-right: 1px solid var(--border-subtle);
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    .metrics-col:last-child {
+      border-right: none;
+    }
+    @media (max-width: 768px) {
+      .metrics-col { border-right: none; border-bottom: 1px solid var(--border-subtle); }
+      .metrics-col:last-child { border-bottom: none; }
+    }
+    .metric-big-num {
+      font-size: 42px;
+      font-weight: 800;
+      letter-spacing: -0.04em;
+      line-height: 1;
+      color: #fff;
+    }
+    .metric-col-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+    .metric-col-desc {
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+    }
+
+    /* ──────────────────────────────────────────────────────────────────────────
+       ARCHITECTURE SPECIFICATION BLOCK
+       ────────────────────────────────────────────────────────────────────────── */
+    .architecture {
+      padding: 90px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .arch-grid {
+      display: grid;
+      grid-template-columns: 1fr 1.2fr;
+      gap: 40px;
+      align-items: center;
+    }
+    @media (max-width: 768px) {
+      .arch-grid { grid-template-columns: 1fr; }
+    }
+    .arch-code-box {
+      background: #030304;
+      border: 1px solid var(--border-subtle);
+      border-radius: 12px;
+      padding: 20px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      overflow-x: auto;
+      box-shadow: var(--shadow-sm);
+    }
+    .code-comment { color: var(--text-muted); }
+    .code-keyword { color: var(--accent-purple); }
+    .code-string { color: var(--accent-green); }
+    .code-function { color: var(--accent-blue); }
+
+    /* ──────────────────────────────────────────────────────────────────────────
+       PRICING TIERS
+       ────────────────────────────────────────────────────────────────────────── */
+    .pricing {
+      padding: 90px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .pricing-header {
+      text-align: center;
+      max-width: 600px;
+      margin: 0 auto 50px;
+    }
+    .pricing-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 24px;
+    }
+    @media (max-width: 768px) {
+      .pricing-grid { grid-template-columns: 1fr; }
+    }
+    .price-card {
+      min-height: 480px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    .price-card.popular {
+      border-color: rgba(41, 151, 255, 0.3);
+      box-shadow: 0 0 32px rgba(41, 151, 255, 0.05);
+    }
+    .price-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      margin-bottom: 16px;
+    }
+    .price-name {
+      font-size: 16px;
+      font-weight: 700;
+    }
+    .price-badge {
+      font-family: var(--font-mono);
+      font-size: 9px;
+      background: var(--accent-blue);
+      color: #000;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 700;
+    }
+    .price-val-row {
+      display: flex;
+      align-items: baseline;
+      gap: 6px;
+      margin-bottom: 16px;
+    }
+    .price-amount {
+      font-size: 38px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: #fff;
+    }
+    .price-period {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+    .price-desc {
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      line-height: 1.5;
+      padding-bottom: 20px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      margin-bottom: 20px;
+    }
+    .price-features {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .price-features li {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: #d1d1d6;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .price-features svg {
+      color: var(--accent-green);
+      flex-shrink: 0;
+    }
+    .price-btn {
+      margin-top: 32px;
+      width: 100%;
+      height: 40px;
+      font-size: 13px;
+    }
+    .price-btn.popular {
+      background: var(--accent-blue);
+      color: #000;
+    }
+    .price-btn.popular:hover {
+      background: #54b0ff;
+    }
+
+    /* ──────────────────────────────────────────────────────────────────────────
+       FAQ INTERACTIVE ACCORDION
+       ────────────────────────────────────────────────────────────────────────── */
+    .faq {
+      padding: 90px 0;
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .faq-layout {
+      max-width: 720px;
+      margin: 0 auto;
+    }
+    .faq-list {
+      border-top: 1px solid var(--border-subtle);
+      margin-top: 32px;
+    }
+    .faq-item {
+      border-bottom: 1px solid var(--border-subtle);
+    }
+    .faq-trigger {
+      width: 100%;
+      padding: 20px 0;
+      background: transparent;
+      border: none;
+      outline: none;
+      text-align: left;
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-primary);
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      transition: color var(--transition-fast);
+    }
+    .faq-trigger:hover {
+      color: var(--accent-blue);
+    }
+    .faq-trigger-icon {
+      color: var(--text-muted);
+      transition: transform var(--transition-fast);
+    }
+    .faq-item.open .faq-trigger-icon {
+      transform: rotate(45deg);
+      color: var(--accent-blue);
+    }
+    .faq-content {
+      max-height: 0;
+      overflow: hidden;
+      transition: max-height var(--transition-normal) ease-out;
+    }
+    .faq-content-inner {
+      padding: 0 0 20px;
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Bottom CTA Section */
+    .cta {
+      padding: 100px 0;
+      text-align: center;
+      position: relative;
+    }
+    .cta-glow {
+      position: absolute;
+      bottom: -20%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 60%;
+      height: 300px;
+      background: radial-gradient(circle, rgba(41, 151, 255, 0.05) 0%, rgba(0,0,0,0) 70%);
+      pointer-events: none;
+    }
+
+    /* Footer */
+    footer {
+      background: #000;
+      padding: 50px 0;
+      border-top: 1px solid var(--border-subtle);
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+    .footer-inner {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .footer-links {
+      display: flex;
+      gap: 24px;
+    }
+    .footer-links a:hover {
+      color: var(--text-secondary);
+    }
+
+    /* SVGs primitives core */
+    .icon {
+      display: inline-block;
+      width: 1em;
+      height: 1em;
+      stroke-width: 1.5;
+      stroke: currentColor;
+      fill: none;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+      vertical-align: middle;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Global background grid layout -->
+  <div class="global-grid-container">
+    <div class="global-dot-grid"></div>
+    <div class="global-grid-glow" id="global-grid-glow"></div>
+  </div>
+
+  <!-- Navigation -->
+  <header>
+    <div class="container nav-inner">
+      <div class="logo-container">
+        <div class="logo-box">R</div>
+        <span>ReviewBox</span>
+      </div>
+      <nav class="nav-links">
+        <a href="#features">Features</a>
+        <a href="#architecture">Architecture</a>
+        <a href="#pricing">Pricing</a>
+        <a href="#faq">FAQ</a>
+      </nav>
+      <div class="nav-actions">
+        <button class="btn btn-secondary" onclick="openCmdMenu()" style="gap: 6px;">
+          <span>Console Menu</span>
+          <kbd class="kbd">⌘K</kbd>
+        </button>
+        <a href="/sign-up" class="btn btn-primary">Start Trial <kbd class="kbd">↵</kbd></a>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="hero">
+    <div class="container">
+      <a href="/changelog" class="hero-tagline">
+        <span class="hero-tagline-status"></span>
+        <span>ReviewBox v1.4: Multi-store console sync live</span>
+        <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px; margin-left: 2px;"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
+      </a>
+
+      <h1>Control your review operations.<br>Faster than ever.</h1>
+      
+      <p class="hero-desc">
+        ReviewBox is the unified operational console for mobile developers. Sync stores instantly, compose tone-grounded replies, and page on-call engineers when reviews report crashes.
+      </p>
+
+      <div class="hero-actions">
+        <button onclick="openCmdMenu()" class="btn btn-primary" style="height: 46px; padding: 0 24px; gap: 8px; font-size: 14px;">
+          <span>Launch Operational Console</span>
+          <kbd class="kbd" style="background: rgba(0,0,0,0.15); border-color: rgba(0,0,0,0.2); color: #000;">⌘K</kbd>
+        </button>
+        <a href="#interactive" class="btn btn-secondary" style="height: 46px; padding: 0 24px; gap: 8px;">
+          <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px; fill: currentColor;"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+          Interactive Widget
+        </a>
+      </div>
+
+      <!-- EMBEDDED COMMAND PALETTE WIDGET -->
+      <div class="terminal-container" id="interactive">
+        <div class="terminal-title">
+          <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--accent-blue);"></span>
+          Interactive Embedded Console Emulator (Arrow Keys & Enter to run)
+        </div>
+        
+        <div class="terminal" id="term-palette">
+          <!-- Header search -->
+          <div class="term-header">
+            <svg class="icon term-search-icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+            <input type="text" class="term-input" id="term-search" placeholder="Type operation to filter... (e.g. Sync, AI, Slack, ROI)" autocomplete="off">
+            <div class="term-meta">
+              <span>ReviewBox OS</span>
+              <kbd class="kbd">⌘K</kbd>
+            </div>
+          </div>
+
+          <!-- Main Layout -->
+          <div class="term-body" id="term-main-body">
+            <!-- Catalog List Left -->
+            <div class="term-catalog" id="term-catalog-list">
+              <div class="term-section-header">Database & Console Operations</div>
+              
+              <!-- Sync Row -->
+              <div class="term-row selected" data-cmd="sync" id="row-sync">
+                <div class="term-row-icon" style="color: var(--accent-blue);">
+                  <svg class="icon" viewBox="0 0 24 24" style="width: 15px; height: 15px;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                </div>
+                <div class="term-row-details">
+                  <div class="term-row-title">Connect Developer Store Sync</div>
+                  <div class="term-row-desc">Simulate dual-store review syncing pipelines</div>
+                </div>
+                <span class="term-row-category">Data Sync</span>
+                <span class="term-row-action">Run <kbd class="kbd">↵</kbd></span>
+              </div>
+
+              <!-- AI Draft Row -->
+              <div class="term-row" data-cmd="ai" id="row-ai">
+                <div class="term-row-icon" style="color: var(--accent-purple);">
+                  <svg class="icon" viewBox="0 0 24 24" style="width: 15px; height: 15px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                </div>
+                <div class="term-row-details">
+                  <div class="term-row-title">Draft Tone-Grounded AI Reply</div>
+                  <div class="term-row-desc">Autocraft an iPad budget crash response draft</div>
+                </div>
+                <span class="term-row-category">AI Engine</span>
+                <span class="term-row-action">Run <kbd class="kbd">↵</kbd></span>
+              </div>
+
+              <!-- Slack Triage Row -->
+              <div class="term-row" data-cmd="slack" id="row-slack">
+                <div class="term-row-icon" style="color: var(--accent-red);">
+                  <svg class="icon" viewBox="0 0 24 24" style="width: 15px; height: 15px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg>
+                </div>
+                <div class="term-row-details">
+                  <div class="term-row-title">Simulate Slack Incident Triage Routing</div>
+                  <div class="term-row-desc">Triage a 1-star regression and alert team channels</div>
+                </div>
+                <span class="term-row-category">Alerting</span>
+                <span class="term-row-action">Run <kbd class="kbd">↵</kbd></span>
+              </div>
+
+              <div class="term-section-header">Audit & Value Math</div>
+
+              <!-- ASO Ranks Row -->
+              <div class="term-row" data-cmd="aso" id="row-aso">
+                <div class="term-row-icon" style="color: var(--accent-green);">
+                  <svg class="icon" viewBox="0 0 24 24" style="width: 15px; height: 15px;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                </div>
+                <div class="term-row-details">
+                  <div class="term-row-title">Audit App Store Keywords Density</div>
+                  <div class="term-row-desc">Check keyword indexing against core store rivals</div>
+                </div>
+                <span class="term-row-category">ASO Index</span>
+                <span class="term-row-action">Run <kbd class="kbd">↵</kbd></span>
+              </div>
+
+              <!-- ROI Calculator Row -->
+              <div class="term-row" data-cmd="roi" id="row-roi">
+                <div class="term-row-icon" style="color: var(--accent-yellow);">
+                  <svg class="icon" viewBox="0 0 24 24" style="width: 15px; height: 15px;"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                </div>
+                <div class="term-row-details">
+                  <div class="term-row-title">Calculate Operations ROI & ARR Saved</div>
+                  <div class="term-row-desc">Compute exact time & support dollars saved</div>
+                </div>
+                <span class="term-row-category">Calculator</span>
+                <span class="term-row-action">Run <kbd class="kbd">↵</kbd></span>
+              </div>
+            </div>
+
+            <!-- Tip Sidebar Right -->
+            <div class="term-sidebar" id="term-sidebar-details">
+              <div style="display: flex; flex-direction: column; gap: 14px;">
+                <div class="term-tip-title">Operations Console</div>
+                <div class="term-tip-body">
+                  ReviewBox executes mobile app store feedback operations, connects analytics, and streamlines support tasks straight from your keyboard.
+                </div>
+              </div>
+              <div class="term-tip-card">
+                <div class="term-tip-card-title">Interactive Widget</div>
+                <div class="term-tip-card-body">
+                  Navigate with the <span style="color: var(--accent-blue);">↑↓ Arrow Keys</span> and hit <span style="color: var(--accent-blue);">Enter</span> to run a live simulator panel.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- SCREEN: SYNC ACTIVE -->
+          <div class="term-screen" id="screen-sync">
+            <div class="screen-header">
+              <div class="screen-title" style="color: var(--accent-blue);">
+                <svg class="icon" viewBox="0 0 24 24" style="width: 16px; height: 16px;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                Google Play & App Store Sync Pipeline
+              </div>
+              <div class="screen-subtitle">Simulating live connection to store APIs...</div>
+            </div>
+            
+            <div class="sync-progress-bar">
+              <div class="sync-progress-fill" id="sync-progress-fill"></div>
+            </div>
+
+            <div class="sync-log-box" id="sync-log-box">
+              <div class="sync-log-row">[00:01] Booting sync worker processes...</div>
+            </div>
+
+            <div class="term-screen-footer">
+              <span id="sync-status-text">Processing stream pipeline</span>
+              <span class="term-back-btn" onclick="backToCatalog()"><svg class="icon" viewBox="0 0 24 24" style="width: 12px; height: 12px; margin-right: 2px;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Go Back <kbd class="kbd">Esc</kbd></span>
+            </div>
+          </div>
+
+          <!-- SCREEN: AI REPLY ACTIVE -->
+          <div class="term-screen" id="screen-ai">
+            <div class="screen-header">
+              <div class="screen-title" style="color: var(--accent-purple);">
+                <svg class="icon" viewBox="0 0 24 24" style="width: 16px; height: 16px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+                Tone-Grounded Response Draft Generator
+              </div>
+              <div class="screen-subtitle">AI grounds automatically in recent release metadata. No hallucinating.</div>
+            </div>
+
+            <div class="draft-layout">
+              <div class="draft-review-side">
+                <div class="draft-meta">
+                  <span>App Store User</span>
+                  <span class="draft-stars">★☆☆☆☆</span>
+                </div>
+                <div class="draft-review-title">Budgets module freeze on iPad Pro</div>
+                <div class="draft-review-text">
+                  "Ever since updating this morning, the app completely locks up for 10 seconds and crashes when I tap on the budget list view. iPadOS 17.4."
+                </div>
+              </div>
+
+              <div class="draft-ai-side">
+                <div class="draft-ai-kicker">
+                  <svg class="icon" viewBox="0 0 24 24" style="width: 12px; height: 12px;"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+                  Grounded Context Draft (Technical Tone)
+                </div>
+                <div class="draft-ai-box" id="draft-ai-box">
+                  <span class="draft-cursor"></span>
+                </div>
+                <div class="draft-grounding-pills">
+                  <span class="grounding-pill purple">Grounded on Knowledge Base</span>
+                  <span class="grounding-pill">Matched Suspect v4.2.1</span>
+                </div>
+              </div>
+            </div>
+
+            <div class="term-screen-footer">
+              <span>Ready for support publishing</span>
+              <span class="term-back-btn" onclick="backToCatalog()"><svg class="icon" viewBox="0 0 24 24" style="width: 12px; height: 12px; margin-right: 2px;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Go Back <kbd class="kbd">Esc</kbd></span>
+            </div>
+          </div>
+
+          <!-- SCREEN: SLACK TRIAGE ACTIVE -->
+          <div class="term-screen" id="screen-slack">
+            <div class="screen-header">
+              <div class="screen-title" style="color: var(--accent-red);">
+                <svg class="icon" viewBox="0 0 24 24" style="width: 16px; height: 16px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg>
+                Incident Detection & Webhook Trigger
+              </div>
+              <div class="screen-subtitle">4 reviews report crash anomalies in under 15 minutes.</div>
+            </div>
+
+            <div class="incident-grid">
+              <div class="incident-info-panel">
+                <div class="incident-badge-row">
+                  <span class="incident-badge">Spike Detected</span>
+                  <span style="font-family: var(--font-mono); font-size: 10px; color: var(--text-secondary);">4.2.1-iOS</span>
+                </div>
+                <div style="font-size: 12px; font-weight: 700; color: #fff;">Spike on Acme Premium Banking</div>
+                <p style="font-size: 11px; color: var(--text-secondary); line-height: 1.45;">
+                  Four separate accounts flag database locks since v4.2.1 deploy. Automated alert rules triggered.
+                </p>
+                <button class="btn btn-incident" id="btn-triage-page" onclick="sendSlackSimulation()">Page On-Call Team</button>
+              </div>
+
+              <div class="incident-payload-panel" id="incident-payload-box">
+{
+  "event": "anomaly_detected",
+  "anomaly_type": "review_crash_spike",
+  "occurrences_15m": 4,
+  "app_version": "v4.2.1",
+  "environment": "iOS-production",
+  "rule_action": "webhook_post",
+  "channel": "#ops-alerts"
+}</div>
+            </div>
+
+            <div class="term-screen-footer">
+              <span id="slack-status-text">Awaiting page execution</span>
+              <span class="term-back-btn" onclick="backToCatalog()"><svg class="icon" viewBox="0 0 24 24" style="width: 12px; height: 12px; margin-right: 2px;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Go Back <kbd class="kbd">Esc</kbd></span>
+            </div>
+          </div>
+
+          <!-- SCREEN: ASO DENSITY ACTIVE -->
+          <div class="term-screen" id="screen-aso">
+            <div class="screen-header">
+              <div class="screen-title" style="color: var(--accent-green);">
+                <svg class="icon" viewBox="0 0 24 24" style="width: 16px; height: 16px;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+                App Store Keyword Ranks Tracker
+              </div>
+              <div class="screen-subtitle">Compare ranking density changes relative to store rivals.</div>
+            </div>
+
+            <div class="aso-table-wrapper">
+              <table class="aso-kw-table">
+                <thead>
+                  <tr>
+                    <th style="width: 45%;">Keyword Query</th>
+                    <th>Rank Pos</th>
+                    <th>Index Delta</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="aso-kw-body">
+                  <tr>
+                    <td>budget tracker</td>
+                    <td><strong>#4</strong></td>
+                    <td style="color: var(--accent-green);">+2</td>
+                    <td style="color: var(--accent-red); cursor: pointer;" onclick="deleteAsoRow(this)">Remove</td>
+                  </tr>
+                  <tr>
+                    <td>finance dashboard</td>
+                    <td><strong>#11</strong></td>
+                    <td style="color: var(--accent-red);">-4</td>
+                    <td style="color: var(--accent-red); cursor: pointer;" onclick="deleteAsoRow(this)">Remove</td>
+                  </tr>
+                  <tr>
+                    <td>iPad finance tool</td>
+                    <td><strong>#89</strong></td>
+                    <td style="color: var(--accent-green);">+12</td>
+                    <td style="color: var(--accent-red); cursor: pointer;" onclick="deleteAsoRow(this)">Remove</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="aso-input-row">
+              <input type="text" class="aso-input" id="aso-kw-input" placeholder="Type new keyword to track... (e.g. cash flow planner)" autocomplete="off">
+              <button class="btn btn-aso" onclick="addAsoKeyword()">+ Track Keyword</button>
+            </div>
+
+            <div class="term-screen-footer">
+              <span>Syncing database records with Search Ads endpoints</span>
+              <span class="term-back-btn" onclick="backToCatalog()"><svg class="icon" viewBox="0 0 24 24" style="width: 12px; height: 12px; margin-right: 2px;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Go Back <kbd class="kbd">Esc</kbd></span>
+            </div>
+          </div>
+
+          <!-- SCREEN: ROI CALCULATOR ACTIVE -->
+          <div class="term-screen" id="screen-roi">
+            <div class="screen-header">
+              <div class="screen-title" style="color: var(--accent-yellow);">
+                <svg class="icon" viewBox="0 0 24 24" style="width: 16px; height: 16px;"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                Operations ROI & Support Savings Math
+              </div>
+              <div class="screen-subtitle">Adjust sliding properties to calculate support ARR optimizations.</div>
+            </div>
+
+            <div class="roi-panel">
+              <div class="roi-slider-row">
+                <div class="roi-slider-label">
+                  <span>Monthly Review Logs Count</span>
+                  <span id="roi-val-volume-text"><strong>600 reviews</strong></span>
+                </div>
+                <input type="range" class="roi-slider" id="roi-val-volume" min="100" max="10000" step="100" value="600" oninput="updateRoiMath()">
+              </div>
+
+              <div class="roi-slider-row">
+                <div class="roi-slider-label">
+                  <span>Support/Developer Wage</span>
+                  <span id="roi-val-rate-text"><strong>$35 / hour</strong></span>
+                </div>
+                <input type="range" class="roi-slider" id="roi-val-rate" min="15" max="100" step="5" value="35" oninput="updateRoiMath()">
+              </div>
+
+              <div class="roi-metrics-row">
+                <div class="roi-metric-box">
+                  <div style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">Hours Saved / mo</div>
+                  <div class="roi-metric-num" id="roi-hours-saved">90 hrs</div>
+                </div>
+                <div class="roi-metric-box">
+                  <div style="font-family: var(--font-mono); font-size: 8px; color: var(--text-muted); text-transform: uppercase;">Auto-Drafts Sent</div>
+                  <div class="roi-metric-num" id="roi-drafts-sent">450 drafts</div>
+                </div>
+                <div class="roi-metric-box" style="border-color: rgba(48, 209, 88, 0.15); background: rgba(48, 209, 88, 0.02);">
+                  <div style="font-family: var(--font-mono); font-size: 8px; color: var(--accent-green); text-transform: uppercase;">Cash Saved / mo</div>
+                  <div class="roi-metric-num green" id="roi-cash-saved">$3,150</div>
+                </div>
+              </div>
+            </div>
+
+            <div class="term-screen-footer">
+              <span>Calculated based on 0.15 average handling hours per critical reply</span>
+              <span class="term-back-btn" onclick="backToCatalog()"><svg class="icon" viewBox="0 0 24 24" style="width: 12px; height: 12px; margin-right: 2px;"><line x1="19" y1="12" x2="5" y2="12"></line><polyline points="12 19 5 12 12 5"></polyline></svg> Go Back <kbd class="kbd">Esc</kbd></span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FLOATING COMMAND MENU OVERLAY -->
+  <div class="cmd-backdrop" id="cmd-backdrop" onclick="closeCmdMenuOnBackdrop(event)">
+    <div class="cmd-modal" id="cmd-modal" onclick="event.stopPropagation()">
+      <!-- Search -->
+      <div class="cmd-header">
+        <svg class="icon term-search-icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+        <input type="text" class="cmd-input" id="cmd-search" placeholder="Type a command to run..." autocomplete="off">
+        <div class="cmd-meta">
+          <span>ReviewBox Console</span>
+          <kbd class="kbd" id="kbd-esc">Esc</kbd>
+        </div>
+      </div>
+
+      <!-- Main Layout -->
+      <div class="cmd-body" id="cmd-main-body">
+        <div class="cmd-catalog" id="cmd-catalog-list">
+          <div class="term-section-header">Operational Commands</div>
+          
+          <div class="cmd-row selected" data-cmd="sync">
+            <div class="cmd-row-icon" style="color: var(--accent-blue);">
+              <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px;"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+            </div>
+            <div class="cmd-row-details">
+              <div class="cmd-row-title">Run Store Synchronization</div>
+            </div>
+            <span class="cmd-row-category">Sync APIs</span>
+            <span class="cmd-row-action">Execute <kbd class="kbd">↵</kbd></span>
+          </div>
+
+          <div class="cmd-row" data-cmd="ai">
+            <div class="cmd-row-icon" style="color: var(--accent-purple);">
+              <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+            </div>
+            <div class="cmd-row-details">
+              <div class="cmd-row-title">Draft Grounded Context Reply</div>
+            </div>
+            <span class="cmd-row-category">AI Prompt</span>
+            <span class="cmd-row-action">Execute <kbd class="kbd">↵</kbd></span>
+          </div>
+
+          <div class="cmd-row" data-cmd="slack">
+            <div class="cmd-row-icon" style="color: var(--accent-red);">
+              <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px;"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><line x1="9" y1="3" x2="9" y2="21"></line><line x1="15" y1="3" x2="15" y2="21"></line><line x1="3" y1="9" x2="21" y2="9"></line><line x1="3" y1="15" x2="21" y2="15"></line></svg>
+            </div>
+            <div class="cmd-row-details">
+              <div class="cmd-row-title">Simulate Slack Incident Webhook</div>
+            </div>
+            <span class="cmd-row-category">On-Call</span>
+            <span class="cmd-row-action">Execute <kbd class="kbd">↵</kbd></span>
+          </div>
+
+          <div class="cmd-row" data-cmd="aso">
+            <div class="cmd-row-icon" style="color: var(--accent-green);">
+              <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+            </div>
+            <div class="cmd-row-details">
+              <div class="cmd-row-title">Audit Organic Keyword Density</div>
+            </div>
+            <span class="cmd-row-category">ASO Index</span>
+            <span class="cmd-row-action">Execute <kbd class="kbd">↵</kbd></span>
+          </div>
+
+          <div class="cmd-row" data-cmd="roi">
+            <div class="cmd-row-icon" style="color: var(--accent-yellow);">
+              <svg class="icon" viewBox="0 0 24 24" style="width: 14px; height: 14px;"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            </div>
+            <div class="cmd-row-details">
+              <div class="cmd-row-title">View ARR Support Savings Math</div>
+            </div>
+            <span class="cmd-row-category">Math ROI</span>
+            <span class="cmd-row-action">Execute <kbd class="kbd">↵</kbd></span>
+          </div>
+        </div>
+
+        <div class="cmd-sidebar" id="cmd-sidebar-details">
+          <!-- Populated by JavaScript based on active row -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Trust strip -->
+  <section class="trust">
+    <div class="container">
+      <div class="trust-title">High-decibel mobile product operations powered by ReviewBox</div>
+      <div class="marquee">
+        <div class="marquee-content">
+          <span class="marquee-item">Northwind</span>
+          <span class="marquee-item">Helix Money</span>
+          <span class="marquee-item">Trailhead Run</span>
+          <span class="marquee-item">Pocket Lock</span>
+          <span class="marquee-item">Nova Wallet</span>
+        </div>
+        <div class="marquee-content">
+          <span class="marquee-item">Northwind</span>
+          <span class="marquee-item">Helix Money</span>
+          <span class="marquee-item">Trailhead Run</span>
+          <span class="marquee-item">Pocket Lock</span>
+          <span class="marquee-item">Nova Wallet</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Features Grid -->
+  <section class="pillars" id="features">
+    <div class="container">
+      <div class="pillars-header">
+        <div class="kicker"><span class="kicker-dot"></span>Platform capabilities</div>
+        <h2 class="section-title">Built for technical product and engineering teams.</h2>
+      </div>
+
+      <div class="grid-4">
+        <!-- Card 1 -->
+        <div class="glow-card">
+          <div class="pillar-icon blue">
+            <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;"><polyline points="4 17 10 11 15 16 22 9"></polyline><polyline points="16 9 22 9 22 15"></polyline></svg>
+          </div>
+          <h3 class="pillar-title">Unified Dual-Store Review Stream</h3>
+          <p class="pillar-body">
+            Ditch store console delays and messy spreadsheets. Sync real-time iOS App Store and Google Play logs directly into a centralized, indexed database with search indexes.
+          </p>
+          <div class="pillar-footer">Sync Command <kbd class="kbd">⌥S</kbd></div>
+        </div>
+
+        <!-- Card 2 -->
+        <div class="glow-card">
+          <div class="pillar-icon purple">
+            <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg>
+          </div>
+          <h3 class="pillar-title">Grounded AI Draft Compositions</h3>
+          <p class="pillar-body">
+            AI hallucinating responses is a dealbreaker. ReviewBox grounds every single draft in your recent release changelogs, Notion support manuals, and pre-composed support templates.
+          </p>
+          <div class="pillar-footer">Compose Command <kbd class="kbd">⌥D</kbd></div>
+        </div>
+
+        <!-- Card 3 -->
+        <div class="glow-card">
+          <div class="pillar-icon red">
+            <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
+          </div>
+          <h3 class="pillar-title">Immediate Incident Routing</h3>
+          <p class="pillar-body">
+            Auto-detect keyword spikes in review queues. When multiple reviews signal crash anomalies or login freezes, pagers alert Slack channels long before Sentry errors can sample.
+          </p>
+          <div class="pillar-footer">Triage Command <kbd class="kbd">⌥I</kbd></div>
+        </div>
+
+        <!-- Card 4 -->
+        <div class="glow-card">
+          <div class="pillar-icon green">
+            <svg class="icon" viewBox="0 0 24 24" style="width: 18px; height: 18px;"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
+          </div>
+          <h3 class="pillar-title">Listing Keyword Density Scoring</h3>
+          <p class="pillar-body">
+            Track organic store rankings and monitor search advertising index deltas relative to your biggest store competitors. Add target terms to audit keyword indexing instantly.
+          </p>
+          <div class="pillar-footer">ASO Command <kbd class="kbd">⌥K</kbd></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Statistics Panel -->
+  <section class="metrics">
+    <div class="container">
+      <div class="pillars-header" style="margin-bottom: 48px;">
+        <div class="kicker"><span class="kicker-dot"></span>Review operations index</div>
+        <h2 class="section-title">Critical reviews are expensive.</h2>
+      </div>
+
+      <div class="metrics-row">
+        <div class="metrics-col">
+          <div class="metric-big-num">47%</div>
+          <div class="metric-col-title">of 1-star reviews go unanswered</div>
+          <p class="metric-col-desc">
+            Product teams running manual support queues typically run out of bandwidth around review #15. The remaining reviews simply churn without receiving help.
+          </p>
+        </div>
+
+        <div class="metrics-col">
+          <div class="metric-big-num">−22%</div>
+          <div class="metric-col-title">conversion drop per 0.3★ rating dip</div>
+          <p class="metric-col-desc">
+            App store ranking algorithms prioritize highly rated files. A sudden rating drop due to an unaddressed regression degrades store indexing metrics.
+          </p>
+        </div>
+
+        <div class="metrics-col">
+          <div class="metric-big-num">73%</div>
+          <div class="metric-col-title">of bugs surface in review logs first</div>
+          <p class="metric-col-desc">
+            Crash logging tools capture underlying thread lock errors, but active users will report specific critical workflow failures in reviews hours before stack traces aggregate.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Grounding Architecture Specification -->
+  <section class="architecture" id="architecture">
+    <div class="container">
+      <div class="arch-grid">
+        <div>
+          <div class="kicker"><span class="kicker-dot"></span>Architecture Specification</div>
+          <h2 class="section-title" style="margin-bottom: 20px;">Zero-Hallucination Grounding</h2>
+          <p style="font-size: 14.5px; color: var(--text-secondary); line-height: 1.6; margin-bottom: 24px;">
+            Standard AI drafting fails because models make up API parameters, support links, or release timelines. ReviewBox implements a deterministic waterfall pipeline.
+          </p>
+          <p style="font-size: 13.5px; color: var(--text-secondary); line-height: 1.6;">
+            When a synced review arrives, the engine indexes the review. When drafting replies, the console pulls exact references from your synced Notion Knowledge Base and release notes, ensuring factual, verified responses.
+          </p>
+        </div>
+
+        <div class="arch-code-box">
+<span class="code-comment">// ReviewBox Grounded Reply Flow Pipeline</span>
+<span class="code-keyword">async function</span> <span class="code-function">generateGroundedReply</span>(reviewId) {
+  <span class="code-keyword">const</span> review = <span class="code-keyword">await</span> db.reviews.findUnique(reviewId);
+  
+  <span class="code-comment">// 1. Search semantic vectors in Knowledge Base</span>
+  <span class="code-keyword">const</span> relevantDocs = <span class="code-keyword">await</span> kb.searchEmbeddings(review.text, { limit: 3 });
+  
+  <span class="code-comment">// 2. Query target version release notes</span>
+  <span class="code-keyword">const</span> releaseNotes = <span class="code-keyword">await</span> releases.findVersion(review.appVersion);
+  
+  <span class="code-comment">// 3. Generate grounded completion via cached context template</span>
+  <span class="code-keyword">return</span> AI.completions.create({
+    model: <span class="code-string">"llama-3.3-70b-versatile"</span>,
+    groundingDocs: relevantDocs,
+    changelog: releaseNotes,
+    tone: <span class="code-string">"technical_helpful"</span>
+  });
+}</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing -->
+  <section class="pricing" id="pricing">
+    <div class="container">
+      <div class="pricing-header">
+        <div class="kicker"><span class="kicker-dot"></span>Plan configurations</div>
+        <h2 class="section-title">Transparent developer pricing.</h2>
+      </div>
+
+      <div class="pricing-grid">
+        <!-- Starter Plan -->
+        <div class="glow-card price-card">
+          <div>
+            <div class="price-head">
+              <span class="price-name">Starter</span>
+            </div>
+            <div class="price-val-row">
+              <span class="price-amount">$49</span>
+              <span class="price-period">/ mo</span>
+            </div>
+            <p class="price-desc">Early-stage cross-platform projects optimizing store metrics.</p>
+            <ul class="price-features">
+              <li><svg class="icon" viewBox="0 0 24 24" style="width: 13px; height: 13px;"><polyline points="20 6 9 17 4 12"></polyline></svg> 2 Active App Profiles</li>
+              <li><svg class="icon" viewBox="0 0 24 24" style="width: 13px; height: 13px;"><polyline points="20 6 9 17 4 12"></polyline></svg> 5,000 Synced Reviews / mo</li>
+              <li><svg class="icon" viewBox="0 0 24 24" style="width: 13px; height: 13px;"><polyline points="20 6 9 17 4 12"></polyline></svg> 50 AI Draft Generations / day</li>
+              <li><svg class="icon" viewBox="0 0 24 24" style="width: 13px; height: 13px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Slack Notification Rules</li>
+            </ul>
+          </div>
+          <button class="btn btn-secondary price-btn" onclick="location.href='/sign-up'">Start Free Trial</button>
+        </div>
+
+        <!-- Pro Plan -->
+        <div class="glow-card price-card popular">
+          <div>
+            <div class="price-head">
+              <span class="price-name">Pro</span>
+              <span class="price-badge">Most Popular</span>
+            </div>
+            <div class="price-val-row">
+              <span class="price-amount">$99</span>
+              <span class="price-period">/ mo</span>
+            </div>
+            <p class="price-desc">Established publisher teams shipping continuous feature updates.</p>
+            <ul class="price-features">
+              <li><svg class="icon" viewBox="0 0 24 24" style="width: 13px; height: 13px;"><polyline points="20 6 9 17 4 12"></polyline></svg> 10 Active App Profiles</li>
+              <li><svg class="icon" viewBox="0 0 24 24" style="width: 13px; height: 13px;"><polyline points="20 6 9 17 4 12"></polyline></svg> 50,000 Synced Reviews / mo</li>
+              <li><svg class="icon" viewBox="0 0 24 24" style="width: 13px; height: 13px;"><polyline points="20 6 9 17 4 12"></polyline></svg> 200 AI Draft Generations / day</li>
+              <li><svg class="icon" viewBox="0 0 24 24" style="width: 13px; height: 13px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Automated Regression Scoring</li>
+              <li><svg class="icon" viewBox="0 0 24 24" style="width: 13px; height: 13px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Vector Knowledge Base Sync</li>
+            </ul>
+          </div>
+          <button class="btn price-btn popular" onclick="location.href='/sign-up'">Start Free Trial</button>
+        </div>
+
+        <!-- Team Plan -->
+        <div class="glow-card price-card">
+          <div>
+            <div class="price-head">
+              <span class="price-name">Team</span>
+            </div>
+            <div class="price-val-row">
+              <span class="price-amount">$199</span>
+              <span class="price-period">/ mo</span>
+            </div>
+            <p class="price-desc">High-volume operations and active publisher organizations.</p>
+            <ul class="price-features">
+              <li><svg class="icon" viewBox="0 0 24 24" style="width: 13px; height: 13px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Unlimited App Profiles</li>
+              <li><svg class="icon" viewBox="0 0 24 24" style="width: 13px; height: 13px;"><polyline points="20 6 9 17 4 12"></polyline></svg> Unlimited Synced Reviews</li>
+              <li><svg class="icon" viewBox="0 0 24 24" style="width: 13px; height: 13px;"><polyline points="20 6 9 17 4 12"></polyline></svg> 1,000 AI Drafts / day</li>
+              <li><svg class="icon" viewBox="0 0 24 24" style="width: 13px; height: 13px;"><polyline points="20 6 9 17 4 12"></polyline></svg> SSO Gateways &amp; Developer API</li>
+            </ul>
+          </div>
+          <button class="btn btn-secondary price-btn" onclick="location.href='/sign-up'">Start Free Trial</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FAQ Section -->
+  <section class="faq" id="faq">
+    <div class="container faq-layout">
+      <div class="kicker"><span class="kicker-dot"></span>Answers Index</div>
+      <h2 class="section-title">Frequently Queried Items</h2>
+      
+      <div class="faq-list">
+        <!-- FAQ 1 -->
+        <div class="faq-item open">
+          <button class="faq-trigger">
+            <span>Does ReviewBox actually publish replies back to the app stores?</span>
+            <svg class="icon faq-trigger-icon" viewBox="0 0 24 24" style="width: 14px; height: 14px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+          <div class="faq-content" style="max-height: 100px;">
+            <div class="faq-content-inner">
+              Yes. Google Play Developer APIs and Apple App Store Connect APIs are fully integrated. When you edit and approve a drafted response in the ReviewBox dashboard, it publishes live on the app stores in minutes.
+            </div>
+          </div>
+        </div>
+
+        <!-- FAQ 2 -->
+        <div class="faq-item">
+          <button class="faq-trigger">
+            <span>How does grounding prevent standard AI hallucinations?</span>
+            <svg class="icon faq-trigger-icon" viewBox="0 0 24 24" style="width: 14px; height: 14px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+          <div class="faq-content">
+            <div class="faq-content-inner">
+              Standard LLMs answer generic product advice. ReviewBox works by running vector lookups across your specific changelogs and support databases to retrieve actual database records, templates, or instructions, ensuring accuracy before returning responses.
+            </div>
+          </div>
+        </div>
+
+        <!-- FAQ 3 -->
+        <div class="faq-item">
+          <button class="faq-trigger">
+            <span>Is there a free trial period, and what are the limitations?</span>
+            <svg class="icon faq-trigger-icon" viewBox="0 0 24 24" style="width: 14px; height: 14px;"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+          <div class="faq-content">
+            <div class="faq-content-inner">
+              We offer a 14-day free trial on our Pro tier plan. You get full access to all features (including database syncs and alerts) with no card details requested upfront. You can easily downscale or upgrade plan selections with a single click.
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Bottom CTA -->
+  <section class="cta">
+    <div class="cta-glow"></div>
+    <div class="container" style="position: relative; z-index: 5;">
+      <div class="kicker"><span class="kicker-dot"></span>Zero-Risk Trial</div>
+      <h2 class="section-title" style="margin-bottom: 24px;">Address your worst review first.<br>We'll sit tight.</h2>
+      <p style="color: var(--text-secondary); max-width: 480px; margin: 0 auto 36px; font-size: 14.5px;">
+        Connect your store consoles in under 60 seconds and compose your first grounded, tone-mapped developer reply.
+      </p>
+      <div class="hero-actions">
+        <a href="/sign-up" class="btn btn-primary">Start 14-Day Free Trial</a>
+        <a href="/compare" class="btn btn-secondary">Compare vs AppFollow</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container footer-inner">
+      <div>&copy; 2026 ReviewBox. All rights reserved. Delaware SaaS.</div>
+      <div class="footer-links">
+        <a href="/terms">Terms of Service</a>
+        <a href="/privacy">Privacy Policy</a>
+        <a href="mailto:hello@tryreviewbox.com">hello@tryreviewbox.com</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ──────────────────────────────────────────────────────────────────────────
+       JS CONTROLS & INTERACTIVE SYSTEMS ENGINE
+       ────────────────────────────────────────────────────────────────────────── -->
+  <script>
+    // Global mouse coordinate tracking for global dot grid spotlight
+    window.addEventListener('mousemove', e => {
+      document.documentElement.style.setProperty('--gmx', `${e.clientX}px`);
+      // Scroll offsets included so coordinates are precise regardless of viewport scrolling
+      document.documentElement.style.setProperty('--gmy', `${e.clientY + window.scrollY}px`);
+    });
+
+    // Dynamic mouse spotlight tracking on elements with '.glow-card'
+    document.querySelectorAll('.glow-card').forEach(card => {
+      card.addEventListener('mousemove', e => {
+        const rect = card.getBoundingClientRect();
+        const x = e.clientX - rect.left;
+        const y = e.clientY - rect.top;
+        card.style.setProperty('--mx', `${x}px`);
+        card.style.setProperty('--my', `${y}px`);
+      });
+    });
+
+    // ─── STAGE COMMAND PALETTE SPECIFICATIONS ────────────────────────────────
+    const searchInput = document.getElementById('term-search');
+    const catalogList = document.getElementById('term-catalog-list');
+    const termRows = Array.from(document.querySelectorAll('.term-row'));
+    const sidebarDetails = document.getElementById('term-sidebar-details');
+    const termMainBody = document.getElementById('term-main-body');
+    
+    let activeIndex = 0;
+    let isInsideScreen = false;
+    let activeCommandId = null;
+
+    const commandTips = {
+      sync: {
+        title: "Developer Store Ingestion",
+        body: "Triggers API synchronization hooks across Google Play Publisher endpoints and Apple App Store Connect. Syncing is automated every 4 hours via Vercel Edge functions, or run manually on-demand.",
+        cardTitle: "GCP / Apple Keys",
+        cardBody: "Uses secure Service Account keys and private JWT headers to perform non-blocking sync runs."
+      },
+      ai: {
+        title: "Release-Grounded Drafting",
+        body: "Automated drafts ground on release notes, pre-written developer templates, and Notion/Zendesk support document embeds to ensure factual compliance without store hallucinations.",
+        cardTitle: "Custom Tones",
+        cardBody: "Choose between 'Technical & Helpful', 'Empathetic', or 'Concise' default prompt sets."
+      },
+      slack: {
+        title: "Operational Alerts Webhook",
+        body: "Write automation alerts that detect keyword densities and rating spikes (e.g. four 1-star crash tags in 15 mins) and push JSON alert notifications to Slack on-call channels immediately.",
+        cardTitle: "PagerDuty / OpsGenie",
+        cardBody: "Alerts route to generic webhook sinks to connect with external on-call pagers directly."
+      },
+      aso: {
+        title: "Organic Keyword Indexes",
+        body: "Tracks core listing keyword rankings, search share, and delta tracking metrics directly relative to other applications inside the mobile stores.",
+        cardTitle: "Competitor Scraping",
+        cardBody: "Audits current ranking indexes on a per-keyword basis using organic store APIs."
+      },
+      roi: {
+        title: "Support Handling Metrics",
+        body: "Compute monthly ARR savings, operational support hours saved, and cost adjustments from automating standard draft replies and spike detections.",
+        cardTitle: "Value Estimations",
+        cardBody: "Math averages 9 minutes saved per 1-star review handling process using context drafting."
+      }
+    };
+
+    // ─── EMBEDDED CONSOLE CONTROLLER ───────────────────────────────────────
+    function updateRowSelection() {
+      termRows.forEach((row, i) => {
+        if (i === activeIndex) {
+          row.classList.add('selected');
+          const cmd = row.getAttribute('data-cmd');
+          const tip = commandTips[cmd];
+          if (tip) {
+            sidebarDetails.innerHTML = `
+              <div style="display: flex; flex-direction: column; gap: 14px;">
+                <div class="term-tip-title">${tip.title}</div>
+                <div class="term-tip-body">${tip.body}</div>
+              </div>
+              <div class="term-tip-card">
+                <div class="term-tip-card-title">${tip.cardTitle}</div>
+                <div class="term-tip-card-body">${tip.cardBody}</div>
+              </div>
+            `;
+          }
+          row.scrollIntoView({ block: 'nearest' });
+        } else {
+          row.classList.remove('selected');
+        }
+      });
+    }
+
+    searchInput.addEventListener('input', (e) => {
+      if (isInsideScreen) {
+        backToCatalog();
+      }
+      const val = e.target.value.toLowerCase();
+      let matchedCount = 0;
+      let firstMatchIndex = -1;
+
+      termRows.forEach((row, idx) => {
+        const title = row.querySelector('.term-row-title').textContent.toLowerCase();
+        const desc = row.querySelector('.term-row-desc').textContent.toLowerCase();
+        const category = row.querySelector('.term-row-category').textContent.toLowerCase();
+        
+        if (title.includes(val) || desc.includes(val) || category.includes(val)) {
+          row.style.display = 'flex';
+          matchedCount++;
+          if (firstMatchIndex === -1) firstMatchIndex = idx;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+
+      if (firstMatchIndex !== -1) {
+        activeIndex = firstMatchIndex;
+        updateRowSelection();
+      }
+    });
+
+    termRows.forEach((row) => {
+      row.addEventListener('click', () => {
+        activeIndex = termRows.indexOf(row);
+        updateRowSelection();
+        executeCommand(row.getAttribute('data-cmd'));
+      });
+      row.addEventListener('mouseenter', () => {
+        activeIndex = termRows.indexOf(row);
+        updateRowSelection();
+      });
+    });
+
+    function executeCommand(cmdId) {
+      isInsideScreen = true;
+      activeCommandId = cmdId;
+      termMainBody.style.display = 'none';
+      
+      document.querySelectorAll('.term-screen').forEach(s => s.classList.remove('active'));
+      
+      const screen = document.getElementById(`screen-${cmdId}`);
+      if (screen) {
+        screen.classList.add('active');
+        searchInput.blur();
+        searchInput.placeholder = "Press ESC key to return...";
+      }
+
+      if (cmdId === 'sync') {
+        runSyncSimulation();
+      } else if (cmdId === 'ai') {
+        runAiSimulation();
+      } else if (cmdId === 'slack') {
+        resetSlackSimulation();
+      } else if (cmdId === 'roi') {
+        updateRoiMath();
+      }
+    }
+
+    function backToCatalog() {
+      isInsideScreen = false;
+      activeCommandId = null;
+      document.querySelectorAll('.term-screen').forEach(s => s.classList.remove('active'));
+      termMainBody.style.display = 'flex';
+      searchInput.placeholder = "Type operation to filter... (e.g. Sync, AI, Slack, ROI)";
+      searchInput.focus();
+      
+      if (syncTimer) { clearInterval(syncTimer); syncTimer = null; }
+      if (aiTimer) { clearInterval(aiTimer); aiTimer = null; }
+    }
+
+    // Keyboard navigation inside embedded terminal
+    window.addEventListener('keydown', (e) => {
+      // High-end tactile keycap animation trigger
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === 'Escape') {
+        animateKeycap(e.key === 'ArrowDown' ? '↓' : e.key === 'ArrowUp' ? '↑' : e.key === 'Enter' ? '↵' : 'Esc');
+      }
+
+      // ⌘K/Ctrl+K handler to trigger the spectacular overlay modal
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        if (cmdOpen) {
+          closeCmdMenu();
+        } else {
+          openCmdMenu();
+        }
+        return;
+      }
+
+      if (document.activeElement === searchInput) {
+        if (isInsideScreen) {
+          if (e.key === 'Escape') {
+            e.preventDefault();
+            backToCatalog();
+          }
+          return;
+        }
+
+        const visibleRows = termRows.filter(r => r.style.display !== 'none');
+        if (visibleRows.length === 0) return;
+        let visibleActiveIndex = visibleRows.indexOf(termRows[activeIndex]);
+
+        if (e.key === 'ArrowDown') {
+          e.preventDefault();
+          visibleActiveIndex = (visibleActiveIndex + 1) % visibleRows.length;
+          activeIndex = termRows.indexOf(visibleRows[visibleActiveIndex]);
+          updateRowSelection();
+        } else if (e.key === 'ArrowUp') {
+          e.preventDefault();
+          visibleActiveIndex = (visibleActiveIndex - 1 + visibleRows.length) % visibleRows.length;
+          activeIndex = termRows.indexOf(visibleRows[visibleActiveIndex]);
+          updateRowSelection();
+        } else if (e.key === 'Enter') {
+          e.preventDefault();
+          const targetRow = visibleRows[visibleActiveIndex];
+          if (targetRow) {
+            executeCommand(targetRow.getAttribute('data-cmd'));
+          }
+        }
+      }
+    });
+
+    // Keycap visual depress script
+    function animateKeycap(keyText) {
+      document.querySelectorAll('.kbd').forEach(kbd => {
+        if (kbd.textContent.trim().toLowerCase() === keyText.toLowerCase()) {
+          kbd.style.transform = 'translateY(1.5px)';
+          kbd.style.borderBottomWidth = '1px';
+          kbd.style.background = 'rgba(255, 255, 255, 0.12)';
+          setTimeout(() => {
+            kbd.style.transform = 'none';
+            kbd.style.borderBottomWidth = '2px';
+            kbd.style.background = '';
+          }, 100);
+        }
+      });
+    }
+
+    // ─── FLOATING ⌘K RAYCAST MODAL CONTROLLERS ──────────────────────────────
+    const cmdBackdrop = document.getElementById('cmd-backdrop');
+    const cmdInput = document.getElementById('cmd-search');
+    const cmdRows = Array.from(document.querySelectorAll('.cmd-row'));
+    const cmdSidebar = document.getElementById('cmd-sidebar-details');
+    
+    let cmdOpen = false;
+    let cmdActiveIndex = 0;
+
+    function openCmdMenu() {
+      cmdOpen = true;
+      cmdBackdrop.classList.add('active');
+      cmdInput.focus();
+      cmdActiveIndex = 0;
+      updateCmdSelection();
+    }
+
+    function closeCmdMenu() {
+      cmdOpen = false;
+      cmdBackdrop.classList.remove('active');
+      cmdInput.value = "";
+      cmdRows.forEach(r => r.style.display = 'flex');
+    }
+
+    function closeCmdMenuOnBackdrop(e) {
+      closeCmdMenu();
+    }
+
+    function updateCmdSelection() {
+      cmdRows.forEach((row, i) => {
+        if (i === cmdActiveIndex) {
+          row.classList.add('selected');
+          const cmd = row.getAttribute('data-cmd');
+          const tip = commandTips[cmd];
+          if (tip) {
+            cmdSidebar.innerHTML = `
+              <div style="display: flex; flex-direction: column; gap: 14px;">
+                <div class="term-tip-title">${tip.title}</div>
+                <div class="term-tip-body" style="font-size: 11.5px; line-height: 1.45;">${tip.body}</div>
+              </div>
+              <div class="term-tip-card" style="padding: 10px;">
+                <div class="term-tip-card-title">${tip.cardTitle}</div>
+                <div class="term-tip-card-body" style="font-size: 9.5px;">${tip.cardBody}</div>
+              </div>
+            `;
+          }
+        } else {
+          row.classList.remove('selected');
+        }
+      });
+    }
+
+    // Listeners for global keypresses specifically for floating modal
+    window.addEventListener('keydown', (e) => {
+      if (!cmdOpen) return;
+
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        closeCmdMenu();
+        return;
+      }
+
+      const visibleRows = cmdRows.filter(r => r.style.display !== 'none');
+      if (visibleRows.length === 0) return;
+      let visibleActiveIndex = visibleRows.indexOf(cmdRows[cmdActiveIndex]);
+
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        visibleActiveIndex = (visibleActiveIndex + 1) % visibleRows.length;
+        cmdActiveIndex = cmdRows.indexOf(visibleRows[visibleActiveIndex]);
+        updateCmdSelection();
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        visibleActiveIndex = (visibleActiveIndex - 1 + visibleRows.length) % visibleRows.length;
+        cmdActiveIndex = cmdRows.indexOf(visibleRows[visibleActiveIndex]);
+        updateCmdSelection();
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        const targetRow = visibleRows[visibleActiveIndex];
+        if (targetRow) {
+          const cmd = targetRow.getAttribute('data-cmd');
+          closeCmdMenu();
+          
+          // Scroll dynamically to embedded playground and run
+          document.getElementById('interactive').scrollIntoView({ behavior: 'smooth' });
+          setTimeout(() => {
+            executeCommand(cmd);
+          }, 300);
+        }
+      }
+    });
+
+    cmdInput.addEventListener('input', (e) => {
+      const val = e.target.value.toLowerCase();
+      let firstMatchIndex = -1;
+
+      cmdRows.forEach((row, idx) => {
+        const title = row.querySelector('.cmd-row-title').textContent.toLowerCase();
+        const category = row.querySelector('.cmd-row-category').textContent.toLowerCase();
+        
+        if (title.includes(val) || category.includes(val)) {
+          row.style.display = 'flex';
+          if (firstMatchIndex === -1) firstMatchIndex = idx;
+        } else {
+          row.style.display = 'none';
+        }
+      });
+
+      if (firstMatchIndex !== -1) {
+        cmdActiveIndex = firstMatchIndex;
+        updateCmdSelection();
+      }
+    });
+
+    cmdRows.forEach((row) => {
+      row.addEventListener('click', () => {
+        const cmd = row.getAttribute('data-cmd');
+        closeCmdMenu();
+        document.getElementById('interactive').scrollIntoView({ behavior: 'smooth' });
+        setTimeout(() => {
+          executeCommand(cmd);
+        }, 300);
+      });
+      row.addEventListener('mouseenter', () => {
+        cmdActiveIndex = cmdRows.indexOf(row);
+        updateCmdSelection();
+      });
+    });
+
+    // ─── DATA SYNC PIPELINE SIMULATOR ───────────────────────────────────────
+    let syncTimer = null;
+    function runSyncSimulation() {
+      const fill = document.getElementById('sync-progress-fill');
+      const log = document.getElementById('sync-log-box');
+      const statusText = document.getElementById('sync-status-text');
+      
+      fill.style.width = '0%';
+      log.innerHTML = `<div class="sync-log-row">[00:01] Booting sync worker processes...</div>`;
+      statusText.textContent = "Connecting Store API Gateways";
+
+      const steps = [
+        { pct: 15, text: "[00:04] Accessing Google Play Developer endpoints...", cls: "" },
+        { pct: 30, text: "[00:08] Authing GCP Service JSON credentials (acme-pub-service)...", cls: "green" },
+        { pct: 50, text: "[00:12] Downloading Play Store reviews buffer. Buffer size: 8.2KB", cls: "blue" },
+        { pct: 70, text: "[00:15] Redirecting stream: Accessing App Store Connect API endpoints...", cls: "" },
+        { pct: 85, text: "[00:18] Indexing review sentiment metrics & triage priorities...", cls: "green" },
+        { pct: 100, text: "[00:21] Ingest complete. Upserting 182 records in Supabase DB.", cls: "blue" }
+      ];
+
+      let stepIdx = 0;
+      syncTimer = setInterval(() => {
+        if (stepIdx < steps.length) {
+          const step = steps[stepIdx];
+          fill.style.width = `${step.pct}%`;
+          log.innerHTML += `<div class="sync-log-row ${step.cls}">${step.text}</div>`;
+          log.scrollTop = log.scrollHeight;
+          stepIdx++;
+        } else {
+          clearInterval(syncTimer);
+          syncTimer = null;
+          statusText.innerHTML = `<span style="color: var(--accent-green);">Ingest Completed ✓</span>`;
+          log.innerHTML += `<div class="sync-log-row green" style="font-weight: 700; margin-top: 4px;">[Success] Synced successfully. Auto-triaged: 14 regressions, 3 crash clusters, 98 AI drafts prepared.</div>`;
+          log.scrollTop = log.scrollHeight;
+        }
+      }, 700);
+    }
+
+    // ─── AI REPLY PIPELINE SIMULATOR ────────────────────────────────────────
+    let aiTimer = null;
+    function runAiSimulation() {
+      const box = document.getElementById('draft-ai-box');
+      box.innerHTML = `<span class="draft-cursor"></span>`;
+      
+      const fullText = "Thank you for reporting the budget view crash on version 4.2.1. We identified a database table deadlock specific to iPad Pro models running iOS 17.4. We have prepared an automated hotfix patch (v4.2.2) and pushed it to Apple for expedited review. The patch will auto-deploy to your device in under 2 hours. We appreciate your patience!";
+      
+      let charIdx = 0;
+      aiTimer = setInterval(() => {
+        if (charIdx < fullText.length) {
+          box.innerHTML = fullText.slice(0, charIdx + 1) + `<span class="draft-cursor"></span>`;
+          box.scrollTop = box.scrollHeight;
+          charIdx++;
+        } else {
+          clearInterval(aiTimer);
+          aiTimer = null;
+          box.innerHTML = fullText;
+        }
+      }, 15);
+    }
+
+    // ─── SLACK TRIAGE SIMULATOR ─────────────────────────────────────────────
+    function resetSlackSimulation() {
+      const btn = document.getElementById('btn-triage-page');
+      const box = document.getElementById('incident-payload-box');
+      const statusText = document.getElementById('slack-status-text');
+
+      btn.disabled = false;
+      btn.textContent = "Page On-Call Team";
+      btn.style.background = "var(--accent-red)";
+      statusText.textContent = "Awaiting page execution";
+      
+      box.innerHTML = JSON.stringify({
+        "event": "anomaly_detected",
+        "anomaly_type": "review_crash_spike",
+        "occurrences_15m": 4,
+        "app_version": "v4.2.1",
+        "environment": "iOS-production",
+        "rule_action": "webhook_post",
+        "channel": "#ops-alerts"
+      }, null, 2);
+    }
+
+    function sendSlackSimulation() {
+      const btn = document.getElementById('btn-triage-page');
+      const box = document.getElementById('incident-payload-box');
+      const statusText = document.getElementById('slack-status-text');
+
+      btn.disabled = true;
+      btn.textContent = "On-Call Channel Paged ✓";
+      btn.style.background = "var(--border-strong)";
+      statusText.innerHTML = `<span style="color: var(--accent-green);">Slack notification pushed successfully</span>`;
+
+      box.innerHTML = JSON.stringify({
+        "event": "anomaly_triage_escalated",
+        "recipient_channel": "#ops-alerts",
+        "message": "🚨 CRITICAL Spikes: 4 review logs reported 'crash budget module' on version 4.2.1. Escalating to engineering lead via PagerDuty.",
+        "incident_id": "INC-415",
+        "dispatch_timestamp": new Date().toISOString()
+      }, null, 2);
+    }
+
+    // ─── ASO TABLE KEYWORD SIMULATOR ────────────────────────────────────────
+    function deleteAsoRow(btn) {
+      const row = btn.closest('tr');
+      row.remove();
+    }
+
+    function addAsoKeyword() {
+      const input = document.getElementById('aso-kw-input');
+      const tbody = document.getElementById('aso-kw-body');
+      
+      const word = input.value.trim();
+      if (!word) return;
+
+      const newRow = document.createElement('tr');
+      const randomRank = Math.floor(Math.random() * 95) + 3;
+      const randomDelta = Math.floor(Math.random() * 14) + 1;
+      const plusOrMinus = Math.random() > 0.4 ? '+' : '-';
+      const deltaColor = plusOrMinus === '+' ? 'var(--accent-green)' : 'var(--accent-red)';
+
+      newRow.innerHTML = `
+        <td>${word}</td>
+        <td><strong>#${randomRank}</strong></td>
+        <td style="color: ${deltaColor};">${plusOrMinus}${randomDelta}</td>
+        <td style="color: var(--accent-red); cursor: pointer;" onclick="deleteAsoRow(this)">Remove</td>
+      `;
+
+      tbody.appendChild(newRow);
+      input.value = "";
+    }
+
+    // ─── SUPPORT ROI MATHEMATICS CALCULATOR ─────────────────────────────────
+    function updateRoiMath() {
+      const vol = Number(document.getElementById('roi-val-volume').value);
+      const rate = Number(document.getElementById('roi-val-rate').value);
+
+      document.getElementById('roi-val-volume-text').innerHTML = `<strong>${vol.toLocaleString()} reviews</strong>`;
+      document.getElementById('roi-val-rate-text').innerHTML = `<strong>$${rate} / hour</strong>`;
+
+      const hoursSaved = Math.round(vol * 0.15);
+      const draftsSent = Math.round(vol * 0.75);
+      const cashSaved = Math.round(hoursSaved * rate);
+
+      document.getElementById('roi-hours-saved').textContent = `${hoursSaved} hrs`;
+      document.getElementById('roi-drafts-sent').textContent = `${draftsSent} drafts`;
+      document.getElementById('roi-cash-saved').textContent = `$${cashSaved.toLocaleString()}`;
+    }
+
+    // Initialize list selection tip defaults
+    updateRowSelection();
+
+    // ─── FAQ INTERACTIVE ACCORDION ──────────────────────────────────────────
+    document.querySelectorAll('.faq-item').forEach(item => {
+      const trigger = item.querySelector('.faq-trigger');
+      const content = item.querySelector('.faq-content');
+
+      trigger.addEventListener('click', () => {
+        const isOpen = item.classList.contains('open');
+        
+        document.querySelectorAll('.faq-item').forEach(other => {
+          other.classList.remove('open');
+          other.querySelector('.faq-content').style.maxHeight = null;
+        });
+
+        if (!isOpen) {
+          item.classList.add('open');
+          content.style.maxHeight = content.scrollHeight + "px";
+        } else {
+          item.classList.remove('open');
+          content.style.maxHeight = null;
+        }
+      });
+    });
+  </script>
+</body>
+</html>

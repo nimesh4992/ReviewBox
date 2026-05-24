@@ -63,3 +63,27 @@ export async function generateReply(params: {
     throw new Error("AI_UNAVAILABLE");
   }
 }
+
+const SUMMARY_SYSTEM_PROMPT =
+  "You are a product analytics assistant. In 2-3 sentences, summarize the most important patterns in these recent app reviews. Be specific about issues and sentiment. No markdown, no headers, just flowing prose.";
+
+export async function generateSummary(snippets: string[]): Promise<string> {
+  if (!snippets || snippets.length === 0) {
+    return "Not enough recent review data to generate a summary.";
+  }
+  try {
+    const client = getGroqClient();
+    const completion = await client.chat.completions.create({
+      model: GROQ_MODEL,
+      max_tokens: 200,
+      messages: [
+        { role: "system", content: SUMMARY_SYSTEM_PROMPT },
+        { role: "user",   content: snippets.join("\n") },
+      ],
+    });
+    return completion.choices[0]?.message?.content?.trim()
+      ?? "Not enough recent review data to generate a summary.";
+  } catch {
+    return "Not enough recent review data to generate a summary.";
+  }
+}
