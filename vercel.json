@@ -1,8 +1,10 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "_comment": "Vercel Hobby plan limits cron jobs to ONCE PER DAY. Do not change /api/sync/reviews to */4 or */N without first upgrading the Vercel project to Pro — the deploy will fail otherwise. Until then, users get an immediate sync on onboarding completion + a manual 'Sync now' button in Settings, so daily auto-sync is fine.",
   "crons": [
     {
       "path": "/api/sync/reviews",
-      "schedule": "0 */4 * * *"
+      "schedule": "0 8 * * *"
     },
     {
       "path": "/api/reports/weekly-digest",
