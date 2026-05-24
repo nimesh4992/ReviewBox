@@ -2,7 +2,6 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
-import { mockReviews } from "@/features/reviews/data/mock-reviews";
 import type { AppReview } from "@/types/review";
 
 const DEFAULT_LIMIT = 20;
@@ -72,7 +71,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const workspaceId = await getWorkspaceId(userId);
     if (!workspaceId) {
-      return NextResponse.json({ reviews: mockReviews.slice(0, limit), nextCursor: null, hasMore: false });
+      // New user — no workspace yet. Return empty so onboarding shows naturally.
+      return NextResponse.json({ reviews: [], nextCursor: null, hasMore: false });
     }
 
     const sb = getServiceClient();
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     if (error) {
       console.error("[GET /api/reviews]", error);
-      return NextResponse.json({ reviews: mockReviews.slice(0, limit), nextCursor: null, hasMore: false });
+      return NextResponse.json({ error: "QUERY_FAILED" }, { status: 500 });
     }
 
     const rows = (data ?? []) as DbReview[];
@@ -105,6 +105,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ reviews, nextCursor, hasMore });
   } catch (err) {
     console.error("[GET /api/reviews] unexpected:", err);
-    return NextResponse.json({ reviews: mockReviews, nextCursor: null, hasMore: false });
+    return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
   }
 }

@@ -95,13 +95,20 @@ src/
       reviews/route.ts                → GET /api/reviews (paginated, Supabase)
       reviews/[id]/reply/route.ts     → POST reply submission
       reply/draft/route.ts            → POST AI draft via Groq
-      dashboard/metrics/route.ts      → GET KPI metrics
+      dashboard/metrics/route.ts      → GET KPI metrics (real deltas + ratingTrend)
       incidents/[id]/route.ts         → GET incident detail
+      incidents/route.ts              → GET/POST incidents
       automations/rules/route.ts      → GET/POST automation rules
       reply-kit/templates/route.ts    → GET/POST reply templates
       reply-kit/knowledge-base/       → GET/POST/DELETE KB entries
       settings/alerts/route.ts        → GET/PUT alert preferences
-      onboarding/complete/route.ts    → POST mark onboarding done
+      onboarding/state/route.ts       → GET onboarding state (DB-authoritative)
+      onboarding/slug-check/route.ts  → GET slug availability (rate-limited)
+      onboarding/search-app/route.ts  → GET search App Store / Google Play
+      onboarding/complete/route.ts    → POST mark onboarding done (sets rb_onboarded cookie)
+      reports/export/route.ts         → GET CSV export with totals
+      reports/weekly-digest/route.ts  → Cron (Mon 9am) parallel batched
+      reports/unreplied-alert/route.ts → Cron (daily 10am)
       stripe/checkout/route.ts        → POST create Stripe session
       stripe/portal/route.ts          → POST billing portal
       stripe/webhook/route.ts         → POST Stripe webhooks
@@ -165,7 +172,10 @@ src/
 
   services/
     supabase/client.ts                → getSupabaseClient() / getServiceClient() factories
-    reviews/review-service.ts         → listReviewQueue() (still returning mock — needs wiring)
+    reviews/review-service.ts         → listReviewQueue() wired to Supabase
+    store-search.ts                   → searchAppStore() + searchGooglePlay()
+    google-play/publisher-api.ts      → reviews + reply submission
+    app-store/connect-api.ts          → reviews + reply submission via JWT
 
   store/
     use-workspace-store.ts            → Zustand: selectedApp, environment (persisted)
@@ -347,20 +357,22 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 
 ## Current Build Status
 
-### Frontend — complete (mock data)
+### Frontend
 | Feature | Status |
 |---|---|
 | App shell — sidebar, topnav, page-header | ✅ Done |
 | Sidebar — collapsible groups, app selector, AI triage panel | ✅ Done |
-| Dashboard — KPI metrics + sparklines + apps overview | ✅ Done |
-| Review queue — card layout, priority borders, AI draft dialog | ✅ Done |
-| Incident list — severity borders, status badges | ✅ Done |
+| Dashboard — KPI metrics + sparklines + apps overview | ✅ Done (real data) |
+| Review queue — card layout, priority borders, AI draft dialog | ✅ Done (real data) |
+| Incident list — severity borders, status badges | ✅ Done (real data) |
+| Incident detail — status actions, timeline | ✅ Done (real data) |
 | Release health table — rollout bars | ✅ Done |
-| Sentiment screen — trend chart + topic breakdown + AI recluster | ✅ Done |
-| Competitors screen — benchmark table + sparklines | ✅ Done |
-| ASO screen — keyword rank tracker + AI suggestions panel | ✅ Done |
-| Reports screen — report cards + run/configure | ✅ Done |
-| Onboarding wizard — 4-step (connect → apps → team → alerts) | ✅ Done |
+| Release detail — rating dist, issue tags, reviews per version | ✅ Done (real data) |
+| Sentiment screen — trend chart + topic breakdown + AI recluster | ✅ Done (real data) |
+| Competitors screen — benchmark table + sparklines | ✅ Done (mock) |
+| ASO screen — keyword rank tracker + AI suggestions panel | ✅ Done (real data) |
+| Reports screen — report cards + run/configure | ✅ Done (mock) |
+| Onboarding wizard — 4-step (workspace → app search → connect → done), AppFollow-style live app search | ✅ Done (search-first) |
 | Settings UI — alerts, profile, billing | ✅ Done |
 | Landing page — Apple-style light design | ✅ Done |
 | Sign-in / Sign-up — light theme, Clerk appearance API | ✅ Done |
@@ -400,8 +412,12 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 | PostHog analytics | ✅ Done |
 | Sentry error monitoring | ✅ Done |
 | Admin panel wired to real customer data | 🔲 Pending |
-| Security audit + RLS verification | 🔲 Pending |
+| Security audit + RLS verification | ✅ Done (2026-05-21 audit) |
 | Next.js 15 → 16 upgrade | 🔲 When stable |
+| Unit test suite (Vitest) | ✅ Done — 70 tests across 9 files, CI-gated |
+| CI pipeline (tsc, lint, vitest, e2e, audit) | ✅ Done — `.github/workflows/ci.yml` |
+| Launch checklist | ✅ `docs/LAUNCH_CHECKLIST.md` (80+ items) |
+| App Store / Google Play search during onboarding | ✅ Done — `/api/onboarding/search-app` |
 
 ---
 
@@ -607,6 +623,141 @@ After PRs merge:
 - **N5** — `/compare/appfollow` rewrite with real teeth (feature table + ROI calc + CTAs). ICE 81.
 - **N3** — `/incidents/[id]` and `/releases/[version]` detail pages. ICE 64.
 - **N4** — Remove or wire dead buttons across competitors/aso/reports/settings. ICE 56.
+**Active branch:** `claude/picture-perfect` (PR open, awaiting merge)
+Last updated: 2026-05-22
+
+### Completed (2026-05-19 → 2026-05-22)
+
+**Codebase audit + bug fixes** (now merged to master via `claude/aso-mining`):
+- ✅ Full codebase audit — 27 bugs found across 5 BLOCKER / 10 HIGH / 6 MEDIUM
+- ✅ All BLOCKERs fixed:
+  - `supabase-server.ts` was using Postgres pooler URL with supabase-js (wrong API). Now uses HTTPS REST URL only
+  - `aso_keywords` table schema mismatch — recreated with correct columns via SQL migration
+  - `automation_rules.action_label` column added
+  - `alert_preferences` schema aligned (`channels`, `schedule_day_of_week`, `schedule_day_of_month`)
+  - `/api/aso/suggest` was querying non-existent `reviews.text` and `apps.description` — fixed to use `body` and skip non-existent
+- ✅ All HIGH fixes:
+  - Removed fake fallback metrics from `useDashboardMetrics` (was showing hardcoded `127 unreplied / 9 urgent / 2764 total` on errors)
+  - Removed mock-review fallback from `/api/reviews` (was hiding real failures with seeded data)
+  - Added `"use client"` to `src/hooks/use-incidents.ts`
+  - `/api/incidents` GET returns empty array (not 404) when user has no workspace
+  - Deleted `/api/sentry-example-api` (always-500 test route)
+  - `/api/demo/reply` uses Upstash Redis rate limiting (in-memory Map was useless on serverless)
+  - Stripe webhook uses `getServiceClient()` singleton (was creating fresh client per webhook)
+  - `/api/reviews/[id]/reply` rejects if workspace soft-deleted
+  - `/api/onboarding/complete` validates slug format server-side
+- ✅ All MEDIUM fixes:
+  - CSV export includes `X-Total-Count` / `X-Truncated` headers and `totalMatching` in JSON
+  - `session.reload()` wrapped in try/catch on onboarding page
+  - `BYPASS_AUTH` env var removed (was test-only)
+  - Stripe checkout caches `stripe_customer_id` on workspace
+  - Weekly digest cron now processes workspaces in parallel batches of 10
+  - `/api/health` actually pings Supabase, returns 503 on failure
+
+**DB migration applied 2026-05-21** (founder ran):
+- `supabase/migrations/007_aso_keywords.sql` (correct schema: `volume_estimate INT`, `trend_data INT[]`, `added_at`, `updated_at`)
+- `automation_rules.action_label TEXT` column
+- `alert_preferences` new columns: `label`, `description`, `channels JSONB`, `schedule_day_of_week`, `schedule_day_of_month`
+- Plus pending migrations 007_workspace_brand_voice, 008–011
+
+**Onboarding 500 + loop fixes** (merged):
+- `/api/onboarding/complete` defensive fallback: catches Postgres error 42703 (column doesn't exist) and retries insert without `brand_voice`/`app_category` so onboarding works even before migrations are applied
+- `/api/onboarding/state` replaced PostgREST embedded join with two separate queries
+- Middleware: removed `onboarded && /onboarding → /dashboard` redirect that caused infinite loops with stale JWTs
+- Sentry edge auto-instrumentation disabled in `next.config.ts` — was crashing middleware on Vercel previews
+- Single `auth.protect()` call in middleware (was calling `auth()` twice)
+- `session.reload()` before navigating to /dashboard after completion
+
+**Picture-perfect polish** (current branch `claude/picture-perfect`):
+- ✅ Dead code removed: `src/features/onboarding/components/onboarding-wizard.tsx`, `src/features/reviews/data/mock-reviews.ts`
+- ✅ Real dashboard metrics: `ratingTrend`, `reviewsWeekDelta`, `avgRatingDelta` computed from DB. Hardcoded `+18%` / `+0.31` / fake sparkline data removed
+- ✅ `appCategory` captured in onboarding Step 2 → wired to `/api/onboarding/complete` → `brand_voice` pre-fill now actually fires
+- ✅ `next.config.ts` `ignoreBuildErrors` + `ignoreDuringBuilds` removed (CI catches them)
+- ✅ Sentry on `(app)/error.tsx` boundary
+- ✅ Loading skeletons added for 7 routes: sentiment, aso, reports, settings, billing, releases, reply-kit, competitors
+- ✅ 404 page: `#5B5BD6` → `#0A84FF`, two CTAs (home + open app)
+- ✅ Test suite: 70 tests across rules-engine, reply-composer, workspace-persona, prompt-utils, templates, slack, api-response, plans, store-search
+- ✅ `docs/LAUNCH_CHECKLIST.md` — comprehensive 80+ item pre-launch checklist
+- ✅ Sign-in/sign-up pages: server-side redirect to /dashboard if already signed in (was rendering empty form)
+- ✅ **Onboarding refactor — AppFollow-style app search**:
+  - `src/services/store-search.ts` — `searchAppStore()` via iTunes Search API, `searchGooglePlay()` via HTML scrape
+  - `/api/onboarding/search-app` route — rate-limited 30/min, returns `{ results, searchFailed? }`
+  - Onboarding Step 2 redesigned: platform → search box → live results → click to pick. Manual entry fallback toggle.
+  - Selected app shown as confirmation pill on Step 3
+  - Back buttons on Steps 2 + 3
+- ✅ **Onboarding loop fix (2026-05-22)** — see "Known Issues" below
+  - `/api/onboarding/complete` now sets `rb_onboarded=1` cookie (5min TTL)
+  - Middleware honors the cookie even if Clerk JWT still says `onboarded=false`
+  - `/api/onboarding/state` now returns `onboarded=true` if DB has workspace+app (DB is source of truth, not stale JWT)
+
+### Next milestones (S1.3 — Help Center, then M2)
+
+- [ ] Merge `claude/picture-perfect` PR
+- [ ] Enable GitHub branch protection on `master` requiring CI to pass
+- [ ] Run `docs/LAUNCH_CHECKLIST.md` end-to-end
+- [ ] Create 4 help pages: Getting Started · Connect Google Play · AI Replies · FAQ
+- [ ] Configure `help.tryreviewbox.com` CNAME (Mintlify or Notion public)
+- [ ] M2: Stripe live (set `STRIPE_SECRET_KEY` + price IDs), test checkout end-to-end
+
+---
+
+## Known Issues (read before debugging)
+
+### ⚠️ Vercel Hobby plan: cron jobs MUST be daily-or-less-frequent
+
+`vercel.json` cron schedules cannot fire more than once per day on the Hobby plan. Schedules like `0 */4 * * *` or `*/30 * * * *` will be rejected at deploy time with:
+
+> This cron expression would run more than once per day. Upgrade to the Pro plan to unlock all Cron Jobs features on Vercel.
+
+Current schedules are all daily-or-less-frequent:
+- `/api/sync/reviews` → `0 8 * * *` (daily 8am UTC)
+- `/api/reports/weekly-digest` → `0 9 * * 1` (Mondays 9am)
+- `/api/reports/unreplied-alert` → `0 10 * * *` (daily 10am)
+
+**Do NOT change these to higher frequencies without upgrading the Vercel project to Pro first**, or the deploy fails entirely (taking the whole app offline).
+
+For fresher data without upgrading Vercel:
+1. New workspaces get an immediate one-off sync via `/api/onboarding/complete` (fire-and-forget)
+2. Settings → Apps "Sync now" button hits the per-workspace worker
+3. Future option: Supabase `pg_cron` + `pg_net` can call the sync endpoint on any schedule for free
+
+**Also: `vercel.json` schema rejects `_comment` and other unknown top-level keys.** Use `$schema` for IDE hints but don't add custom comment fields — keep the rationale here in CLAUDE.md instead.
+
+### ⚠️ Onboarding loop after completing setup (FIXED on `claude/picture-perfect`)
+
+**Symptom:** User completes step 2 (app details) → step 3 (Connect) → clicks "Launch my workspace" → instead of reaching step 4 / dashboard, they bounce back to step 3.
+
+**Root cause:** Clerk's JWT sessionClaims cache for up to 60s. When `/api/onboarding/complete` sets `onboarded: true` in Clerk metadata, the user's browser-side JWT still says `onboarded: false`. Middleware then redirects them away from `/dashboard` back to `/onboarding`. The onboarding page sees an existing workspace+app, sets step to 3, and the loop begins.
+
+**Fix (on `claude/picture-perfect`):**
+1. `/api/onboarding/complete` sets `Set-Cookie: rb_onboarded=1` (5min TTL, httpOnly, lax)
+2. Middleware checks the cookie as a fallback when sessionClaims.onboarded is false
+3. `/api/onboarding/state` returns `onboarded: true` whenever the user has a workspace + app row (DB is authoritative)
+
+**If you see this again after the PR is merged:**
+- Check browser DevTools → Application → Cookies → look for `rb_onboarded=1` on `app.tryreviewbox.com`
+- Check middleware logs to confirm it reads the cookie
+- The cookie expires after 5 min — by then Clerk JWT should have caught up. If not, user will need to clear site data (Application → Storage → Clear site data) and sign in again
+
+### ⚠️ Sign-in page renders empty when user already has a session (FIXED)
+
+**Symptom:** `/sign-in` loads but Clerk's `<SignIn>` component is invisible — only heading and footer show.
+
+**Root cause:** Clerk's `<SignIn>` silently renders nothing when it detects an existing session, leaving the user confused. The `tokens` and `touch` API calls succeed in DevTools, but the UI is blank.
+
+**Fix:** `/sign-in/[[...sign-in]]/page.tsx` and `/sign-up/[[...sign-up]]/page.tsx` now check `auth()` server-side and `redirect("/dashboard")` if the user is already signed in. User-side workaround: DevTools → Application → Clear site data.
+
+### ⚠️ Schema drift between migrations and code
+
+**History:** The codebase had multiple instances where code referenced columns that didn't exist in the DB. The audit (2026-05-21) fixed all known cases, but going forward:
+
+- Every new column referenced in a route handler must have a migration
+- Migration filenames must be sequential (`NNN_description.sql`) — we briefly had TWO `007_*` files in this repo
+- After applying a migration in Supabase, update `CLAUDE.md` to track which are applied vs pending
+
+### ⚠️ Don't use `SUPABASE_DB_POOLER_URL` with supabase-js
+
+`supabase-js` requires the HTTPS REST URL (`https://xxx.supabase.co`), not the Postgres connection string (`postgresql://...:6543/postgres`). The pooler URL is for direct libraries like `pg`. Passing it to `createClient()` will crash every query. `src/lib/supabase-server.ts` now only reads `NEXT_PUBLIC_SUPABASE_URL`.
 
 ---
 

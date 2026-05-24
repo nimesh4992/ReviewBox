@@ -2,7 +2,6 @@
 
 import { useInfiniteQuery } from "@tanstack/react-query";
 
-import { mockReviews } from "@/features/reviews/data/mock-reviews";
 import { AppReview } from "@/types/review";
 
 export interface ReviewFiltersQuery {
@@ -31,12 +30,7 @@ async function fetchReviews(
   if (filters.platform) params.set("platform", filters.platform);
 
   const res = await fetch(`/api/reviews?${params.toString()}`);
-
-  // 401 = not authed in dev, or any other error → fall back to mock data
-  if (res.status === 401 || !res.ok) {
-    return { reviews: mockReviews, nextCursor: null, hasMore: false };
-  }
-
+  if (!res.ok) throw new Error(`Reviews fetch failed: ${res.status}`);
   return res.json() as Promise<ReviewPage>;
 }
 
@@ -58,10 +52,7 @@ export function useReviewQueue(filters: ReviewFiltersQuery = {}) {
   });
 
   // Flatten pages into a single reviews array; fall back to mock on error
-  const reviews: AppReview[] =
-    isError
-      ? mockReviews
-      : (data?.pages.flatMap((page) => page.reviews) ?? []);
+  const reviews: AppReview[] = data?.pages.flatMap((page) => page.reviews) ?? [];
 
   return {
     reviews,

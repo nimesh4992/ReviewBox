@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Plus, Info, Trash2 } from "lucide-react";
+import { Info, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -25,11 +25,108 @@ const CATEGORY_CONFIG: Record<KbCategory, { label: string; className: string }> 
 
 const CATEGORIES: KbCategory[] = ["product", "known_issue", "faq", "roadmap"];
 
+// ── EntryForm ─────────────────────────────────────────────────────────────────
+
+interface EntryFormState {
+  title: string;
+  content: string;
+  category: KbCategory;
+}
+
+const EMPTY_ENTRY_FORM: EntryFormState = { title: "", content: "", category: "product" };
+
+interface EntryFormProps {
+  initial: EntryFormState;
+  saving: boolean;
+  submitLabel: string;
+  onSubmit: (form: EntryFormState) => void;
+  onCancel: () => void;
+}
+
+function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel }: EntryFormProps) {
+  const [form, setForm] = useState<EntryFormState>(initial);
+
+  function set<K extends keyof EntryFormState>(key: K, val: EntryFormState[K]) {
+    setForm((f) => ({ ...f, [key]: val }));
+  }
+
+  function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!form.title.trim() || !form.content.trim()) return;
+    onSubmit(form);
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="mb-4 rounded-2xl border border-[#5B5BD6]/30 bg-[#5B5BD6]/5 p-5 space-y-3"
+    >
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-gray-600">Title</label>
+        <input
+          type="text"
+          value={form.title}
+          onChange={(e) => set("title", e.target.value)}
+          placeholder="e.g. Current known issues"
+          required
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-gray-600">Content</label>
+        <textarea
+          value={form.content}
+          onChange={(e) => set("content", e.target.value)}
+          placeholder="Describe the product info, known issue, FAQ, or roadmap item…"
+          required
+          rows={4}
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30 resize-none"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs font-medium text-gray-600">Category</label>
+        <select
+          value={form.category}
+          onChange={(e) => set("category", e.target.value as KbCategory)}
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30"
+        >
+          {CATEGORIES.map((c) => (
+            <option key={c} value={c}>{CATEGORY_CONFIG[c].label}</option>
+          ))}
+        </select>
+      </div>
+      <div className="flex items-center gap-2 pt-1">
+        <Button
+          type="submit"
+          size="sm"
+          disabled={saving}
+          className="bg-[#5B5BD6] text-white hover:bg-[#4f4fbf] disabled:opacity-50"
+        >
+          {saving ? "Saving…" : submitLabel}
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          variant="ghost"
+          onClick={onCancel}
+          className="text-gray-500"
+        >
+          Cancel
+        </Button>
+      </div>
+    </form>
+  );
+}
+
+// ── EntryCard ─────────────────────────────────────────────────────────────────
+
 function EntryCard({
   entry,
+  onEdit,
   onDelete,
 }: {
   entry: ApiKbEntry;
+  onEdit: (e: ApiKbEntry) => void;
   onDelete: (id: string) => void;
 }) {
   const config = CATEGORY_CONFIG[entry.category];
@@ -72,6 +169,14 @@ function EntryCard({
           <Button
             variant="ghost"
             size="icon-sm"
+            onClick={() => onEdit(entry)}
+            className="text-gray-400 hover:text-[#5B5BD6]"
+          >
+            <Pencil strokeWidth={1.5} className="size-3.5" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
             disabled={deleting}
             onClick={handleDelete}
             className="text-gray-400 hover:text-red-500"
@@ -84,17 +189,13 @@ function EntryCard({
   );
 }
 
-interface NewEntryForm {
-  title: string;
-  content: string;
-  category: KbCategory;
-}
+// ── KnowledgeBaseTab ──────────────────────────────────────────────────────────
 
 export function KnowledgeBaseTab() {
   const [entries, setEntries] = useState<ApiKbEntry[]>([]);
   const [loading, setLoading] = useState(true);
   const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState<NewEntryForm>({ title: "", content: "", category: "product" });
+  const [editingEntry, setEditingEntry] = useState<ApiKbEntry | null>(null);
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
@@ -110,11 +211,15 @@ export function KnowledgeBaseTab() {
 
   function handleDelete(id: string) {
     setEntries((prev) => prev.filter((e) => e.id !== id));
+    if (editingEntry?.id === id) setEditingEntry(null);
   }
 
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!form.title.trim() || !form.content.trim()) return;
+  function openEdit(entry: ApiKbEntry) {
+    setShowAdd(false);
+    setEditingEntry(entry);
+  }
+
+  async function handleCreate(form: EntryFormState) {
     setSubmitting(true);
     try {
       const res = await fetch("/api/reply-kit/knowledge-base", {
@@ -124,8 +229,31 @@ export function KnowledgeBaseTab() {
       });
       const data = (await res.json()) as { entry: ApiKbEntry };
       setEntries((prev) => [data.entry, ...prev]);
-      setForm({ title: "", content: "", category: "product" });
       setShowAdd(false);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  async function handleEditSave(form: EntryFormState) {
+    if (!editingEntry) return;
+    setSubmitting(true);
+    try {
+      await fetch(`/api/reply-kit/knowledge-base/${editingEntry.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: form.title, content: form.content, category: form.category }),
+      });
+      setEntries((prev) =>
+        prev.map((e) =>
+          e.id === editingEntry.id
+            ? { ...e, title: form.title, content: form.content, category: form.category }
+            : e,
+        ),
+      );
+      setEditingEntry(null);
     } catch (err) {
       console.error(err);
     } finally {
@@ -146,7 +274,7 @@ export function KnowledgeBaseTab() {
         <Button
           size="sm"
           className="shrink-0 bg-[#5B5BD6] text-white hover:bg-[#4f4fbf]"
-          onClick={() => setShowAdd((v) => !v)}
+          onClick={() => { setEditingEntry(null); setShowAdd((v) => !v); }}
         >
           <Plus strokeWidth={1.5} className="size-4" />
           Add entry
@@ -157,70 +285,30 @@ export function KnowledgeBaseTab() {
       <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-[#5B5BD6]/20 bg-[#5B5BD6]/5 p-4 text-sm text-[#5B5BD6]">
         <Info strokeWidth={1.5} className="mt-0.5 size-4 shrink-0" />
         <span>
-          This content is injected into every AI reply as context. Keep it concise and factual.
+          Matched KB entries are injected into AI replies when the review topic overlaps. Keep entries factual and concise.
         </span>
       </div>
 
-      {/* Inline add form */}
+      {/* Create form */}
       {showAdd && (
-        <form
-          onSubmit={handleSubmit}
-          className="mb-4 rounded-2xl border border-[#5B5BD6]/30 bg-[#5B5BD6]/5 p-5 space-y-3"
-        >
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-600">Title</label>
-            <input
-              type="text"
-              value={form.title}
-              onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))}
-              placeholder="e.g. Current known issues"
-              required
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-600">Content</label>
-            <textarea
-              value={form.content}
-              onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
-              placeholder="Describe the product info, known issue, FAQ, or roadmap item…"
-              required
-              rows={4}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30 resize-none"
-            />
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-xs font-medium text-gray-600">Category</label>
-            <select
-              value={form.category}
-              onChange={(e) => setForm((f) => ({ ...f, category: e.target.value as KbCategory }))}
-              className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30"
-            >
-              {CATEGORIES.map((c) => (
-                <option key={c} value={c}>{CATEGORY_CONFIG[c].label}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex items-center gap-2 pt-1">
-            <Button
-              type="submit"
-              size="sm"
-              disabled={submitting}
-              className="bg-[#5B5BD6] text-white hover:bg-[#4f4fbf] disabled:opacity-50"
-            >
-              {submitting ? "Saving…" : "Save entry"}
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={() => setShowAdd(false)}
-              className="text-gray-500"
-            >
-              Cancel
-            </Button>
-          </div>
-        </form>
+        <EntryForm
+          initial={EMPTY_ENTRY_FORM}
+          saving={submitting}
+          submitLabel="Save entry"
+          onSubmit={handleCreate}
+          onCancel={() => setShowAdd(false)}
+        />
+      )}
+
+      {/* Edit form */}
+      {editingEntry && (
+        <EntryForm
+          initial={{ title: editingEntry.title, content: editingEntry.content, category: editingEntry.category }}
+          saving={submitting}
+          submitLabel="Save changes"
+          onSubmit={handleEditSave}
+          onCancel={() => setEditingEntry(null)}
+        />
       )}
 
       {/* Entries */}
@@ -236,7 +324,7 @@ export function KnowledgeBaseTab() {
           </>
         ) : entries.length > 0 ? (
           entries.map((entry) => (
-            <EntryCard key={entry.id} entry={entry} onDelete={handleDelete} />
+            <EntryCard key={entry.id} entry={entry} onEdit={openEdit} onDelete={handleDelete} />
           ))
         ) : (
           <p className="py-8 text-center text-sm text-gray-400">

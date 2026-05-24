@@ -3,92 +3,33 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { useUser } from "@clerk/nextjs";
-import { Bell, CheckCircle, Menu, Moon, Plus, Search, Sun } from "lucide-react";
+import { Menu, Moon, Plus, Search, Sun } from "lucide-react";
 
+import { UserMenu } from "@/components/layout/user-menu";
 import { Button } from "@/components/ui/button";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-} from "@/components/ui/sheet";
 import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
-
-// ── Notification data ─────────────────────────────────────────────────────────
-
-type NotifSeverity = "red" | "yellow" | "green";
-
-interface Notification {
-  id: string;
-  severity: NotifSeverity;
-  title: string;
-  subtitle: string;
-  time: string;
-  href: string;
-}
-
-const SAMPLE_NOTIFICATIONS: Notification[] = [
-  {
-    id: "1",
-    severity: "red",
-    title: "Crash spike detected",
-    subtitle: "21 reviews mention crashes in v2.4.1",
-    time: "2h ago",
-    href: "/incidents",
-  },
-  {
-    id: "2",
-    severity: "yellow",
-    title: "46 reviews need a reply",
-    subtitle: "Oldest is 3 days ago",
-    time: "Today",
-    href: "/inbox",
-  },
-  {
-    id: "3",
-    severity: "green",
-    title: "Weekly digest ready",
-    subtitle: "Your app rating improved 0.2★ this week",
-    time: "Yesterday",
-    href: "/dashboard",
-  },
-];
-
-const severityDot: Record<NotifSeverity, string> = {
-  red: "bg-red-400",
-  yellow: "bg-amber-400",
-  green: "bg-emerald-400",
-};
-
-// ── TopNavigation ─────────────────────────────────────────────────────────────
 
 interface TopNavigationProps {
   onOpenSidebar: () => void;
 }
 
 export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
-  const [notifOpen, setNotifOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
   const { theme, toggleTheme } = useWorkspaceStore();
-  const { user } = useUser();
 
-  const initials =
-    user?.firstName && user?.lastName
-      ? `${user.firstName[0]}${user.lastName[0]}`
-      : user?.firstName?.[0]?.toUpperCase() ??
-        user?.emailAddresses?.[0]?.emailAddress?.[0]?.toUpperCase() ??
-        "?";
-
-  function handleNotifClick(href: string) {
-    setNotifOpen(false);
-    router.push(href);
+  function handleSearchSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const q = searchQuery.trim();
+    if (!q) return;
+    // Reviews page reads ?search= as a server-side filter. Until we add a
+    // proper command palette (Cmd+K), this is the search UX.
+    router.push(`/reviews?search=${encodeURIComponent(q)}`);
   }
 
   return (
@@ -106,20 +47,22 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
         </Button>
       </div>
 
-      {/* Centre — search box */}
-      <div className="mx-auto hidden w-[280px] items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 h-8 md:flex dark:border-white/[0.08] dark:bg-white/[0.04]">
+      {/* Centre — search box (submits to /reviews?search=...) */}
+      <form
+        onSubmit={handleSearchSubmit}
+        className="mx-auto hidden w-[280px] items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 h-8 md:flex dark:border-white/[0.08] dark:bg-white/[0.04]"
+      >
         <Search className="size-3.5 shrink-0 text-gray-400" strokeWidth={1.5} />
         <input
           type="search"
-          placeholder="Search reviews, apps, tags…"
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+          placeholder="Search reviews…"
           className="flex-1 border-0 bg-transparent text-[13px] text-gray-800 placeholder:text-gray-400 outline-none dark:text-[#F5F5F7] dark:placeholder:text-[#636366]"
         />
-        <kbd className="hidden items-center gap-0.5 rounded border border-gray-200 bg-gray-50 px-1.5 py-0.5 font-mono text-[10px] text-gray-400 shadow-sm sm:flex dark:border-white/[0.08] dark:bg-white/[0.04]">
-          <span className="text-[11px]">⌘</span>K
-        </kbd>
-      </div>
+      </form>
 
-      {/* Right — Connect app CTA, notifications, avatar */}
+      {/* Right — Connect app CTA, dark-mode toggle, account menu */}
       <div className="flex shrink-0 items-center gap-2">
         <Link href="/settings">
           <button className="flex h-8 items-center gap-1.5 rounded-lg bg-[#0A84FF] px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#006EE0]">
@@ -128,7 +71,6 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
           </button>
         </Link>
 
-        {/* Dark mode toggle */}
         <Tooltip>
           <TooltipTrigger asChild>
             <Button
@@ -148,103 +90,7 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
           <TooltipContent>{theme === "dark" ? "Light mode" : "Dark mode"}</TooltipContent>
         </Tooltip>
 
-        {/* Bell — opens notification sheet */}
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              className="relative text-gray-400 hover:bg-gray-100 hover:text-gray-600"
-              aria-label="Notifications"
-              onClick={() => setNotifOpen(true)}
-            >
-              <Bell className="size-4" strokeWidth={1.5} />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Notifications</TooltipContent>
-        </Tooltip>
-
-        {/* Notification sheet */}
-        <Sheet open={notifOpen} onOpenChange={setNotifOpen}>
-          <SheetContent
-            side="right"
-            className="flex w-80 flex-col gap-0 border-l border-gray-100 bg-white p-0"
-          >
-            {/* Header */}
-            <SheetHeader className="flex-row items-center justify-between border-b border-gray-100 px-4 py-3">
-              <SheetTitle className="text-sm font-semibold text-gray-900">
-                Notifications
-              </SheetTitle>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 px-2 text-xs text-gray-400 hover:text-gray-600"
-              >
-                Mark all read
-              </Button>
-            </SheetHeader>
-
-            {/* Notification list */}
-            <div className="flex-1 overflow-y-auto">
-              {SAMPLE_NOTIFICATIONS.length === 0 ? (
-                <div className="flex flex-col items-center justify-center gap-2 py-16 text-center">
-                  <CheckCircle
-                    className="size-8 text-gray-300"
-                    strokeWidth={1.5}
-                  />
-                  <p className="text-sm text-gray-400">You&apos;re all caught up</p>
-                </div>
-              ) : (
-                <ul className="divide-y divide-gray-50">
-                  {SAMPLE_NOTIFICATIONS.map((notif) => (
-                    <li key={notif.id}>
-                      <button
-                        onClick={() => handleNotifClick(notif.href)}
-                        className="flex w-full items-start gap-3 px-4 py-3.5 text-left transition-colors hover:bg-gray-50"
-                      >
-                        {/* Severity dot */}
-                        <span
-                          className={cn(
-                            "mt-1.5 size-2 shrink-0 rounded-full",
-                            severityDot[notif.severity],
-                          )}
-                        />
-                        <div className="min-w-0 flex-1">
-                          <p className="truncate text-[13px] font-medium text-gray-900">
-                            {notif.title}
-                          </p>
-                          <p className="mt-0.5 text-xs text-gray-400">
-                            {notif.subtitle}
-                          </p>
-                        </div>
-                        <span className="shrink-0 text-[11px] text-gray-400">
-                          {notif.time}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* Footer */}
-            <div className="border-t border-gray-100 px-4 py-3">
-              <button
-                onClick={() => handleNotifClick("/settings")}
-                className="text-xs text-[#0A84FF] hover:underline"
-              >
-                Notification settings
-              </button>
-            </div>
-          </SheetContent>
-        </Sheet>
-
-        <button
-          className="flex size-7 items-center justify-center rounded-full bg-gradient-to-br from-[#4592FF] to-[#0058B3] text-[11px] font-semibold text-white ring-2 ring-white transition-opacity duration-150 hover:opacity-90"
-          aria-label="Account"
-        >
-          {initials}
-        </button>
+        <UserMenu variant="avatar" />
       </div>
     </header>
   );

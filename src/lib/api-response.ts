@@ -19,9 +19,11 @@ export type ApiErrorCode =
   | "NOT_FOUND"
   // Conflict / business rules
   | "SLUG_TAKEN"
+  | "SLUG_RESERVED"
   | "PLAN_REQUIRED"
   | "QUOTA_EXCEEDED"
   | "RATE_LIMITED"
+  | "WORKSPACE_DELETED"
   // External
   | "STORE_RATE_LIMITED"
   | "STORE_SUBMIT_FAILED"
@@ -73,9 +75,11 @@ function defaultMessage(code: ApiErrorCode): string {
     case "INVALID_INPUT":         return "The request contains invalid data.";
     case "NOT_FOUND":             return "The requested resource was not found.";
     case "SLUG_TAKEN":            return "That workspace URL is already taken.";
+    case "SLUG_RESERVED":         return "That workspace URL is reserved.";
     case "PLAN_REQUIRED":         return "This feature requires an upgraded plan.";
     case "QUOTA_EXCEEDED":        return "You've hit your plan quota for this period.";
     case "RATE_LIMITED":          return "Too many requests. Please slow down.";
+    case "WORKSPACE_DELETED":     return "This workspace has been deleted.";
     case "STORE_RATE_LIMITED":    return "The app store is rate-limiting us. Try again in a minute.";
     case "STORE_SUBMIT_FAILED":   return "Couldn't submit your reply to the store.";
     case "REVIEW_NOT_FOUND_ON_STORE": return "This review no longer exists on the store.";

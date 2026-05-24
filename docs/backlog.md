@@ -13,18 +13,33 @@ Status legend: `[ ]` queued · `[~]` in progress · `[x]` shipped · `[!]` block
 
 These are the next items to ship. Don't skip; don't reorder without thinking.
 
-### [ ] N1 · Apply Supabase migrations to prod · ICE 90 (10×9÷1)
+### [x] N1 · Apply Supabase migrations to prod · ICE 90 (10×9÷1)
+*Applied 2026-05-19. Migrations 002–006 live in production. Note: 002 required normalizing existing rows before adding check constraint.*
 **Effort:** 5 min (founder pastes SQL).
 **Done when:** All 6 migrations (002–006) applied to production Supabase project.
 **Files:** `supabase/migrations/002_plan_vocabulary.sql` through `006_workspace_invites.sql`
 **Why now:** Nothing else can be tested end-to-end until prod schema matches code.
 **HUMAN-REQUIRED** (founder runs SQL in Supabase dashboard).
 
-### [ ] N2 · Notification panel — empty state instead of fake data · ICE 72 (8×9÷1)
+### [x] N2 · Notification panel — empty state instead of fake data · ICE 72 (8×9÷1)
+*Shipped on branch `claude/n2-notification-panel-empty-state`. Replaced hardcoded 3-item array with empty array + comment pointing to future real-feed work. "Mark all read" button hidden when empty. As a side-effect fixed lint error in `test-play-api.ts` so CI now passes.*
 **Effort:** 30 min.
 **Done when:** Top-nav bell shows real notifications only. No "Crash spike v2.4.1" hardcoded items.
 **Files:** `src/components/layout/top-navigation.tsx`
 **Why now:** First impression. Every new user sees a "Crash spike" for an app they don't have.
+
+### [x] N7 · Marketing site mobile responsiveness · ICE 81 — SHIPPED 2026-05-18
+*Approach: instead of rewriting 1000+ inline styles per page, added a
+single `rb-marketing` class to MarketingShell wrapper, then global
+`@media (max-width: 768px)` rules in `globals.css` that override
+inline grids, font sizes, and padding via attribute selectors. One
+PR covers all 13 marketing pages (landing, pricing, compare, blog,
+customers, etc).*
+
+### [x] N8 · Auth pages redesign · ICE — SHIPPED 2026-05-18
+*Split-screen sign-up/sign-in with brand-side panel + AuthShell.
+Dropped the custom terms gate in favor of inline legal line below
+the form.*
 
 ### [ ] N3 · Detail pages exist · ICE 64 (8×8÷1)
 **Effort:** 2h.
@@ -38,10 +53,12 @@ These are the next items to ship. Don't skip; don't reorder without thinking.
 **Files:** `competitors-screen.tsx`, `aso-screen.tsx`, `reports-screen.tsx`, settings sections
 **Why now:** "Save defaults" that does nothing trains users to mistrust us.
 
-### [ ] N5 · /compare/appfollow with real teeth · ICE 81 (9×9÷1)
+### [x] N5 · /compare/appfollow with real teeth · ICE 81 (9×9÷1)
+*Shipped 2026-05-19 on branch `claude/n5-compare-appfollow-rewrite` — awaiting founder merge.*
+*42-row table across 7 categories, ROI calculator widget, 4-step switch timeline, 3 placeholder quotes, price callout, dual CTA. Placeholder quotes marked in code for replacement with real customers.*
 **Effort:** 3h.
 **Done when:** Page has: feature comparison table (12 rows), ROI calculator widget, 3 customer-style quotes, "Switch in 5 min" CTA, screenshots side-by-side.
-**Files:** `src/app/compare/page.tsx`
+**Files:** `src/app/compare/page.tsx`, `src/components/marketing/roi-calculator.tsx`
 **Why now:** This is your #1 inbound conversion asset. Currently a stub.
 
 ### [ ] N6 · Stripe test keys + verify upgrade flow · ICE 80 (10×8÷1)

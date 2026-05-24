@@ -11,6 +11,7 @@ interface CreateRuleBody {
   conditions: AutomationCondition[];
   action: AutomationAction;
   actionLabel: string;
+  actionConfig?: string;
   appsScope: "all" | string[];
   priority?: number;
 }
@@ -64,24 +65,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // 3. Parse body
   const body = (await req.json()) as CreateRuleBody;
-  const { name, description, conditions, action, actionLabel, appsScope, priority } = body;
+  const { name, description, conditions, action, actionLabel, actionConfig, appsScope, priority } = body;
 
   // 4. Insert
   const sb = getServiceClient();
   const { data, error } = await sb
     .from("automation_rules")
     .insert({
-      workspace_id: workspaceId,
+      workspace_id:  workspaceId,
       name,
-      description: description ?? "",
+      description:   description ?? "",
       conditions,
       action,
-      action_label: actionLabel,
-      apps_scope: appsScope ?? "all",
-      priority: priority ?? 0,
-      enabled: true,
-      times_run: 0,
-      last_run_at: null,
+      action_label:  actionLabel,
+      action_config: actionConfig ?? null,
+      apps_scope:    appsScope ?? "all",
+      priority:      priority ?? 0,
+      enabled:       true,
+      times_run:     0,
+      last_run_at:   null,
     })
     .select("*")
     .single();
