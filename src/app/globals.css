@@ -329,17 +329,24 @@ textarea {
 }
 
 /* ─────────────────────────────────────────────────────────────────────
-   Marketing site responsive overrides (N7)
+   Marketing site responsive overrides
    ─────────────────────────────────────────────────────────────────────
-   Marketing pages use inline style={{}} with fixed px widths/grids for
-   desktop. Rather than rewriting 1000+ lines of inline styles, every
-   marketing page wraps in <MarketingShell> which adds `.rb-marketing`.
-   These rules override the worst offenders at narrow viewports.
+
+   The marketing pages (landing, pricing, compare, customers, blog, etc.)
+   use inline `style={{...}}` heavily with fixed pixel widths and CSS
+   grids designed for desktop. Rather than rewriting 1000+ lines of
+   inline styles, we wrap every marketing page in <MarketingShell>
+   which adds the `.rb-marketing` class. These rules then override
+   the worst offenders at narrow viewports via attribute selectors.
 
    Strategy:
-   - ≤768px: stack ALL grids to single column, shrink page padding,
+   - <= 768px: stack ALL grids to single column, shrink page padding,
      scale down hero-sized fonts (40px+).
-   - ≤480px: further shrink the largest fonts.
+   - <= 480px: further shrink the largest fonts.
+
+   These are blunt-force rules and may need refinement once we have
+   real per-page responsive designs. But they prevent the
+   "squeezed to fit" + horizontal-scroll experience on phones today.
    ──────────────────────────────────────────────────────────────────── */
 
 @media (max-width: 768px) {
@@ -355,6 +362,7 @@ textarea {
   .rb-marketing [style*="gap: 48"]  { gap: 20px !important; }
   .rb-marketing [style*="gap: 40"]  { gap: 20px !important; }
 
+  /* Reduce section padding — both shorthand and individual */
   /* Reduce section padding */
   .rb-marketing section { padding-left: 20px !important; padding-right: 20px !important; }
   .rb-marketing [style*="padding: 56px 0"],
@@ -365,6 +373,7 @@ textarea {
   }
   .rb-marketing [style*="padding: 44px 0"] { padding: 24px 0 !important; }
 
+  /* Scale down the hero-sized fonts */
   /* Scale down hero-sized fonts */
   .rb-marketing [style*="font-size: 88"] { font-size: 38px !important; line-height: 1.1 !important; letter-spacing: -0.01em !important; }
   .rb-marketing [style*="font-size: 80"] { font-size: 36px !important; line-height: 1.1 !important; }
@@ -388,6 +397,7 @@ textarea {
     max-width: 100% !important;
   }
 
+  /* Prevent fixed-width children from forcing horizontal scroll */
   /* Prevent fixed-width media from forcing horizontal scroll */
   .rb-marketing img,
   .rb-marketing video,
@@ -396,6 +406,9 @@ textarea {
     height: auto;
   }
 
+  /* The desktop "Mac browser window" mockup is intentionally dense;
+     allow it to scroll horizontally within its own container instead
+     of pushing the entire page wider than viewport. */
   /* Dense desktop mockups scroll within their container rather than
      blowing out the page width */
   .rb-marketing [style*="display: grid"][style*="overflow: hidden"] {
@@ -409,5 +422,6 @@ textarea {
   .rb-marketing [style*="font-size: 72"] { font-size: 28px !important; }
   .rb-marketing [style*="font-size: 64"] { font-size: 26px !important; }
 
+  /* Shrink page padding further on the smallest phones */
   .rb-marketing section { padding-left: 16px !important; padding-right: 16px !important; }
 }

@@ -28,6 +28,19 @@ These are the next items to ship. Don't skip; don't reorder without thinking.
 **Files:** `src/components/layout/top-navigation.tsx`
 **Why now:** First impression. Every new user sees a "Crash spike" for an app they don't have.
 
+### [x] N7 · Marketing site mobile responsiveness · ICE 81 — SHIPPED 2026-05-18
+*Approach: instead of rewriting 1000+ inline styles per page, added a
+single `rb-marketing` class to MarketingShell wrapper, then global
+`@media (max-width: 768px)` rules in `globals.css` that override
+inline grids, font sizes, and padding via attribute selectors. One
+PR covers all 13 marketing pages (landing, pricing, compare, blog,
+customers, etc).*
+
+### [x] N8 · Auth pages redesign · ICE — SHIPPED 2026-05-18
+*Split-screen sign-up/sign-in with brand-side panel + AuthShell.
+Dropped the custom terms gate in favor of inline legal line below
+the form.*
+
 ### [ ] N3 · Detail pages exist · ICE 64 (8×8÷1)
 **Effort:** 2h.
 **Done when:** Clicking an incident or release in the lists goes to a real detail page (not 404 or blank).
