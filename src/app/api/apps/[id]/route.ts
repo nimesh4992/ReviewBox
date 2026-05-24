@@ -85,9 +85,11 @@ export async function DELETE(
   const { id: appId } = await params;
   const sb = getServiceClient();
 
+  // Soft-delete: preserves review history and foreign key integrity.
+  // Hard delete would cascade or violate FKs on the reviews table.
   const { error } = await sb
     .from("apps")
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq("id", appId)
     .eq("workspace_id", workspaceId);
 

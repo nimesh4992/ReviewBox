@@ -88,7 +88,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Mark user as onboarded in Clerk so middleware lets them through
     try {
       const clerk = await clerkClient();
-      const user = await clerkClient().then((c) => c.users.getUser(userId));
+      const user  = await clerk.users.getUser(userId);
       await clerk.users.updateUserMetadata(userId, {
         publicMetadata: { ...user.publicMetadata, onboarded: true },
       });

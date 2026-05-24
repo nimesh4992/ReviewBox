@@ -22,9 +22,21 @@ export async function PATCH(req: NextRequest, { params }: RouteParams): Promise<
   }
 
   const { id } = await params;
-  const body = (await req.json()) as Record<string, unknown>;
+  const raw = (await req.json()) as Record<string, unknown>;
 
-  // 3. Update — scoped to workspace
+  // 3. Whitelist allowed fields — prevents workspace_id / column injection
+  const ALLOWED = ["title", "content", "category"] as const;
+  const body: Record<string, unknown> = {};
+  for (const key of ALLOWED) {
+    if (key in raw) body[key] = raw[key];
+  }
+  if (typeof body.title   === "string") body.title   = body.title.slice(0, 200).trim();
+  if (typeof body.content === "string") body.content = body.content.slice(0, 5000).trim();
+  if (Object.keys(body).length === 0) {
+    return NextResponse.json({ error: "NO_VALID_FIELDS" }, { status: 400 });
+  }
+
+  // 4. Update — scoped to workspace
   const sb = getServiceClient();
   const { data, error } = await sb
     .from("knowledge_base")

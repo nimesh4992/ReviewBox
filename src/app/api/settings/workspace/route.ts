@@ -77,9 +77,15 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   if (typeof body.brandVoice   === "string") updates.brand_voice   = body.brandVoice.slice(0, 500).trim();
   if (typeof body.defaultTone  === "string") updates.default_tone  = body.defaultTone;
   if ("slackWebhookUrl" in body) {
-    updates.slack_webhook_url = body.slackWebhookUrl
-      ? body.slackWebhookUrl.trim()
-      : null;
+    if (body.slackWebhookUrl) {
+      const url = body.slackWebhookUrl.trim();
+      if (!url.startsWith("https://hooks.slack.com/")) {
+        return NextResponse.json({ error: "INVALID_SLACK_URL", message: "Slack webhook URL must start with https://hooks.slack.com/" }, { status: 400 });
+      }
+      updates.slack_webhook_url = url;
+    } else {
+      updates.slack_webhook_url = null;
+    }
   }
 
   if (typeof body.appCategory === "string") {

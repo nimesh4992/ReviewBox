@@ -36,6 +36,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!reviewBody.trim()) {
     return NextResponse.json({ error: "MISSING_BODY" }, { status: 400 });
   }
+  if (reviewBody.length > 500) {
+    return NextResponse.json({ error: "BODY_TOO_LONG", message: "Review text must be under 500 characters for the demo." }, { status: 400 });
+  }
 
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {

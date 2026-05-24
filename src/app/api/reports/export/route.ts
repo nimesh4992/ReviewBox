@@ -62,10 +62,33 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const params = req.nextUrl.searchParams;
   const format   = params.get("format")   ?? "csv";
-  const days     = params.get("days")     ?? "30";
+  const daysRaw  = params.get("days")     ?? "30";
   const appId    = params.get("appId")    ?? null;
   const priority = params.get("priority") ?? null;
-  const rating   = params.get("rating")   ?? null;
+  const ratingRaw = params.get("rating")  ?? null;
+
+  // Validate `days` against an explicit allowlist to prevent NaN injection
+  const VALID_DAYS = new Set(["7", "30", "90", "all"]);
+  if (!VALID_DAYS.has(daysRaw)) {
+    return NextResponse.json({ error: "INVALID_DAYS" }, { status: 400 });
+  }
+  const days = daysRaw;
+
+  // Validate `rating` is a 1-5 integer if provided
+  let rating: string | null = null;
+  if (ratingRaw !== null) {
+    const n = parseInt(ratingRaw, 10);
+    if (!Number.isInteger(n) || n < 1 || n > 5) {
+      return NextResponse.json({ error: "INVALID_RATING" }, { status: 400 });
+    }
+    rating = ratingRaw;
+  }
+
+  // Validate `priority` against known values
+  const VALID_PRIORITIES = new Set(["urgent", "high", "normal", "low"]);
+  if (priority !== null && !VALID_PRIORITIES.has(priority)) {
+    return NextResponse.json({ error: "INVALID_PRIORITY" }, { status: 400 });
+  }
 
   const sb = getServiceClient();
 

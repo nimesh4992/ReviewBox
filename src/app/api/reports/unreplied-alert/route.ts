@@ -74,7 +74,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
         .eq("workspace_id", ws.id)
         .eq("role", "owner")
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (!member) continue;
 

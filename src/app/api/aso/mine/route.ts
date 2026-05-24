@@ -126,12 +126,12 @@ export async function GET(req: Request): Promise<NextResponse> {
     };
 
     const { data: rows } = await base()
-      .select("id, text, sentiment")
-      .not("text", "is", null)
+      .select("id, body, sentiment")
+      .not("body", "is", null)
       .order("store_created_at", { ascending: false })
       .limit(500);
 
-    const reviews = (rows ?? []) as { id: string; text: string; sentiment: string }[];
+    const reviews = (rows ?? []) as { id: string; body: string; sentiment: string }[];
 
     // ── Fetch already-tracked keywords ───────────────────────────────────────
     const trackedQuery = appId
@@ -150,8 +150,8 @@ export async function GET(req: Request): Promise<NextResponse> {
     const phraseExamples   = new Map<string, string[]>();
 
     for (const review of reviews) {
-      if (!review.text?.trim()) continue;
-      const tokens = tokenise(review.text);
+      if (!review.body?.trim()) continue;
+      const tokens = tokenise(review.body);
       const candidates = [
         ...ngrams(tokens, 2),
         ...ngrams(tokens, 3),
@@ -179,11 +179,11 @@ export async function GET(req: Request): Promise<NextResponse> {
           // store up to 2 example snippets
           const exs = phraseExamples.get(phrase)!;
           if (exs.length < 2) {
-            const idx = review.text.toLowerCase().indexOf(phrase);
+            const idx = review.body.toLowerCase().indexOf(phrase);
             if (idx !== -1) {
               const start = Math.max(0, idx - 30);
-              const end   = Math.min(review.text.length, idx + phrase.length + 50);
-              exs.push((start > 0 ? "…" : "") + review.text.slice(start, end).trim() + (end < review.text.length ? "…" : ""));
+              const end   = Math.min(review.body.length, idx + phrase.length + 50);
+              exs.push((start > 0 ? "…" : "") + review.body.slice(start, end).trim() + (end < review.body.length ? "…" : ""));
             }
           }
         }

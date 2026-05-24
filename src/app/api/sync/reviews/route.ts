@@ -165,7 +165,7 @@ async function upsertAndFinalize(
     }));
 
   if (unrepliedReviews.length) {
-    runAutomationRules(app.workspace_id, unrepliedReviews).catch(
+    runAutomationRules(app.workspace_id, unrepliedReviews, app.id).catch(
       (e) => console.error("[sync] automation rules:", e),
     );
   }

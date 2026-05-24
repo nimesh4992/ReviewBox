@@ -139,26 +139,32 @@ async function handler(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ message: "No apps to check", ...summary });
   }
 
-  // Load workspace created_at for the "never synced" threshold check
-  const workspaceIds = [...new Set(apps.map((a) => a.workspace_id as string))];
+  // Load workspace created_at for the "never synced" threshold check.
+  // Filter to active (non-deleted) workspaces only — avoids emailing
+  // owners of cancelled accounts.
+  const allWorkspaceIds = [...new Set(apps.map((a) => a.workspace_id as string))];
   const { data: workspaces } = await sb
     .from("workspaces")
     .select("id, created_at")
-    .in("id", workspaceIds)
+    .in("id", allWorkspaceIds)
     .is("deleted_at", null);
 
   const wsCreatedAt = new Map(
     (workspaces ?? []).map((w) => [w.id as string, w.created_at as string]),
   );
 
+  // Only operate on apps belonging to active (non-deleted) workspaces
+  const activeApps = apps.filter((a) => wsCreatedAt.has(a.workspace_id as string));
+
   // Batch-resolve all owner emails upfront — one DB query + one Clerk call.
+  const workspaceIds = [...new Set(activeApps.map((a) => a.workspace_id as string))];
   const ownerEmails = await resolveOwnerEmails(workspaceIds);
 
   // ── Signal 1: Never synced ────────────────────────────────────────────────
 
   const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
 
-  for (const app of apps) {
+  for (const app of activeApps) {
     if (app.last_sync_attempted_at !== null) continue;
 
     const wsCreated = wsCreatedAt.get(app.workspace_id as string);
@@ -183,7 +189,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
 
   const successStatuses = new Set(["success", "credentials_verified", null]);
 
-  for (const app of apps) {
+  for (const app of activeApps) {
     if (successStatuses.has(app.last_sync_status as string | null)) continue;
     if (!app.last_sync_attempted_at) continue;
     if ((app.last_sync_attempted_at as string) > fortyEightHoursAgo) continue; // only if failing for 48h+
@@ -233,7 +239,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
     for (const [appId, count] of Object.entries(countByApp)) {
       if (count < 5) continue; // threshold: 5+ negative reviews
 
-      const app = apps.find((a) => a.id === appId);
+      const app = activeApps.find((a) => a.id === appId);
       if (!app) continue;
 
       const key = `health_nudge:spike_unreplied:${appId}`;
@@ -253,7 +259,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   }
 
   console.log("[health/user-check]", summary);
-  return NextResponse.json({ ...summary, checkedApps: apps.length });
+  return NextResponse.json({ ...summary, checkedApps: activeApps.length });
 }
 
 export const GET  = handler;

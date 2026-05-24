@@ -6,6 +6,9 @@
 
 import type { AppReview, AutomationRule, AutomationCondition } from "@/types/review";
 import { getServiceClient } from "@/lib/supabase-server";
+import { generateReply } from "@/lib/groq";
+import { buildSystemPrompt, compressReviewText } from "@/lib/prompt-utils";
+import { getWorkspacePersona, DEFAULT_PERSONA } from "@/lib/workspace-persona";
 
 // ── Condition evaluator ────────────────────────────────────────────────────────
 
@@ -99,31 +102,27 @@ async function executeAction(
 
   switch (rule.action) {
     case "ai_reply": {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-      const res = await fetch(`${appUrl}/api/reply/draft`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-internal-workspace-id": workspaceId,
-        },
-        body: JSON.stringify({
-          reviewId:   review.id,
-          reviewBody: review.text,
-          rating:     review.rating,
-          tags:       review.issueTags,
-          tone:       "professional",
-        }),
+      // Call the AI generation library directly — never via HTTP.
+      // The /api/reply/draft route requires a Clerk session which the
+      // automation executor doesn't have (it runs server-side after sync).
+      const persona = await getWorkspacePersona(workspaceId).catch(() => DEFAULT_PERSONA);
+      const systemPrompt = buildSystemPrompt({
+        tone:           "professional",
+        contextEntries: [],
+        brandVoice:     persona.brandVoice,
+        teamName:       persona.teamName,
       });
-
-      if (res.ok) {
-        const { reply } = (await res.json()) as { reply: string };
-        await sb
-          .from("reviews")
-          .update({ reply_text: reply, reply_status: "draft_ready", has_ai_suggestion: true })
-          .eq("id", review.id);
-      } else {
-        throw new Error(`ai_reply draft failed: ${res.status}`);
-      }
+      const compressed = compressReviewText(review.text ?? "");
+      const reply = await generateReply({
+        reviewBody:   compressed,
+        rating:       review.rating,
+        tone:         "professional",
+        systemPrompt,
+      });
+      await sb
+        .from("reviews")
+        .update({ reply_text: reply, reply_status: "draft_ready", has_ai_suggestion: true })
+        .eq("id", review.id);
       break;
     }
 
@@ -204,6 +203,8 @@ async function executeAction(
 export async function runAutomationRules(
   workspaceId: string,
   reviews: AppReview[],
+  /** Supabase app UUID — used for per-app scope filtering on rules. */
+  appId?: string,
 ): Promise<void> {
   if (!reviews.length) return;
 
@@ -236,10 +237,12 @@ export async function runAutomationRules(
 
   for (const review of reviews) {
     for (const rule of rules) {
-      // Scope check: rule may target "all" or specific app IDs
-      if (rule.appsScope !== "all") {
+      // Scope check: rule may target "all" or specific Supabase app UUIDs.
+      // Compare against the appId param (not review.id which is the external
+      // store review ID and will never match a Supabase app UUID).
+      if (rule.appsScope !== "all" && appId) {
         const scopeIds = Array.isArray(rule.appsScope) ? rule.appsScope : [rule.appsScope];
-        if (!scopeIds.some((s) => review.id.startsWith(s as string))) continue;
+        if (!scopeIds.includes(appId)) continue;
       }
 
       if (evaluateRule(rule, review)) {

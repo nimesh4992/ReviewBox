@@ -19,6 +19,7 @@ export async function GET() {
       "id, name, platform, store_id, last_synced_at, access_token, refresh_token, icon_url, developer, lifetime_rating, lifetime_review_count, last_sync_attempted_at, last_sync_status, last_sync_error, last_sync_review_count",
     )
     .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
     .order("created_at");
 
   let apps: Record<string, unknown>[] = (full.data as Record<string, unknown>[] | null) ?? [];
@@ -28,6 +29,7 @@ export async function GET() {
       .from("apps")
       .select("id, name, platform, store_id, last_synced_at, access_token, refresh_token")
       .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
       .order("created_at");
     apps = (minimal.data as Record<string, unknown>[] | null) ?? [];
   }
