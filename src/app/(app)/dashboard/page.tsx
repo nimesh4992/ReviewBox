@@ -76,10 +76,11 @@ export default function DashboardPage() {
   const [range, setRange] = useState<"7d" | "30d" | "90d">("30d");
   const [exporting, setExporting] = useState(false);
 
-  // Poll metrics + apps every 10s while any app is still in its first sync,
-  // so the dashboard updates without a manual refresh when reviews arrive.
-  // Stops polling automatically once last_synced_at is set on every app.
-  const hasUnsyncedApp = apps.some((a) => a.last_synced_at === null);
+  // Poll metrics + apps every 10s while any app hasn't had its first sync
+  // attempt yet. Stops as soon as last_sync_attempted_at is set — which
+  // happens at the start of every sync run, even if the Publisher API fails.
+  // After that the error banner explains what to do; no need to keep polling.
+  const hasUnsyncedApp = apps.some((a) => a.last_sync_attempted_at === null);
   useEffect(() => {
     if (!hasUnsyncedApp) return;
     const id = setInterval(() => {
