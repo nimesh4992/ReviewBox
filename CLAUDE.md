@@ -28,8 +28,8 @@ See `docs/ZERO_COST_PLAN.md` for the full breakdown.
 | Local ML | @xenova/transformers (WASM) | Semantic tags, sentiment, clustering — $0 forever |
 | Rate limiting | Upstash Redis | Free: 10K commands/day |
 | Email | Resend | ✅ Client wired — free: 3K/month |
-| Analytics | PostHog | 🔲 Not installed yet — free: 1M events/month |
-| Errors | Sentry | 🔲 Not installed yet — free: 5K errors/month |
+| Analytics | PostHog | ✅ Installed — free: 1M events/month |
+| Errors | Sentry | ✅ Installed — free: 5K errors/month |
 | Icons | Lucide React | strokeWidth=1.5 globally via CSS |
 
 Path alias: `@/*` → `src/*`
@@ -287,7 +287,7 @@ When adding App Store: extend mock data + service layer, not the type.
 NEXT_PUBLIC_SUPABASE_URL=           ✅ Set
 NEXT_PUBLIC_SUPABASE_ANON_KEY=      ✅ Set
 SUPABASE_SERVICE_ROLE_KEY=          ✅ Set
-SUPABASE_DB_POOLER_URL=             🔲 Not set — Supabase → Settings → Database → Transaction mode (port 6543)
+SUPABASE_DB_POOLER_URL=             ✅ Set (postgres pooler — NOT passed to supabase-js, direct pg only)
 
 # Clerk
 NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=  ✅ Set
@@ -295,7 +295,7 @@ CLERK_SECRET_KEY=                   ✅ Set
 NEXT_PUBLIC_CLERK_SIGN_IN_URL=      ✅ /sign-in
 NEXT_PUBLIC_CLERK_SIGN_UP_URL=      ✅ /sign-up
 NEXT_PUBLIC_CLERK_AFTER_SIGN_IN_URL= ✅ /dashboard
-NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL= ⚠️ /onboarding — change to /dashboard before launch
+NEXT_PUBLIC_CLERK_AFTER_SIGN_UP_URL= ✅ /dashboard
 
 # AI
 GROQ_API_KEY=                       ✅ Set
@@ -307,6 +307,14 @@ UPSTASH_REDIS_REST_TOKEN=           ✅ Set
 
 # Email
 RESEND_API_KEY=                     ✅ Set
+
+# Observability
+NEXT_PUBLIC_SENTRY_DSN=             ✅ Set
+NEXT_PUBLIC_POSTHOG_KEY=            ✅ Set
+NEXT_PUBLIC_POSTHOG_HOST=           ✅ Set
+
+# Cron auth — MUST be set in Vercel before crons work
+CRON_SECRET=                        🔲 Not set — generate any random string, add to Vercel env vars
 
 # Stripe — fill in before M2
 STRIPE_SECRET_KEY=                  🔲 Not set
@@ -320,8 +328,8 @@ GOOGLE_CLIENT_EMAIL=                ✅ Set
 GOOGLE_PRIVATE_KEY=                 ✅ Set
 
 # App
-NEXT_PUBLIC_APP_URL=                ⚠️ localhost:3000 locally — must be https://tryreviewbox.com in production
-ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users → your user ID
+NEXT_PUBLIC_APP_URL=                ✅ https://tryreviewbox.com
+ADMIN_CLERK_USER_ID=                ✅ Set
 ```
 
 `getServiceClient()` uses `SUPABASE_SERVICE_ROLE_KEY` (bypasses RLS) — server-side only.
@@ -661,14 +669,22 @@ Last updated: 2026-05-24
 
 ### Next milestones
 
-- [ ] Merge `feat/bootstrap-reviews` PR (open at github.com/nimesh4992/ReviewBox)
-- [ ] Founder: run DB migration for `apps.deleted_at` column (soft-delete) — needed before DELETE /api/apps works
-- [ ] Founder: add `CRON_SECRET` in Vercel env vars — without it all 4 crons silently return 401
+**Founder-only (blocking):**
+- [x] Merge `feat/bootstrap-reviews` PR #30 — ✅ DONE
+- [ ] Run migration `supabase/migrations/014_apps_soft_delete.sql` — needed before DELETE /api/apps works
+- [ ] Add `CRON_SECRET` in Vercel env vars — all 4 crons silently 401 without it
+- [ ] Verify `hello@tryreviewbox.com` domain in Resend — emails go to spam until done
 - [ ] Enable GitHub branch protection on `master` requiring CI to pass
+- [ ] M2: Set `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, 3x `STRIPE_PRICE_*` in Vercel
+
+**Open PRs (code-complete, need merge):**
+- [ ] `claude/n7a-landing-mobile-responsive` — marketing site mobile responsive
+- [ ] `claude/docs-claudemd-refresh` — CLAUDE.md docs refresh
+
+**Code backlog:**
 - [ ] Run `docs/LAUNCH_CHECKLIST.md` end-to-end
-- [ ] Create 4 help pages: Getting Started · Connect Google Play · AI Replies · FAQ
-- [ ] Configure `help.tryreviewbox.com` CNAME (Mintlify or Notion public)
-- [ ] M2: Stripe live (set `STRIPE_SECRET_KEY` + price IDs), test checkout end-to-end
+- [ ] Help center: 4 pages (Getting Started · Connect Google Play · AI Replies · FAQ)
+- [ ] Configure `help.tryreviewbox.com` CNAME
 
 ---
 
