@@ -448,6 +448,7 @@ function AppRow({
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
   const isAppStore = app.platform === "app_store";
   const Icon = isAppStore ? Globe : Smartphone;
@@ -463,8 +464,15 @@ function AppRow({
     if (!confirm(`Remove "${app.name}"? This will delete all synced reviews.`)) return;
     setDeleting(true);
     try {
-      await fetch(`/api/apps/${app.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/apps/${app.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        setDeleteError(body.error ?? "Failed to remove app. Please try again.");
+        return;
+      }
       onDeleted();
+    } catch {
+      setDeleteError("Network error — could not remove app. Please try again.");
     } finally {
       setDeleting(false);
     }
@@ -564,6 +572,12 @@ function AppRow({
           </Button>
         </div>
       </div>
+
+      {deleteError && (
+        <div className="mx-4 mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {deleteError}
+        </div>
+      )}
 
       {expanded && (
         <div className="border-t border-gray-50 px-4 pb-4">

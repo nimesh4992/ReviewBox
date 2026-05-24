@@ -59,7 +59,7 @@ export async function bootstrapGooglePlayReviews(
     buildEnrichedRow(
       appId,
       workspaceId,
-      `gp_bootstrap_${r.id}`,
+      r.id,
       "google_play",
       r.userName || "Anonymous",
       r.score,
@@ -128,6 +128,9 @@ export async function bootstrapAppStoreReviews(
       if (!entries.length) break;
 
       for (const e of entries) {
+        const externalId = e.id?.label;
+        if (!externalId) continue; // no stable ID — skip rather than generate a random one
+
         const rating = parseInt(e["im:rating"]?.label ?? "3", 10);
         const text = [e.title?.label, e.content?.label].filter(Boolean).join("\n\n");
         const createdAt = e.updated?.label ? new Date(e.updated.label).toISOString() : new Date().toISOString();
@@ -136,7 +139,7 @@ export async function bootstrapAppStoreReviews(
           buildEnrichedRow(
             appId,
             workspaceId,
-            `as_bootstrap_${e.id?.label ?? Math.random().toString(36).slice(2)}`,
+            externalId,
             "app_store",
             e.author?.name?.label || "Anonymous",
             rating,

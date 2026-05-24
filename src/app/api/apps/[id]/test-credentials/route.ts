@@ -113,8 +113,7 @@ export async function POST(
   let jwt: string;
   try {
     jwt = await buildJWT(creds.keyId, creds.issuerId, app.refresh_token as string);
-  } catch (err) {
-    const msg = err instanceof Error ? err.message : String(err);
+  } catch {
     return NextResponse.json(
       {
         ok: false,
@@ -122,9 +121,8 @@ export async function POST(
           "Couldn't sign a JWT with your .p8 key — Apple rejected the key format. Re-download the .p8 file from App Store Connect and paste it exactly as-is (with the BEGIN/END lines).",
         verifiedAt,
       },
-      { status: 200 },
+      { status: 400 },
     );
-    void msg;
   }
 
   let appStoreId: string | null = null;

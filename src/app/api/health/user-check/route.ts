@@ -34,7 +34,7 @@ const TTL_SPIKE_UNREPLIED = 60 * 60 * 24 * 1;  // 1 day
 
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
+  if (!secret) return false;
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 
@@ -60,26 +60,51 @@ async function markSent(redis: Redis | null, key: string, ttl: number): Promise<
   await redis.set(key, "1", { ex: ttl });
 }
 
-/** Resolve the workspace owner's email via Clerk. Returns null if not found. */
-async function ownerEmail(workspaceId: string): Promise<string | null> {
+/**
+ * Batch-resolve owner emails for all given workspace IDs.
+ * One DB query + one Clerk batch call — no N+1.
+ */
+async function resolveOwnerEmails(
+  workspaceIds: string[],
+): Promise<Map<string, string>> {
+  const result = new Map<string, string>();
+  if (!workspaceIds.length) return result;
+
   try {
     const sb = getServiceClient();
-    const { data: member } = await sb
+    const { data: members } = await sb
       .from("workspace_members")
-      .select("clerk_user_id")
-      .eq("workspace_id", workspaceId)
-      .eq("role", "owner")
-      .limit(1)
-      .single();
+      .select("workspace_id, clerk_user_id")
+      .in("workspace_id", workspaceIds)
+      .eq("role", "owner");
 
-    if (!member) return null;
+    if (!members?.length) return result;
 
-    const clerk     = await clerkClient();
-    const clerkUser = await clerk.users.getUser(member.clerk_user_id);
-    return clerkUser.emailAddresses[0]?.emailAddress ?? null;
-  } catch {
-    return null;
+    // Map workspaceId → clerkUserId
+    const wsToClerk = new Map(
+      members.map((m) => [m.workspace_id as string, m.clerk_user_id as string]),
+    );
+    const clerkIds = [...new Set(members.map((m) => m.clerk_user_id as string))];
+
+    const clerk = await clerkClient();
+    const { data: users } = await clerk.users.getUserList({
+      userId: clerkIds,
+      limit: clerkIds.length,
+    });
+
+    const clerkEmailMap = new Map(
+      users.map((u) => [u.id, u.emailAddresses[0]?.emailAddress ?? null]),
+    );
+
+    for (const [wsId, clerkId] of wsToClerk) {
+      const email = clerkEmailMap.get(clerkId);
+      if (email) result.set(wsId, email);
+    }
+  } catch (err) {
+    console.error("[health/user-check] resolveOwnerEmails:", err);
   }
+
+  return result;
 }
 
 interface NudgeSummary {
@@ -126,6 +151,9 @@ async function handler(req: NextRequest): Promise<NextResponse> {
     (workspaces ?? []).map((w) => [w.id as string, w.created_at as string]),
   );
 
+  // Batch-resolve all owner emails upfront — one DB query + one Clerk call.
+  const ownerEmails = await resolveOwnerEmails(workspaceIds);
+
   // ── Signal 1: Never synced ────────────────────────────────────────────────
 
   const fortyEightHoursAgo = new Date(now.getTime() - 48 * 60 * 60 * 1000).toISOString();
@@ -140,7 +168,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
     if (await alreadySent(redis, key)) { summary.skipped++; continue; }
 
     try {
-      const email = await ownerEmail(app.workspace_id as string);
+      const email = ownerEmails.get(app.workspace_id as string) ?? null;
       if (!email) continue;
 
       await sendNeverSyncedNudge(email, app.name as string, app.platform as "google_play" | "app_store");
@@ -164,7 +192,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
     if (await alreadySent(redis, key)) { summary.skipped++; continue; }
 
     try {
-      const email = await ownerEmail(app.workspace_id as string);
+      const email = ownerEmails.get(app.workspace_id as string) ?? null;
       if (!email) continue;
 
       await sendSyncFailingNudge(
@@ -212,7 +240,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
       if (await alreadySent(redis, key)) { summary.skipped++; continue; }
 
       try {
-        const email = await ownerEmail(app.workspace_id as string);
+        const email = ownerEmails.get(app.workspace_id as string) ?? null;
         if (!email) continue;
 
         await sendSpikeUnrepliedNudge(email, app.name as string, count);
