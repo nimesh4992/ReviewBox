@@ -11,6 +11,7 @@ import { useIncidents } from "@/hooks/use-incidents";
 import { TrialBanner } from "@/components/dashboard/trial-banner";
 import { UpgradeToast } from "@/components/dashboard/upgrade-toast";
 import { EmptyWorkspaceWelcome } from "@/components/dashboard/empty-workspace-welcome";
+import { GooglePlayInviteModal } from "@/components/dashboard/google-play-invite-modal";
 
 const SEVERITY_COLOR: Record<string, string> = {
   critical: "#DC2626",
@@ -75,10 +76,11 @@ export default function DashboardPage() {
   const [range, setRange] = useState<"7d" | "30d" | "90d">("30d");
   const [exporting, setExporting] = useState(false);
 
-  // Poll metrics + apps every 10s while any app is still in its first sync,
-  // so the dashboard updates without a manual refresh when reviews arrive.
-  // Stops polling automatically once last_synced_at is set on every app.
-  const hasUnsyncedApp = apps.some((a) => a.last_synced_at === null);
+  // Poll metrics + apps every 10s while any app hasn't had its first sync
+  // attempt yet. Stops as soon as last_sync_attempted_at is set — which
+  // happens at the start of every sync run, even if the Publisher API fails.
+  // After that the error banner explains what to do; no need to keep polling.
+  const hasUnsyncedApp = apps.some((a) => a.last_sync_attempted_at === null);
   useEffect(() => {
     if (!hasUnsyncedApp) return;
     const id = setInterval(() => {
@@ -164,8 +166,11 @@ export default function DashboardPage() {
     return <EmptyWorkspaceWelcome />;
   }
 
+  const hasGooglePlayApp = apps.some((a) => a.platform === "google_play");
+
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8" style={{ maxWidth: 1240, margin: "0 auto" }}>
+      <GooglePlayInviteModal hasGooglePlayApp={hasGooglePlayApp} />
       <Suspense fallback={null}>
         <UpgradeToast />
       </Suspense>

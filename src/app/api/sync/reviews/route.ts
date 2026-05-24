@@ -8,7 +8,8 @@ import {
   fetchAppStoreId,
   fetchReviews as fetchAppStoreReviews,
 } from "@/services/app-store/connect-api";
-import { enrichReview } from "@/lib/rules-engine";
+import { buildEnrichedRow } from "@/lib/review-mapper";
+import { bootstrapReviews } from "@/services/bootstrap-reviews";
 import { sendRatingSpikeAlert } from "@/lib/email/send-rating-spike-alert";
 import { notifySlack, ratingSpike as slackRatingSpike, urgentReview as slackUrgentReview } from "@/lib/slack";
 import { runAutomationRules } from "@/lib/automation-executor";
@@ -18,7 +19,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
 
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
+  if (!secret) return false;
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 
@@ -28,8 +29,9 @@ interface DbApp {
   name: string;
   platform: "google_play" | "app_store";
   store_id: string;
-  access_token: string | null;   // App Store: JSON { keyId, issuerId }
-  refresh_token: string | null;  // App Store: .p8 private key
+  access_token: string | null;        // App Store: JSON { keyId, issuerId }
+  refresh_token: string | null;       // App Store: .p8 private key
+  last_sync_attempted_at: string | null;
 }
 
 interface SyncSummary {
@@ -37,54 +39,6 @@ interface SyncSummary {
   reviewsUpserted: number;
   spikesDetected: number;
   errors: string[];
-}
-
-// ── Shared helpers ─────────────────────────────────────────────────────────────
-
-function buildEnrichedRow(
-  appId: string,
-  workspaceId: string,
-  externalId: string,
-  source: "google_play" | "app_store",
-  author: string,
-  rating: number,
-  body: string,
-  appVersion: string | null,
-  device: string | null,
-  country: string | null,
-  storeCreatedAt: string,
-  hasDevReply: boolean,
-  devReplyText: string | null,
-) {
-  const clampedRating = Math.min(5, Math.max(1, rating)) as 1 | 2 | 3 | 4 | 5;
-  const partial = {
-    rating: clampedRating,
-    text: body,
-    createdAt: storeCreatedAt,
-    replyStatus: (hasDevReply ? "replied" : "needs_reply") as AppReview["replyStatus"],
-  } as AppReview;
-  const enriched = enrichReview(partial);
-
-  return {
-    app_id:           appId,
-    workspace_id:     workspaceId,
-    external_id:      externalId,
-    source,
-    author,
-    rating:           clampedRating,
-    body,
-    app_version:      appVersion,
-    device,
-    country,
-    store_created_at: storeCreatedAt,
-    sentiment:        enriched.sentiment,
-    priority:         enriched.priority,
-    issue_tags:       enriched.issueTags,
-    escalation_state: enriched.escalationState,
-    reply_status:     hasDevReply ? "replied" : "needs_reply",
-    reply_text:       devReplyText,
-    has_ai_suggestion: false,
-  };
 }
 
 // ── Google Play sync ───────────────────────────────────────────────────────────
@@ -363,7 +317,7 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
 
   const { data: apps } = await sb
     .from("apps")
-    .select("id, workspace_id, name, platform, store_id, access_token, refresh_token")
+    .select("id, workspace_id, name, platform, store_id, access_token, refresh_token, last_sync_attempted_at")
     .eq("workspace_id", workspaceId)
     .not("store_id", "is", null)
     .not("store_id", "eq", "");
@@ -382,6 +336,23 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
 
     const reviewsBefore = summary.reviewsUpserted;
     try {
+      // First sync: fetch up to 50 public reviews before hitting the Publisher API.
+      // This gives users immediate data without needing Play Console credentials.
+      if (!app.last_sync_attempted_at) {
+        try {
+          const bootstrapRows = await bootstrapReviews(app.platform, app.id, app.workspace_id, app.store_id);
+          if (bootstrapRows.length) {
+            const sb = getServiceClient();
+            await sb.from("reviews").upsert(bootstrapRows, { onConflict: "app_id,external_id" });
+            summary.reviewsUpserted += bootstrapRows.length;
+            console.log(`[sync] bootstrap ${app.store_id}: ${bootstrapRows.length} reviews`);
+          }
+        } catch (err) {
+          // Bootstrap is best-effort — don't fail the whole sync if scraping breaks.
+          console.warn(`[sync] bootstrap failed for ${app.store_id}:`, err instanceof Error ? err.message : err);
+        }
+      }
+
       if (app.platform === "google_play")     await syncGooglePlayApp(app, summary);
       else if (app.platform === "app_store")  await syncAppStoreApp(app, summary);
 
