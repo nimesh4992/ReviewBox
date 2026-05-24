@@ -41,6 +41,7 @@ export function useReviewQueue(filters: ReviewFiltersQuery = {}) {
     hasNextPage,
     isFetchingNextPage,
     isLoading,
+    isFetching,
     isError,
   } = useInfiniteQuery({
     queryKey: ["reviews", filters] as [string, ReviewFiltersQuery],
@@ -49,6 +50,11 @@ export function useReviewQueue(filters: ReviewFiltersQuery = {}) {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage: ReviewPage) =>
       lastPage.hasMore && lastPage.nextCursor ? lastPage.nextCursor : undefined,
+    // Poll every 60s when the browser tab is visible — new reviews appear
+    // automatically without a manual refresh. Pauses when tab is hidden to
+    // avoid waking the server on idle sessions.
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
 
   // Flatten pages into a single reviews array; fall back to mock on error
@@ -59,6 +65,7 @@ export function useReviewQueue(filters: ReviewFiltersQuery = {}) {
     fetchNextPage,
     hasNextPage: hasNextPage ?? false,
     isFetchingNextPage,
+    isFetching,
     isLoading,
   };
 }

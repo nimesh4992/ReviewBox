@@ -4,7 +4,7 @@ import { InboxScreen } from "@/features/reviews/components/review-queue";
 import { useReviewQueue } from "@/hooks/use-review-queue";
 
 export default function InboxPage() {
-  const { reviews, fetchNextPage, hasNextPage, isFetchingNextPage, isLoading } =
+  const { reviews, fetchNextPage, hasNextPage, isFetchingNextPage, isFetching, isLoading } =
     useReviewQueue();
 
   return (
@@ -16,6 +16,7 @@ export default function InboxPage() {
           reviews={reviews}
           hasNextPage={hasNextPage}
           isFetchingNextPage={isFetchingNextPage}
+          isFetching={isFetching}
           fetchNextPage={fetchNextPage}
         />
       )}

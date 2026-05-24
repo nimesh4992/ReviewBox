@@ -945,6 +945,7 @@ interface InboxScreenProps {
   reviews: AppReview[];
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
+  isFetching?: boolean;
   fetchNextPage?: () => void;
 }
 
@@ -952,6 +953,7 @@ export function InboxScreen({
   reviews,
   hasNextPage = false,
   isFetchingNextPage = false,
+  isFetching = false,
   fetchNextPage,
 }: InboxScreenProps) {
   const [selectedId, setSelectedId]         = useState<string | null>(reviews[0]?.id ?? null);
@@ -1067,11 +1069,27 @@ export function InboxScreen({
         <div className="shrink-0 border-b border-[var(--rb-border-1)] px-7 pb-3.5 pt-5">
           <div className="mb-3.5 flex items-end justify-between gap-4">
             <div>
-              <div className="text-[12px] font-medium text-[var(--rb-fg-3)]">
-                {reviews.length} review{reviews.length !== 1 ? "s" : ""}
-                {sorted.length !== reviews.length && (
-                  <span className="ml-1 text-[var(--rb-blue-500)]">· {sorted.length} shown</span>
-                )}
+              <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--rb-fg-3)]">
+                <span>
+                  {reviews.length} review{reviews.length !== 1 ? "s" : ""}
+                  {sorted.length !== reviews.length && (
+                    <span className="ml-1 text-[var(--rb-blue-500)]">· {sorted.length} shown</span>
+                  )}
+                </span>
+                {/* Live-refresh indicator — pulses while polling */}
+                <span
+                  title="Auto-refreshes every 60 seconds"
+                  className={cn(
+                    "inline-flex items-center gap-1 text-[10px] font-semibold",
+                    isFetching && !isFetchingNextPage ? "text-[var(--rb-blue-500)]" : "text-[var(--rb-fg-4)]",
+                  )}
+                >
+                  <span className={cn(
+                    "size-1.5 rounded-full",
+                    isFetching && !isFetchingNextPage ? "animate-pulse bg-[var(--rb-blue-500)]" : "bg-[var(--rb-fg-4)]",
+                  )} />
+                  Live
+                </span>
               </div>
               <h1
                 className="mt-1 text-[24px] font-semibold leading-tight tracking-[-0.022em] text-[var(--rb-fg-1)]"
