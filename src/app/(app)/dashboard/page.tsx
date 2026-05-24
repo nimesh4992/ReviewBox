@@ -213,8 +213,15 @@ export default function DashboardPage() {
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <Link
-                  href="/settings"
+                  href={app.platform === "google_play" ? "/help/connect-google-play" : "/help/connect-app-store"}
+                  target="_blank"
                   className="rounded-md bg-amber-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-amber-700"
+                >
+                  Step-by-step guide
+                </Link>
+                <Link
+                  href="/settings"
+                  className="rounded-md border border-amber-300 bg-white px-3 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100"
                 >
                   Open Settings
                 </Link>
