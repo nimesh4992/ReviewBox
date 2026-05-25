@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { canAddApp } from "@/lib/plan-enforcement";
+import { apiError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
 
 export async function GET() {
   const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!userId) return apiError("UNAUTHORIZED", 401);
 
   const workspaceId = await getWorkspaceId(userId);
   if (!workspaceId) return NextResponse.json({ apps: [] });
@@ -65,15 +66,11 @@ interface CreateAppBody {
 export async function POST(request: NextRequest) {
   // 1. Auth
   const { userId, sessionClaims } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!userId) return apiError("UNAUTHORIZED", 401);
 
   // 2. Workspace lookup
   const workspaceId = await getWorkspaceId(userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "No workspace found" }, { status: 404 });
-  }
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
   // 3. Get plan from session claims (set via Clerk metadata)
   const plan = (sessionClaims?.metadata as { plan?: string } | undefined)?.plan ?? "free";
@@ -81,10 +78,7 @@ export async function POST(request: NextRequest) {
   // 4. Plan gate — check if workspace can add another app
   const allowed = await canAddApp(workspaceId, plan);
   if (!allowed) {
-    return NextResponse.json(
-      { error: "PLAN_LIMIT", message: "Upgrade to add more apps" },
-      { status: 403 },
-    );
+    return apiError("PLAN_REQUIRED", 403, "Upgrade to add more apps");
   }
 
   // 5. Parse body
@@ -92,14 +86,11 @@ export async function POST(request: NextRequest) {
   try {
     body = (await request.json()) as CreateAppBody;
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return apiError("INVALID_INPUT", 400, "Invalid JSON body");
   }
 
   if (!body.name || !body.platform) {
-    return NextResponse.json(
-      { error: "Missing required fields: name, platform" },
-      { status: 400 },
-    );
+    return apiError("INVALID_INPUT", 400, "Missing required fields: name, platform");
   }
 
   // 6. Insert into apps table
@@ -107,10 +98,7 @@ export async function POST(request: NextRequest) {
   const storeId = body.platform === "google_play" ? body.packageName : body.bundleId;
 
   if (!storeId) {
-    return NextResponse.json(
-      { error: "Missing store identifier (packageName or bundleId)" },
-      { status: 400 }
-    );
+    return apiError("INVALID_INPUT", 400, "Missing store identifier (packageName or bundleId)");
   }
 
   const { data: app, error } = await sb
@@ -125,7 +113,7 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return apiError("INTERNAL_SERVER_ERROR", 500);
   }
 
   // 7. Audit

@@ -244,6 +244,8 @@ async function executeAction(
 export async function runAutomationRules(
   workspaceId: string,
   reviews: AppReview[],
+  /** DB app UUID — pass when reviews all belong to the same app (e.g. sync). */
+  appId?: string,
 ): Promise<void> {
   if (!reviews.length) return;
 
@@ -276,10 +278,12 @@ export async function runAutomationRules(
 
   for (const review of reviews) {
     for (const rule of rules) {
-      // Scope check: rule may target "all" or specific app IDs
+      // Scope check: rule may target "all" or a list of specific app DB UUIDs.
+      // We use the appId passed by the caller (from the sync route), falling
+      // back to skipping scoped rules if appId is unknown.
       if (rule.appsScope !== "all") {
         const scopeIds = Array.isArray(rule.appsScope) ? rule.appsScope : [rule.appsScope];
-        if (!scopeIds.some((s) => review.id.startsWith(s as string))) continue;
+        if (!appId || !scopeIds.includes(appId)) continue;
       }
 
       if (evaluateRule(rule, review)) {

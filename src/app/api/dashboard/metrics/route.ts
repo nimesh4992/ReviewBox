@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { apiError } from "@/lib/api-response";
 
 export interface DashboardMetrics {
   unrepliedCount: number;
@@ -72,7 +73,7 @@ export async function GET(): Promise<NextResponse> {
     const userId = session?.userId;
 
     if (!userId) {
-      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+      return apiError("UNAUTHORIZED", 401);
     }
 
     // 2. Workspace lookup

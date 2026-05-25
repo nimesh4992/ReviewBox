@@ -110,7 +110,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     await audit({
       workspaceId: invite.workspace_id,
       actorUserId: userId,
-      action: "member.invite", // recipient side; same action namespace
+      action: "member.accept_invite",
       targetType: "member",
       targetId: userId,
       payload: { event: "accepted", inviteId: invite.id, email: me?.emailAddresses?.[0]?.emailAddress },

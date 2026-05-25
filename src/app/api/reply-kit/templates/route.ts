@@ -2,32 +2,17 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { apiError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
-
-interface CreateTemplateBody {
-  name: string;
-  content: string;
-  tags: string[];
-  ratingMin: number;
-  ratingMax: number;
-  language: string;
-}
+import { rateLimit } from "@/lib/api-rate-limit";
 
 export async function GET(): Promise<NextResponse> {
-  // 1. Auth
   const session = await auth();
-  const userId = session?.userId;
-  if (!userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  if (!session?.userId) return apiError("UNAUTHORIZED", 401);
 
-  // 2. Resolve workspace
-  const workspaceId = await getWorkspaceId(userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
-  }
+  const workspaceId = await getWorkspaceId(session.userId);
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
-  // 3. Fetch templates
   const sb = getServiceClient();
   const { data, error } = await sb
     .from("reply_templates")
@@ -35,33 +20,35 @@ export async function GET(): Promise<NextResponse> {
     .eq("workspace_id", workspaceId)
     .order("created_at", { ascending: false });
 
-  if (error) {
-    console.error("reply-kit/templates GET error:", error);
-    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
-  }
+  if (error) return apiError("INTERNAL_SERVER_ERROR", 500);
 
   return NextResponse.json({ templates: data }, { status: 200 });
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  // 1. Auth
   const session = await auth();
-  const userId = session?.userId;
-  if (!userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  if (!session?.userId) return apiError("UNAUTHORIZED", 401);
 
-  // 2. Resolve workspace
-  const workspaceId = await getWorkspaceId(userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
-  }
+  const rl = await rateLimit(req, session.userId, { bucket: "template-create", limit: 20, window: "1 h" });
+  if (!rl.allowed) return apiError("RATE_LIMITED", 429);
 
-  // 3. Parse body
-  const body = (await req.json()) as CreateTemplateBody;
-  const { name, content, tags, ratingMin, ratingMax, language } = body;
+  const workspaceId = await getWorkspaceId(session.userId);
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
-  // 4. Insert
+  const body = (await req.json()) as Record<string, unknown>;
+
+  // Validate required fields
+  const name    = typeof body.name    === "string" ? body.name.trim()    : "";
+  const content = typeof body.content === "string" ? body.content.trim() : "";
+  const tags    = Array.isArray(body.tags) ? (body.tags as unknown[]).filter((t) => typeof t === "string") as string[] : [];
+  const ratingMin = typeof body.ratingMin === "number" ? Math.max(1, Math.min(5, Math.floor(body.ratingMin))) : 1;
+  const ratingMax = typeof body.ratingMax === "number" ? Math.max(1, Math.min(5, Math.floor(body.ratingMax))) : 5;
+  const language  = typeof body.language === "string" ? body.language.slice(0, 10) : "en";
+
+  if (!name || name.length > 120)           return apiError("INVALID_INPUT", 400, "name required, max 120 chars");
+  if (!content || content.length > 5950)    return apiError("INVALID_INPUT", 400, "content required, max 5950 chars");
+  if (ratingMin > ratingMax)                return apiError("INVALID_INPUT", 400, "ratingMin must be ≤ ratingMax");
+
   const sb = getServiceClient();
   const { data, error } = await sb
     .from("reply_templates")
@@ -77,14 +64,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select("*")
     .single();
 
-  if (error) {
-    console.error("reply-kit/templates POST error:", error);
-    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
-  }
+  if (error) return apiError("INTERNAL_SERVER_ERROR", 500);
 
   await audit({
     workspaceId,
-    actorUserId: userId,
+    actorUserId: session.userId,
     action: "template.create",
     targetType: "template",
     targetId: data.id as string,
