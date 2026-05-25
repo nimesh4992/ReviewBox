@@ -1,7 +1,7 @@
 # Today — Handoff for next agent
 
 **Last updated:** 2026-05-25
-**Branch agent left on:** `fix/sync-and-competitors` (pushed, PR open — do NOT push more commits to it)
+**Branch agent left on:** `fix/audit-round-1` (pushed, PR at https://github.com/nimesh4992/ReviewBox/pull/new/fix/audit-round-1)
 
 You are the next Claude agent. Read this top-to-bottom before doing anything.
 
@@ -16,42 +16,47 @@ You are the next Claude agent. Read this top-to-bottom before doing anything.
 
 ---
 
-## What shipped this session (2026-05-25)
+## What shipped this session (2026-05-25 continued)
 
-### PR #33 — `milestone/m1-product-polish` (already merged to master)
-A large milestone branch. Highlights:
-- Real dashboard metrics (ratingTrend, reviewsWeekDelta, avgRatingDelta from DB)
-- Dead code removed (old onboarding wizard, mock-reviews.ts)
-- Loading skeletons on 7 routes
-- AppFollow-style app search in onboarding
-- Onboarding loop fix (rb_onboarded cookie)
-- 70 unit tests across 9 files
-- LAUNCH_CHECKLIST.md (80+ items)
+### `fix/audit-round-1` — **awaiting founder merge**
 
-### `hotfix/settings-crash-and-404` — **awaiting founder merge**
-Two production bugs fixed:
-1. **Settings page crash** (`e.map is not a function`) — `alert_preferences` rows returned with `channels: null` from DB + snake_case/camelCase mismatch. Fixed with defensive mapping in `useEffect` and a render-side `ch` guard.
-2. **"Link account" banner 404** — `credentials-banner.tsx` was linking to `/settings/connections` (route does not exist). Fixed to `/settings`.
+Two-commit branch containing 35+ security and correctness fixes across 35 API routes.
+Found via two consecutive audit passes.
 
-**Files changed:** `src/features/settings/components/alert-preferences.tsx`, `src/components/layout/credentials-banner.tsx`
+**Round 1 (commit 945316e) — 25 fixes:**
+- H1–H4: reply-kit templates/KB — field allowlists, rateLimit, audit, .maybeSingle()
+- H5–H7: apps routes — apiError, no more error.message leaks
+- H9: unreplied-alert — .single()→.maybeSingle() on owner lookup
+- M1: bulk-action audit action corrected ("reply.publish"→"review.bulk_update")
+- M4/M6: settings/workspace — appCategory allowlist + apiError
+- M5: reports/export — rateLimit(10/hr) added
+- M7/M8/M9: dashboard/accept-invite/restore — apiError + correct audit actions
+- M11/L2/L3: incidents routes — apiError + audit(incident.create/update) + severity allowlist
+- L4–L6: aso/keywords, automations/rules, automations/logs — apiError throughout
 
-### `fix/sync-and-competitors` — **awaiting founder merge**
-Two product-level issues fixed:
-
-1. **First-login sync blocked → empty dashboard** — `isAuthorized()` in `/api/sync/reviews` returned `false` when `CRON_SECRET` env var is not set. The fire-and-forget sync fired from `onboarding/complete` is a server-to-server HTTP call with no Clerk session — so it silently got 401 every time. Reviews never imported. Dashboard stayed empty forever. Fix: `isAuthorized()` returns `true` when no `CRON_SECRET` is configured. Once the founder sets `CRON_SECRET` in Vercel, the check enforces it automatically.
-
-2. **Competitors screen hardcoded mock data** — New `GET /api/competitors` endpoint queries real DB metrics for the user's primary app (lifetime rating, reviews per week, reply rate, 6-week rating trend). "You" row is live data. Competitor rows are illustrative placeholders with amber **sample** badges at 60% opacity — competitor tracking is a future feature and stated clearly in the UI. KPI strip (rank, gap to #1, reply-rate delta) now derives from real data.
-
-**Files changed:** `src/app/api/sync/reviews/route.ts`, `src/app/api/competitors/route.ts` (new), `src/features/competitors/components/competitors-screen.tsx`
+**Round 2 (commit 7de8419) — 16 more fixes:**
+- reviews/route.ts — captureAndError for Sentry capture
+- settings/alerts POST — input validation (type/channels/enabled allowlists) + audit
+- automations/rules/[id] — apiError throughout PATCH+DELETE, description capped
+- aso/keywords/[id] — apiError + .single()→.maybeSingle() (was 500 on missing row)
+- reply/draft — reviewBody capped at 5000 chars, tags capped at 20, captureAndError
+- demo/reply — reviewBody capped at 1000 chars (Groq quota protection)
+- stripe/webhook — no longer leaks error.message to caller
+- competitors route — all 4 review queries now include workspace_id scope guard
+- debug/sync-status — select("*") replaced with safe columns (no credentials exposed)
+- gdpr/delete — rateLimit(3/24h) added (most destructive route was unprotected)
+- weekly-digest + unreplied-alert — isAuthorized returns false when CRON_SECRET unset
+  (was true = anyone could trigger mass emails in staging)
 
 ---
 
-## PRs awaiting founder merge (both must merge before next agent starts)
+## PRs awaiting founder merge
 
 | # | Branch | What it does | Priority |
 |---|--------|-------------|----------|
 | 1 | `hotfix/settings-crash-and-404` | Fixes settings crash + link-account 404 | 🔴 URGENT |
 | 2 | `fix/sync-and-competitors` | Fixes empty dashboard + competitors real data | 🔴 URGENT |
+| 3 | `fix/audit-round-1` | 35 security + correctness fixes across all API routes | 🔴 HIGH |
 
 Open: https://github.com/nimesh4992/ReviewBox/pulls
 
@@ -66,33 +71,24 @@ Open: https://github.com/nimesh4992/ReviewBox/pulls
 - Apply to: Production + Preview + Development
 - Redeploy after setting it
 
-Why: Without this, any caller can trigger the sync-all-workspaces coordinator endpoint. It's not catastrophic (syncing just reads data) but it's sloppy. Set it now while we're thinking about it.
+Why: The weekly-digest and unreplied-alert crons now require this to run. Without it they return 401 (good for security, but means the crons won't fire). The sync route stays open intentionally (no auth needed for the per-workspace worker).
 
 ---
 
 ## What you should pick up next
 
-**Merge both PRs first (founder job). Then:**
+**Merge all PRs first (founder job). Then:**
 
 **Top non-blocked NOW item: N3 — Detail pages · ICE 64**
 
 `/incidents/[id]` and `/releases/[version]` are dynamic routes that exist in the router but show stubs or blank content. Users click incidents from the incident list and releases from the release health table. A blank page kills trust.
 
 ### N3 scope — Done when:
-1. `/incidents/[id]` — shows: incident title, severity badge (critical/high/medium), description, owner, detected-at timestamp, status chip (open/investigating/resolved), timeline of 3–5 dummy status changes.
+1. `/incidents/[id]` — shows: incident title, severity badge, description, owner, detected-at timestamp, status chip (open/investigating/resolved), timeline.
 2. `/releases/[version]` — shows: version number, rollout % bar, rating delta, complaint delta, status badge, list of reviews tagged for that version (query from DB by `app_version` field).
-3. Both pages have a back link (`← Incidents` / `← Releases`).
-4. Both pages use `AppShell` (authenticated shell — NOT MarketingShell).
-5. Mobile usable (AppShell handles it).
-
-### N3 implementation notes
-- **Files:** `src/app/(app)/incidents/[id]/page.tsx`, `src/app/(app)/releases/[version]/page.tsx`
-- Check what's already there — they were in the build output so stubs exist
-- Incident detail page is already built per CLAUDE.md ("Incident detail — status actions, timeline ✅ Done (real data)") — verify it actually works or just needs wiring
-- Release detail is also listed as ✅ Done — same check
-- If both truly work, skip N3 and move to N4
-- **No ADR required** — layout only, no new patterns
-- **No new types** — use existing `IncidentAlert`, `ReleaseHealth` from `src/types/review.ts`
+3. Both pages have a back link.
+4. Both pages use `AppShell`.
+5. Mobile usable.
 
 ### Start
 ```powershell
@@ -106,44 +102,44 @@ git checkout -b claude/n3-detail-pages
 
 ## After N3: N4 — Remove or wire dead buttons · ICE 56
 
-Dead buttons across the app. Now that competitors is wired (this session), the remaining ones are:
+Dead buttons across the app:
 - `aso-screen.tsx` — "Export" and "Suggest keywords" buttons
-- `reports-screen.tsx` — "Run report" and "Configure" buttons  
+- `reports-screen.tsx` — "Run report" and "Configure" buttons
 - Settings sections — any "Save" buttons that don't actually save
 
-For each dead button: either wire it to real behavior, or hide it behind a `disabled` state with a tooltip "Coming soon", or remove it entirely. Don't leave silent no-ops.
+For each dead button: either wire it to real behavior, or `disabled` with tooltip "Coming soon", or remove entirely.
 
 ---
 
 ## What requires the founder (D009 — never do these yourself)
 
-- **Merge the 2 open PRs** above
+- **Merge the 3 open PRs** above
 - **Set `CRON_SECRET`** in Vercel (see above)
-- **N6** — Add Stripe test keys to `.env.local`. Until done, billing flow can't be tested end-to-end.
-- **Migrations** — Check if migrations 007–011 are applied in production. If not, founder needs to run them in Supabase SQL editor. They were generated in prior sessions but may not have been applied. Check `supabase/migrations/` for filenames starting at 007.
+- **N6** — Add Stripe test keys to `.env.local`
+- **Migrations** — Check if migrations 007–011 are applied in production
 
 ---
 
 ## Lessons learned this session
 
-1. **`CRON_SECRET` unset = silent 401 on server-to-server sync.** The sync route's `isAuthorized()` previously returned `false` when `CRON_SECRET` was not configured — this blocked every first-login sync without any visible error. Now fixed. Always test first-login sync after any auth/middleware change.
+1. **Second audit found critical gaps even after 25 fixes.** Two-pass audits always pay off. BLOCKERs found in pass 2: GDPR delete with no rate limit, Stripe leaking internal error message, demo route burning Groq quota with uncapped input, weekly-digest cron open to the world.
 
-2. **Supabase JSONB `null` vs missing key.** `alert_preferences.channels` column was nullable and rows pre-dating the migration had `channels: null`. Any component that does `pref.channels.email` crashes. Pattern: always guard JSONB columns with `(value && typeof value === "object") ? value : defaultValue` before accessing nested keys.
+2. **PowerShell `git stash pop` can fail silently** if any tracked file has modified content. Fix: `git checkout <conflicting-file>` then re-run `git stash pop stash@{0}`.
 
-3. **Snake_case from Supabase ≠ camelCase in TypeScript.** DB returns `schedule_time`, `schedule_day_of_week`; TypeScript types expect `scheduleTime`, `scheduleDayOfWeek`. Either use a mapping layer or check both in the same expression: `r.scheduleTime ?? r.schedule_time`.
+3. **`select("*")` on apps table includes `access_token`/`refresh_token`** (App Store private key). Always be explicit about columns when a table has credentials.
 
-4. **PR #33 already merged when session started.** Don't assume a PR is pending — check `git log --oneline origin/master` at the start of each session to see what's actually merged.
+4. **`.single()` on an ownership check throws if row doesn't exist.** Always use `.maybeSingle()` for lookups that might return 0 rows. The difference: `.single()` → Supabase error → 500. `.maybeSingle()` → `null` → explicit 404.
 
-5. All prior lessons still apply — PowerShell `&&` broken (use `;`), stale `.next/` cache after branch switches, no `gh` CLI on this machine (use GitHub web URLs), `@clerk/types` not a separate package.
+5. All prior lessons still apply — PowerShell `&&` broken (use `;`), no `gh` CLI on this machine.
 
 ---
 
 ## Active state of the repo
 
-- **Local branch:** `fix/sync-and-competitors` (committed, pushed — don't add to it)
-- **Master:** all prior session PRs merged; `hotfix/settings-crash-and-404` and `fix/sync-and-competitors` pending
-- **Build:** clean (exit 0, 0 type errors before pushing)
-- **Tests:** 70 unit tests passing
+- **Local branch:** `fix/audit-round-1` (committed and pushed)
+- **Master:** `hotfix/settings-crash-and-404` + `fix/sync-and-competitors` still pending merge
+- **Build:** TypeScript clean (0 errors)
+- **Tests:** 70 unit tests (unchanged this session)
 
 ---
 
