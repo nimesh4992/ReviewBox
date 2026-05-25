@@ -10,6 +10,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { Redis } from "@upstash/redis";
 import { getBrandVoiceStub } from "@/lib/brand-voice-stubs";
+import { audit } from "@/lib/audit";
+
+const SLACK_URL_PREFIX = "https://hooks.slack.com/";
+const SLACK_URL_MAX    = 500;
 
 // Invalidate persona cache on save so next draft picks up changes immediately
 async function bustPersonaCache(workspaceId: string) {
@@ -77,9 +81,23 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   if (typeof body.brandVoice   === "string") updates.brand_voice   = body.brandVoice.slice(0, 500).trim();
   if (typeof body.defaultTone  === "string") updates.default_tone  = body.defaultTone;
   if ("slackWebhookUrl" in body) {
-    updates.slack_webhook_url = body.slackWebhookUrl
-      ? body.slackWebhookUrl.trim()
-      : null;
+    const raw = body.slackWebhookUrl;
+    if (raw !== null && raw !== undefined) {
+      const trimmed = raw.trim();
+      if (trimmed !== "") {
+        if (!trimmed.startsWith(SLACK_URL_PREFIX) || trimmed.length > SLACK_URL_MAX) {
+          return NextResponse.json(
+            { error: "INVALID_INPUT", message: `slackWebhookUrl must start with ${SLACK_URL_PREFIX} and be ≤${SLACK_URL_MAX} chars` },
+            { status: 400 },
+          );
+        }
+        updates.slack_webhook_url = trimmed;
+      } else {
+        updates.slack_webhook_url = null;
+      }
+    } else {
+      updates.slack_webhook_url = null;
+    }
   }
 
   if (typeof body.appCategory === "string") {
@@ -111,6 +129,17 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   }
 
   await bustPersonaCache(workspaceId);
+
+  // Audit Slack connect / disconnect
+  if ("slack_webhook_url" in updates) {
+    await audit({
+      workspaceId,
+      actorUserId: session.userId,
+      action: updates.slack_webhook_url ? "slack.connect" : "slack.disconnect",
+      targetType: "workspace",
+      targetId: workspaceId,
+    });
+  }
 
   return NextResponse.json({ ok: true });
 }

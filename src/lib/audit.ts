@@ -36,7 +36,10 @@ export type AuditAction =
   | "billing.payment_failed"
   // GDPR
   | "gdpr.export"
-  | "gdpr.delete";
+  | "gdpr.delete"
+  // Slack
+  | "slack.connect"
+  | "slack.disconnect";
 
 export type AuditTargetType = "review" | "rule" | "template" | "kb" | "app" | "workspace" | "member" | "subscription";
 

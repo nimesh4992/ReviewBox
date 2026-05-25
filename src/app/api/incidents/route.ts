@@ -7,6 +7,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { notifySlack, newIncident as slackIncident } from "@/lib/slack";
+import { rateLimit } from "@/lib/api-rate-limit";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
 
@@ -36,6 +37,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   const workspaceId = await getWorkspaceId(session.userId);
   if (!workspaceId) return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
+
+  const rl = await rateLimit(req, workspaceId, { bucket: "incidents_create", limit: 10, window: "1 m" });
+  if (!rl.allowed) return NextResponse.json({ error: "RATE_LIMITED" }, { status: 429 });
 
   const body = (await req.json()) as {
     title:        string;
