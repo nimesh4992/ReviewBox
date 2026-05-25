@@ -1,8 +1,30 @@
 "use client";
 
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
-import { useWorkspaceStore } from "@/store/use-workspace-store";
+
+interface CompetitorRow {
+  name: string;
+  rating: number;
+  reviewsPerWeek: number;
+  replyRate: number;
+  trend: number[];
+  you: boolean;
+  illustrative: boolean;
+}
+
+interface CompetitorsResponse {
+  yourApp: CompetitorRow;
+  competitors: CompetitorRow[];
+  hasRealData: boolean;
+}
+
+async function fetchCompetitors(): Promise<CompetitorsResponse> {
+  const res = await fetch("/api/competitors");
+  if (!res.ok) throw new Error("Failed to fetch competitors");
+  return res.json() as Promise<CompetitorsResponse>;
+}
 
 function MetricCard({
   label,
@@ -54,20 +76,54 @@ function MiniSparkline({ values, positive = true }: { values: number[]; positive
   );
 }
 
-const COMPETITORS_BASE = [
-  { name: "",               rating: 4.6, reviews: 312, replyRate: 72, trend: [4.2, 4.3, 4.4, 4.5, 4.6, 4.6], you: true  },
-  { name: "FinanceFlow",    rating: 4.8, reviews: 520, replyRate: 61, trend: [4.5, 4.6, 4.7, 4.7, 4.8, 4.8], you: false },
-  { name: "MoneyTree",      rating: 4.5, reviews: 289, replyRate: 48, trend: [4.6, 4.5, 4.5, 4.4, 4.5, 4.5], you: false },
-  { name: "SpendSmart",     rating: 4.3, reviews: 198, replyRate: 35, trend: [4.4, 4.3, 4.2, 4.3, 4.3, 4.3], you: false },
-  { name: "BudgetPal",      rating: 4.1, reviews: 143, replyRate: 22, trend: [4.2, 4.1, 4.0, 4.1, 4.1, 4.1], you: false },
-];
+function RatingKpi({ yourApp, competitors }: { yourApp: CompetitorRow; competitors: CompetitorRow[] }) {
+  if (!yourApp.rating) return null;
+
+  const all = [yourApp, ...competitors];
+  const sorted = [...all].sort((a, b) => b.rating - a.rating);
+  const yourRank = sorted.findIndex((c) => c.you) + 1;
+  const top = sorted[0];
+  const gap = top.you ? null : Math.round((top.rating - yourApp.rating) * 10) / 10;
+  const avgReplyRate = Math.round(
+    competitors.reduce((s, c) => s + c.replyRate, 0) / (competitors.length || 1),
+  );
+  const replyDiff = yourApp.replyRate - avgReplyRate;
+
+  return (
+    <section className="grid grid-cols-3 gap-3">
+      <MetricCard
+        label="Your rank"
+        value={`#${yourRank}`}
+        sub={`of ${all.length} tracked`}
+      />
+      <MetricCard
+        label={gap ? "Gap to #1" : "You're #1"}
+        value={gap ? `${gap}★` : "🏆"}
+        positive={!gap}
+        sub={gap ? `vs ${top.name}` : "Keep it up"}
+      />
+      <MetricCard
+        label="Reply rate vs avg"
+        value={`${replyDiff >= 0 ? "+" : ""}${replyDiff}%`}
+        positive={replyDiff >= 0}
+        sub={`${yourApp.replyRate}% vs ${avgReplyRate}% avg`}
+      />
+    </section>
+  );
+}
 
 export function CompetitorsScreen() {
   const [range, setRange] = useState<"7d" | "30d" | "90d">("30d");
-  const selectedApp = useWorkspaceStore((s) => s.selectedApp);
-  const COMPETITORS = COMPETITORS_BASE.map((c) =>
-    c.you ? { ...c, name: selectedApp || "Your app" } : c,
-  );
+
+  const { data, isLoading } = useQuery<CompetitorsResponse>({
+    queryKey: ["competitors"],
+    queryFn: fetchCompetitors,
+    staleTime: 5 * 60_000,
+  });
+
+  const yourApp = data?.yourApp;
+  const competitors = data?.competitors ?? [];
+  const rows: CompetitorRow[] = yourApp ? [yourApp, ...competitors] : competitors;
 
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8 max-w-[1240px] mx-auto">
@@ -75,7 +131,9 @@ export function CompetitorsScreen() {
       {/* Header */}
       <header className="flex items-end justify-between gap-6">
         <div>
-          <div className="text-[12px] font-medium text-fg-3">{selectedApp || "All apps"}</div>
+          <div className="text-[12px] font-medium text-fg-3">
+            {yourApp?.name ?? "All apps"}
+          </div>
           <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.022em] text-fg-1">
             Competitors
           </h1>
@@ -98,19 +156,21 @@ export function CompetitorsScreen() {
         </div>
       </header>
 
-      {/* KPI strip */}
-      <section className="grid grid-cols-3 gap-3">
-        <MetricCard label="Your rank"            value="#2"   delta="▲1"   positive sub="in Finance · iOS" />
-        <MetricCard label="Gap to #1"            value="0.2★" delta="-0.1" positive sub="vs FinanceFlow" />
-        <MetricCard label="Reply rate vs avg"    value="+24%" delta="+3pp" positive sub="72% vs 48% avg" />
-      </section>
+      {/* KPI strip — only when we have real data */}
+      {yourApp && !isLoading && (
+        <RatingKpi yourApp={yourApp} competitors={competitors} />
+      )}
 
       {/* Benchmark table */}
       <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">
         <div className="flex items-center border-b border-[var(--rb-border-1)] px-5 py-4">
           <div>
-            <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">Competitive benchmark</div>
-            <div className="mt-0.5 text-[12px] text-fg-3">Finance · iOS · last {range}</div>
+            <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">
+              Competitive benchmark
+            </div>
+            <div className="mt-0.5 text-[12px] text-fg-3">
+              last {range}
+            </div>
           </div>
           <span
             title="Competitor tracking coming soon — you'll be able to add any app by store URL"
@@ -119,60 +179,95 @@ export function CompetitorsScreen() {
             Add competitor · coming soon
           </span>
         </div>
-        <table className="w-full border-collapse">
-          <thead>
-            <tr>
-              {["App", "Rating", "Reviews / week", "Reply rate", "30-day trend"].map((h) => (
-                <th
-                  key={h}
-                  className="border-b border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-fg-3"
-                >
-                  {h}
-                </th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {COMPETITORS.map((c, i) => (
-              <tr key={c.name} className={cn("transition-colors hover:bg-[var(--rb-bg-hover)]", c.you && "bg-[#0A84FF]/[0.04]")}>
-                <td className={cn("px-5 py-3", i < COMPETITORS.length - 1 && "border-b border-[var(--rb-border-1)]")}>
-                  <div className="flex items-center gap-2.5">
-                    <div className={cn(
-                      "flex size-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold text-white",
-                      c.you ? "bg-gradient-to-br from-[#4592FF] to-[#0058B3]" : "bg-[var(--rb-bg-raised)]",
-                    )}>
-                      <span className={c.you ? "text-white" : "text-fg-2"}>{c.name[0]}</span>
-                    </div>
-                    <span className={cn("text-[13px] font-semibold", c.you ? "text-fg-1" : "text-fg-2")}>
-                      {c.name}
-                      {c.you && <span className="ml-1.5 rounded-full bg-[#0A84FF]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#0A84FF]">You</span>}
-                    </span>
-                  </div>
-                </td>
-                <td className={cn("px-5 py-3 tabular-nums text-[13px] font-semibold text-fg-1", i < COMPETITORS.length - 1 && "border-b border-[var(--rb-border-1)]")}>
-                  {"★".repeat(1)} {c.rating.toFixed(1)}
-                </td>
-                <td className={cn("px-5 py-3 tabular-nums text-[13px] text-fg-2", i < COMPETITORS.length - 1 && "border-b border-[var(--rb-border-1)]")}>
-                  {c.reviews}
-                </td>
-                <td className={cn("px-5 py-3", i < COMPETITORS.length - 1 && "border-b border-[var(--rb-border-1)]")}>
-                  <div className="flex items-center gap-2.5">
-                    <div className="h-1.5 w-[80px] overflow-hidden rounded-full bg-[var(--rb-bg-sunken)]">
-                      <div
-                        className={cn("h-full rounded-full", c.replyRate >= 60 ? "bg-[#1F8A5B]" : c.replyRate >= 40 ? "bg-amber-400" : "bg-[#DC2626]")}
-                        style={{ width: `${c.replyRate}%` }}
-                      />
-                    </div>
-                    <span className="tabular-nums text-[12px] text-fg-3">{c.replyRate}%</span>
-                  </div>
-                </td>
-                <td className={cn("px-5 py-3", i < COMPETITORS.length - 1 && "border-b border-[var(--rb-border-1)]")}>
-                  <MiniSparkline values={c.trend} positive={c.trend[c.trend.length - 1] >= c.trend[0]} />
-                </td>
+
+        {/* Illustrative data notice */}
+        {competitors.some((c) => c.illustrative) && (
+          <div className="border-b border-[var(--rb-border-1)] bg-amber-50 px-5 py-2.5 text-[12px] text-amber-700 dark:bg-amber-950/20 dark:text-amber-300">
+            Competitor rows are illustrative placeholders — your real data is in the <strong>You</strong> row.
+            Actual competitor tracking lands in a future update.
+          </div>
+        )}
+
+        {isLoading ? (
+          <div className="px-5 py-8 text-center text-[13px] text-fg-3">Loading…</div>
+        ) : (
+          <table className="w-full border-collapse">
+            <thead>
+              <tr>
+                {["App", "Rating", "Reviews / week", "Reply rate", "6-week trend"].map((h) => (
+                  <th
+                    key={h}
+                    className="border-b border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-5 py-2.5 text-left text-[11px] font-semibold uppercase tracking-[0.04em] text-fg-3"
+                  >
+                    {h}
+                  </th>
+                ))}
               </tr>
-            ))}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {rows.map((c, i) => (
+                <tr
+                  key={c.name}
+                  className={cn(
+                    "transition-colors hover:bg-[var(--rb-bg-hover)]",
+                    c.you && "bg-[#0A84FF]/[0.04]",
+                    c.illustrative && "opacity-60",
+                  )}
+                >
+                  <td className={cn("px-5 py-3", i < rows.length - 1 && "border-b border-[var(--rb-border-1)]")}>
+                    <div className="flex items-center gap-2.5">
+                      <div className={cn(
+                        "flex size-7 shrink-0 items-center justify-center rounded-lg text-[11px] font-bold text-white",
+                        c.you ? "bg-gradient-to-br from-[#4592FF] to-[#0058B3]" : "bg-[var(--rb-bg-raised)]",
+                      )}>
+                        <span className={c.you ? "text-white" : "text-fg-2"}>{c.name[0]}</span>
+                      </div>
+                      <span className={cn("text-[13px] font-semibold", c.you ? "text-fg-1" : "text-fg-2")}>
+                        {c.name}
+                        {c.you && (
+                          <span className="ml-1.5 rounded-full bg-[#0A84FF]/10 px-1.5 py-0.5 text-[10px] font-semibold text-[#0A84FF]">
+                            You
+                          </span>
+                        )}
+                        {c.illustrative && (
+                          <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-medium text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">
+                            sample
+                          </span>
+                        )}
+                      </span>
+                    </div>
+                  </td>
+                  <td className={cn("px-5 py-3 tabular-nums text-[13px] font-semibold text-fg-1", i < rows.length - 1 && "border-b border-[var(--rb-border-1)]")}>
+                    {c.rating ? `★ ${c.rating.toFixed(1)}` : "—"}
+                  </td>
+                  <td className={cn("px-5 py-3 tabular-nums text-[13px] text-fg-2", i < rows.length - 1 && "border-b border-[var(--rb-border-1)]")}>
+                    {c.reviewsPerWeek}
+                  </td>
+                  <td className={cn("px-5 py-3", i < rows.length - 1 && "border-b border-[var(--rb-border-1)]")}>
+                    <div className="flex items-center gap-2.5">
+                      <div className="h-1.5 w-[80px] overflow-hidden rounded-full bg-[var(--rb-bg-sunken)]">
+                        <div
+                          className={cn(
+                            "h-full rounded-full",
+                            c.replyRate >= 60 ? "bg-[#1F8A5B]" : c.replyRate >= 40 ? "bg-amber-400" : "bg-[#DC2626]",
+                          )}
+                          style={{ width: `${c.replyRate}%` }}
+                        />
+                      </div>
+                      <span className="tabular-nums text-[12px] text-fg-3">{c.replyRate}%</span>
+                    </div>
+                  </td>
+                  <td className={cn("px-5 py-3", i < rows.length - 1 && "border-b border-[var(--rb-border-1)]")}>
+                    <MiniSparkline
+                      values={c.trend}
+                      positive={c.trend[c.trend.length - 1] >= c.trend[0]}
+                    />
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        )}
       </div>
     </div>
   );
