@@ -1,8 +1,8 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertOctagon, Download, Loader2 } from "lucide-react";
+import { AlertOctagon, Bot, Download, Loader2 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
@@ -76,6 +76,8 @@ export default function DashboardPage() {
   const { data: incidents } = useIncidents();
   const [range, setRange] = useState<"7d" | "30d" | "90d">("30d");
   const [exporting, setExporting] = useState(false);
+  // null = not yet checked, true = enriching, false = done
+  const [aiEnriching, setAiEnriching] = useState<boolean | null>(null);
 
   // Poll metrics + apps every 10s while any app hasn't had its first sync
   // attempt yet. Stops as soon as last_sync_attempted_at is set — which
@@ -90,6 +92,37 @@ export default function DashboardPage() {
     }, 10_000);
     return () => clearInterval(id);
   }, [hasUnsyncedApp, refetchMetrics, refetchApps]);
+
+  // After first sync completes (reviews exist, last_synced_at set) check whether
+  // the Gemini enrichment has finished by polling the KB entry count.
+  // Shows an "AI preparing insights…" banner until KB is non-empty.
+  const firstSyncDone = apps.some((a) => a.last_synced_at !== null);
+  const totalReviews  = metrics?.totalReviews ?? 0;
+
+  const checkEnrichment = useCallback(async () => {
+    try {
+      const res = await fetch("/api/reply-kit/knowledge-base");
+      if (!res.ok) return;
+      const data = (await res.json()) as { entries?: unknown[] };
+      const hasEntries = Array.isArray(data.entries) && data.entries.length > 0;
+      setAiEnriching(!hasEntries);
+    } catch {
+      setAiEnriching(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    // Only kick off enrichment check after first sync has reviews
+    if (!firstSyncDone || totalReviews === 0) return;
+    void checkEnrichment();
+  }, [firstSyncDone, totalReviews, checkEnrichment]);
+
+  useEffect(() => {
+    if (!aiEnriching) return;
+    // Poll every 8s until KB entries appear (Gemini usually takes 3-6s)
+    const id = setInterval(() => void checkEnrichment(), 8_000);
+    return () => clearInterval(id);
+  }, [aiEnriching, checkEnrichment]);
 
   async function handleExport() {
     setExporting(true);
@@ -245,6 +278,22 @@ export default function DashboardPage() {
           </div>
         );
       })}
+
+      {/* AI enrichment banner — shows after first sync while Gemini generates KB + templates */}
+      {aiEnriching === true && (
+        <div className="flex items-start gap-3 rounded-xl border border-[#5B5BD6]/20 bg-[#5B5BD6]/[0.04] px-4 py-3">
+          <Bot className="mt-0.5 size-4 shrink-0 animate-pulse text-[#5B5BD6]" strokeWidth={2} />
+          <div className="flex-1">
+            <div className="text-[13px] font-semibold text-[#1D1D1F]">
+              AI is preparing your workspace…
+            </div>
+            <div className="mt-0.5 text-[11px] text-[#86868B]">
+              Gemini is reading your reviews and generating your Knowledge Base and reply templates. This takes about 10 seconds.
+            </div>
+          </div>
+          <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-[#5B5BD6]" strokeWidth={2} />
+        </div>
+      )}
 
       {/* Page header */}
       <header className="flex items-end justify-between gap-6">

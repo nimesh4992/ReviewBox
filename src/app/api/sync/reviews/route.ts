@@ -13,6 +13,10 @@ import { bootstrapReviews } from "@/services/bootstrap-reviews";
 import { sendRatingSpikeAlert } from "@/lib/email/send-rating-spike-alert";
 import { notifyRatingSpike, notifyUrgentReview } from "@/lib/slack";
 import { runAutomationRules } from "@/lib/automation-executor";
+import {
+  generateKbEntriesFromReviews,
+  generateTemplatesFromReviews,
+} from "@/lib/gemini";
 import type { AppReview } from "@/types/review";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
@@ -341,6 +345,7 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
     try {
       // First sync: fetch up to 50 public reviews before hitting the Publisher API.
       // This gives users immediate data without needing Play Console credentials.
+      // After bootstrap, fire Gemini enrichment (KB entries + reply templates).
       if (!app.last_sync_attempted_at) {
         try {
           const bootstrapRows = await bootstrapReviews(app.platform, app.id, app.workspace_id, app.store_id);
@@ -349,6 +354,17 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
             await sb.from("reviews").upsert(bootstrapRows, { onConflict: "app_id,external_id" });
             summary.reviewsUpserted += bootstrapRows.length;
             console.log(`[sync] bootstrap ${app.store_id}: ${bootstrapRows.length} reviews`);
+
+            // Kick off Gemini enrichment — fire-and-forget so it doesn't delay
+            // the sync response. Generates KB entries and reply templates from
+            // the bootstrapped reviews. Only runs on first sync per app.
+            enrichOnboarding(
+              app.workspace_id,
+              app.name,
+              bootstrapRows.map((r) => ({ text: r.body ?? "", rating: r.rating })),
+            ).catch((err) =>
+              console.warn("[sync] enrich:", err instanceof Error ? err.message : err),
+            );
           }
         } catch (err) {
           // Bootstrap is best-effort — don't fail the whole sync if scraping breaks.
@@ -385,6 +401,80 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
   }
 
   return summary;
+}
+
+// ── Gemini onboarding enrichment ───────────────────────────────────────────────
+//
+// Runs once per workspace on first bootstrap. Generates:
+//   1. KB entries — distilled knowledge from the first 40 reviews
+//   2. Reply templates — 5 app-specific templates from common patterns
+//
+// Both are idempotent: we check existing counts before inserting so a retry
+// or duplicate trigger doesn't create duplicate content.
+
+async function enrichOnboarding(
+  workspaceId: string,
+  appName: string,
+  reviews: Array<{ text: string; rating: number }>,
+): Promise<void> {
+  if (reviews.length === 0) return;
+  const sb = getServiceClient();
+
+  // ── KB entries ──────────────────────────────────────────────────────────────
+  // Skip if the workspace already has KB content (idempotency guard).
+  const { count: kbCount } = await sb
+    .from("knowledge_base")
+    .select("id", { count: "exact", head: true })
+    .eq("workspace_id", workspaceId);
+
+  if ((kbCount ?? 0) === 0) {
+    try {
+      const entries = await generateKbEntriesFromReviews(reviews, appName);
+      if (entries.length) {
+        await sb.from("knowledge_base").insert(
+          entries.map((e) => ({
+            workspace_id: workspaceId,
+            title:        e.title,
+            content:      e.content,
+            category:     e.category ?? "general",
+          })),
+        );
+        console.log(`[enrich] ${workspaceId}: inserted ${entries.length} KB entries`);
+      }
+    } catch (err) {
+      console.warn("[enrich] KB generation failed:", err instanceof Error ? err.message : err);
+    }
+  }
+
+  // ── Reply templates ─────────────────────────────────────────────────────────
+  // Only generate if the workspace has ≤5 templates (just the starter set).
+  // Gemini adds 5 app-specific ones on top of the generic starters.
+  const { count: templateCount } = await sb
+    .from("reply_templates")
+    .select("id", { count: "exact", head: true })
+    .eq("workspace_id", workspaceId);
+
+  if ((templateCount ?? 0) <= 5) {
+    try {
+      const templates = await generateTemplatesFromReviews(reviews, appName);
+      if (templates.length) {
+        await sb.from("reply_templates").insert(
+          templates.map((t) => ({
+            workspace_id: workspaceId,
+            name:         t.name,
+            content:      t.content,
+            tags:         t.tags,
+            rating_min:   t.ratingMin,
+            rating_max:   t.ratingMax,
+            usage_count:  0,
+          })),
+        );
+        console.log(`[enrich] ${workspaceId}: inserted ${templates.length} templates`);
+      }
+    } catch (err) {
+      console.warn("[enrich] template generation failed:", err instanceof Error ? err.message : err);
+    }
+  }
 }
 
 // ── Main handler: coordinator | worker ─────────────────────────────────────────
