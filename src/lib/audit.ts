@@ -44,6 +44,8 @@ export type AuditAction =
   // GDPR
   | "gdpr.export"
   | "gdpr.delete"
+  // Alerts
+  | "alerts.update"
   // Slack
   | "slack.connect"
   | "slack.disconnect";

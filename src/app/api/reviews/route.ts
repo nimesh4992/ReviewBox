@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { apiError, captureAndError } from "@/lib/api-response";
 import type { AppReview } from "@/types/review";
 
 const DEFAULT_LIMIT = 20;
@@ -56,9 +57,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   try {
     const session = await auth();
     const userId = session?.userId;
-    if (!userId) {
-      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-    }
+    if (!userId) return apiError("UNAUTHORIZED", 401);
 
     const { searchParams } = req.nextUrl;
     const limitParam = parseInt(searchParams.get("limit") ?? String(DEFAULT_LIMIT), 10);
@@ -98,10 +97,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     const { data, error } = await query;
 
-    if (error) {
-      console.error("[GET /api/reviews]", error);
-      return NextResponse.json({ error: "QUERY_FAILED" }, { status: 500 });
-    }
+    if (error) return captureAndError(error, "GET /api/reviews");
 
     const rows = (data ?? []) as DbReview[];
     const hasMore = rows.length > limit;
@@ -111,7 +107,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ reviews, nextCursor, hasMore });
   } catch (err) {
-    console.error("[GET /api/reviews] unexpected:", err);
-    return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
+    return captureAndError(err, "GET /api/reviews");
   }
 }

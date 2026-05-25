@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { generateReply } from "@/lib/groq";
 import { generateReplyWithGemini } from "@/lib/gemini";
 import { checkAiRateLimit } from "@/lib/rate-limit";
+import { apiError, captureAndError } from "@/lib/api-response";
 import { getMatchedTemplate } from "@/lib/templates";
 import { getCachedReply, setCachedReply } from "@/lib/reply-cache";
 import { compressReviewText, buildSystemPrompt } from "@/lib/prompt-utils";
@@ -127,24 +128,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // ── Auth ──────────────────────────────────────────────────────────────
     const session = await auth();
     const userId  = session?.userId;
-    if (!userId) {
-      return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-    }
+    if (!userId) return apiError("UNAUTHORIZED", 401);
 
     // ── Plan + rate limit ─────────────────────────────────────────────────
     const plan =
       (session.sessionClaims?.metadata as Record<string, string> | undefined)
         ?.plan ?? "free";
     const { allowed } = await checkAiRateLimit(userId, plan);
-    if (!allowed) {
-      return NextResponse.json({ error: "LIMIT_REACHED", remaining: 0 }, { status: 429 });
-    }
+    if (!allowed) return apiError("RATE_LIMITED", 429, "AI draft limit reached for your plan");
 
     // ── Parse body ─────────────────────────────────────────────────────────
     const body        = (await req.json()) as DraftRequestBody;
     const { reviewId, reviewBody, rating, tags, charLimit } = body;
+
+    // Cap reviewBody to prevent quota abuse — reviews beyond this length don't improve quality
+    if (!reviewBody || reviewBody.length > 5000) {
+      return apiError("INVALID_INPUT", 400, "reviewBody required, max 5000 chars");
+    }
+    // Cap tags array
+    const safeTags = Array.isArray(tags) ? tags.slice(0, 20) : [];
     const tone        = normaliseTone(body.tone);
-    const review      = buildReview(body);
+    const review      = buildReview({ ...body, tags: safeTags });
 
     // ── Workspace context ──────────────────────────────────────────────────
     const workspaceId = await getWorkspaceId(userId);
@@ -296,7 +300,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ source: "composer" as ReplySource, reply }, { status: 200 });
 
   } catch (err) {
-    console.error("Unexpected error in /api/reply/draft:", err);
-    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
+    return captureAndError(err, "POST /api/reply/draft");
   }
 }

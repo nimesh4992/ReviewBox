@@ -2,23 +2,27 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
-import type { AlertPreference } from "@/types/review";
+import { apiError } from "@/lib/api-response";
+import { audit } from "@/lib/audit";
+import type { AlertPreference, AlertType } from "@/types/review";
+
+const VALID_ALERT_TYPES: AlertType[] = [
+  "urgent_review",
+  "critical_spike",
+  "daily_digest",
+  "weekly_digest",
+  "monthly_report",
+];
+const LABEL_MAX = 100;
+const DESC_MAX  = 300;
 
 export async function GET(): Promise<NextResponse> {
-  // 1. Auth
   const session = await auth();
-  const userId = session?.userId;
-  if (!userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  if (!session?.userId) return apiError("UNAUTHORIZED", 401);
 
-  // 2. Resolve workspace
-  const workspaceId = await getWorkspaceId(userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
-  }
+  const workspaceId = await getWorkspaceId(session.userId);
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
-  // 3. Fetch alert preferences
   const sb = getServiceClient();
   const { data, error } = await sb
     .from("alert_preferences")
@@ -28,51 +32,77 @@ export async function GET(): Promise<NextResponse> {
 
   if (error) {
     console.error("settings/alerts GET error:", error);
-    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
+    return apiError("INTERNAL_SERVER_ERROR", 500);
   }
 
   return NextResponse.json({ preferences: data ?? [] }, { status: 200 });
 }
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
-  // 1. Auth
   const session = await auth();
-  const userId = session?.userId;
-  if (!userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+  if (!session?.userId) return apiError("UNAUTHORIZED", 401);
+
+  const workspaceId = await getWorkspaceId(session.userId);
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
+
+  let raw: unknown;
+  try {
+    raw = await req.json();
+  } catch {
+    return apiError("INVALID_INPUT", 400, "Invalid JSON body");
   }
 
-  // 2. Resolve workspace
-  const workspaceId = await getWorkspaceId(userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
+  if (!Array.isArray(raw)) {
+    return apiError("INVALID_INPUT", 400, "Body must be an array of alert preferences");
   }
 
-  // 3. Parse body
-  const preferences = (await req.json()) as AlertPreference[];
+  // Validate and sanitize each preference
+  const rows: Record<string, unknown>[] = [];
+  for (const item of raw as AlertPreference[]) {
+    if (!VALID_ALERT_TYPES.includes(item.type)) {
+      return apiError("INVALID_INPUT", 400, `invalid alert type: ${item.type}`);
+    }
+    if (typeof item.enabled !== "boolean") {
+      return apiError("INVALID_INPUT", 400, "enabled must be a boolean");
+    }
+    const channels = item.channels;
+    if (typeof channels !== "object" || channels === null ||
+        typeof channels.email !== "boolean" || typeof channels.slack !== "boolean") {
+      return apiError("INVALID_INPUT", 400, "channels must be { email: boolean, slack: boolean }");
+    }
 
-  // 4. Upsert each preference keyed by (workspace_id, type)
+    rows.push({
+      workspace_id: workspaceId,
+      type:         item.type,
+      label:        typeof item.label === "string" ? item.label.slice(0, LABEL_MAX) : "",
+      description:  typeof item.description === "string" ? item.description.slice(0, DESC_MAX) : "",
+      enabled:      item.enabled,
+      channels:     { email: channels.email, slack: channels.slack },
+      schedule_time: typeof item.scheduleTime === "string" ? item.scheduleTime.slice(0, 10) : null,
+      schedule_day_of_week:  typeof item.scheduleDayOfWeek === "number" ? Math.max(0, Math.min(6, item.scheduleDayOfWeek)) : null,
+      schedule_day_of_month: typeof item.scheduleDayOfMonth === "number" ? Math.max(1, Math.min(31, item.scheduleDayOfMonth)) : null,
+    });
+  }
+
   const sb = getServiceClient();
-  const rows = preferences.map((pref) => ({
-    workspace_id: workspaceId,
-    type: pref.type,
-    label: pref.label,
-    description: pref.description,
-    enabled: pref.enabled,
-    channels: pref.channels,
-    schedule_time: pref.scheduleTime ?? null,
-    schedule_day_of_week: pref.scheduleDayOfWeek ?? null,
-    schedule_day_of_month: pref.scheduleDayOfMonth ?? null,
-  }));
-
   const { error } = await sb
     .from("alert_preferences")
     .upsert(rows, { onConflict: "workspace_id,type" });
 
   if (error) {
     console.error("settings/alerts POST error:", error);
-    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
+    return apiError("INTERNAL_SERVER_ERROR", 500);
   }
+
+  await audit({
+    workspaceId,
+    actorUserId: session.userId,
+    action: "alerts.update",
+    targetType: "workspace",
+    targetId: workspaceId,
+    payload: { updatedTypes: rows.map((r) => r.type) },
+    request: req,
+  });
 
   return NextResponse.json({ ok: true }, { status: 200 });
 }
