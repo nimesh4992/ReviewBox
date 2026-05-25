@@ -9,6 +9,8 @@ export interface ReviewFiltersQuery {
   sentiment?: string;
   rating?: number;
   platform?: string;
+  /** Server-side full-text search on review body + author. Pass when ≥3 chars. */
+  search?: string;
 }
 
 interface ReviewPage {
@@ -28,6 +30,7 @@ async function fetchReviews(
   if (filters.sentiment) params.set("sentiment", filters.sentiment);
   if (filters.rating !== undefined) params.set("rating", String(filters.rating));
   if (filters.platform) params.set("platform", filters.platform);
+  if (filters.search)   params.set("search", filters.search);
 
   const res = await fetch(`/api/reviews?${params.toString()}`);
   if (!res.ok) throw new Error(`Reviews fetch failed: ${res.status}`);

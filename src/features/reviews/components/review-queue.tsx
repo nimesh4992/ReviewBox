@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useDeferredValue } from "react";
 import Link from "next/link";
 import {
   CheckCheck,
@@ -968,13 +968,39 @@ export function InboxScreen({
   const [groupReviewsOverride, setGroupReviewsOverride] = useState<AppReview[] | null>(null);
   const markRepliedBulk                       = useMarkReplied();
 
+  // ── Server-side full-text search (fires when search ≥ 3 chars) ──────────────
+  const deferredSearch = useDeferredValue(search);
+  const [serverResults, setServerResults] = useState<AppReview[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    if (deferredSearch.trim().length < 3) {
+      setServerResults(null);
+      return;
+    }
+    let cancelled = false;
+    setIsSearching(true);
+    const params = new URLSearchParams({ search: deferredSearch.trim(), limit: "50" });
+    fetch(`/api/reviews?${params.toString()}`)
+      .then((r) => r.json() as Promise<{ reviews: AppReview[] }>)
+      .then((data) => {
+        if (!cancelled) setServerResults(data.reviews ?? []);
+      })
+      .catch(() => { if (!cancelled) setServerResults(null); })
+      .finally(() => { if (!cancelled) setIsSearching(false); });
+    return () => { cancelled = true; };
+  }, [deferredSearch]);
+
+  // When server search is active, replace the reviews set
+  const effectiveReviews = serverResults !== null ? serverResults : reviews;
+
   // Unique versions from loaded reviews (top 4)
   const uniqueVersions = Array.from(
-    new Set(reviews.map((r) => r.appVersion).filter(Boolean)),
+    new Set(effectiveReviews.map((r) => r.appVersion).filter(Boolean)),
   ).slice(0, 4);
 
-  const unrepliedCount = reviews.filter((r) => r.replyStatus === "needs_reply").length;
-  const lowRatingCount = reviews.filter((r) => r.rating <= 2).length;
+  const unrepliedCount = effectiveReviews.filter((r) => r.replyStatus === "needs_reply").length;
+  const lowRatingCount = effectiveReviews.filter((r) => r.rating <= 2).length;
 
   const FILTERS: { value: InboxFilter; label: React.ReactNode }[] = [
     { value: "all",        label: `All · ${reviews.length}` },
@@ -992,7 +1018,7 @@ export function InboxScreen({
     { value: "play_store", label: "Play Store" },
   ];
 
-  const filtered = reviews
+  const filtered = effectiveReviews
     .filter((r) => {
       if (activeFilter === "unreplied")  return r.replyStatus === "needs_reply";
       if (activeFilter === "low_rating") return r.rating <= 2;
@@ -1001,7 +1027,9 @@ export function InboxScreen({
       return true;
     })
     .filter((r) => versionFilter !== "all" ? r.appVersion === versionFilter : true)
+    // Client-side text filter only when server search isn't active (< 3 chars)
     .filter((r) => {
+      if (serverResults !== null) return true; // already filtered server-side
       if (!search.trim()) return true;
       const q = search.toLowerCase();
       return r.text.toLowerCase().includes(q) || r.author.toLowerCase().includes(q);
@@ -1071,9 +1099,21 @@ export function InboxScreen({
             <div>
               <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--rb-fg-3)]">
                 <span>
-                  {reviews.length} review{reviews.length !== 1 ? "s" : ""}
-                  {sorted.length !== reviews.length && (
-                    <span className="ml-1 text-[var(--rb-blue-500)]">· {sorted.length} shown</span>
+                  {isSearching ? (
+                    <span className="flex items-center gap-1">
+                      <Loader2 className="size-3 animate-spin" strokeWidth={1.5} />
+                      Searching…
+                    </span>
+                  ) : (
+                    <>
+                      {effectiveReviews.length} review{effectiveReviews.length !== 1 ? "s" : ""}
+                      {serverResults !== null && (
+                        <span className="ml-1 text-[var(--rb-blue-500)]">· search results</span>
+                      )}
+                      {sorted.length !== effectiveReviews.length && serverResults === null && (
+                        <span className="ml-1 text-[var(--rb-blue-500)]">· {sorted.length} shown</span>
+                      )}
+                    </>
                   )}
                 </span>
                 {/* Live-refresh indicator — pulses while polling */}

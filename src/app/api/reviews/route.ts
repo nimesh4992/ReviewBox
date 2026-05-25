@@ -68,6 +68,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const sentiment  = searchParams.get("sentiment") ?? undefined;
     const rating     = searchParams.get("rating") ? parseInt(searchParams.get("rating")!, 10) : undefined;
     const platform   = searchParams.get("platform") ?? undefined;
+    const search     = searchParams.get("search")?.trim() ?? undefined;
 
     const workspaceId = await getWorkspaceId(userId);
     if (!workspaceId) {
@@ -88,6 +89,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (sentiment) query = query.eq("sentiment", sentiment);
     if (rating !== undefined && !isNaN(rating)) query = query.eq("rating", rating);
     if (platform)  query = query.eq("source", platform === "Google Play" ? "google_play" : "app_store");
+    // Full-text search: ilike on body + author (case-insensitive pattern match)
+    // A GIN index on body can be added later for performance at scale.
+    if (search) {
+      const pattern = `%${search.replace(/[%_]/g, "\\$&")}%`;
+      query = query.or(`body.ilike.${pattern},author.ilike.${pattern}`);
+    }
 
     const { data, error } = await query;
 
