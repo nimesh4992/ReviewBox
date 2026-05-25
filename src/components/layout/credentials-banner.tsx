@@ -62,7 +62,7 @@ export function CredentialsBanner() {
         Your store account isn&apos;t linked yet — ReviewBox can&apos;t fetch reviews.
       </span>
       <button
-        onClick={() => router.push("/settings/connections")}
+        onClick={() => router.push("/settings")}
         className="font-medium underline underline-offset-2 whitespace-nowrap hover:opacity-80 transition-opacity"
       >
         Link account →

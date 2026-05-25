@@ -41,8 +41,26 @@ export function AlertPreferences() {
   useEffect(() => {
     fetch("/api/settings/alerts")
       .then((r) => r.ok ? r.json() : null)
-      .then((data: { preferences: AlertPreference[] } | null) => {
-        if (data?.preferences?.length) setPrefs(data.preferences);
+      .then((data: { preferences: unknown[] } | null) => {
+        if (!Array.isArray(data?.preferences) || data.preferences.length === 0) return;
+        // Map DB snake_case rows → AlertPreference, filling any null columns with safe defaults
+        const mapped: AlertPreference[] = data.preferences.map((row) => {
+          const r = row as Record<string, unknown>;
+          const channels = (r.channels && typeof r.channels === "object" && !Array.isArray(r.channels))
+            ? r.channels as AlertPreference["channels"]
+            : { email: true, slack: false };
+          return {
+            type:               (r.type              as AlertPreference["type"]) ?? "urgent_review",
+            label:              (r.label             as string) ?? "",
+            description:        (r.description       as string) ?? "",
+            enabled:            (r.enabled           as boolean) ?? false,
+            channels,
+            scheduleTime:       (r.scheduleTime ?? r.schedule_time)       as string | undefined,
+            scheduleDayOfWeek:  (r.scheduleDayOfWeek ?? r.schedule_day_of_week)  as number | undefined,
+            scheduleDayOfMonth: (r.scheduleDayOfMonth ?? r.schedule_day_of_month) as number | undefined,
+          };
+        });
+        setPrefs(mapped);
       })
       .catch(() => null);
   }, []);
@@ -118,7 +136,12 @@ export function AlertPreferences() {
 
       {/* Alert rows */}
       <div className="divide-y divide-gray-100">
-        {prefs.map((pref) => (
+        {prefs.map((pref) => {
+          // Guard: channels may be null if the DB row pre-dates the schema migration
+          const ch = (pref.channels && typeof pref.channels === "object" && !Array.isArray(pref.channels))
+            ? pref.channels
+            : { email: true, slack: false } as AlertPreference["channels"];
+          return (
           <div key={pref.type} className="px-5 py-4">
             <div className="flex items-start gap-4">
               {/* Toggle */}
@@ -150,10 +173,10 @@ export function AlertPreferences() {
                 </p>
 
                 {/* Slack webhook input */}
-                {pref.channels.slack && (
+                {ch.slack && (
                   <input
                     type="url"
-                    value={pref.channels.slackWebhookUrl ?? ""}
+                    value={ch.slackWebhookUrl ?? ""}
                     onChange={(e) =>
                       updateSlackWebhook(pref.type, e.target.value)
                     }
@@ -171,7 +194,7 @@ export function AlertPreferences() {
                   onClick={() => toggleChannel(pref.type, "email")}
                   className={cn(
                     "flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                    pref.channels.email
+                    ch.email
                       ? "border-[#5B5BD6]/20 bg-[#5B5BD6]/10 text-[#5B5BD6]"
                       : "border-gray-200 bg-gray-100 text-gray-400",
                   )}
@@ -186,7 +209,7 @@ export function AlertPreferences() {
                   onClick={() => toggleChannel(pref.type, "slack")}
                   className={cn(
                     "flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
-                    pref.channels.slack
+                    ch.slack
                       ? "border-[#5B5BD6]/20 bg-[#5B5BD6]/10 text-[#5B5BD6]"
                       : "border-gray-200 bg-gray-100 text-gray-400",
                   )}
@@ -200,7 +223,8 @@ export function AlertPreferences() {
               </div>
             </div>
           </div>
-        ))}
+          );
+        })}
       </div>
 
       {/* Save button */}
