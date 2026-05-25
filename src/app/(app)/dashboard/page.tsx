@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertOctagon, Download, Loader2 } from "lucide-react";
+import { AlertOctagon, Download, Loader2, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
@@ -179,11 +179,13 @@ export default function DashboardPage() {
 
       {/* Sync status banner per app — shows real attempts, errors, action */}
       {apps.map((app) => {
-        // Already-synced and no error → no banner
-        if (app.last_synced_at && app.last_sync_status === "success") return null;
+        const succeeded = app.last_sync_status === "success";
+        const emptySuccess = succeeded && (app.last_sync_review_count ?? 0) === 0;
+        // Already-synced WITH reviews → no banner
+        if (succeeded && !emptySuccess) return null;
 
         const hasError = app.last_sync_status && app.last_sync_status !== "success";
-        const isPending = !app.last_synced_at && !hasError;
+        const isPending = !app.last_synced_at && !hasError && !emptySuccess;
 
         if (isPending) {
           return (
@@ -198,6 +200,66 @@ export default function DashboardPage() {
                 </div>
                 <div className="mt-0.5 text-[11px] text-[#86868B]">
                   First sync usually takes 10–30 seconds. Reviews will appear automatically.
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    onClick={async () => {
+                      await fetch("/api/sync/reviews");
+                      setTimeout(() => { refetchApps(); refetchMetrics(); }, 3000);
+                    }}
+                    className="rounded-md border border-[#0A84FF]/30 bg-white px-3 py-1 text-[11px] font-semibold text-[#0A84FF] hover:bg-[#0A84FF]/[0.06]"
+                  >
+                    Sync now
+                  </button>
+                  <Link
+                    href={app.platform === "google_play" ? "/help/connect-google-play" : "/help/connect-app-store"}
+                    className="text-[11px] font-medium text-[#86868B] hover:text-[#48484D]"
+                  >
+                    Troubleshooting →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Sync succeeded but returned 0 reviews. This is the most common
+        // confusion: Google Play Publisher API only returns reviews from the
+        // LAST 7 DAYS. An app with no recent reviews gets a successful sync
+        // with an empty array — and the user sees an empty dashboard with
+        // no explanation. This banner explains it.
+        if (emptySuccess) {
+          return (
+            <div
+              key={app.id}
+              className="flex items-start gap-3 rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)] px-4 py-3 shadow-[var(--rb-shadow-xs)]"
+            >
+              <Sparkles className="mt-0.5 size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
+              <div className="flex-1">
+                <div className="text-[13px] font-semibold text-[#1D1D1F]">
+                  {app.name} is connected — no recent reviews yet
+                </div>
+                <div className="mt-0.5 text-[11px] leading-relaxed text-[#86868B]">
+                  {app.platform === "google_play"
+                    ? "Google Play only exposes reviews from the last 7 days. New reviews will appear here as customers leave them."
+                    : "App Store reviews appear once customers leave them. We'll keep checking daily."}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    onClick={async () => {
+                      await fetch("/api/sync/reviews");
+                      setTimeout(() => { refetchApps(); refetchMetrics(); }, 3000);
+                    }}
+                    className="rounded-md border border-[var(--rb-border-2)] bg-white px-3 py-1 text-[11px] font-semibold text-[#48484D] hover:bg-[var(--rb-bg-hover)]"
+                  >
+                    Check again
+                  </button>
+                  <Link
+                    href={app.platform === "google_play" ? "/help/connect-google-play" : "/help/connect-app-store"}
+                    className="text-[11px] font-medium text-[#86868B] hover:text-[#48484D]"
+                  >
+                    Why no reviews? →
+                  </Link>
                 </div>
               </div>
             </div>

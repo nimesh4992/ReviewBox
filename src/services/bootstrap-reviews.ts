@@ -42,18 +42,49 @@ const BOOTSTRAP_LIMIT = 50;
 
 // ── Google Play ───────────────────────────────────────────────────────────────
 
+/**
+ * Retry a flaky operation with exponential backoff. Used because
+ * google-play-scraper hits Play Store HTML pages which occasionally
+ * return 503 (rate-limit) or empty payloads. A 3x retry recovers
+ * from ~95% of these transient failures.
+ */
+async function withRetry<T>(
+  label: string,
+  op: () => Promise<T>,
+  maxAttempts = 3,
+): Promise<T> {
+  let lastErr: unknown;
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    try {
+      return await op();
+    } catch (err) {
+      lastErr = err;
+      if (attempt === maxAttempts) break;
+      const delay = 800 * Math.pow(2, attempt - 1); // 800ms, 1.6s, 3.2s
+      console.warn(
+        `[bootstrap] ${label} attempt ${attempt} failed, retrying in ${delay}ms:`,
+        err instanceof Error ? err.message : err,
+      );
+      await new Promise((r) => setTimeout(r, delay));
+    }
+  }
+  throw lastErr;
+}
+
 export async function bootstrapGooglePlayReviews(
   appId: string,
   workspaceId: string,
   packageName: string,
 ): Promise<ReturnType<typeof buildEnrichedRow>[]> {
-  const { data } = await gplay.reviews({
-    appId: packageName,
-    lang: "en",
-    country: "us",
-    sort: gplay.sort.NEWEST,
-    num: BOOTSTRAP_LIMIT,
-  });
+  const { data } = await withRetry(`gplay ${packageName}`, () =>
+    gplay.reviews({
+      appId: packageName,
+      lang: "en",
+      country: "us",
+      sort: gplay.sort.NEWEST,
+      num: BOOTSTRAP_LIMIT,
+    }),
+  );
 
   return data.map((r) =>
     buildEnrichedRow(
