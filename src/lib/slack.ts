@@ -10,6 +10,14 @@
  */
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { Redis } from "@upstash/redis";
+
+function getRedis(): Redis | null {
+  const url   = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  return new Redis({ url, token });
+}
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -75,6 +83,56 @@ export async function notifySlack(
     console.error("[slack] notifySlack failed:", err);
     return false;
   }
+}
+
+// ── Dedup-guarded notification helpers ───────────────────────────────────────
+// Prevents flooding the same channel with repeated alerts for the same event.
+
+/**
+ * Notify Slack with a dedup guard.
+ * `dedupKey` — a unique key for this event (e.g. "spike:{workspaceId}:{appId}:{version}")
+ * `ttlSeconds` — how long to suppress the same key (e.g. 23*3600 for rating spikes)
+ * Returns: "sent" | "deduped" | "not_connected" | "failed"
+ */
+export async function dedupAndNotifySlack(
+  workspaceId: string,
+  dedupKey:    string,
+  ttlSeconds:  number,
+  payload:     SlackPayload,
+): Promise<"sent" | "deduped" | "not_connected" | "failed"> {
+  const redis = getRedis();
+  if (redis) {
+    const existing = await redis.get(dedupKey);
+    if (existing) return "deduped";
+  }
+
+  const sent = await notifySlack(workspaceId, payload);
+  if (!sent) return "not_connected";
+
+  if (redis) {
+    await redis.set(dedupKey, "1", { ex: ttlSeconds });
+  }
+  return "sent";
+}
+
+/** Notify about a rating spike — deduped per workspace+app+version for 23h. */
+export async function notifyRatingSpike(
+  workspaceId: string,
+  appId:       string,
+  params:      Parameters<typeof ratingSpike>[0],
+): Promise<void> {
+  const key = `slack:spike:${workspaceId}:${appId}:${params.appVersion}`;
+  await dedupAndNotifySlack(workspaceId, key, 23 * 3600, ratingSpike(params));
+}
+
+/** Notify about an urgent review — deduped per workspace+review for 48h. */
+export async function notifyUrgentReview(
+  workspaceId: string,
+  reviewId:    string,
+  params:      Parameters<typeof urgentReview>[0],
+): Promise<void> {
+  const key = `slack:urgent:${workspaceId}:${reviewId}`;
+  await dedupAndNotifySlack(workspaceId, key, 48 * 3600, urgentReview(params));
 }
 
 // ── Pre-built notification payloads ──────────────────────────────────────────

@@ -58,27 +58,27 @@ const navGroups: NavGroup[] = [
     ],
   },
   {
-    label: "Inbox",
+    label: "Manage reviews",
     items: [
-      { name: "Inbox",       href: "/inbox",       icon: Inbox,    signal: null },
+      { name: "Reviews",     href: "/reviews",     icon: Inbox,    signal: null },
       { name: "Automations", href: "/automations", icon: Workflow,  signal: null },
       { name: "Reply Kit",   href: "/reply-kit",   icon: BookOpen,  signal: null },
     ],
   },
   {
-    label: "Insights",
+    label: "Monitor",
     items: [
-      { name: "Sentiment",   href: "/sentiment",   icon: BarChart2,    signal: null },
-      { name: "Competitors", href: "/competitors", icon: Trophy,       signal: null },
-      { name: "ASO",         href: "/aso",         icon: Search,       signal: null },
-      { name: "Reports",     href: "/reports",     icon: FileBarChart, signal: null },
+      { name: "Sentiment",  href: "/sentiment",  icon: BarChart2,    signal: null },
+      { name: "Incidents",  href: "/incidents",  icon: AlertTriangle, signal: null },
+      { name: "Releases",   href: "/releases",   icon: Rocket,       signal: null },
+      { name: "Reports",    href: "/reports",    icon: FileBarChart,  signal: null },
     ],
   },
   {
-    label: "Monitor",
+    label: "Get insights",
     items: [
-      { name: "Incidents", href: "/incidents", icon: AlertTriangle, signal: null },
-      { name: "Releases",  href: "/releases",  icon: Rocket,        signal: null },
+      { name: "Competitors", href: "/competitors", icon: Trophy,  signal: null },
+      { name: "ASO",         href: "/aso",         icon: Search,  signal: null },
     ],
   },
   {

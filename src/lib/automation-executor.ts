@@ -6,6 +6,9 @@
 
 import type { AppReview, AutomationRule, AutomationCondition } from "@/types/review";
 import { getServiceClient } from "@/lib/supabase-server";
+import { generateReply } from "@/lib/groq";
+import { submitReply as submitGooglePlayReply } from "@/services/google-play/publisher-api";
+import { buildJWT, submitReply as submitAppStoreReply } from "@/services/app-store/connect-api";
 
 // ── Condition evaluator ────────────────────────────────────────────────────────
 
@@ -99,31 +102,64 @@ async function executeAction(
 
   switch (rule.action) {
     case "ai_reply": {
-      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
-      const res = await fetch(`${appUrl}/api/reply/draft`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-internal-workspace-id": workspaceId,
-        },
-        body: JSON.stringify({
-          reviewId:   review.id,
-          reviewBody: review.text,
-          rating:     review.rating,
-          tags:       review.issueTags,
-          tone:       "professional",
-        }),
+      // Call generateReply() directly — HTTP call to /api/reply/draft always 401
+      // because automation executor runs server-side with no Clerk session.
+      const reply = await generateReply({
+        reviewBody: review.text ?? "",
+        rating:     review.rating,
+        tone:       "professional",
+      });
+      await sb
+        .from("reviews")
+        .update({ reply_text: reply, reply_status: "draft_ready", has_ai_suggestion: true })
+        .eq("id", review.id);
+      break;
+    }
+
+    case "auto_reply": {
+      // 1) Generate reply
+      const replyText = await generateReply({
+        reviewBody: review.text ?? "",
+        rating:     review.rating,
+        tone:       "professional",
       });
 
-      if (res.ok) {
-        const { reply } = (await res.json()) as { reply: string };
-        await sb
-          .from("reviews")
-          .update({ reply_text: reply, reply_status: "draft_ready", has_ai_suggestion: true })
-          .eq("id", review.id);
+      // 2) Look up store credentials via the review's app
+      const { data: reviewRow } = await sb
+        .from("reviews")
+        .select("external_id, apps(store_id, platform, access_token, refresh_token)")
+        .eq("id", review.id)
+        .single();
+
+      if (!reviewRow) throw new Error("auto_reply: review not found");
+
+      type AppInfo = { store_id: string; platform: string; access_token: string | null; refresh_token: string | null };
+      const app = (Array.isArray(reviewRow.apps) ? reviewRow.apps[0] : reviewRow.apps) as AppInfo | null;
+
+      // 3) Submit to store
+      if (app?.platform === "google_play") {
+        await submitGooglePlayReply(app.store_id, reviewRow.external_id as string, replyText);
+      } else if (app?.platform === "app_store") {
+        if (!app.access_token || !app.refresh_token) {
+          throw new Error("auto_reply: App Store credentials not configured");
+        }
+        const creds = JSON.parse(app.access_token) as { keyId: string; issuerId: string };
+        const jwt = await buildJWT(creds.keyId, creds.issuerId, app.refresh_token);
+        await submitAppStoreReply(reviewRow.external_id as string, replyText, jwt);
       } else {
-        throw new Error(`ai_reply draft failed: ${res.status}`);
+        throw new Error("auto_reply: unsupported platform or missing app");
       }
+
+      // 4) Mark as replied in DB
+      await sb
+        .from("reviews")
+        .update({
+          reply_text:   replyText,
+          reply_status: "replied",
+          replied_at:   new Date().toISOString(),
+          draft_source: "automation",
+        })
+        .eq("id", review.id);
       break;
     }
 
@@ -177,14 +213,18 @@ async function executeAction(
     }
 
     case "report_spam": {
-      // Flag for manual review — no store API call yet
+      // Flag for manual review — add tag + escalate to support queue
       const existing = review.issueTags ?? [];
+      const updatePayload: Record<string, unknown> = {
+        escalation_state: "support",
+      };
       if (!existing.includes("support-delay" as AppReview["issueTags"][number])) {
-        await sb
-          .from("reviews")
-          .update({ issue_tags: [...existing, "support-delay"] })
-          .eq("id", review.id);
+        updatePayload.issue_tags = [...existing, "support-delay"];
       }
+      await sb
+        .from("reviews")
+        .update(updatePayload)
+        .eq("id", review.id);
       break;
     }
   }

@@ -34,14 +34,16 @@ export async function fetchReviews(packageName: string) {
   const play = getPlayClient();
 
   try {
-    const response = await play.reviews.list({
-      packageName: packageName,
-      maxResults: 100, // Google's max limit per request
-    });
+    const response = await Promise.race([
+      play.reviews.list({ packageName, maxResults: 100 }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Google Play fetchReviews timeout")), 15_000),
+      ),
+    ]);
 
     return response.data.reviews || [];
   } catch (error) {
-    console.error("Failed to fetch Google Play reviews:", error);
+    console.error("Failed to fetch Google Play reviews:", error instanceof Error ? error.message : String(error));
     throw error;
   }
 }
@@ -56,17 +58,20 @@ export async function submitReply(packageName: string, reviewId: string, replyTe
   const play = getPlayClient();
 
   try {
-    const response = await play.reviews.reply({
-      packageName: packageName,
-      reviewId: reviewId,
-      requestBody: {
-        replyText: replyText,
-      },
-    });
+    const response = await Promise.race([
+      play.reviews.reply({
+        packageName,
+        reviewId,
+        requestBody: { replyText },
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Google Play submitReply timeout")), 15_000),
+      ),
+    ]);
 
     return response.data;
   } catch (error) {
-    console.error("Failed to submit reply to Google Play:", error);
+    console.error("Failed to submit reply to Google Play:", error instanceof Error ? error.message : String(error));
     throw error;
   }
 }

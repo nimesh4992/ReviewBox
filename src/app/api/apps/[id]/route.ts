@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { audit } from "@/lib/audit";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -69,11 +70,21 @@ export async function PATCH(
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
+  await audit({
+    workspaceId,
+    actorUserId: userId,
+    action: "app.update",
+    targetType: "app",
+    targetId: appId,
+    payload: { fields: Object.keys(updates) },
+    request: req,
+  });
+
   return NextResponse.json({ success: true });
 }
 
 export async function DELETE(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: RouteParams,
 ): Promise<NextResponse> {
   const { userId } = await auth();
@@ -85,13 +96,25 @@ export async function DELETE(
   const { id: appId } = await params;
   const sb = getServiceClient();
 
+  // Soft-delete: preserves review history, can be recovered by support
   const { error } = await sb
     .from("apps")
-    .delete()
+    .update({ deleted_at: new Date().toISOString() })
     .eq("id", appId)
-    .eq("workspace_id", workspaceId);
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null); // idempotent — don't clobber existing delete timestamp
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+
+  await audit({
+    workspaceId,
+    actorUserId: userId,
+    action: "app.delete",
+    targetType: "app",
+    targetId: appId,
+    payload: {},
+    request: req,
+  });
 
   return NextResponse.json({ success: true });
 }

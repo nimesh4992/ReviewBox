@@ -103,6 +103,7 @@ export interface AsoKeyword {
 
 export type AutomationAction =
   | "ai_reply"
+  | "auto_reply"       // generates AI reply AND submits to store (opt-in via rule)
   | "template_reply"
   | "apply_tag"
   | "escalate"

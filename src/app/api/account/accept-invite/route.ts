@@ -42,7 +42,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     const { data: invite } = await sb
       .from("workspace_invites")
-      .select("id, workspace_id, role, expires_at, accepted_at")
+      .select("id, workspace_id, role, email, expires_at, accepted_at")
       .eq("token", body.token)
       .maybeSingle();
 
@@ -54,6 +54,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
     if (new Date(invite.expires_at) < new Date()) {
       return apiError("INVALID_INPUT", 410, "This invite has expired. Ask the workspace owner to send a new one.");
+    }
+
+    // Fetch current user once — used for email-match check and audit log
+    const me = await currentUser();
+
+    // Enforce email match — invite must be addressed to the signed-in user
+    if (invite.email) {
+      const userEmail = me?.emailAddresses?.[0]?.emailAddress ?? "";
+      if (userEmail.toLowerCase() !== invite.email.toLowerCase()) {
+        return apiError("FORBIDDEN", 403, "This invite was sent to a different email address.");
+      }
     }
 
     // If the user already belongs to this workspace, just mark them onboarded and ack
@@ -88,15 +99,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Mark user as onboarded in Clerk so middleware lets them through
     try {
       const clerk = await clerkClient();
-      const user = await clerkClient().then((c) => c.users.getUser(userId));
+      const clerkUser = await clerk.users.getUser(userId);
       await clerk.users.updateUserMetadata(userId, {
-        publicMetadata: { ...user.publicMetadata, onboarded: true },
+        publicMetadata: { ...clerkUser.publicMetadata, onboarded: true },
       });
     } catch (err) {
       console.error("[accept-invite] clerk metadata:", err);
     }
 
-    const me = await currentUser();
     await audit({
       workspaceId: invite.workspace_id,
       actorUserId: userId,

@@ -73,7 +73,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
     await audit({
       workspaceId,
       actorUserId: userId,
-      action: "workspace.create", // closest stable action; export is a workspace read event
+      action: "gdpr.export",
       targetType: "workspace",
       targetId: workspaceId,
       payload: { event: "gdpr_export", rowCounts: countRows(payload.data) },

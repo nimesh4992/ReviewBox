@@ -22,6 +22,9 @@ export type AuditAction =
   // Apps
   | "app.connect"
   | "app.disconnect"
+  | "app.create"
+  | "app.update"
+  | "app.delete"
   // Workspace lifecycle
   | "workspace.create"
   | "workspace.delete"
@@ -30,7 +33,13 @@ export type AuditAction =
   // Billing
   | "billing.upgrade"
   | "billing.cancel"
-  | "billing.payment_failed";
+  | "billing.payment_failed"
+  // GDPR
+  | "gdpr.export"
+  | "gdpr.delete"
+  // Slack
+  | "slack.connect"
+  | "slack.disconnect";
 
 export type AuditTargetType = "review" | "rule" | "template" | "kb" | "app" | "workspace" | "member" | "subscription";
 
