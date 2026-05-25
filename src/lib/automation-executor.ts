@@ -7,6 +7,8 @@
 import type { AppReview, AutomationRule, AutomationCondition } from "@/types/review";
 import { getServiceClient } from "@/lib/supabase-server";
 import { generateReply } from "@/lib/groq";
+import { submitReply as submitGooglePlayReply } from "@/services/google-play/publisher-api";
+import { buildJWT, submitReply as submitAppStoreReply } from "@/services/app-store/connect-api";
 
 // ── Condition evaluator ────────────────────────────────────────────────────────
 
@@ -110,6 +112,53 @@ async function executeAction(
       await sb
         .from("reviews")
         .update({ reply_text: reply, reply_status: "draft_ready", has_ai_suggestion: true })
+        .eq("id", review.id);
+      break;
+    }
+
+    case "auto_reply": {
+      // 1) Generate reply
+      const replyText = await generateReply({
+        reviewBody: review.text ?? "",
+        rating:     review.rating,
+        tone:       "professional",
+      });
+
+      // 2) Look up store credentials via the review's app
+      const { data: reviewRow } = await sb
+        .from("reviews")
+        .select("external_id, apps(store_id, platform, access_token, refresh_token)")
+        .eq("id", review.id)
+        .single();
+
+      if (!reviewRow) throw new Error("auto_reply: review not found");
+
+      type AppInfo = { store_id: string; platform: string; access_token: string | null; refresh_token: string | null };
+      const app = (Array.isArray(reviewRow.apps) ? reviewRow.apps[0] : reviewRow.apps) as AppInfo | null;
+
+      // 3) Submit to store
+      if (app?.platform === "google_play") {
+        await submitGooglePlayReply(app.store_id, reviewRow.external_id as string, replyText);
+      } else if (app?.platform === "app_store") {
+        if (!app.access_token || !app.refresh_token) {
+          throw new Error("auto_reply: App Store credentials not configured");
+        }
+        const creds = JSON.parse(app.access_token) as { keyId: string; issuerId: string };
+        const jwt = await buildJWT(creds.keyId, creds.issuerId, app.refresh_token);
+        await submitAppStoreReply(reviewRow.external_id as string, replyText, jwt);
+      } else {
+        throw new Error("auto_reply: unsupported platform or missing app");
+      }
+
+      // 4) Mark as replied in DB
+      await sb
+        .from("reviews")
+        .update({
+          reply_text:   replyText,
+          reply_status: "replied",
+          replied_at:   new Date().toISOString(),
+          draft_source: "automation",
+        })
         .eq("id", review.id);
       break;
     }
