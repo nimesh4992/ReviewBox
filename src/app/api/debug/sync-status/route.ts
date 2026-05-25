@@ -13,25 +13,23 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { apiError } from "@/lib/api-response";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(): Promise<NextResponse> {
   const session = await auth();
-  if (!session?.userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  if (!session?.userId) return apiError("UNAUTHORIZED", 401);
 
   const workspaceId = await getWorkspaceId(session.userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
-  }
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
   const sb = getServiceClient();
 
+  // Explicitly exclude access_token / refresh_token — these hold App Store private keys
   const { data: apps } = await sb
     .from("apps")
-    .select("*")
+    .select("id, name, platform, store_id, created_at, last_synced_at, last_sync_attempted_at, last_sync_status, last_sync_error, last_sync_review_count")
     .eq("workspace_id", workspaceId);
 
   const { count: reviewCount } = await sb
@@ -58,7 +56,8 @@ export async function GET(): Promise<NextResponse> {
         last_sync_status:       app.last_sync_status ?? null,
         last_sync_error:        app.last_sync_error ?? null,
         last_sync_review_count: app.last_sync_review_count ?? null,
-        has_app_store_credentials: !!(app.access_token && app.refresh_token),
+        // Note: credentials are not fetched here for security — check Settings > Apps to verify
+        has_app_store_credentials: null,
         // What to check based on platform
         next_action: getNextAction(app),
       };

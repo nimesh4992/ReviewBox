@@ -40,7 +40,7 @@ export async function POST(request: NextRequest) {
   const sig = request.headers.get("stripe-signature");
 
   if (!sig) {
-    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+    return NextResponse.json({ received: false }, { status: 400 });
   }
 
   let event: Stripe.Event;
@@ -54,7 +54,8 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Signature verification failed";
     console.error("[stripe/webhook] Signature error:", message);
-    return NextResponse.json({ error: message }, { status: 400 });
+    // Never echo internal error message back to the caller — Stripe doesn't use it
+    return NextResponse.json({ received: false }, { status: 400 });
   }
 
   // ── Idempotency: ack duplicates without re-processing ────────────────────────

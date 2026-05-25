@@ -36,6 +36,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!reviewBody.trim()) {
     return NextResponse.json({ error: "MISSING_BODY" }, { status: 400 });
   }
+  // Cap body to prevent quota abuse — demo responses don't need more than 1000 chars
+  if (reviewBody.length > 1000) {
+    return NextResponse.json({ error: "BAD_REQUEST", message: "Review text too long (max 1000 chars)" }, { status: 400 });
+  }
 
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {

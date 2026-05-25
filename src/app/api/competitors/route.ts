@@ -65,6 +65,7 @@ export async function GET(): Promise<NextResponse> {
     const { count: weekCount } = await sb
       .from("reviews")
       .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId)
       .eq("app_id", appId)
       .gte("store_created_at", sevenDaysAgo);
     reviewsPerWeek = weekCount ?? 0;
@@ -73,6 +74,7 @@ export async function GET(): Promise<NextResponse> {
     const { data: replyRows } = await sb
       .from("reviews")
       .select("reply_status")
+      .eq("workspace_id", workspaceId)
       .eq("app_id", appId)
       .gte("store_created_at", thirtyDaysAgo);
 
@@ -86,6 +88,7 @@ export async function GET(): Promise<NextResponse> {
       const { data: ratingRows } = await sb
         .from("reviews")
         .select("rating")
+        .eq("workspace_id", workspaceId)
         .eq("app_id", appId);
       if (ratingRows?.length) {
         const sum = ratingRows.reduce((acc, r) => acc + (r.rating as number), 0);
@@ -97,6 +100,7 @@ export async function GET(): Promise<NextResponse> {
     const { data: trendRows } = await sb
       .from("reviews")
       .select("rating, store_created_at")
+      .eq("workspace_id", workspaceId)
       .eq("app_id", appId)
       .gte("store_created_at", sixWeeksAgo)
       .order("store_created_at", { ascending: true });

@@ -53,7 +53,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     await audit({
       workspaceId,
       actorUserId: userId,
-      action: "reply.publish",
+      action: "review.bulk_update",
       targetType: "review",
       payload: { bulkAction: action, count: reviewIds.length },
     });

@@ -4,6 +4,7 @@ import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { audit } from "@/lib/audit";
 import { apiError, captureAndError } from "@/lib/api-response";
+import { rateLimit } from "@/lib/api-rate-limit";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +29,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (!userId) {
       return apiError("UNAUTHORIZED", 401);
     }
+
+    // Strict rate limit — 3 attempts per 24h. Prevents session-replay attacks.
+    const rl = await rateLimit(req, userId, { bucket: "gdpr-delete", limit: 3, window: "24 h" });
+    if (!rl.allowed) return apiError("RATE_LIMITED", 429);
 
     let body: unknown;
     try {
