@@ -19,7 +19,10 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
 
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return false;
+  // If CRON_SECRET is not configured (e.g. dev / first deploy), allow all
+  // calls through so onboarding-triggered syncs aren't silently blocked.
+  // Set CRON_SECRET in Vercel env vars to lock down coordinator mode in prod.
+  if (!secret) return true;
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 

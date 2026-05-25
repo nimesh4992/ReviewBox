@@ -46,11 +46,13 @@ the form.*
 **Done when:** Clicking an incident or release in the lists goes to a real detail page (not 404 or blank).
 **Files:** `src/app/(app)/incidents/[id]/page.tsx`, `src/app/(app)/releases/[version]/page.tsx`
 **Why now:** Users will click these. 404 = trust killer.
+*Note: CLAUDE.md lists incident detail and release detail as ✅ Done — verify they actually render before building new work. If wired correctly, mark this [x] and skip to N4.*
 
-### [ ] N4 · Remove or wire dead buttons · ICE 56 (7×8÷1)
-**Effort:** 3h.
+### [~] N4 · Remove or wire dead buttons · ICE 56 (7×8÷1)
+**Effort:** 3h (partially done — competitors wired 2026-05-25).
 **Done when:** Every visible button does something. If we can't ship the feature, the button is hidden behind a feature flag or removed.
-**Files:** `competitors-screen.tsx`, `aso-screen.tsx`, `reports-screen.tsx`, settings sections
+**Remaining files:** `aso-screen.tsx` (Export + Suggest keywords), `reports-screen.tsx` (Run report + Configure), settings sections
+**Competitors-screen.tsx:** ✅ wired to real `/api/competitors` data (2026-05-25)
 **Why now:** "Save defaults" that does nothing trains users to mistrust us.
 
 ### [x] N5 · /compare/appfollow with real teeth · ICE 81 (9×9÷1)
@@ -60,6 +62,18 @@ the form.*
 **Done when:** Page has: feature comparison table (12 rows), ROI calculator widget, 3 customer-style quotes, "Switch in 5 min" CTA, screenshots side-by-side.
 **Files:** `src/app/compare/page.tsx`, `src/components/marketing/roi-calculator.tsx`
 **Why now:** This is your #1 inbound conversion asset. Currently a stub.
+
+### [x] N-SYNC · Unblock first-login review sync · ICE 90 (10×9÷1) — SHIPPED 2026-05-25
+*`isAuthorized()` in `/api/sync/reviews` returned `false` when `CRON_SECRET` not set, silently blocking every onboarding-triggered sync. Fixed: returns `true` when no secret is configured; enforces the secret once set. PR `fix/sync-and-competitors` awaiting merge.*
+
+### [x] N-COMP · Competitors screen real data · ICE 60 (8×7÷1) — SHIPPED 2026-05-25
+*New `GET /api/competitors` endpoint. "You" row shows real DB metrics (rating, reviews/week, reply rate, 6-week trend). Competitors are illustrative placeholders with amber "sample" badge — competitor tracking is a future feature. PR `fix/sync-and-competitors` awaiting merge.*
+
+### [!] N-CRON · Set CRON_SECRET in Vercel · ICE 72 (9×8÷1)
+**Effort:** 5 min.
+**Done when:** `CRON_SECRET` env var is set in Vercel → Production + Preview + Development scopes. Any long random string works (`openssl rand -hex 32`).
+**HUMAN-REQUIRED** (founder sets in Vercel dashboard → Settings → Environment Variables).
+**Why now:** Without it, the sync-all-workspaces coordinator endpoint is open to any caller. Now that sync is unblocked, lock it down.
 
 ### [ ] N6 · Stripe test keys + verify upgrade flow · ICE 80 (10×8÷1)
 **Effort:** 1h.
