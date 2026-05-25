@@ -11,7 +11,7 @@ import {
 import { buildEnrichedRow } from "@/lib/review-mapper";
 import { bootstrapReviews } from "@/services/bootstrap-reviews";
 import { sendRatingSpikeAlert } from "@/lib/email/send-rating-spike-alert";
-import { notifySlack, ratingSpike as slackRatingSpike, urgentReview as slackUrgentReview } from "@/lib/slack";
+import { notifyRatingSpike, notifyUrgentReview } from "@/lib/slack";
 import { runAutomationRules } from "@/lib/automation-executor";
 import type { AppReview } from "@/types/review";
 
@@ -170,16 +170,16 @@ async function upsertAndFinalize(
     );
   }
 
-  // Urgent review → Slack (cap 3 per sync to avoid spam)
+  // Urgent review → Slack with per-review dedup (48h TTL)
   const urgentNew = unrepliedReviews.filter((r) => r.priority === "urgent");
   for (const r of urgentNew.slice(0, 3)) {
-    void notifySlack(app.workspace_id, slackUrgentReview({
+    void notifyUrgentReview(app.workspace_id, r.id, {
       author:    r.author,
       rating:    r.rating,
       text:      r.text,
       appName:   app.name,
       reviewUrl: `${APP_URL}/reviews`,
-    }));
+    });
   }
 
   // Rating spike detection — ≥5 reviews rated ≤2★ for same version in 24h
@@ -202,7 +202,7 @@ async function upsertAndFinalize(
     for (const [version, count] of Object.entries(counts)) {
       if (count >= 5) {
         summary.spikesDetected++;
-        notifyWorkspaceOwner(app.workspace_id, app.name, version, count).catch(
+        notifyWorkspaceOwner(app.workspace_id, app.id, app.name, version, count).catch(
           (e) => console.error("[sync] spike notify:", e),
         );
       }
@@ -475,6 +475,7 @@ export const POST = handler;
 
 async function notifyWorkspaceOwner(
   workspaceId: string,
+  appId: string,
   appName: string,
   version: string,
   count: number,
@@ -495,14 +496,14 @@ async function notifyWorkspaceOwner(
   const email = clerkUser.emailAddresses[0]?.emailAddress;
   if (!email) return;
 
-  // Email + Slack in parallel (both best-effort)
+  // Email + Slack in parallel (both best-effort; Slack deduped per app+version for 23h)
   await Promise.allSettled([
     sendRatingSpikeAlert(email, appName, version, count),
-    notifySlack(workspaceId, slackRatingSpike({
+    notifyRatingSpike(workspaceId, appId, {
       appName,
       avgRating: 1.5, // spike threshold is ≤2★ reviews
       reviewCount: count,
       appVersion: version,
-    })),
+    }),
   ]);
 }
