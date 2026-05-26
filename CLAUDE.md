@@ -412,7 +412,7 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 | PostHog analytics | ✅ Done |
 | Sentry error monitoring | ✅ Done |
 | Admin panel wired to real customer data | 🔲 Pending |
-| Security audit + RLS verification | ✅ Done (2026-05-21 audit) |
+| Security audit + RLS verification | ✅ Done (3 passes: 2026-05-21 + 2026-05-25 round-1/2 + 2026-05-26 cross-verify — 44+ fixes) |
 | Next.js 15 → 16 upgrade | 🔲 When stable |
 | Unit test suite (Vitest) | ✅ Done — 70 tests across 9 files, CI-gated |
 | CI pipeline (tsc, lint, vitest, e2e, audit) | ✅ Done — `.github/workflows/ci.yml` |
@@ -579,52 +579,43 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 
 ## Current Sprint
 
-**Active: Autopilot bootstrap → marketing-site responsive sweep**
-Last updated: 2026-05-18
+**Active: Security hardening complete → feature work next**
+Last updated: 2026-05-26
 
-### What just shipped (recent commits)
+### PRs awaiting founder merge
 
-Foundation hardening (EXTREME tier 1–5):
-- ✅ `supabase/migrations/` — versioned, forward-only migrations (002 plan vocab, 003 audit log, 004 webhook events, 005 soft-delete, 006 invites)
-- ✅ `src/lib/audit.ts` — `audit()` helper writes to audit_log table on every mutation
-- ✅ `src/lib/api-response.ts` — canonical `{ error: { code, message } }` envelope + `apiError()` + `captureAndError()`
-- ✅ `src/lib/api-rate-limit.ts` — generic per-route Upstash rate limiter; applied to slug-check, onboarding/complete, sentiment, aso, stripe checkout/portal, reply publish, GDPR export
-- ✅ Sentry user identity wired (`src/components/providers/sentry-identify.tsx`)
-- ✅ PostHog funnel events typed in `src/lib/analytics.ts`
+| Branch | What | Priority |
+|---|---|---|
+| `fix/audit-round-3` | 9 security + correctness fixes (cross-verification) | 🔴 HIGH |
 
-HIGH tier 6–10:
-- ✅ Stripe webhook idempotency via `webhook_events` table dedup
-- ✅ Workspace soft-delete + 30-day grace + `/account-deleted` restore page + DangerZone in /settings
-- ✅ GDPR export rewritten (audit_log + members + webhook_events), GDPR delete uses envelope + Stripe customer cleanup
-- ✅ Team invites: `/api/team/invites`, `/api/account/accept-invite`, `/invite/[token]` landing
-- ✅ Sync route now coordinator+worker pattern — one Vercel invocation per workspace
+Check: https://github.com/nimesh4992/ReviewBox/pulls
 
-Autopilot bootstrap:
-- ✅ `docs/decisions.md` — 13 immutable decisions + non-coder contract
-- ✅ `docs/backlog.md` — every pending item ICE-scored
-- ✅ `docs/today.md` — daily handoff template
-- ✅ `.github/PULL_REQUEST_TEMPLATE.md` — marketer-friendly format
-- ✅ `.github/workflows/ci.yml` — build, type-check, lint, unit, e2e, security
-- ✅ `vitest.config.ts` + first 14 unit tests on `src/lib/rules-engine.ts`
-- ✅ `playwright.config.ts` + first 5 smoke e2e tests
-- ✅ Five agent definitions in `.claude/agents/`
+### What shipped 2026-05-26 (branch `fix/audit-round-3`)
 
-### PRs in flight (awaiting founder merge)
+**Cross-verification audit — 9 fixes:**
+- `trial-nudge` `isAuthorized()` fail-closed (C-02 — was open without CRON_SECRET, mass email risk)
+- Slug regex minimum 3 chars enforced in both `onboarding/complete` + `slug-check` (H-01)
+- Dedup key written BEFORE email send in trial-nudge day5+day12 loops (H-02)
+- Invite email match checks all registered addresses not just `[0]` (H-03)
+- Server-side reply char limit (350 GP / 5950 AS) before store submit → `REPLY_TOO_LONG` error (H-05)
+- GDPR export `GET` handler removed — CSRF vector (H-06)
+- Export `days` param validated + clamped 1-365 (M-01)
+- PostgREST `.or()` search input sanitized before interpolation (C-03)
+- `notifyWorkspaceOwner` `.single()` → `.maybeSingle()` in sync route (M-03)
+- `google-play/service-account` uses `apiError()` not raw `NextResponse.json` (L-01)
 
-- `claude/fix-onboarding-stuck-checking` — slug-check timeout safety, can't trap user on step 1
-- `claude/hotfix-viewport-meta` — adds `<meta viewport>` so mobile stops rendering desktop-scaled-down
-- `claude/n2-notification-panel-empty-state` — removes fake "Crash spike" bell items
-- `claude/n8-auth-pages-redesign` — split-screen sign-up/sign-in with brand-side panel + AuthShell
+### What shipped 2026-05-25 (merged)
+
+**`fix/audit-round-1`** — Two-pass audit, 35+ fixes across all API routes.
+**`fix/sync-and-competitors`** — First-login sync unblocked, competitors real data.
+**`claude/sync-resilience-milestone`** — Dashboard empty-state on first login.
 
 ### Up next (per backlog NOW)
 
-After PRs merge:
-- **N7a** — Landing page mobile responsive (`src/app/page.tsx`, 284 inline styles → media-query wrapped). ICE 90.
-- **N5** — `/compare/appfollow` rewrite with real teeth (feature table + ROI calc + CTAs). ICE 81.
+After PR merges:
 - **N3** — `/incidents/[id]` and `/releases/[version]` detail pages. ICE 64.
-- **N4** — Remove or wire dead buttons across competitors/aso/reports/settings. ICE 56.
-**Active branch:** `claude/picture-perfect` (PR open, awaiting merge)
-Last updated: 2026-05-22
+- **N4** — Wire or remove dead buttons (aso-screen, reports-screen). ICE 56.
+- **N6** — Stripe test keys + upgrade flow (HUMAN-REQUIRED). ICE 80.
 
 ### Completed (2026-05-19 → 2026-05-22)
 

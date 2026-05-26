@@ -1,130 +1,150 @@
 # Today — Handoff for next agent
 
 **Last updated:** 2026-05-26
-**Branch agent left on:** `claude/sync-resilience-milestone` (pushed, awaiting founder merge)
+**Branch agent left on:** `fix/audit-round-3` (pushed, PR at https://github.com/nimesh4992/ReviewBox/pull/new/fix/audit-round-3)
+
+You are the next Claude agent. Read this top-to-bottom before doing anything.
 
 ---
 
-## What shipped this session
+## Read order, every session
 
-### Milestone: Sync resilience + visible empty state
-
-The founder reported: *"Nothing is shown when users sign up. Plain slate with fancy cards no details."*
-
-Root cause was a known gap: when an app has 0 reviews in Google Play's
-last-7-day window (or the public scraper rate-limits transiently), the
-dashboard cards rendered real zeros with no context. User reads it
-as "broken".
-
-Three coordinated fixes shipped on **one branch** (per founder
-preference: no small merges, one milestone PR):
-
-1. **Bootstrap scraper retries** — `bootstrap-reviews.ts` now wraps
-   `google-play-scraper` in 3x retry with exponential backoff
-   (800ms, 1.6s, 3.2s). Recovers from ~95% of transient Play Store
-   503s / empty responses.
-
-2. **New dashboard banner: "Connected — no recent reviews yet"** —
-   when `last_sync_status === "success"` and `last_sync_review_count
-   === 0`, we now show an honest informational banner explaining
-   that Google Play only exposes reviews from the last 7 days.
-   Includes "Check again" button + link to /help/connect-google-play.
-   Previously this state showed NO banner at all and the user saw
-   only the empty KPI cards with no explanation.
-
-3. **"Sync now" button on the pending banner** — users who want to
-   force a sync without waiting for the auto-refresh now have a
-   visible button. Triggers POST /api/sync/reviews, then refetches
-   apps + metrics after 3s.
-
-Files touched:
-- `src/services/bootstrap-reviews.ts` — added `withRetry()` helper
-- `src/app/(app)/dashboard/page.tsx` — added emptySuccess state +
-  Sync now button on pending state + Sparkles import
-
-No new migrations needed — migration 013 already provides the
-`last_sync_review_count` + `last_sync_status` columns.
+1. **`CLAUDE.md`** (repo root) — stack, conventions, autopilot model, what NOT to do
+2. **`docs/decisions.md`** — IMMUTABLE rules. D000 (non-coder contract) and D009 (14 things you never do) are critical.
+3. **`docs/backlog.md`** — single source of truth for what to build next, ICE-ranked
+4. **This file (`docs/today.md`)** — last session's handoff
 
 ---
 
-## What the founder still needs to verify
+## What shipped this session (2026-05-26)
 
-1. **Set `CRON_SECRET` in Vercel** (still pending from prior session)
-   - Production + Preview + Development → redeploy
-   - Without it, weekly-digest and unreplied-alert crons never fire
-2. **Verify your service account is invited in YOUR Play Console** —
-   the email is in `GOOGLE_CLIENT_EMAIL`. Walk through
-   `/help/connect-google-play` yourself to confirm your own apps sync.
-3. **Apply migrations 007–013 in prod** if not already done.
+### `fix/audit-round-3` — **awaiting founder merge** (9 fixes)
+
+Cross-verification audit by a third-party review agent found bugs missed in the prior two passes. All 9 fixed in one commit (`e59d0cf`).
+
+| ID | File | Fix |
+|----|------|-----|
+| C-02 | `cron/trial-nudge/route.ts` | `isAuthorized()` now fail-closed — was `return true` when `CRON_SECRET` unset, allowing anyone to fire mass trial emails |
+| H-01 | `onboarding/complete` + `onboarding/slug-check` | Slug regex fixed — `(?:...)?` optional group allowed 1-char slugs; now requires min 3 chars |
+| H-02 | `cron/trial-nudge/route.ts` | Dedup Redis key now written BEFORE sending email (both day5 + day12 loops) |
+| H-03 | `account/accept-invite/route.ts` | Invite email check iterates all `emailAddresses`, not just `[0]` |
+| H-05 | `reviews/[id]/reply/route.ts` | Server-side char limit before store submit (Google Play: 350, App Store: 5950) |
+| H-06 | `gdpr/export/route.ts` | Removed `export const GET = handler` — CSRF vector |
+| M-01 | `reports/export/route.ts` | `days` param clamped 1-365; NaN/negative now default to 30 |
+| C-03 | `reviews/route.ts` | PostgREST `.or()` search param strips `,().'"\` before interpolation |
+| M-03 | `sync/reviews/route.ts` | `notifyWorkspaceOwner` `.single()` → `.maybeSingle()` |
+| L-01 | `google-play/service-account/route.ts` | Uses `apiError("UNAUTHORIZED", 401)` not raw `NextResponse.json` |
+
+Also added `REPLY_TOO_LONG` to `ApiErrorCode` union in `src/lib/api-response.ts`.
+
+**TypeScript:** 0 errors.
 
 ---
 
-## PR open for merge
+## PRs awaiting founder merge (priority order)
 
-| Branch | What |
-|---|---|
-| `claude/sync-resilience-milestone` | Scraper retries + dashboard empty-state banner + Sync now button |
+| # | Branch | What it does | Priority |
+|---|--------|-------------|----------|
+| 1 | `fix/audit-round-3` | 9 security + correctness fixes | 🔴 HIGH |
 
-GitHub URL: https://github.com/nimesh4992/ReviewBox/pulls
+Check all open PRs: https://github.com/nimesh4992/ReviewBox/pulls
+
+---
+
+## Untracked artifacts — do NOT commit
+
+Two files in repo root from cross-verification agent:
+- `gen_report.js` — session-specific path, unusable outside original env
+- `ReviewBox_Code_Review_Report.docx` — generated artifact
+
+Leave unstaged.
+
+---
+
+## One HUMAN action needed right now
+
+**Set `CRON_SECRET` in Vercel environment variables.**
+
+- Vercel dashboard → your project → Settings → Environment Variables
+- Add: `CRON_SECRET` = `e61b2c02c385535daa15e71d533dde895b8dcdf396c825841fa59ac1dbeb4480`
+- Apply to: Production + Preview + Development
+- Redeploy after setting it
+
+Why: `weekly-digest`, `unreplied-alert`, AND `trial-nudge` all fail closed without this. None of the email crons fire until this is set.
 
 ---
 
 ## What you should pick up next
 
-After this milestone merges:
+**Merge all PRs first (founder job). Then:**
 
 **Top non-blocked NOW item: N3 — Detail pages · ICE 64**
 
-Verify `/incidents/[id]` and `/releases/[version]` render real content.
-If wired, mark N3 [x] in `docs/backlog.md` and move to N4.
+`/incidents/[id]` and `/releases/[version]` show stubs or blank content. Users click from lists and hit nothing — trust killer.
 
-**N4 — Wire/remove dead buttons · ICE 56 (partial)**
+### N3 scope — Done when:
+1. `/incidents/[id]` — shows: title, severity badge, description, owner, detected-at, status chip, timeline.
+2. `/releases/[version]` — shows: version, rollout % bar, rating delta, complaint delta, status badge, reviews tagged for that version.
+3. Both have a back link and use `AppShell`.
+4. Mobile usable.
 
-Remaining: `aso-screen.tsx` (Export + Suggest keywords), `reports-screen.tsx`
-(Run report + Configure). Competitors already wired.
+### Start
+```powershell
+cd D:\Projects\Reviews
+git checkout master
+git pull origin master
+git checkout -b claude/n3-detail-pages
+```
+
+---
+
+## After N3: N4 — Remove or wire dead buttons · ICE 56
+
+Remaining dead buttons:
+- `aso-screen.tsx` — "Export" and "Suggest keywords"
+- `reports-screen.tsx` — "Run report" and "Configure"
+  (note: dead "+ New report" already removed on branch `claude/n3-n4-detail-pages-and-dead-buttons` — cherry-pick or re-apply that one change)
+
+---
+
+## What requires the founder (D009 — never do these yourself)
+
+- **Merge the open PR** above
+- **Set `CRON_SECRET`** in Vercel (see above)
+- **N6** — Add Stripe test keys to `.env.local`
 
 ---
 
 ## Lessons learned this session
 
-1. **The "empty dashboard" complaint is almost always an honest data
-   problem** (no reviews in Publisher API window, scraper rate-limited,
-   service account not invited) — but the UI was rendering it as a
-   complete blank. Adding an honest "we synced but found nothing"
-   banner changes user perception from "broken" to "working as
-   expected".
+1. **Cross-verification catches bugs after two audit passes.** A fresh agent found 9 more real bugs. Run a secondary audit after major security work — it always pays.
 
-2. **Don't replace working patterns with new components.** I almost
-   created a new `SyncStatusBanner.tsx` to replace the inline banner
-   in dashboard/page.tsx. The inline pattern was already working for
-   pending + error states — it just needed one new state added.
-   Deleted the new file, edited inline.
+2. **Dedup-before-send is the correct order.** Write the idempotency key BEFORE firing the side effect. Safer failure: missed email (retryable) > double-send (trust damage).
 
-3. **Migration 013 was already comprehensive** — `last_sync_status`,
-   `last_sync_review_count`, `last_sync_error`, `last_sync_attempted_at`
-   all exist. Always check what migrations have already shipped before
-   writing a new one.
+3. **All email crons must fail closed.** Sync route stays open intentionally (onboarding sync). Email crons (weekly-digest, unreplied-alert, trial-nudge) must all return 401 when CRON_SECRET unset.
+
+4. **`(?:...)?` ≠ required group.** The trailing `?` makes the whole group optional, silently allowing 1-char slugs despite "3-40 chars" in the error message.
+
+5. All prior lessons still apply — PowerShell `&&` broken (use `;`), no `gh` CLI on this machine.
 
 ---
 
 ## Active state of the repo
 
-- **Local branch:** `claude/sync-resilience-milestone` (committed,
-  not yet pushed by Claude — founder pushes)
-- **Master:** `audit-round-1` merged (PR #36); branch is current
-- **Build:** TypeScript clean, 70 unit tests pass, lint warnings only
+- **Local branch:** `fix/audit-round-3` (committed and pushed)
+- **Master:** clean
+- **Build:** TypeScript clean (0 errors)
+- **Tests:** 70 unit tests (unchanged this session)
 
 ---
 
 ## Founder's context (stable)
 
 - Solo founder, marketing-strong, non-coder
-- Autopilot loop: Claude ships PRs on branches → founder verifies on
-  Vercel preview → founder merges
-- Goal: take on AppFollow on price ($49 vs $399) + AI-first + modern UX
+- Autopilot loop: Claude ships PRs on branches → founder verifies on Vercel preview → founder merges
+- Goal: take on AppFollow ($49 vs $399) + AI-first + modern UX
 - Works in pockets around a full-time job
 - No `gh` CLI installed — give GitHub web PR URLs
-- **Preference: single-milestone PRs, not multiple small merges**
 
 ---
 
@@ -136,3 +156,4 @@ Remaining: `aso-screen.tsx` (Export + Suggest keywords), `reports-screen.tsx`
 - Never send real emails. Drafts only.
 - Always write PR descriptions as plain-English 5-minute test plans.
 - Always update this file at end of session.
+- Always ICE-score new backlog items added to `docs/backlog.md`.

@@ -75,6 +75,10 @@ the form.*
 **HUMAN-REQUIRED** (founder sets in Vercel dashboard → Settings → Environment Variables).
 **Why now:** Without it, the sync-all-workspaces coordinator endpoint is open to any caller. Now that sync is unblocked, lock it down.
 
+### [x] N-SEC2 · Cross-verification audit — 9 fixes · ICE 88 (10×9÷1) — SHIPPED 2026-05-26
+*Third-party code review found 9 real bugs missed by audit-round-1/2: trial-nudge cron fail-open (mass emails without CRON_SECRET), slug regex allowing 1-char slugs, dedup key race in trial emails, invite only checking primary email address, no server-side reply char limit (silent store rejection), GDPR export GET handler CSRF, export `days` param not validated, PostgREST .or() injection surface in review search, `.single()` log noise in sync route. PR `fix/audit-round-3` awaiting merge.*
+**Files:** 11 files — `cron/trial-nudge`, `onboarding/complete+slug-check`, `account/accept-invite`, `reviews/[id]/reply`, `gdpr/export`, `reports/export`, `reviews/route`, `sync/reviews`, `google-play/service-account`, `lib/api-response`
+
 ### [ ] N6 · Stripe test keys + verify upgrade flow · ICE 80 (10×8÷1)
 **Effort:** 1h.
 **Done when:** Founder completes a real upgrade with test card on local dev; webhook fires; sidebar plan label flips to "Pro".
