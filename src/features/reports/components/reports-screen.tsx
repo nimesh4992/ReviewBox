@@ -232,7 +232,11 @@ export function ReportsScreen() {
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8 max-w-[1240px] mx-auto">
 
-      {/* Header */}
+      {/* Header.
+          The "+ New report" button used to live here but did nothing —
+          custom report authoring is queued behind the four built-in
+          reports (weekly digest, unreplied alert, monthly summary,
+          crash spike). Re-add once that backlog item ships. */}
       <header className="flex items-end justify-between gap-6">
         <div>
           <div className="text-[12px] font-medium text-fg-3">{selectedApp || "All apps"}</div>
@@ -240,9 +244,6 @@ export function ReportsScreen() {
             Reports
           </h1>
         </div>
-        <button className="flex h-8 items-center gap-1.5 rounded-lg bg-[#0A84FF] px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#006EE0]">
-          + New report
-        </button>
       </header>
 
       {/* Report cards */}

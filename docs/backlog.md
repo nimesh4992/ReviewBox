@@ -69,15 +69,11 @@ the form.*
 ### [x] N-COMP · Competitors screen real data · ICE 60 (8×7÷1) — SHIPPED 2026-05-25
 *New `GET /api/competitors` endpoint. "You" row shows real DB metrics (rating, reviews/week, reply rate, 6-week trend). Competitors are illustrative placeholders with amber "sample" badge — competitor tracking is a future feature. PR `fix/sync-and-competitors` awaiting merge.*
 
-### [!] N-CRON · Set CRON_SECRET in Vercel · ICE 72 (9×8÷1)
-**Effort:** 5 min.
-**Done when:** `CRON_SECRET` env var is set in Vercel → Production + Preview + Development scopes. Any long random string works (`openssl rand -hex 32`).
-**HUMAN-REQUIRED** (founder sets in Vercel dashboard → Settings → Environment Variables).
-**Why now:** Without it, the sync-all-workspaces coordinator endpoint is open to any caller. Now that sync is unblocked, lock it down.
+### [x] N-CRON · Set CRON_SECRET in Vercel · ICE 72 (9×8÷1) — DONE 2026-05-26
+*Founder set env var in Vercel. weekly-digest, unreplied-alert, trial-nudge crons now secured and firing.*
 
-### [x] N-SEC2 · Cross-verification audit — 9 fixes · ICE 88 (10×9÷1) — SHIPPED 2026-05-26
-*Third-party code review found 9 real bugs missed by audit-round-1/2: trial-nudge cron fail-open (mass emails without CRON_SECRET), slug regex allowing 1-char slugs, dedup key race in trial emails, invite only checking primary email address, no server-side reply char limit (silent store rejection), GDPR export GET handler CSRF, export `days` param not validated, PostgREST .or() injection surface in review search, `.single()` log noise in sync route. PR `fix/audit-round-3` awaiting merge.*
-**Files:** 11 files — `cron/trial-nudge`, `onboarding/complete+slug-check`, `account/accept-invite`, `reviews/[id]/reply`, `gdpr/export`, `reports/export`, `reviews/route`, `sync/reviews`, `google-play/service-account`, `lib/api-response`
+### [x] N-SEC2 · Cross-verification audit — 9 fixes · ICE 88 (10×9÷1) — MERGED 2026-05-26
+*Third-party code review found 9 real bugs missed by audit-round-1/2: trial-nudge cron fail-open, slug regex 1-char, dedup race, invite primary-only email, no reply char limit, GDPR export CSRF, days param NaN, PostgREST injection, .single() log noise. Merged to master.*
 
 ### [ ] N6 · Stripe test keys + verify upgrade flow · ICE 80 (10×8÷1)
 **Effort:** 1h.
