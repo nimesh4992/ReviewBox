@@ -34,7 +34,11 @@ export function useApps() {
     staleTime: 5 * 60 * 1000,
   });
 
-  return { apps: data ?? [], isLoading, refetch };
+  // Guard: if the cache was populated with a non-array (e.g. an `{ apps: [] }`
+  // object from a stale CredentialsBanner queryFn), fall back to empty array
+  // rather than propagating a non-array to callers who do `.some()` / `.map()`.
+  const apps = Array.isArray(data) ? data : [];
+  return { apps, isLoading, refetch };
 }
 
 export function useInvalidateApps() {
