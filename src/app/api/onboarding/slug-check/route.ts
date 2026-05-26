@@ -5,7 +5,9 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { rateLimit } from "@/lib/api-rate-limit";
 import { apiError } from "@/lib/api-response";
 
-const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$/;
+// Requires minimum 3 chars (leading + 1+ middle + trailing). Keep in sync with
+// /api/onboarding/complete — the old optional group allowed 1-char slugs.
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/;
 const RESERVED = new Set([
   "admin", "api", "app", "blog", "billing", "careers", "changelog", "compare",
   "contact", "cookies", "customers", "dashboard", "dpa", "faq", "help",

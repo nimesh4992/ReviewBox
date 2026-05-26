@@ -90,8 +90,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (platform)  query = query.eq("source", platform === "Google Play" ? "google_play" : "app_store");
     // Full-text search: ilike on body + author (case-insensitive pattern match)
     // A GIN index on body can be added later for performance at scale.
+    // Strip PostgREST filter-string special characters (,().'") before
+    // interpolating into .or() — the workspace_id .eq() AND guard already
+    // prevents cross-tenant leakage, but this removes the injection surface entirely.
     if (search) {
-      const pattern = `%${search.replace(/[%_]/g, "\\$&")}%`;
+      const safe    = search.replace(/[,().'"\\\s]/g, " ").trim().slice(0, 100);
+      const pattern = `%${safe.replace(/[%_]/g, "\\$&")}%`;
       query = query.or(`body.ilike.${pattern},author.ilike.${pattern}`);
     }
 

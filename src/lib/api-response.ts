@@ -27,6 +27,7 @@ export type ApiErrorCode =
   // External
   | "STORE_RATE_LIMITED"
   | "STORE_SUBMIT_FAILED"
+  | "REPLY_TOO_LONG"
   | "REVIEW_NOT_FOUND_ON_STORE"
   | "APP_STORE_NOT_CONNECTED"
   | "STRIPE_NOT_CONFIGURED"
@@ -82,6 +83,7 @@ function defaultMessage(code: ApiErrorCode): string {
     case "WORKSPACE_DELETED":     return "This workspace has been deleted.";
     case "STORE_RATE_LIMITED":    return "The app store is rate-limiting us. Try again in a minute.";
     case "STORE_SUBMIT_FAILED":   return "Couldn't submit your reply to the store.";
+    case "REPLY_TOO_LONG":        return "Reply exceeds the store's character limit.";
     case "REVIEW_NOT_FOUND_ON_STORE": return "This review no longer exists on the store.";
     case "APP_STORE_NOT_CONNECTED":   return "App Store credentials are missing. Add them in Settings.";
     case "STRIPE_NOT_CONFIGURED": return "Billing isn't set up yet.";
