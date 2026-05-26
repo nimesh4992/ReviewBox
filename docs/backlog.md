@@ -41,19 +41,11 @@ customers, etc).*
 Dropped the custom terms gate in favor of inline legal line below
 the form.*
 
-### [ ] N3 · Detail pages exist · ICE 64 (8×8÷1)
-**Effort:** 2h.
-**Done when:** Clicking an incident or release in the lists goes to a real detail page (not 404 or blank).
-**Files:** `src/app/(app)/incidents/[id]/page.tsx`, `src/app/(app)/releases/[version]/page.tsx`
-**Why now:** Users will click these. 404 = trust killer.
-*Note: CLAUDE.md lists incident detail and release detail as ✅ Done — verify they actually render before building new work. If wired correctly, mark this [x] and skip to N4.*
+### [x] N3 · Detail pages exist · ICE 64 (8×8÷1) — VERIFIED 2026-05-26
+*Both `/incidents/[id]` and `/releases/[version]` already fully implemented with real DB queries — title, severity/status badges, timeline, rating distribution, reviews list. Verified on branch `claude/n3-detail-pages`. Brand color fix applied (not-found state was using old `#5B5BD6` purple).*
 
-### [~] N4 · Remove or wire dead buttons · ICE 56 (7×8÷1)
-**Effort:** 3h (partially done — competitors wired 2026-05-25).
-**Done when:** Every visible button does something. If we can't ship the feature, the button is hidden behind a feature flag or removed.
-**Remaining files:** `aso-screen.tsx` (Export + Suggest keywords), `reports-screen.tsx` (Run report + Configure), settings sections
-**Competitors-screen.tsx:** ✅ wired to real `/api/competitors` data (2026-05-25)
-**Why now:** "Save defaults" that does nothing trains users to mistrust us.
+### [x] N4 · Remove or wire dead buttons · ICE 56 (7×8÷1) — DONE 2026-05-26
+*Verified all visible buttons: competitors wired (2026-05-25), ASO buttons all wired (AI Suggestions, Add keyword, Update ranks), report cards properly gate with "Coming soon" label when endpoint is null, dead "+ New report" header button removed. No remaining dead buttons. PR `claude/n3-detail-pages` awaiting merge.*
 
 ### [x] N5 · /compare/appfollow with real teeth · ICE 81 (9×9÷1)
 *Shipped 2026-05-19 on branch `claude/n5-compare-appfollow-rewrite` — awaiting founder merge.*
@@ -69,15 +61,11 @@ the form.*
 ### [x] N-COMP · Competitors screen real data · ICE 60 (8×7÷1) — SHIPPED 2026-05-25
 *New `GET /api/competitors` endpoint. "You" row shows real DB metrics (rating, reviews/week, reply rate, 6-week trend). Competitors are illustrative placeholders with amber "sample" badge — competitor tracking is a future feature. PR `fix/sync-and-competitors` awaiting merge.*
 
-### [!] N-CRON · Set CRON_SECRET in Vercel · ICE 72 (9×8÷1)
-**Effort:** 5 min.
-**Done when:** `CRON_SECRET` env var is set in Vercel → Production + Preview + Development scopes. Any long random string works (`openssl rand -hex 32`).
-**HUMAN-REQUIRED** (founder sets in Vercel dashboard → Settings → Environment Variables).
-**Why now:** Without it, the sync-all-workspaces coordinator endpoint is open to any caller. Now that sync is unblocked, lock it down.
+### [x] N-CRON · Set CRON_SECRET in Vercel · ICE 72 (9×8÷1) — DONE 2026-05-26
+*Founder set env var in Vercel. weekly-digest, unreplied-alert, trial-nudge crons now secured and firing.*
 
-### [x] N-SEC2 · Cross-verification audit — 9 fixes · ICE 88 (10×9÷1) — SHIPPED 2026-05-26
-*Third-party code review found 9 real bugs missed by audit-round-1/2: trial-nudge cron fail-open (mass emails without CRON_SECRET), slug regex allowing 1-char slugs, dedup key race in trial emails, invite only checking primary email address, no server-side reply char limit (silent store rejection), GDPR export GET handler CSRF, export `days` param not validated, PostgREST .or() injection surface in review search, `.single()` log noise in sync route. PR `fix/audit-round-3` awaiting merge.*
-**Files:** 11 files — `cron/trial-nudge`, `onboarding/complete+slug-check`, `account/accept-invite`, `reviews/[id]/reply`, `gdpr/export`, `reports/export`, `reviews/route`, `sync/reviews`, `google-play/service-account`, `lib/api-response`
+### [x] N-SEC2 · Cross-verification audit — 9 fixes · ICE 88 (10×9÷1) — MERGED 2026-05-26
+*Third-party code review found 9 real bugs missed by audit-round-1/2: trial-nudge cron fail-open, slug regex 1-char, dedup race, invite primary-only email, no reply char limit, GDPR export CSRF, days param NaN, PostgREST injection, .single() log noise. Merged to master.*
 
 ### [ ] N6 · Stripe test keys + verify upgrade flow · ICE 80 (10×8÷1)
 **Effort:** 1h.

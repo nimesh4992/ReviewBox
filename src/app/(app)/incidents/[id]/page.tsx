@@ -120,7 +120,7 @@ export default async function IncidentDetailPage({
         <div className="p-6">
           <Link
             href="/incidents"
-            className="inline-flex items-center gap-1.5 text-sm text-[#5B5BD6] hover:underline"
+            className="inline-flex items-center gap-1.5 text-sm text-[#0A84FF] hover:underline"
           >
             <ArrowLeft className="size-3.5" strokeWidth={1.5} />
             Back to incidents
