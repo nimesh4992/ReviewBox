@@ -41,19 +41,11 @@ customers, etc).*
 Dropped the custom terms gate in favor of inline legal line below
 the form.*
 
-### [ ] N3 · Detail pages exist · ICE 64 (8×8÷1)
-**Effort:** 2h.
-**Done when:** Clicking an incident or release in the lists goes to a real detail page (not 404 or blank).
-**Files:** `src/app/(app)/incidents/[id]/page.tsx`, `src/app/(app)/releases/[version]/page.tsx`
-**Why now:** Users will click these. 404 = trust killer.
-*Note: CLAUDE.md lists incident detail and release detail as ✅ Done — verify they actually render before building new work. If wired correctly, mark this [x] and skip to N4.*
+### [x] N3 · Detail pages exist · ICE 64 (8×8÷1) — VERIFIED 2026-05-26
+*Both `/incidents/[id]` and `/releases/[version]` already fully implemented with real DB queries — title, severity/status badges, timeline, rating distribution, reviews list. Verified on branch `claude/n3-detail-pages`. Brand color fix applied (not-found state was using old `#5B5BD6` purple).*
 
-### [~] N4 · Remove or wire dead buttons · ICE 56 (7×8÷1)
-**Effort:** 3h (partially done — competitors wired 2026-05-25).
-**Done when:** Every visible button does something. If we can't ship the feature, the button is hidden behind a feature flag or removed.
-**Remaining files:** `aso-screen.tsx` (Export + Suggest keywords), `reports-screen.tsx` (Run report + Configure), settings sections
-**Competitors-screen.tsx:** ✅ wired to real `/api/competitors` data (2026-05-25)
-**Why now:** "Save defaults" that does nothing trains users to mistrust us.
+### [x] N4 · Remove or wire dead buttons · ICE 56 (7×8÷1) — DONE 2026-05-26
+*Verified all visible buttons: competitors wired (2026-05-25), ASO buttons all wired (AI Suggestions, Add keyword, Update ranks), report cards properly gate with "Coming soon" label when endpoint is null, dead "+ New report" header button removed. No remaining dead buttons. PR `claude/n3-detail-pages` awaiting merge.*
 
 ### [x] N5 · /compare/appfollow with real teeth · ICE 81 (9×9÷1)
 *Shipped 2026-05-19 on branch `claude/n5-compare-appfollow-rewrite` — awaiting founder merge.*
