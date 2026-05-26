@@ -28,7 +28,9 @@ function getRedis() {
 
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true; // dev mode
+  // Fail closed — sending trial emails to all users without auth is higher
+  // risk than missing a sync. Same pattern as weekly-digest/unreplied-alert.
+  if (!secret) return false;
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 
@@ -132,6 +134,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       .eq("workspace_id", ws.id)
       .eq("reply_status", "needs_reply");
 
+    // Write dedup key BEFORE sending — prevents double-send if Redis write
+    // fails after email fires (the safer failure mode is "not sent" not "sent twice").
+    if (redis) {
+      await redis.set(dedupKey, "1", { ex: 30 * 24 * 3600 });
+    }
+
     await sendTrialDay5Nudge({
       to:             ownerInfo.email,
       name:           ownerInfo.name,
@@ -140,9 +148,6 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       workspaceName:  ws.name,
     });
 
-    if (redis) {
-      await redis.set(dedupKey, "1", { ex: 30 * 24 * 3600 });
-    }
     sent++;
   }
 
@@ -157,11 +162,13 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const ownerInfo = await getOwnerEmail(ws.id);
     if (!ownerInfo) { skipped++; continue; }
 
-    await sendTrialExpiringEmail(ownerInfo.email, ownerInfo.name, 2);
-
+    // Write dedup key BEFORE sending — same reasoning as day-5 loop above.
     if (redis) {
       await redis.set(dedupKey, "1", { ex: 30 * 24 * 3600 });
     }
+
+    await sendTrialExpiringEmail(ownerInfo.email, ownerInfo.name, 2);
+
     sent++;
   }
 

@@ -63,7 +63,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const params = req.nextUrl.searchParams;
   const format   = params.get("format")   ?? "csv";
-  const days     = params.get("days")     ?? "30";
+  const rawDays  = params.get("days");
+  // Validate days: "all" passthrough; numeric values clamped to 1-365.
+  // Number("abc") = NaN and negative values both produced invalid date ranges.
+  const days: string = rawDays === "all"
+    ? "all"
+    : String(Math.max(1, Math.min(365, parseInt(rawDays ?? "30", 10) || 30)));
   const appId    = params.get("appId")    ?? null;
   const priority = params.get("priority") ?? null;
   const rating   = params.get("rating")   ?? null;

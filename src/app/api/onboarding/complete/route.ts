@@ -29,8 +29,11 @@ interface OnboardingBody {
 
 const TRIAL_DAYS = 14;
 
-// Same pattern as /api/onboarding/slug-check — keep in sync
-const SLUG_PATTERN = /^[a-z0-9](?:[a-z0-9-]{1,38}[a-z0-9])?$/;
+// Same pattern as /api/onboarding/slug-check — keep in sync.
+// Requires minimum 3 chars: one leading alnum, 1-38 middle chars, one trailing alnum.
+// The old pattern used (?:...)?$ which made the middle+trailing group optional,
+// allowing single-character slugs despite the "3-40 chars" error message.
+const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/;
 const RESERVED_SLUGS = new Set([
   "admin", "api", "app", "blog", "billing", "careers", "changelog", "compare",
   "contact", "cookies", "customers", "dashboard", "dpa", "faq", "help",

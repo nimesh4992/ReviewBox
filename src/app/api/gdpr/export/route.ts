@@ -101,6 +101,6 @@ function countRows(data: Record<string, unknown>): Record<string, number> {
   return counts;
 }
 
-// Accept both verbs; UI calls POST, curl users may use GET.
-export const GET = handler;
+// POST only — GET on a data-export route is a CSRF vector (triggerable via
+// img src, link prefetch, browser history preload). The UI already uses POST.
 export const POST = handler;

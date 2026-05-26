@@ -11,13 +11,14 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
+import { apiError } from "@/lib/api-response";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(): Promise<NextResponse> {
   const session = await auth();
   if (!session?.userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    return apiError("UNAUTHORIZED", 401);
   }
 
   const email = process.env.GOOGLE_CLIENT_EMAIL ?? null;

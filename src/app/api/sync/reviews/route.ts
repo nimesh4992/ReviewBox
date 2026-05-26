@@ -490,7 +490,7 @@ async function notifyWorkspaceOwner(
     .eq("workspace_id", workspaceId)
     .eq("role", "owner")
     .limit(1)
-    .single();
+    .maybeSingle();  // .single() throws PGRST116 when no owner row exists → noisy 500 logs
 
   if (!member) return;
 
