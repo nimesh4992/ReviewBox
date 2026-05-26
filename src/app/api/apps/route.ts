@@ -13,12 +13,14 @@ export async function GET() {
   if (!workspaceId) return NextResponse.json({ apps: [] });
 
   const sb = getServiceClient();
-  // Try the full select first. If migrations 012/013 aren't applied yet, fall
-  // back to the original columns so /api/apps doesn't break in that state.
+  // Try the full select first. If migrations 012/013/015 aren't applied yet,
+  // fall back through progressively simpler queries so /api/apps never breaks.
+  // NOTE: .is("deleted_at", null) requires migration 015. Both branches omit
+  // deleted_at filter as fallback if the column doesn't exist yet.
   const full = await sb
     .from("apps")
     .select(
-      "id, name, platform, store_id, last_synced_at, access_token, refresh_token, icon_url, developer, lifetime_rating, lifetime_review_count, last_sync_attempted_at, last_sync_status, last_sync_error, last_sync_review_count",
+      "id, name, platform, store_id, last_synced_at, access_token, refresh_token, icon_url, developer, lifetime_rating, lifetime_review_count, last_sync_attempted_at, last_sync_status, last_sync_error, last_sync_review_count, deleted_at",
     )
     .eq("workspace_id", workspaceId)
     .is("deleted_at", null)
@@ -27,11 +29,13 @@ export async function GET() {
   let apps: Record<string, unknown>[] = (full.data as Record<string, unknown>[] | null) ?? [];
 
   if (full.error?.code === "42703") {
+    // One or more columns missing (pre-migration state). Try without the newer
+    // metadata columns. Also drop deleted_at filter — if 015 isn't applied yet
+    // no apps have been soft-deleted so returning all is equivalent and safe.
     const minimal = await sb
       .from("apps")
       .select("id, name, platform, store_id, last_synced_at, access_token, refresh_token")
       .eq("workspace_id", workspaceId)
-      .is("deleted_at", null)
       .order("created_at");
     apps = (minimal.data as Record<string, unknown>[] | null) ?? [];
   }

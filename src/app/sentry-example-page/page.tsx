@@ -78,10 +78,8 @@ export default function Page() {
                 op: "test",
               },
               async () => {
-                const res = await fetch("/api/sentry-example-api");
-                if (!res.ok) {
-                  setHasSentError(true);
-                }
+                // /api/sentry-example-api was removed; just mark as sent
+                setHasSentError(true);
               },
             );
             throw new SentryExampleFrontendError(
