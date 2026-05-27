@@ -1,31 +1,107 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { CheckCircle2, Loader2, ExternalLink, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export function SlackIntegration() {
-  const [webhookUrl, setWebhookUrl]   = useState("");
-  const [saved,      setSaved]        = useState<string | null>(null); // saved URL from DB
-  const [loading,    setLoading]      = useState(true);
-  const [saving,     setSaving]       = useState(false);
-  const [testing,    setTesting]      = useState(false);
-  const [testResult, setTestResult]   = useState<"success" | "error" | null>(null);
-  const [error,      setError]        = useState<string | null>(null);
+// When NEXT_PUBLIC_SLACK_CLIENT_ID is not set, the existing paste-URL
+// fallback is rendered — no change for workspaces that already have a
+// webhook URL saved manually.
+const OAUTH_ENABLED = Boolean(process.env.NEXT_PUBLIC_SLACK_CLIENT_ID);
 
-  // Load saved URL on mount
+interface SlackStatus {
+  connected:   boolean;
+  channelName: string | null;
+  teamName:    string | null;
+}
+
+export function SlackIntegration() {
+  const searchParams = useSearchParams();
+
+  // ── OAuth mode state ─────────────────────────────────────────────────────────
+  const [status,       setStatus]       = useState<SlackStatus | null>(null);
+  const [statusLoading,setStatusLoading]= useState(OAUTH_ENABLED);
+  const [disconnecting,setDisconnecting]= useState(false);
+  const [toast,        setToast]        = useState<{ type: "success"|"error"; msg: string } | null>(null);
+
+  // ── Paste-URL mode state ─────────────────────────────────────────────────────
+  const [webhookUrl,  setWebhookUrl]  = useState("");
+  const [saved,       setSaved]       = useState<string | null>(null);
+  const [loading,     setLoading]     = useState(!OAUTH_ENABLED);
+  const [saving,      setSaving]      = useState(false);
+  const [testing,     setTesting]     = useState(false);
+  const [testResult,  setTestResult]  = useState<"success"|"error"|null>(null);
+  const [error,       setError]       = useState<string | null>(null);
+
+  function showToast(type: "success"|"error", msg: string) {
+    setToast({ type, msg });
+    setTimeout(() => setToast(null), 4000);
+  }
+
+  // Load connection status on mount
   useEffect(() => {
-    fetch("/api/settings/workspace")
-      .then((r) => r.json())
-      .then((d: { slackWebhookUrl?: string | null }) => {
-        const url = d.slackWebhookUrl ?? null;
-        setSaved(url);
-        setWebhookUrl(url ?? "");
-      })
-      .catch(() => undefined)
-      .finally(() => setLoading(false));
+    if (OAUTH_ENABLED) {
+      fetch("/api/settings/slack/status")
+        .then((r) => r.json())
+        .then((d) => setStatus(d as SlackStatus))
+        .catch(() => setStatus({ connected: false, channelName: null, teamName: null }))
+        .finally(() => setStatusLoading(false));
+    } else {
+      // Paste-URL mode: load saved webhook from workspace settings
+      fetch("/api/settings/workspace")
+        .then((r) => r.json())
+        .then((d: { slackWebhookUrl?: string | null }) => {
+          const url = d.slackWebhookUrl ?? null;
+          setSaved(url);
+          setWebhookUrl(url ?? "");
+        })
+        .catch(() => undefined)
+        .finally(() => setLoading(false));
+    }
   }, []);
 
+  // Handle ?slack=connected and ?slack=error query params on first render
+  useEffect(() => {
+    const slackParam = searchParams.get("slack");
+    const reason     = searchParams.get("reason");
+    if (slackParam === "connected") {
+      showToast("success", "Slack connected successfully.");
+      if (OAUTH_ENABLED) {
+        fetch("/api/settings/slack/status")
+          .then((r) => r.json())
+          .then((d) => setStatus(d as SlackStatus))
+          .catch(() => undefined);
+      }
+    } else if (slackParam === "error") {
+      const msg =
+        reason === "csrf"         ? "Connection failed: security check failed. Please try again." :
+        reason === "rate_limited" ? "Too many attempts. Please wait and try again." :
+        reason === "slack_error"  ? "Slack rejected the connection. Please try again." :
+        "Could not connect to Slack. Please try again.";
+      showToast("error", msg);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function handleDisconnect() {
+    setDisconnecting(true);
+    try {
+      const res = await fetch("/api/settings/slack", { method: "DELETE" });
+      if (res.ok) {
+        setStatus({ connected: false, channelName: null, teamName: null });
+        showToast("success", "Slack disconnected.");
+      } else {
+        showToast("error", "Failed to disconnect. Please try again.");
+      }
+    } catch {
+      showToast("error", "Failed to disconnect. Please try again.");
+    } finally {
+      setDisconnecting(false);
+    }
+  }
+
+  // ── Paste-URL handlers ───────────────────────────────────────────────────────
   async function handleSave() {
     const trimmed = webhookUrl.trim();
     if (trimmed && !trimmed.startsWith("https://hooks.slack.com/")) {
@@ -69,7 +145,7 @@ export function SlackIntegration() {
     }
   }
 
-  async function handleDisconnect() {
+  async function handleDisconnectPasteUrl() {
     setSaving(true);
     try {
       await fetch("/api/settings/workspace", {
@@ -84,8 +160,8 @@ export function SlackIntegration() {
     }
   }
 
-  const isConnected = !!saved;
-  const isDirty     = webhookUrl.trim() !== (saved ?? "");
+  const isConnectedViaUrl = !!saved;
+  const isDirty           = webhookUrl.trim() !== (saved ?? "");
 
   return (
     <div className="rounded-[14px] border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">
@@ -104,7 +180,8 @@ export function SlackIntegration() {
             Get alerts for rating spikes, incidents, and urgent reviews
           </div>
         </div>
-        {isConnected && (
+        {/* Connected badge */}
+        {(OAUTH_ENABLED ? status?.connected : isConnectedViaUrl) && (
           <span className="flex items-center gap-1.5 rounded-full bg-[#1F8A5B]/10 px-2.5 py-1 text-[11px] font-semibold text-[#1F8A5B]">
             <CheckCircle2 size={11} />
             Connected
@@ -112,118 +189,195 @@ export function SlackIntegration() {
         )}
       </div>
 
+      {/* Toast */}
+      {toast && (
+        <div className={cn(
+          "mx-5 mt-4 rounded-[8px] px-4 py-2.5 text-[12px] font-medium",
+          toast.type === "success"
+            ? "bg-[#1F8A5B]/10 text-[#1F8A5B]"
+            : "bg-[#DC2626]/10 text-[#DC2626]",
+        )}>
+          {toast.msg}
+        </div>
+      )}
+
       {/* Body */}
       <div className="px-5 py-4 space-y-4">
-        {loading ? (
-          <div className="flex items-center gap-2 text-[13px] text-fg-3">
-            <Loader2 size={13} className="animate-spin" />
-            Loading…
-          </div>
-        ) : (
-          <>
-            {/* Setup guide */}
-            {!isConnected && (
-              <div className="rounded-[10px] bg-[var(--rb-bg-sunken)] px-4 py-3 text-[12px] text-fg-2 space-y-1">
-                <p className="font-semibold text-fg-1">How to connect</p>
-                <ol className="list-decimal list-inside space-y-1 text-fg-2">
-                  <li>Go to your Slack workspace → <strong>Apps</strong> → search <strong>Incoming Webhooks</strong></li>
-                  <li>Click <strong>Add to Slack</strong> → choose a channel → <strong>Allow</strong></li>
-                  <li>Copy the <strong>Webhook URL</strong> and paste it below</li>
-                </ol>
-                <a
-                  href="https://api.slack.com/messaging/webhooks"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-1 text-[#0A84FF] hover:underline mt-1"
-                >
-                  Slack docs <ExternalLink size={10} />
-                </a>
-              </div>
-            )}
 
-            {/* Webhook URL input */}
-            <div className="space-y-1.5">
-              <label className="text-[12px] font-medium text-fg-2">
-                Webhook URL
-              </label>
-              <input
-                type="url"
-                placeholder="https://hooks.slack.com/services/T.../B.../..."
-                value={webhookUrl}
-                onChange={(e) => { setWebhookUrl(e.target.value); setError(null); }}
-                className={cn(
-                  "w-full rounded-[8px] border bg-[var(--rb-bg-sunken)] px-3 py-2 text-[13px] text-fg-1 placeholder:text-fg-3 outline-none transition-colors",
-                  error
-                    ? "border-[#DC2626] focus:border-[#DC2626]"
-                    : "border-[var(--rb-border-2)] focus:border-[#0A84FF]",
+        {/* ── OAuth mode ──────────────────────────────────────────── */}
+        {OAUTH_ENABLED ? (
+          statusLoading ? (
+            <div className="flex items-center gap-2 text-[13px] text-fg-3">
+              <Loader2 size={13} className="animate-spin" />
+              Loading…
+            </div>
+          ) : status?.connected ? (
+            /* Connected state */
+            <div className="space-y-3">
+              <div className="rounded-[10px] bg-[var(--rb-bg-sunken)] px-4 py-3">
+                <p className="text-[13px] font-medium text-fg-1">
+                  Connected to{" "}
+                  <span className="font-mono text-[#0A84FF]">#{status.channelName}</span>
+                </p>
+                {status.teamName && (
+                  <p className="mt-0.5 text-[12px] text-fg-3">{status.teamName}</p>
                 )}
-              />
-              {error && <p className="text-[11px] text-[#DC2626]">{error}</p>}
-            </div>
-
-            {/* Which events */}
-            <div className="space-y-1.5">
-              <p className="text-[12px] font-medium text-fg-2">Sends alerts for</p>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  { icon: "⚠️", label: "Rating spikes" },
-                  { icon: "🚨", label: "New incidents" },
-                  { icon: "🔴", label: "Urgent reviews" },
-                ].map((e) => (
-                  <span
-                    key={e.label}
-                    className="flex items-center gap-1.5 rounded-full border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-2.5 py-1 text-[11px] font-medium text-fg-2"
-                  >
-                    {e.icon} {e.label}
-                  </span>
-                ))}
               </div>
-            </div>
-
-            {/* Actions */}
-            <div className="flex items-center gap-2 pt-1">
-              <button
-                onClick={handleSave}
-                disabled={saving || !isDirty}
-                className="h-[30px] rounded-[7px] bg-[#0A84FF] px-4 text-[12px] font-semibold text-white hover:bg-[#006EE0] disabled:opacity-40 transition-colors"
-              >
-                {saving ? <Loader2 size={12} className="animate-spin" /> : isConnected && !isDirty ? "Saved" : "Save"}
-              </button>
-
-              {webhookUrl.trim() && (
-                <button
-                  onClick={handleTest}
-                  disabled={testing}
-                  className="h-[30px] rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-4 text-[12px] font-semibold text-fg-1 hover:bg-[var(--rb-bg-hover)] disabled:opacity-40 transition-colors"
-                >
-                  {testing ? <Loader2 size={12} className="animate-spin" /> : "Send test"}
-                </button>
-              )}
-
-              {testResult === "success" && (
-                <span className="flex items-center gap-1 text-[12px] font-semibold text-[#1F8A5B]">
-                  <CheckCircle2 size={13} /> Message sent!
-                </span>
-              )}
-              {testResult === "error" && (
-                <span className="text-[12px] font-semibold text-[#DC2626]">
-                  Failed — check your URL
-                </span>
-              )}
-
-              {isConnected && (
+              <AlertTypePills />
+              <div className="flex items-center pt-1">
                 <button
                   onClick={handleDisconnect}
-                  disabled={saving}
-                  className="ml-auto flex items-center gap-1.5 text-[12px] text-fg-3 hover:text-[#DC2626] transition-colors"
+                  disabled={disconnecting}
+                  className="ml-auto flex items-center gap-1.5 text-[12px] text-fg-3 hover:text-[#DC2626] transition-colors disabled:opacity-40"
                 >
-                  <Trash2 size={12} />
+                  {disconnecting
+                    ? <Loader2 size={12} className="animate-spin" />
+                    : <Trash2 size={12} />}
                   Disconnect
                 </button>
-              )}
+              </div>
             </div>
-          </>
+          ) : (
+            /* Not connected — OAuth button */
+            <div className="space-y-3">
+              <div className="rounded-[10px] bg-[var(--rb-bg-sunken)] px-4 py-3 text-[12px] text-fg-2 space-y-1">
+                <p className="font-semibold text-fg-1">Connect in two clicks</p>
+                <ol className="list-decimal list-inside space-y-1 text-fg-2">
+                  <li>Click <strong>Add to Slack</strong> below</li>
+                  <li>Pick a channel in your Slack workspace and click <strong>Allow</strong></li>
+                  <li>You&rsquo;re redirected back here — done</li>
+                </ol>
+              </div>
+              <AlertTypePills />
+              <a
+                href="/api/auth/slack/authorize"
+                className="inline-flex items-center gap-2 h-[34px] rounded-[8px] bg-[#4A154B] px-4 text-[13px] font-semibold text-white hover:bg-[#3b1040] transition-colors"
+              >
+                {/* Slack logo (white tinted) */}
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                  <path d="M6.2 14.7a2.1 2.1 0 1 1-2.1-2.1h2.1v2.1Zm1.05 0a2.1 2.1 0 0 1 4.2 0v5.25a2.1 2.1 0 1 1-4.2 0V14.7Z" fill="white" fillOpacity=".9"/>
+                  <path d="M9.3 6.2a2.1 2.1 0 1 1 2.1-2.1v2.1H9.3Zm0 1.05a2.1 2.1 0 0 1 0 4.2H4.05a2.1 2.1 0 1 1 0-4.2H9.3Z" fill="white" fillOpacity=".9"/>
+                  <path d="M17.8 9.3a2.1 2.1 0 1 1 2.1 2.1H17.8V9.3Zm-1.05 0a2.1 2.1 0 0 1-4.2 0V4.05a2.1 2.1 0 1 1 4.2 0V9.3Z" fill="white" fillOpacity=".9"/>
+                  <path d="M14.7 17.8a2.1 2.1 0 1 1-2.1 2.1V17.8h2.1Zm0-1.05a2.1 2.1 0 0 1 0-4.2h5.25a2.1 2.1 0 1 1 0 4.2H14.7Z" fill="white" fillOpacity=".9"/>
+                </svg>
+                Add to Slack
+                <ExternalLink size={11} className="opacity-70" />
+              </a>
+            </div>
+          )
+        ) : (
+          /* ── Paste-URL fallback (NEXT_PUBLIC_SLACK_CLIENT_ID not set) ─── */
+          loading ? (
+            <div className="flex items-center gap-2 text-[13px] text-fg-3">
+              <Loader2 size={13} className="animate-spin" />
+              Loading…
+            </div>
+          ) : (
+            <>
+              {!isConnectedViaUrl && (
+                <div className="rounded-[10px] bg-[var(--rb-bg-sunken)] px-4 py-3 text-[12px] text-fg-2 space-y-1">
+                  <p className="font-semibold text-fg-1">How to connect</p>
+                  <ol className="list-decimal list-inside space-y-1 text-fg-2">
+                    <li>Go to your Slack workspace → <strong>Apps</strong> → search <strong>Incoming Webhooks</strong></li>
+                    <li>Click <strong>Add to Slack</strong> → choose a channel → <strong>Allow</strong></li>
+                    <li>Copy the <strong>Webhook URL</strong> and paste it below</li>
+                  </ol>
+                  <a
+                    href="https://api.slack.com/messaging/webhooks"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 text-[#0A84FF] hover:underline mt-1"
+                  >
+                    Slack docs <ExternalLink size={10} />
+                  </a>
+                </div>
+              )}
+
+              <div className="space-y-1.5">
+                <label className="text-[12px] font-medium text-fg-2">Webhook URL</label>
+                <input
+                  type="url"
+                  placeholder="https://hooks.slack.com/services/T.../B.../..."
+                  value={webhookUrl}
+                  onChange={(e) => { setWebhookUrl(e.target.value); setError(null); }}
+                  className={cn(
+                    "w-full rounded-[8px] border bg-[var(--rb-bg-sunken)] px-3 py-2 text-[13px] text-fg-1 placeholder:text-fg-3 outline-none transition-colors",
+                    error
+                      ? "border-[#DC2626] focus:border-[#DC2626]"
+                      : "border-[var(--rb-border-2)] focus:border-[#0A84FF]",
+                  )}
+                />
+                {error && <p className="text-[11px] text-[#DC2626]">{error}</p>}
+              </div>
+
+              <AlertTypePills />
+
+              <div className="flex items-center gap-2 pt-1">
+                <button
+                  onClick={handleSave}
+                  disabled={saving || !isDirty}
+                  className="h-[30px] rounded-[7px] bg-[#0A84FF] px-4 text-[12px] font-semibold text-white hover:bg-[#006EE0] disabled:opacity-40 transition-colors"
+                >
+                  {saving ? <Loader2 size={12} className="animate-spin" /> : isConnectedViaUrl && !isDirty ? "Saved" : "Save"}
+                </button>
+
+                {webhookUrl.trim() && (
+                  <button
+                    onClick={handleTest}
+                    disabled={testing}
+                    className="h-[30px] rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-4 text-[12px] font-semibold text-fg-1 hover:bg-[var(--rb-bg-hover)] disabled:opacity-40 transition-colors"
+                  >
+                    {testing ? <Loader2 size={12} className="animate-spin" /> : "Send test"}
+                  </button>
+                )}
+
+                {testResult === "success" && (
+                  <span className="flex items-center gap-1 text-[12px] font-semibold text-[#1F8A5B]">
+                    <CheckCircle2 size={13} /> Message sent!
+                  </span>
+                )}
+                {testResult === "error" && (
+                  <span className="text-[12px] font-semibold text-[#DC2626]">
+                    Failed — check your URL
+                  </span>
+                )}
+
+                {isConnectedViaUrl && (
+                  <button
+                    onClick={handleDisconnectPasteUrl}
+                    disabled={saving}
+                    className="ml-auto flex items-center gap-1.5 text-[12px] text-fg-3 hover:text-[#DC2626] transition-colors"
+                  >
+                    <Trash2 size={12} />
+                    Disconnect
+                  </button>
+                )}
+              </div>
+            </>
+          )
         )}
+      </div>
+    </div>
+  );
+}
+
+function AlertTypePills() {
+  return (
+    <div className="space-y-1.5">
+      <p className="text-[12px] font-medium text-fg-2">Sends alerts for</p>
+      <div className="flex flex-wrap gap-2">
+        {[
+          { icon: "⚠️", label: "Rating spikes" },
+          { icon: "🚨", label: "New incidents" },
+          { icon: "🔴", label: "Urgent reviews" },
+        ].map((e) => (
+          <span
+            key={e.label}
+            className="flex items-center gap-1.5 rounded-full border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-2.5 py-1 text-[11px] font-medium text-fg-2"
+          >
+            {e.icon} {e.label}
+          </span>
+        ))}
       </div>
     </div>
   );
