@@ -71,6 +71,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
 
     const sb = getServiceClient();
+
+    // Best-effort: revoke Slack token before cascade delete
+    const { data: slackRow } = await sb
+      .from("workspace_slack")
+      .select("access_token")
+      .eq("workspace_id", workspaceId)
+      .maybeSingle();
+    if ((slackRow as { access_token?: string } | null)?.access_token) {
+      void fetch("https://slack.com/api/auth.revoke", {
+        method:  "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body:    `token=${(slackRow as { access_token: string }).access_token}`,
+      }).catch(() => undefined);
+    }
+
     const { error: deleteError } = await sb
       .from("workspaces")
       .delete()
