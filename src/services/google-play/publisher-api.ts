@@ -1,10 +1,53 @@
 import { google } from "googleapis";
+import { createPrivateKey } from "crypto";
 
 // Ensure the environment variables are loaded
-// In production, these will either come from Vercel ENV or be fetched securely from Supabase
 const CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL;
-// Private keys in .env often have literal "\n" strings that need to be parsed back to actual newlines
-const PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+
+/**
+ * Normalise a Google service-account private key from whatever format
+ * Vercel / .env stores it in so that Node 18+ / OpenSSL 3 can parse it.
+ *
+ * Common problems this fixes:
+ *  1. Literal `\n` sequences stored in the env var (Vercel default)
+ *  2. Surrounding double-quotes copied from the JSON file
+ *  3. Windows CRLF line endings
+ *
+ * Throws a clear message if the key is still unparseable after normalisation
+ * so the error surfaces in Sentry rather than as a cryptic OpenSSL code.
+ */
+function parsePrivateKey(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+
+  // Strip surrounding quotes that are sometimes included in copy-paste
+  let key = raw.trim().replace(/^["']|["']$/g, "");
+
+  // If no real newlines exist, unescape the literal \n sequences
+  if (!key.includes("\n")) {
+    key = key.replace(/\\n/g, "\n");
+  }
+
+  // Normalise Windows CRLF → LF
+  key = key.replace(/\r\n/g, "\n");
+
+  // Validate: attempt to parse through Node crypto.  Throws a clear error
+  // (rather than `error:1E08010C:DECODER routines::unsupported`) if the
+  // key is still malformed after the transformations above.
+  try {
+    createPrivateKey({ key, format: "pem" });
+  } catch (err) {
+    throw new Error(
+      `GOOGLE_PRIVATE_KEY is malformed and cannot be parsed by OpenSSL. ` +
+      `Check that the key in Vercel env vars is the full PEM block (including ` +
+      `-----BEGIN PRIVATE KEY----- and -----END PRIVATE KEY-----) with no ` +
+      `surrounding quotes. Original error: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  return key;
+}
+
+const PRIVATE_KEY = parsePrivateKey(process.env.GOOGLE_PRIVATE_KEY);
 
 /**
  * Creates an authenticated Google Play Publisher API client using the Service Account.

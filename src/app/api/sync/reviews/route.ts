@@ -8,6 +8,7 @@ import {
   fetchAppStoreId,
   fetchReviews as fetchAppStoreReviews,
 } from "@/services/app-store/connect-api";
+import { fetchGooglePlayMetadata, fetchAppStoreMetadata } from "@/services/store-search";
 import { buildEnrichedRow } from "@/lib/review-mapper";
 import { bootstrapReviews } from "@/services/bootstrap-reviews";
 import { sendRatingSpikeAlert } from "@/lib/email/send-rating-spike-alert";
@@ -44,9 +45,40 @@ interface SyncSummary {
   errors: string[];
 }
 
+// ── Metadata refresh (lifetime rating + review count from the store) ─────────
+//
+// Runs best-effort before the review fetch.  Keeps apps.lifetime_rating and
+// apps.lifetime_review_count in sync with what users actually see on the
+// store, regardless of how many reviews the API returns per call.
+
+async function refreshAppMetadata(app: DbApp): Promise<void> {
+  const sb = getServiceClient();
+  try {
+    const meta =
+      app.platform === "google_play"
+        ? await fetchGooglePlayMetadata(app.store_id)
+        : await fetchAppStoreMetadata(app.store_id);
+    if (!meta) return;
+
+    const update: Record<string, unknown> = {};
+    if (meta.rating       !== null) update.lifetime_rating       = meta.rating;
+    if (meta.reviewCount  !== null) update.lifetime_review_count = meta.reviewCount;
+    if (meta.icon)                  update.icon_url              = meta.icon;
+    if (meta.developer)             update.developer             = meta.developer;
+    if (Object.keys(update).length === 0) return;
+
+    await sb.from("apps").update(update).eq("id", app.id);
+  } catch (err) {
+    // Non-fatal — if the scrape fails the review sync still proceeds
+    console.warn(`[sync] metadata refresh failed for app ${app.id}:`, err);
+  }
+}
+
 // ── Google Play sync ───────────────────────────────────────────────────────────
 
 async function syncGooglePlayApp(app: DbApp, summary: SyncSummary) {
+  await refreshAppMetadata(app);
+
   const playReviews = await fetchGooglePlayReviews(app.store_id);
   if (!playReviews.length) return;
 
@@ -79,6 +111,8 @@ async function syncGooglePlayApp(app: DbApp, summary: SyncSummary) {
 // ── App Store sync ────────────────────────────────────────────────────────────
 
 async function syncAppStoreApp(app: DbApp, summary: SyncSummary) {
+  await refreshAppMetadata(app);
+
   if (!app.access_token || !app.refresh_token) {
     summary.errors.push(`App Store app ${app.id}: missing credentials`);
     return;
