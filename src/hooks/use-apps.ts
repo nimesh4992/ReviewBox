@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export interface WorkspaceApp {
   id: string;
@@ -32,6 +32,7 @@ export function useApps() {
     queryKey: ["apps"],
     queryFn: fetchApps,
     staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
   // Guard: if the cache was populated with a non-array (e.g. an `{ apps: [] }`

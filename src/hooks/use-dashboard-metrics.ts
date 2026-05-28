@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import type { DashboardMetrics } from "@/app/api/dashboard/metrics/route";
 
@@ -30,8 +30,11 @@ export function useDashboardMetrics() {
   const { data, isLoading, isError, refetch } = useQuery<DashboardMetrics>({
     queryKey: ["dashboard-metrics"],
     queryFn: fetchDashboardMetrics,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
     retry: 1,
+    // Show previous data while a background refetch runs so the dashboard
+    // never blanks out on return visits.
+    placeholderData: keepPreviousData,
   });
 
   return {

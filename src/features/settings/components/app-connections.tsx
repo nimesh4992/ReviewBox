@@ -1,15 +1,15 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  Copy,
   Globe,
   Loader2,
   Plus,
   RefreshCw,
+  Settings2,
   Smartphone,
   Trash2,
   TriangleAlert,
@@ -20,6 +20,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useApps, useInvalidateApps, type WorkspaceApp } from "@/hooks/use-apps";
 import { formatReviewDate } from "@/utils/format";
+import { GooglePlaySetupModal } from "@/components/dashboard/google-play-setup-modal";
 
 // ── App Store credential form ─────────────────────────────────────────────────
 
@@ -302,153 +303,43 @@ function AppStoreForm({
   );
 }
 
-// ── Google Play info panel ────────────────────────────────────────────────────
+// ── Google Play setup panel (inline — opens full modal) ───────────────────────
 
-type EmailState =
-  | { kind: "loading" }
-  | { kind: "ready"; email: string }
-  | { kind: "not_configured" }
-  | { kind: "error"; message: string };
-
-function GooglePlayInfo({ app }: { app: WorkspaceApp }) {
-  const [emailState, setEmailState] = useState<EmailState>({ kind: "loading" });
-  const [copied, setCopied] = useState(false);
-  const email = emailState.kind === "ready" ? emailState.email : null;
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/api/google-play/service-account");
-        if (!res.ok) {
-          if (!cancelled) {
-            setEmailState({
-              kind: "error",
-              message: `Service account lookup failed (HTTP ${res.status}).`,
-            });
-          }
-          return;
-        }
-        const data = (await res.json()) as {
-          email: string | null;
-          configured?: boolean;
-        };
-        if (cancelled) return;
-        if (data.email) {
-          setEmailState({ kind: "ready", email: data.email });
-        } else {
-          setEmailState({ kind: "not_configured" });
-        }
-      } catch {
-        if (!cancelled) {
-          setEmailState({ kind: "error", message: "Network error contacting our server." });
-        }
-      }
-    })();
-    return () => { cancelled = true; };
-  }, []);
-
-  async function copyEmail() {
-    if (!email) return;
-    try {
-      await navigator.clipboard.writeText(email);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch { /* clipboard blocked */ }
-  }
-
+function GooglePlayInfo({ app, onOpenSetup }: { app: WorkspaceApp; onOpenSetup: () => void }) {
   return (
-    <div className="mt-3 space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-4">
-      <p className="text-xs font-medium text-gray-600">Google Play connection</p>
-
-      <ol className="space-y-2.5 text-xs text-gray-500 leading-relaxed">
-        <li>
-          <span className="font-semibold text-gray-700">1.</span> Open{" "}
-          <a
-            href="https://play.google.com/console"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="font-medium text-[#0A84FF] underline-offset-2 hover:underline"
-          >
-            Google Play Console
-          </a>
-          {" "}→ Users &amp; Permissions → Invite new user.
-        </li>
-        <li>
-          <span className="font-semibold text-gray-700">2.</span> Invite this email:
-          {emailState.kind === "ready" && (
-            <div className="mt-1.5 flex items-center gap-2 rounded-md border border-gray-200 bg-white px-2.5 py-1.5">
-              <code className="flex-1 truncate font-mono text-[11px] text-gray-700">
-                {emailState.email}
-              </code>
-              <button
-                type="button"
-                onClick={copyEmail}
-                className="flex items-center gap-1 rounded px-2 py-0.5 text-[10px] font-medium text-[#0A84FF] hover:bg-[#0A84FF]/10"
-              >
-                <Copy className="size-3" />
-                {copied ? "Copied!" : "Copy"}
-              </button>
-            </div>
-          )}
-          {emailState.kind === "loading" && (
-            <div className="mt-1.5 flex items-center gap-2 rounded-md border border-gray-200 bg-white px-2.5 py-1.5">
-              <Loader2 className="size-3 animate-spin text-gray-300" />
-              <code className="text-[11px] text-gray-400">Loading…</code>
-            </div>
-          )}
-          {emailState.kind === "not_configured" && (
-            <div className="mt-1.5 rounded-md border border-red-200 bg-red-50 px-3 py-2.5">
-              <p className="text-[11px] font-semibold text-red-700">
-                Service account not configured (founder action required)
-              </p>
-              <p className="mt-1 text-[11px] leading-relaxed text-red-700/90">
-                Set the <code className="rounded bg-red-100 px-1 font-mono">GOOGLE_CLIENT_EMAIL</code>{" "}
-                and <code className="rounded bg-red-100 px-1 font-mono">GOOGLE_PRIVATE_KEY</code>{" "}
-                env vars in Vercel from a Google Cloud service account with access to the Play Console Developer API. This is a one-time setup for the whole product, not per-user.
-              </p>
-            </div>
-          )}
-          {emailState.kind === "error" && (
-            <div className="mt-1.5 rounded-md border border-amber-200 bg-amber-50 px-3 py-2.5">
-              <p className="text-[11px] font-semibold text-amber-700">
-                {emailState.message}
-              </p>
-            </div>
-          )}
-        </li>
-        <li>
-          <span className="font-semibold text-gray-700">3.</span> Grant these permissions:
-          <ul className="mt-1 ml-3 list-disc space-y-0.5 text-gray-500">
-            <li><span className="font-medium text-gray-600">View app information &amp; download bulk reports</span></li>
-            <li><span className="font-medium text-gray-600">Reply to reviews</span></li>
-          </ul>
-        </li>
-        <li>
-          <span className="font-semibold text-gray-700">4.</span> Scope to your app{" "}
-          <code className="rounded bg-gray-100 px-1 py-0.5 font-mono text-[10px] text-gray-600">{app.store_id}</code>
-          {" "}then Send invitation. Click <strong>Sync now</strong> above when done.
-        </li>
-      </ol>
-
-      <a
-        href="/help/connect-google-play"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-[11px] font-semibold text-[#0A84FF] hover:underline"
-      >
-        Full walkthrough with screenshots →
-      </a>
-
-      <div className="flex items-center gap-1.5 border-t border-gray-200 pt-2.5 text-xs text-emerald-600">
-        <CheckCircle2 className="size-3.5" />
-        Service account ready
+    <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-gray-600">Google Play connection</p>
+        {app.last_synced_at && (
+          <p className="text-[11px] text-gray-400">
+            Last synced: {formatReviewDate(app.last_synced_at)}
+          </p>
+        )}
       </div>
-      {app.last_synced_at && (
-        <p className="text-xs text-gray-400">
-          Last synced: {formatReviewDate(app.last_synced_at)}
-        </p>
-      )}
+
+      <p className="text-[12px] text-gray-500 leading-relaxed">
+        ReviewBox connects via a shared service account. You need to invite its email address to your
+        Play Console with <strong>Reply to reviews</strong> permission.
+      </p>
+
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          onClick={onOpenSetup}
+          className="h-8 bg-[#0A84FF] text-white hover:bg-[#0070e0] gap-1.5"
+        >
+          <Settings2 className="size-3.5" />
+          Connection setup
+        </Button>
+        <a
+          href="/help/connect-google-play"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[11px] font-medium text-gray-400 hover:text-[#0A84FF] hover:underline"
+        >
+          Read guide →
+        </a>
+      </div>
     </div>
   );
 }
@@ -468,6 +359,7 @@ function AppRow({
   const [deleting, setDeleting] = useState(false);
   const [syncing, setSyncing] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [setupModalOpen, setSetupModalOpen] = useState(false);
 
   const isAppStore = app.platform === "app_store";
   const Icon = isAppStore ? Globe : Smartphone;
@@ -603,9 +495,18 @@ function AppRow({
           {isAppStore ? (
             <AppStoreForm app={app} onSaved={onUpdated} />
           ) : (
-            <GooglePlayInfo app={app} />
+            <GooglePlayInfo app={app} onOpenSetup={() => setSetupModalOpen(true)} />
           )}
         </div>
+      )}
+
+      {/* Google Play setup modal — also opened via "Connection setup" button above */}
+      {app.platform === "google_play" && (
+        <GooglePlaySetupModal
+          open={setupModalOpen}
+          onClose={() => { setSetupModalOpen(false); onUpdated(); }}
+          app={{ id: app.id, store_id: app.store_id, name: app.name }}
+        />
       )}
     </div>
   );

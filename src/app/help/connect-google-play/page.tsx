@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CheckCircle, AlertCircle, ChevronRight, Copy } from "lucide-react";
+import { CheckCircle, AlertCircle, ChevronRight } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
