@@ -11,7 +11,7 @@ import { useIncidents } from "@/hooks/use-incidents";
 import { TrialBanner } from "@/components/dashboard/trial-banner";
 import { UpgradeToast } from "@/components/dashboard/upgrade-toast";
 import { EmptyWorkspaceWelcome } from "@/components/dashboard/empty-workspace-welcome";
-import { GooglePlayInviteModal } from "@/components/dashboard/google-play-invite-modal";
+import { GooglePlaySetupModal } from "@/components/dashboard/google-play-setup-modal";
 import { AiSummaryPanel } from "@/features/dashboard/components/ai-summary-panel";
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -137,6 +137,24 @@ export default function DashboardPage() {
       : avgRatingDelta < 0 ? "warning"
         : "positive";
 
+  const hasGooglePlayApp = apps.some((a) => a.platform === "google_play");
+  const firstGooglePlayApp = apps.find((a) => a.platform === "google_play");
+
+  // Auto-show setup modal on first visit if GP app isn't synced yet.
+  // Hooks must be declared unconditionally — before any early return.
+  const DISMISSED_KEY = "rb_gplay_invite_dismissed";
+  const [setupModalOpen, setSetupModalOpen] = useState(false);
+  useEffect(() => {
+    if (!hasGooglePlayApp) return;
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem(DISMISSED_KEY)) return;
+    const hasUnsynced = apps.some(
+      (a) => a.platform === "google_play" && a.last_sync_status !== "success",
+    );
+    if (hasUnsynced) setSetupModalOpen(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasGooglePlayApp]);
+
   const kpis = [
     {
       label: "Reviews today",
@@ -169,16 +187,22 @@ export default function DashboardPage() {
   ];
 
   // No apps yet → show the welcome / "connect your first app" empty state
-  // instead of an empty dashboard. Skips the loop-prone middleware redirect.
   if (!appsLoading && apps.length === 0) {
     return <EmptyWorkspaceWelcome />;
   }
 
-  const hasGooglePlayApp = apps.some((a) => a.platform === "google_play");
-
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8" style={{ maxWidth: 1240, margin: "0 auto" }}>
-      <GooglePlayInviteModal hasGooglePlayApp={hasGooglePlayApp} />
+      <GooglePlaySetupModal
+        open={setupModalOpen}
+        onClose={() => {
+          localStorage.setItem(DISMISSED_KEY, "1");
+          setSetupModalOpen(false);
+        }}
+        app={firstGooglePlayApp
+          ? { id: firstGooglePlayApp.id, store_id: firstGooglePlayApp.store_id, name: firstGooglePlayApp.name }
+          : undefined}
+      />
       <Suspense fallback={null}>
         <UpgradeToast />
       </Suspense>
