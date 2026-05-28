@@ -9,6 +9,21 @@
  * Google Play: HTML scrape of play.google.com/store/search — fragile but works.
  */
 
+import { Redis } from "@upstash/redis";
+
+// ── Redis singleton (best-effort — null if env vars not set) ─────────────────
+
+let _redis: Redis | null = null;
+function getRedis(): Redis | null {
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  if (!_redis) _redis = new Redis({ url, token });
+  return _redis;
+}
+
+const META_TTL = 6 * 60 * 60; // 6 hours in seconds
+
 export interface StoreSearchResult {
   /** Bundle ID (App Store) or package name (Google Play) — what we store in apps.store_id */
   storeId: string;
@@ -194,6 +209,14 @@ export async function searchStore(
 // Used after a user picks their app to populate apps.icon_url +
 // apps.lifetime_rating + apps.lifetime_review_count. Search results don't
 // always have the lifetime count — need to fetch the detail page once.
+//
+// Results are cached in Redis for 6 hours so:
+//   1. Onboarding search → onboarding/complete → sync route all hit the same
+//      cache entry rather than scraping Play Store / iTunes 3× for one app.
+//   2. Daily sync cron gets a fresh scrape (cache expired after 6h) without
+//      hammering the store on every manual "Sync now" click.
+//
+// Cache is best-effort: if Redis is unavailable the scrape runs uncached.
 
 export interface AppMetadata {
   storeId: string;
@@ -210,6 +233,17 @@ export interface AppMetadata {
 export async function fetchGooglePlayMetadata(
   packageName: string,
 ): Promise<AppMetadata | null> {
+  const cacheKey = `meta:gplay:${packageName}`;
+  try {
+    const redis = getRedis();
+    if (redis) {
+      const cached = await redis.get<AppMetadata>(cacheKey);
+      if (cached) return cached;
+    }
+  } catch {
+    // Redis unavailable — proceed uncached
+  }
+
   const url = `https://play.google.com/store/apps/details?id=${encodeURIComponent(packageName)}&hl=en`;
   try {
     const res = await fetch(url, {
@@ -239,7 +273,7 @@ export async function fetchGooglePlayMetadata(
       html.match(/"ratingCount":\s*"?(\d+)"?/i) ??
       html.match(/(\d[\d,]*)\s+reviews?\s*<\//i);
 
-    return {
+    const result: AppMetadata = {
       storeId: packageName,
       name: nameMatch ? nameMatch[1].trim() : packageName,
       developer: "",
@@ -247,6 +281,15 @@ export async function fetchGooglePlayMetadata(
       rating: ratingMatch ? parseFloat(ratingMatch[1]) : null,
       reviewCount: countMatch ? parseInt(countMatch[1].replace(/,/g, ""), 10) : null,
     };
+
+    try {
+      const redis = getRedis();
+      if (redis) await redis.setex(cacheKey, META_TTL, result);
+    } catch {
+      // best-effort — cache miss is fine
+    }
+
+    return result;
   } catch {
     return null;
   }
@@ -256,6 +299,17 @@ export async function fetchGooglePlayMetadata(
 export async function fetchAppStoreMetadata(
   bundleId: string,
 ): Promise<AppMetadata | null> {
+  const cacheKey = `meta:appstore:${bundleId}`;
+  try {
+    const redis = getRedis();
+    if (redis) {
+      const cached = await redis.get<AppMetadata>(cacheKey);
+      if (cached) return cached;
+    }
+  } catch {
+    // Redis unavailable — proceed uncached
+  }
+
   try {
     const url = `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(bundleId)}&country=us`;
     const res = await fetch(url, {
@@ -277,7 +331,8 @@ export async function fetchAppStoreMetadata(
     };
     const r = json.results?.[0];
     if (!r) return null;
-    return {
+
+    const result: AppMetadata = {
       storeId: bundleId,
       name: r.trackName ?? bundleId,
       developer: r.artistName ?? "",
@@ -285,6 +340,15 @@ export async function fetchAppStoreMetadata(
       rating: typeof r.averageUserRating === "number" ? r.averageUserRating : null,
       reviewCount: typeof r.userRatingCount === "number" ? r.userRatingCount : null,
     };
+
+    try {
+      const redis = getRedis();
+      if (redis) await redis.setex(cacheKey, META_TTL, result);
+    } catch {
+      // best-effort — cache miss is fine
+    }
+
+    return result;
   } catch {
     return null;
   }
