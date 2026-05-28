@@ -17,6 +17,17 @@ export interface DashboardMetrics {
   avgRatingDelta: number | null;
   /** Daily avg rating for last 10 days (oldest → newest). Empty if no data. */
   ratingTrend: number[];
+  /**
+   * Lifetime average rating scraped from the store (matches what users see on
+   * Google Play / App Store). Null if metadata not yet refreshed.
+   * Prefer this over avgRating for the main "Portfolio rating" display.
+   */
+  lifetimeRating: number | null;
+  /**
+   * Sum of lifetime_review_count across all workspace apps (store-side count,
+   * not the count of rows we've synced). Null if metadata not yet refreshed.
+   */
+  lifetimeReviewCount: number | null;
 }
 
 /**
@@ -64,6 +75,8 @@ const EMPTY_METRICS: DashboardMetrics = {
   reviewsWeekDelta: null,
   avgRatingDelta: null,
   ratingTrend: [],
+  lifetimeRating: null,
+  lifetimeReviewCount: null,
 };
 
 export async function GET(): Promise<NextResponse> {
@@ -116,6 +129,7 @@ export async function GET(): Promise<NextResponse> {
       reviewsLastWeekResult,
       prevAvgRatingResult,
       trendRowsResult,
+      appsMetaResult,
     ] = await Promise.all([
       // 1. Unreplied reviews
       sb
@@ -190,6 +204,14 @@ export async function GET(): Promise<NextResponse> {
         .eq("workspace_id", workspaceId)
         .gte("store_created_at", tenDaysAgo.toISOString())
         .order("store_created_at", { ascending: true }),
+
+      // 11. Lifetime rating + review count from the store (scraped metadata).
+      //     Weighted average across all workspace apps.
+      sb
+        .from("apps")
+        .select("lifetime_rating, lifetime_review_count")
+        .eq("workspace_id", workspaceId)
+        .not("lifetime_rating", "is", null),
     ]);
 
     if (
@@ -248,6 +270,26 @@ export async function GET(): Promise<NextResponse> {
       (trendRowsResult.data as { rating: number; store_created_at: string }[] | null) ?? [];
     const ratingTrend = buildDailyTrend(trendRows, tenDaysAgo, now);
 
+    // Lifetime rating / review count from apps table (store-scraped, authoritative).
+    // Weighted average across all workspace apps by review count.
+    interface AppMeta { lifetime_rating: number; lifetime_review_count: number | null }
+    const appsMeta = (appsMetaResult.data as AppMeta[] | null) ?? [];
+    let lifetimeRating: number | null = null;
+    let lifetimeReviewCount: number | null = null;
+    if (appsMeta.length > 0) {
+      let weightedSum = 0;
+      let totalWeight = 0;
+      let totalCount = 0;
+      for (const a of appsMeta) {
+        const weight = a.lifetime_review_count ?? 1;
+        weightedSum += a.lifetime_rating * weight;
+        totalWeight += weight;
+        if (a.lifetime_review_count !== null) totalCount += a.lifetime_review_count;
+      }
+      lifetimeRating       = parseFloat((weightedSum / totalWeight).toFixed(2));
+      lifetimeReviewCount  = totalCount > 0 ? totalCount : null;
+    }
+
     const metrics: DashboardMetrics = {
       unrepliedCount: unrepliedResult.count ?? 0,
       urgentCount: urgentResult.count ?? 0,
@@ -258,6 +300,8 @@ export async function GET(): Promise<NextResponse> {
       reviewsWeekDelta,
       avgRatingDelta,
       ratingTrend,
+      lifetimeRating,
+      lifetimeReviewCount,
     };
 
     return NextResponse.json(metrics);

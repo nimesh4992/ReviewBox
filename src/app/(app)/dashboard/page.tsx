@@ -112,7 +112,12 @@ export default function DashboardPage() {
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const dateStr = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
-  const avgRating = metrics?.avgRating ?? null;
+  const avgRating      = metrics?.avgRating ?? null;
+  // Prefer lifetime rating scraped from the store (matches Play Store / App Store display)
+  // over the 30d average we compute from our synced window of ~50–100 reviews.
+  const displayRating  = metrics?.lifetimeRating ?? avgRating;
+  // Prefer lifetime review count from the store; fall back to count of synced rows.
+  const displayReviews = metrics?.lifetimeReviewCount ?? metrics?.totalReviews ?? 0;
   const unreplied = isLoading ? 0 : (metrics?.unrepliedCount ?? 0);
   const urgent    = isLoading ? 0 : (metrics?.urgentCount ?? 0);
   const reviewsToday = isLoading ? 0 : (metrics?.reviewsToday ?? 0);
@@ -120,6 +125,8 @@ export default function DashboardPage() {
   const reviewsWeekDelta = metrics?.reviewsWeekDelta ?? null;
   const avgRatingDelta   = metrics?.avgRatingDelta ?? null;
   const ratingTrend      = metrics?.ratingTrend ?? [];
+  // Whether the rating is lifetime (from store) or 30d (from synced reviews)
+  const ratingIsLifetime = metrics?.lifetimeRating != null;
 
   const reviewsDeltaKind: "positive" | "warning" | "neutral" =
     reviewsWeekDelta === null ? "neutral"
@@ -154,10 +161,10 @@ export default function DashboardPage() {
     },
     {
       label: "Avg. rating",
-      value: avgRating !== null ? avgRating.toFixed(2) : "—",
+      value: displayRating !== null ? displayRating.toFixed(2) : "—",
       delta: formatDelta(avgRatingDelta),
       kind: avgRatingDeltaKind,
-      sub: `last ${range}`,
+      sub: ratingIsLifetime ? "all-time (store)" : `last ${range}`,
     },
   ];
 
@@ -348,17 +355,19 @@ export default function DashboardPage() {
       {/* Hero — portfolio rating */}
       <section className="grid items-center gap-10 rounded-2xl border border-gray-100 bg-white px-8 py-7 shadow-sm" style={{ gridTemplateColumns: "minmax(0,280px) 1fr" }}>
         <div>
-          <div className="text-xs font-medium text-[#86868B]">Portfolio rating · {range}</div>
+          <div className="text-xs font-medium text-[#86868B]">
+            {ratingIsLifetime ? "Portfolio rating · all-time" : `Portfolio rating · ${range}`}
+          </div>
           <div className="mt-3 flex items-baseline gap-3">
             <span className="text-[64px] font-semibold leading-none tracking-[-0.04em] tabular-nums text-[#1D1D1F]">
-              {avgRating !== null ? avgRating.toFixed(2) : "—"}
+              {displayRating !== null ? displayRating.toFixed(2) : "—"}
             </span>
-            {avgRating !== null && (
+            {displayRating !== null && (
               <div className="mb-1 flex gap-0.5">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <svg
                     key={i}
-                    className={cn("size-4", i < Math.round(avgRating) ? "text-amber-400" : "text-gray-200")}
+                    className={cn("size-4", i < Math.round(displayRating) ? "text-amber-400" : "text-gray-200")}
                     viewBox="0 0 20 20"
                     fill="currentColor"
                   >
@@ -432,7 +441,7 @@ export default function DashboardPage() {
           {[
             {
               label: "Avg rating",
-              value: metrics.avgRating != null ? metrics.avgRating.toFixed(2) + " ★" : "—",
+              value: displayRating != null ? displayRating.toFixed(2) + " ★" : "—",
               delta: metrics.avgRatingDelta != null
                 ? (metrics.avgRatingDelta >= 0 ? "+" : "") + metrics.avgRatingDelta.toFixed(2)
                 : null,
@@ -454,7 +463,7 @@ export default function DashboardPage() {
             },
             {
               label: "Total reviews",
-              value: metrics.totalReviews.toLocaleString(),
+              value: displayReviews.toLocaleString(),
               delta: null,
               positive: true,
             },
@@ -627,7 +636,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-[36px] font-semibold tabular-nums leading-none text-fg-1">
-              {metrics.avgRating != null ? metrics.avgRating.toFixed(1) : "—"}
+              {displayRating != null ? displayRating.toFixed(1) : "—"}
             </span>
             <span className="text-[14px] text-fg-3">★</span>
             {metrics.avgRatingDelta != null && (
@@ -636,7 +645,9 @@ export default function DashboardPage() {
               </span>
             )}
           </div>
-          <div className="text-[11px] text-fg-3">vs previous period</div>
+          <div className="text-[11px] text-fg-3">
+            {ratingIsLifetime ? "all-time (store)" : "vs previous period"}
+          </div>
         </div>
 
         {/* Reviews card */}
@@ -647,7 +658,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-[36px] font-semibold tabular-nums leading-none text-fg-1">
-              {metrics.totalReviews.toLocaleString()}
+              {displayReviews.toLocaleString()}
             </span>
           </div>
           <div className="flex gap-3 text-[11px] text-fg-3">

@@ -16,6 +16,8 @@ const EMPTY_METRICS: DashboardMetrics = {
   reviewsWeekDelta: null,
   avgRatingDelta: null,
   ratingTrend: [],
+  lifetimeRating: null,
+  lifetimeReviewCount: null,
 };
 
 async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
