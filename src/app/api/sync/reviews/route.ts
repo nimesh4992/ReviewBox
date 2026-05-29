@@ -385,6 +385,7 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
               summary.reviewsUpserted += bootstrapRows.length;
               console.log(`[sync] bootstrap ${app.store_id}: ${bootstrapRows.length} reviews`);
               // Fire Gemini enrichment — generates KB entries + reply templates.
+              // Fire-and-forget so it doesn't block the sync response.
               enrichOnboarding(
                 app.workspace_id,
                 app.name,

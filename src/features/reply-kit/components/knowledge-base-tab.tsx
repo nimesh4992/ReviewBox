@@ -59,7 +59,7 @@ function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel }: EntryFo
   return (
     <form
       onSubmit={handleSubmit}
-      className="mb-4 rounded-2xl border border-[#5B5BD6]/30 bg-[#5B5BD6]/5 p-5 space-y-3"
+      className="mb-4 rounded-2xl border border-[var(--rb-indigo-500)]/30 bg-[var(--rb-indigo-500)]/5 p-5 space-y-3"
     >
       <div className="flex flex-col gap-1">
         <label className="text-xs font-medium text-gray-600">Title</label>
@@ -69,7 +69,7 @@ function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel }: EntryFo
           onChange={(e) => set("title", e.target.value)}
           placeholder="e.g. Current known issues"
           required
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30"
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[var(--rb-indigo-500)] focus:ring-1 focus:ring-[var(--rb-indigo-500)]/30"
         />
       </div>
       <div className="flex flex-col gap-1">
@@ -80,7 +80,7 @@ function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel }: EntryFo
           placeholder="Describe the product info, known issue, FAQ, or roadmap item…"
           required
           rows={4}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30 resize-none"
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[var(--rb-indigo-500)] focus:ring-1 focus:ring-[var(--rb-indigo-500)]/30 resize-none"
         />
       </div>
       <div className="flex flex-col gap-1">
@@ -88,7 +88,7 @@ function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel }: EntryFo
         <select
           value={form.category}
           onChange={(e) => set("category", e.target.value as KbCategory)}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30"
+          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[var(--rb-indigo-500)] focus:ring-1 focus:ring-[var(--rb-indigo-500)]/30"
         >
           {CATEGORIES.map((c) => (
             <option key={c} value={c}>{CATEGORY_CONFIG[c].label}</option>
@@ -100,7 +100,7 @@ function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel }: EntryFo
           type="submit"
           size="sm"
           disabled={saving}
-          className="bg-[#5B5BD6] text-white hover:bg-[#4f4fbf] disabled:opacity-50"
+          className="bg-[var(--rb-indigo-500)] text-white hover:bg-[#4f4fbf] disabled:opacity-50"
         >
           {saving ? "Saving…" : submitLabel}
         </Button>
@@ -170,7 +170,7 @@ function EntryCard({
             variant="ghost"
             size="icon-sm"
             onClick={() => onEdit(entry)}
-            className="text-gray-400 hover:text-[#5B5BD6]"
+            className="text-gray-400 hover:text-[var(--rb-indigo-500)]"
           >
             <Pencil strokeWidth={1.5} className="size-3.5" />
           </Button>
@@ -273,7 +273,7 @@ export function KnowledgeBaseTab() {
         </div>
         <Button
           size="sm"
-          className="shrink-0 bg-[#5B5BD6] text-white hover:bg-[#4f4fbf]"
+          className="shrink-0 bg-[var(--rb-indigo-500)] text-white hover:bg-[#4f4fbf]"
           onClick={() => { setEditingEntry(null); setShowAdd((v) => !v); }}
         >
           <Plus strokeWidth={1.5} className="size-4" />
@@ -282,7 +282,7 @@ export function KnowledgeBaseTab() {
       </div>
 
       {/* Info banner */}
-      <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-[#5B5BD6]/20 bg-[#5B5BD6]/5 p-4 text-sm text-[#5B5BD6]">
+      <div className="mb-4 flex items-start gap-2.5 rounded-xl border border-[var(--rb-indigo-500)]/20 bg-[var(--rb-indigo-500)]/5 p-4 text-sm text-[var(--rb-indigo-500)]">
         <Info strokeWidth={1.5} className="mt-0.5 size-4 shrink-0" />
         <span>
           Matched KB entries are injected into AI replies when the review topic overlaps. Keep entries factual and concise.

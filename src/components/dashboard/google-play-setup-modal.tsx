@@ -43,48 +43,48 @@ type TabId = (typeof TABS)[number]["id"];
 
 function PlayConsoleVisual() {
   return (
-    <div className="h-full rounded-xl border border-gray-200 bg-[#F8F9FB] p-4 text-[11px]">
+    <div className="h-full rounded-xl border border-[var(--rb-border-1)] bg-[#F8F9FB] p-4 text-[11px]">
       {/* Mock Play Console header */}
       <div className="mb-3 flex items-center gap-2">
         <div className="h-5 w-5 rounded-full bg-[#01875F]" />
-        <span className="font-semibold text-gray-700 text-xs">Google Play Console</span>
+        <span className="font-semibold text-[var(--rb-fg-2)] text-xs">Google Play Console</span>
       </div>
       {/* Mock nav item */}
-      <div className="mb-2 flex items-center gap-2 rounded-lg bg-white border border-gray-200 px-3 py-2 shadow-sm">
-        <div className="h-3 w-3 rounded-sm bg-gray-300" />
-        <span className="text-gray-600 font-medium">Users and permissions</span>
+      <div className="mb-2 flex items-center gap-2 rounded-lg bg-white border border-[var(--rb-border-1)] px-3 py-2 shadow-sm">
+        <div className="h-3 w-3 rounded-sm bg-[var(--rb-bg-hover)]" />
+        <span className="text-[var(--rb-fg-2)] font-medium">Users and permissions</span>
         <span className="ml-auto text-[#0A84FF] font-medium text-[10px]">← click here</span>
       </div>
-      <div className="flex justify-center my-1.5 text-gray-400 font-bold text-base">↓</div>
+      <div className="flex justify-center my-1.5 text-[var(--rb-fg-4)] font-bold text-base">↓</div>
       {/* Mock invite button */}
-      <div className="mb-2 flex items-center justify-between rounded-lg bg-white border border-gray-200 px-3 py-2 shadow-sm">
-        <span className="text-gray-600">Your team</span>
+      <div className="mb-2 flex items-center justify-between rounded-lg bg-white border border-[var(--rb-border-1)] px-3 py-2 shadow-sm">
+        <span className="text-[var(--rb-fg-2)]">Your team</span>
         <div className="flex items-center gap-1.5 rounded-full bg-[#01875F] px-2.5 py-0.5 text-[10px] text-white font-semibold">
           + Invite new users
         </div>
       </div>
-      <div className="flex justify-center my-1.5 text-gray-400 font-bold text-base">↓</div>
+      <div className="flex justify-center my-1.5 text-[var(--rb-fg-4)] font-bold text-base">↓</div>
       {/* Mock email field */}
-      <div className="rounded-lg bg-white border border-gray-200 px-3 py-2.5 shadow-sm space-y-1.5">
-        <div className="text-[10px] text-gray-400 font-medium">Email address</div>
+      <div className="rounded-lg bg-white border border-[var(--rb-border-1)] px-3 py-2.5 shadow-sm space-y-1.5">
+        <div className="text-[10px] text-[var(--rb-fg-4)] font-medium">Email address</div>
         <div className="rounded border border-[#0A84FF] bg-blue-50 px-2 py-1 font-mono text-[10px] text-[#0A84FF] truncate">
           reviewbox@…gserviceaccount.com
         </div>
       </div>
-      <div className="flex justify-center my-1.5 text-gray-400 font-bold text-base">↓</div>
+      <div className="flex justify-center my-1.5 text-[var(--rb-fg-4)] font-bold text-base">↓</div>
       {/* Mock permissions */}
-      <div className="rounded-lg bg-white border border-gray-200 px-3 py-2.5 shadow-sm space-y-1.5">
-        <div className="text-[10px] text-gray-500 font-semibold">App permissions</div>
+      <div className="rounded-lg bg-white border border-[var(--rb-border-1)] px-3 py-2.5 shadow-sm space-y-1.5">
+        <div className="text-[10px] text-[var(--rb-fg-3)] font-semibold">App permissions</div>
         {["View app information", "Reply to reviews"].map((p) => (
           <div key={p} className="flex items-center gap-1.5">
             <div className="flex h-3.5 w-3.5 items-center justify-center rounded bg-[#01875F]">
               <Check className="h-2.5 w-2.5 text-white" />
             </div>
-            <span className="text-[10px] text-gray-600">{p}</span>
+            <span className="text-[10px] text-[var(--rb-fg-2)]">{p}</span>
           </div>
         ))}
       </div>
-      <div className="flex justify-center my-1.5 text-gray-400 font-bold text-base">↓</div>
+      <div className="flex justify-center my-1.5 text-[var(--rb-fg-4)] font-bold text-base">↓</div>
       {/* Mock send button */}
       <div className="flex justify-end">
         <div className="rounded-full bg-[#01875F] px-4 py-1.5 text-[10px] text-white font-semibold shadow-sm">
@@ -160,18 +160,18 @@ function InviteTab({
 
         {/* Email copy box */}
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--rb-fg-4)] mb-2">
             Service account email — invite this address
           </p>
-          <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-[#F5F5F7] px-4 py-3">
+          <div className="flex items-center gap-2 rounded-xl border border-[var(--rb-border-1)] bg-[#F5F5F7] px-4 py-3">
             {email ? (
               <>
-                <span className="flex-1 truncate font-mono text-[12px] text-gray-800 select-all">
+                <span className="flex-1 truncate font-mono text-[12px] text-[var(--rb-fg-1)] select-all">
                   {email}
                 </span>
                 <button
                   onClick={copyEmail}
-                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 hover:bg-gray-50 transition-colors"
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--rb-border-1)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)] transition-colors"
                 >
                   {copied ? (
                     <><Check className="size-3.5 text-emerald-500" /> Copied</>
@@ -181,7 +181,7 @@ function InviteTab({
                 </button>
               </>
             ) : (
-              <div className="flex items-center gap-2 text-[12px] text-gray-400">
+              <div className="flex items-center gap-2 text-[12px] text-[var(--rb-fg-4)]">
                 <Loader2 className="size-3.5 animate-spin" />
                 Loading service account email…
               </div>
@@ -191,7 +191,7 @@ function InviteTab({
 
         {/* Steps */}
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wider text-gray-400 mb-3">
+          <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--rb-fg-4)] mb-3">
             Steps
           </p>
           <ol className="space-y-3">
@@ -200,7 +200,7 @@ function InviteTab({
                 <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0A84FF] text-[10px] font-bold text-white">
                   {i + 1}
                 </span>
-                <span className="text-[13px] text-gray-600 leading-relaxed">{step}</span>
+                <span className="text-[13px] text-[var(--rb-fg-2)] leading-relaxed">{step}</span>
               </li>
             ))}
           </ol>
@@ -268,14 +268,14 @@ function TroubleshootTab() {
   return (
     <div className="space-y-4">
       {issues.map((item) => (
-        <div key={item.q} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3.5">
-          <p className="text-[13px] font-semibold text-gray-800">{item.q}</p>
-          <p className="mt-1.5 text-[12px] leading-relaxed text-gray-500">{item.a}</p>
+        <div key={item.q} className="rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-4 py-3.5">
+          <p className="text-[13px] font-semibold text-[var(--rb-fg-1)]">{item.q}</p>
+          <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--rb-fg-3)]">{item.a}</p>
         </div>
       ))}
-      <div className="rounded-xl border border-gray-200 bg-white px-4 py-3.5 text-center">
-        <p className="text-[13px] font-semibold text-gray-800">Still stuck?</p>
-        <p className="mt-0.5 text-[12px] text-gray-400">We reply within one business day.</p>
+      <div className="rounded-xl border border-[var(--rb-border-1)] bg-white px-4 py-3.5 text-center">
+        <p className="text-[13px] font-semibold text-[var(--rb-fg-1)]">Still stuck?</p>
+        <p className="mt-0.5 text-[12px] text-[var(--rb-fg-4)]">We reply within one business day.</p>
         <a
           href="mailto:hello@tryreviewbox.com"
           className="mt-3 inline-flex rounded-lg bg-[#0A84FF] px-4 py-2 text-[12px] font-semibold text-white hover:bg-[#0070e0]"
@@ -323,18 +323,18 @@ export function GooglePlaySetupModal({ open, onClose, app }: Props) {
     <Dialog open={open} onOpenChange={(v) => { if (!v) onClose(); }}>
       <DialogContent className="max-w-2xl p-0 overflow-hidden gap-0">
         {/* Header */}
-        <div className="flex items-start justify-between border-b border-gray-100 px-6 py-5">
+        <div className="flex items-start justify-between border-b border-[var(--rb-border-1)] px-6 py-5">
           <div>
-            <h2 className="text-[17px] font-semibold text-gray-900">
+            <h2 className="text-[17px] font-semibold text-[var(--rb-fg-1)]">
               Google Play connection setup
             </h2>
-            <p className="mt-0.5 text-[12px] text-gray-400">
+            <p className="mt-0.5 text-[12px] text-[var(--rb-fg-4)]">
               Grant ReviewBox access so it can sync reviews and post replies on your behalf.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="ml-4 shrink-0 rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+            className="ml-4 shrink-0 rounded-lg p-1.5 text-[var(--rb-fg-4)] hover:bg-[var(--rb-bg-hover)] hover:text-[var(--rb-fg-2)] transition-colors"
             aria-label="Close"
           >
             <X className="size-4" />
@@ -342,7 +342,7 @@ export function GooglePlaySetupModal({ open, onClose, app }: Props) {
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 border-b border-gray-100 px-6 pt-3">
+        <div className="flex gap-1 border-b border-[var(--rb-border-1)] px-6 pt-3">
           {TABS.map((tab) => (
             <button
               key={tab.id}
@@ -351,16 +351,16 @@ export function GooglePlaySetupModal({ open, onClose, app }: Props) {
                 "pb-3 px-1 mr-4 text-left transition-colors border-b-2",
                 activeTab === tab.id
                   ? "border-[#0A84FF]"
-                  : "border-transparent hover:border-gray-200",
+                  : "border-transparent hover:border-[var(--rb-border-1)]",
               )}
             >
               <span className={cn(
                 "block text-[13px] font-semibold",
-                activeTab === tab.id ? "text-gray-900" : "text-gray-500",
+                activeTab === tab.id ? "text-[var(--rb-fg-1)]" : "text-[var(--rb-fg-3)]",
               )}>
                 {tab.label}
               </span>
-              <span className="block text-[11px] text-gray-400">{tab.sub}</span>
+              <span className="block text-[11px] text-[var(--rb-fg-4)]">{tab.sub}</span>
             </button>
           ))}
         </div>
@@ -375,7 +375,7 @@ export function GooglePlaySetupModal({ open, onClose, app }: Props) {
         </div>
 
         {/* Footer */}
-        <div className="flex items-center gap-3 border-t border-gray-100 px-6 py-4">
+        <div className="flex items-center gap-3 border-t border-[var(--rb-border-1)] px-6 py-4">
           <a
             href="https://play.google.com/console"
             target="_blank"
@@ -390,7 +390,7 @@ export function GooglePlaySetupModal({ open, onClose, app }: Props) {
             <button
               onClick={handleVerify}
               disabled={verifying}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-gray-200 bg-white px-5 py-2.5 text-[13px] font-semibold text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--rb-border-1)] bg-white px-5 py-2.5 text-[13px] font-semibold text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)] transition-colors disabled:opacity-60"
             >
               {verifying ? (
                 <><Loader2 className="size-3.5 animate-spin" />Verifying…</>
@@ -404,14 +404,14 @@ export function GooglePlaySetupModal({ open, onClose, app }: Props) {
 
           <button
             onClick={onClose}
-            className="ml-auto text-[12px] text-gray-400 hover:text-gray-600 transition-colors"
+            className="ml-auto text-[12px] text-[var(--rb-fg-4)] hover:text-[var(--rb-fg-2)] transition-colors"
           >
             Close
           </button>
         </div>
 
         {/* Helpful footer note */}
-        <div className="border-t border-gray-50 bg-gray-50 px-6 py-2.5 text-center text-[11px] text-gray-400">
+        <div className="border-t border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-6 py-2.5 text-center text-[11px] text-[var(--rb-fg-4)]">
           Having trouble?{" "}
           <a href="/help/connect-google-play" target="_blank" rel="noopener noreferrer" className="text-[#0A84FF] hover:underline">
             Read our Google Play troubleshooting guide →

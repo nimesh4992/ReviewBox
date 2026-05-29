@@ -37,7 +37,7 @@ export function TagsTab() {
           </Button>
           <Button
             size="sm"
-            className="bg-[#5B5BD6] text-white hover:bg-[#4f4fbf]"
+            className="bg-[var(--rb-indigo-500)] text-white hover:bg-[#4f4fbf]"
           >
             <Plus strokeWidth={1.5} className="size-4" />
             Add tag
@@ -46,7 +46,7 @@ export function TagsTab() {
       </div>
 
       {/* AI Banner */}
-      <div className="mb-4 flex items-center justify-between rounded-xl bg-[#5B5BD6] p-4 text-white">
+      <div className="mb-4 flex items-center justify-between rounded-xl bg-[var(--rb-indigo-500)] p-4 text-white">
         <div className="flex items-start gap-3">
           <Sparkles strokeWidth={1.5} className="mt-0.5 size-5 shrink-0" />
           <div>
