@@ -98,8 +98,8 @@ function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void 
       aria-checked={enabled}
       role="switch"
       className={cn(
-        "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5B5BD6] focus-visible:ring-offset-2",
-        enabled ? "bg-[#5B5BD6]" : "bg-gray-200",
+        "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rb-indigo-500)] focus-visible:ring-offset-2",
+        enabled ? "bg-[var(--rb-indigo-500)]" : "bg-[var(--rb-bg-hover)]",
       )}
     >
       <span className={cn(
@@ -113,8 +113,8 @@ function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void 
 function MetaColumn({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex flex-col items-start min-w-[80px]">
-      <span className="text-xs font-semibold text-gray-700">{value}</span>
-      <span className="text-[10px] text-gray-400 mt-0.5">{label}</span>
+      <span className="text-xs font-semibold text-[var(--rb-fg-2)]">{value}</span>
+      <span className="text-[10px] text-[var(--rb-fg-4)] mt-0.5">{label}</span>
     </div>
   );
 }
@@ -153,15 +153,15 @@ function RuleRow({ rule, onToggle, onEdit, onDelete }: RuleRowProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-4 flex items-center gap-4">
+    <div className="rounded-2xl border border-[var(--rb-border-1)] bg-white shadow-sm p-4 flex items-center gap-4">
       <Toggle enabled={enabled} onToggle={handleToggle} />
 
       <div className="flex-1 min-w-0">
-        <p className={cn("text-sm font-semibold text-gray-900 truncate", saving && "opacity-60")}>
-          {rule.isRecommended && <span className="text-[#5B5BD6] mr-1">[Recommended]</span>}
+        <p className={cn("text-sm font-semibold text-[var(--rb-fg-1)] truncate", saving && "opacity-60")}>
+          {rule.isRecommended && <span className="text-[var(--rb-indigo-500)] mr-1">[Recommended]</span>}
           {rule.name}
         </p>
-        <p className="text-xs text-gray-400 mt-0.5 truncate">{rule.description}</p>
+        <p className="text-xs text-[var(--rb-fg-4)] mt-0.5 truncate">{rule.description}</p>
       </div>
 
       <div className="hidden md:flex items-center gap-6">
@@ -178,7 +178,7 @@ function RuleRow({ rule, onToggle, onEdit, onDelete }: RuleRowProps) {
         <button
           type="button"
           onClick={() => onEdit(rule)}
-          className="rounded-lg p-1.5 text-gray-400 hover:text-[#5B5BD6] hover:bg-indigo-50 transition-colors"
+          className="rounded-lg p-1.5 text-[var(--rb-fg-4)] hover:text-[var(--rb-indigo-500)] hover:bg-indigo-50 transition-colors"
           aria-label="Edit rule"
         >
           <Pencil className="size-3.5" strokeWidth={1.5} />
@@ -187,7 +187,7 @@ function RuleRow({ rule, onToggle, onEdit, onDelete }: RuleRowProps) {
           type="button"
           onClick={handleDelete}
           disabled={deleting}
-          className="rounded-lg p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+          className="rounded-lg p-1.5 text-[var(--rb-fg-4)] hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
           aria-label="Delete rule"
         >
           <Trash2 className="size-3.5" strokeWidth={1.5} />
@@ -233,7 +233,7 @@ function RunHistoryPanel() {
     return (
       <div className="space-y-2">
         {[1, 2, 3].map((i) => (
-          <div key={i} className="h-10 animate-pulse rounded-xl bg-gray-100" />
+          <div key={i} className="h-10 animate-pulse rounded-xl bg-[var(--rb-bg-hover)]" />
         ))}
       </div>
     );
@@ -242,8 +242,8 @@ function RunHistoryPanel() {
   if (logs.length === 0) {
     return (
       <div className="flex flex-col items-center py-8 text-center">
-        <Clock className="size-8 text-gray-200" strokeWidth={1.5} />
-        <p className="mt-2 text-xs text-gray-400">No runs yet — logs appear after the next sync.</p>
+        <Clock className="size-8 text-[var(--rb-fg-4)]" strokeWidth={1.5} />
+        <p className="mt-2 text-xs text-[var(--rb-fg-4)]">No runs yet — logs appear after the next sync.</p>
       </div>
     );
   }
@@ -253,7 +253,7 @@ function RunHistoryPanel() {
       {logs.map((log) => (
         <div
           key={log.id}
-          className="flex items-start gap-3 rounded-xl border border-gray-100 bg-white px-3 py-2.5"
+          className="flex items-start gap-3 rounded-xl border border-[var(--rb-border-1)] bg-white px-3 py-2.5"
         >
           {/* Status icon */}
           {log.status === "success" ? (
@@ -264,13 +264,13 @@ function RunHistoryPanel() {
 
           {/* Content */}
           <div className="flex-1 min-w-0">
-            <p className="text-xs text-gray-700 truncate">
+            <p className="text-xs text-[var(--rb-fg-2)] truncate">
               <span className="font-medium">{log.ruleName}</span>
               {log.reviewRating && (
-                <span className="ml-1 text-gray-400">★{log.reviewRating}</span>
+                <span className="ml-1 text-[var(--rb-fg-4)]">★{log.reviewRating}</span>
               )}
               {log.reviewSnippet && (
-                <span className="ml-1 text-gray-400 italic truncate">
+                <span className="ml-1 text-[var(--rb-fg-4)] italic truncate">
                   — &ldquo;{log.reviewSnippet.slice(0, 60)}&hellip;&rdquo;
                 </span>
               )}
@@ -285,7 +285,7 @@ function RunHistoryPanel() {
             <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600">
               {ACTION_LABEL[log.action] ?? log.action}
             </span>
-            <span className="text-[11px] text-gray-400">{timeAgo(log.executedAt)}</span>
+            <span className="text-[11px] text-[var(--rb-fg-4)]">{timeAgo(log.executedAt)}</span>
           </div>
         </div>
       ))}
@@ -333,12 +333,12 @@ function PresetCard({ preset, onInstall }: { preset: AutomationPreset; onInstall
   }
 
   return (
-    <div className="relative rounded-2xl border border-gray-200 bg-white shadow-sm p-5 hover:shadow-md transition-shadow">
+    <div className="relative rounded-2xl border border-[var(--rb-border-1)] bg-white shadow-sm p-5 hover:shadow-md transition-shadow">
       {preset.isFree && (
         <span className="absolute top-3 right-3 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">FREE</span>
       )}
-      <p className="text-sm font-semibold text-gray-900 pr-10">{preset.name}</p>
-      <p className="text-xs text-gray-400 mt-1">{preset.description}</p>
+      <p className="text-sm font-semibold text-[var(--rb-fg-1)] pr-10">{preset.name}</p>
+      <p className="text-xs text-[var(--rb-fg-4)] mt-1">{preset.description}</p>
       <div className="flex flex-wrap gap-1.5 mt-3">
         {preset.badges.map((badge) => <BadgePill key={badge} variant={badge} />)}
       </div>
@@ -350,7 +350,7 @@ function PresetCard({ preset, onInstall }: { preset: AutomationPreset; onInstall
           "mt-4 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed",
           state === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
             : state === "error" ? "bg-red-50 text-red-600 border border-red-200"
-            : "bg-[#5B5BD6] text-white hover:bg-[#4a4ac4]",
+            : "bg-[var(--rb-indigo-500)] text-white hover:bg-[var(--rb-indigo-600)]",
         )}
       >
         {state === "loading" ? (
@@ -500,7 +500,7 @@ export function AutomationHub() {
   return (
     <div className="space-y-4">
       {/* Tab bar */}
-      <div className="inline-flex items-center gap-1 rounded-xl bg-gray-100 p-1">
+      <div className="inline-flex items-center gap-1 rounded-xl bg-[var(--rb-bg-hover)] p-1">
         {(["rules", "presets"] as ActiveTab[]).map((tab) => (
           <button
             key={tab}
@@ -508,7 +508,7 @@ export function AutomationHub() {
             onClick={() => setActiveTab(tab)}
             className={cn(
               "rounded-lg px-4 py-1.5 text-sm font-medium transition-all duration-150",
-              activeTab === tab ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700",
+              activeTab === tab ? "bg-white text-[var(--rb-fg-1)] shadow-sm" : "text-[var(--rb-fg-3)] hover:text-[var(--rb-fg-2)]",
             )}
           >
             {tab === "rules" ? "Added rules" : "Presets"}
@@ -522,10 +522,10 @@ export function AutomationHub() {
           {/* Rules list */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-900">Added rules</h2>
+              <h2 className="text-base font-semibold text-[var(--rb-fg-1)]">Added rules</h2>
               <Button
                 size="sm"
-                className="h-8 bg-[#5B5BD6] hover:bg-[#4a4ac4] text-white"
+                className="h-8 bg-[var(--rb-indigo-500)] hover:bg-[var(--rb-indigo-600)] text-white"
                 onClick={() => { setEditingRule(null); setShowBuilder(true); }}
               >
                 <Plus className="size-3.5" strokeWidth={1.5} />
@@ -535,18 +535,18 @@ export function AutomationHub() {
 
             <div className="space-y-3">
               {loading ? (
-                <div className="text-sm text-gray-400 py-4 text-center">Loading rules…</div>
+                <div className="text-sm text-[var(--rb-fg-4)] py-4 text-center">Loading rules…</div>
               ) : rules.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-16 text-center">
-                  <Workflow className="size-12 text-gray-200" strokeWidth={1.5} />
-                  <h3 className="mt-4 text-sm font-semibold text-gray-900">No automation rules yet</h3>
-                  <p className="mt-1 max-w-xs text-xs text-gray-400">
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--rb-border-1)] bg-white py-16 text-center">
+                  <Workflow className="size-12 text-[var(--rb-fg-4)]" strokeWidth={1.5} />
+                  <h3 className="mt-4 text-sm font-semibold text-[var(--rb-fg-1)]">No automation rules yet</h3>
+                  <p className="mt-1 max-w-xs text-xs text-[var(--rb-fg-4)]">
                     Create rules to auto-reply to reviews, tag issues, and escalate crashes.
                   </p>
                   <button
                     type="button"
                     onClick={() => { setEditingRule(null); setShowBuilder(true); }}
-                    className="mt-4 rounded-lg bg-[#5B5BD6] px-4 py-1.5 text-xs font-medium text-white hover:bg-[#4a4ac4]"
+                    className="mt-4 rounded-lg bg-[var(--rb-indigo-500)] px-4 py-1.5 text-xs font-medium text-white hover:bg-[var(--rb-indigo-600)]"
                   >
                     Create first rule
                   </button>
@@ -567,7 +567,7 @@ export function AutomationHub() {
 
           {/* Run history */}
           <div>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">Run history</h2>
+            <h2 className="text-base font-semibold text-[var(--rb-fg-1)] mb-3">Run history</h2>
             <RunHistoryPanel />
           </div>
         </div>
@@ -577,13 +577,13 @@ export function AutomationHub() {
       {activeTab === "presets" && (
         <div className="space-y-8">
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">Featured presets</h2>
+            <h2 className="text-base font-semibold text-[var(--rb-fg-1)] mb-3">Featured presets</h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {featuredPresets.map((p) => <PresetCard key={p.id} preset={p} onInstall={handleInstallPreset} />)}
             </div>
           </section>
           <section>
-            <h2 className="text-base font-semibold text-gray-900 mb-3">Automation presets</h2>
+            <h2 className="text-base font-semibold text-[var(--rb-fg-1)] mb-3">Automation presets</h2>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {automationPresets.map((p) => <PresetCard key={p.id} preset={p} onInstall={handleInstallPreset} />)}
             </div>

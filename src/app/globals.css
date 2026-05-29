@@ -35,6 +35,9 @@
   --rb-purple-100:#EDE9FE;
   --rb-purple-500:#8E5BFF;
   --rb-purple-600:#6D28D9;
+  --rb-indigo-100:#E0E7FF;
+  --rb-indigo-500:#5B5BD6;
+  --rb-indigo-600:#4a4ac4;
 
   /* ── Font families ── */
   --rb-font-display: -apple-system, "SF Pro Display", var(--font-inter), "Inter", BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;

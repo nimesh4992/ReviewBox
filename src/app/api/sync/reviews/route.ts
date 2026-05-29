@@ -368,40 +368,6 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
 
   if (!apps?.length) return summary;
 
-  for (const app of apps as DbApp[]) {
-    // Mark "attempted" up front so the dashboard can show "we tried 30s ago".
-    const attemptedAt = new Date().toISOString();
-    try {
-      await getServiceClient()
-        .from("apps")
-        .update({ last_sync_attempted_at: attemptedAt })
-        .eq("id", app.id);
-    } catch { /* best-effort */ }
-
-    const reviewsBefore = summary.reviewsUpserted;
-    try {
-      // First sync: fetch up to 50 public reviews before hitting the Publisher API.
-      // This gives users immediate data without needing Play Console credentials.
-      // After bootstrap, fire Gemini enrichment (KB entries + reply templates).
-      if (!app.last_sync_attempted_at) {
-        try {
-          const bootstrapRows = await bootstrapReviews(app.platform, app.id, app.workspace_id, app.store_id);
-          if (bootstrapRows.length) {
-            const sb = getServiceClient();
-            await sb.from("reviews").upsert(bootstrapRows, { onConflict: "app_id,external_id" });
-            summary.reviewsUpserted += bootstrapRows.length;
-            console.log(`[sync] bootstrap ${app.store_id}: ${bootstrapRows.length} reviews`);
-
-            // Kick off Gemini enrichment — fire-and-forget so it doesn't delay
-            // the sync response. Generates KB entries and reply templates from
-            // the bootstrapped reviews. Only runs on first sync per app.
-            enrichOnboarding(
-              app.workspace_id,
-              app.name,
-              bootstrapRows.map((r) => ({ text: r.body ?? "", rating: r.rating })),
-            ).catch((err) =>
-              console.warn("[sync] enrich:", err instanceof Error ? err.message : err),
-            );
   // Process all apps in parallel — each app's sync is independent.
   // Promise.allSettled so one failing app never blocks the others.
   await Promise.allSettled(
@@ -418,6 +384,15 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
                 .upsert(bootstrapRows, { onConflict: "app_id,external_id" });
               summary.reviewsUpserted += bootstrapRows.length;
               console.log(`[sync] bootstrap ${app.store_id}: ${bootstrapRows.length} reviews`);
+              // Fire Gemini enrichment — generates KB entries + reply templates.
+              // Fire-and-forget so it doesn't block the sync response.
+              enrichOnboarding(
+                app.workspace_id,
+                app.name,
+                bootstrapRows.map((r) => ({ text: r.body ?? "", rating: r.rating })),
+              ).catch((err) =>
+                console.warn("[sync] enrich:", err instanceof Error ? err.message : err),
+              );
             }
           } catch (err) {
             console.warn(`[sync] bootstrap failed for ${app.store_id}:`, err instanceof Error ? err.message : err);

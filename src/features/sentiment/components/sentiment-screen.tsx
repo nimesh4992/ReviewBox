@@ -8,7 +8,6 @@ import { useSentimentAnalysis } from "@/hooks/use-sentiment-analysis";
 import { useSentimentOverview } from "@/hooks/use-sentiment-overview";
 import { useReviewQueue } from "@/hooks/use-review-queue";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
-import { useReviewQueue } from "@/hooks/use-review-queue";
 import type { AnalysisResult } from "@/app/api/sentiment/analyze/route";
 import type { SentimentTopic, CriticalReview, TopicReview } from "@/app/api/sentiment/overview/route";
 
@@ -672,11 +671,6 @@ export function SentimentScreen() {
           </div>
           <button
             onClick={handleRecluster}
-            disabled={isPending || reclusterReviews.length === 0}
-            className="ml-auto flex h-7 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40"
-            onClick={() =>
-              analyze(workspaceReviews.slice(0, 100), { onSuccess: setAiResults })
-            }
             disabled={isPending || !canRecluster}
             title={canRecluster ? "Run AI sentiment clustering on recent reviews" : "Sync reviews first"}
             className="ml-auto flex h-7 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50"

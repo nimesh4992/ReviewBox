@@ -123,9 +123,9 @@ function AppStoreForm({
   }
 
   return (
-    <div className="mt-3 space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-4">
+    <div className="mt-3 space-y-3 rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-4">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-gray-600">
+        <p className="text-xs font-medium text-[var(--rb-fg-2)]">
           App Store Connect credentials
         </p>
         <a
@@ -137,9 +137,9 @@ function AppStoreForm({
           Full guide →
         </a>
       </div>
-      <ol className="space-y-1.5 text-xs text-gray-500 leading-relaxed">
+      <ol className="space-y-1.5 text-xs text-[var(--rb-fg-3)] leading-relaxed">
         <li>
-          <span className="font-semibold text-gray-700">1.</span>{" "}
+          <span className="font-semibold text-[var(--rb-fg-2)]">1.</span>{" "}
           <a
             href="https://appstoreconnect.apple.com/access/integrations/api"
             target="_blank"
@@ -150,28 +150,28 @@ function AppStoreForm({
           </a>
         </li>
         <li>
-          <span className="font-semibold text-gray-700">2.</span> Click Generate API Key.
+          <span className="font-semibold text-[var(--rb-fg-2)]">2.</span> Click Generate API Key.
           Name it &quot;ReviewBox&quot;. Set access to{" "}
-          <span className="font-medium text-gray-700">Customer Support</span>.
+          <span className="font-medium text-[var(--rb-fg-2)]">Customer Support</span>.
         </li>
         <li>
-          <span className="font-semibold text-gray-700">3.</span> Download the{" "}
-          <code className="rounded bg-gray-100 px-1 py-0.5 font-mono text-[10px] text-gray-600">
+          <span className="font-semibold text-[var(--rb-fg-2)]">3.</span> Download the{" "}
+          <code className="rounded bg-[var(--rb-bg-hover)] px-1 py-0.5 font-mono text-[10px] text-[var(--rb-fg-2)]">
             AuthKey_XXXXXX.p8
           </code>{" "}
           file (only available ONCE — save it).
         </li>
         <li>
-          <span className="font-semibold text-gray-700">4.</span> Copy the{" "}
-          <span className="font-medium text-gray-700">Key ID</span> +{" "}
-          <span className="font-medium text-gray-700">Issuer ID</span> from the same page,
+          <span className="font-semibold text-[var(--rb-fg-2)]">4.</span> Copy the{" "}
+          <span className="font-medium text-[var(--rb-fg-2)]">Key ID</span> +{" "}
+          <span className="font-medium text-[var(--rb-fg-2)]">Issuer ID</span> from the same page,
           paste below along with the .p8 file contents.
         </li>
       </ol>
 
       {app.has_credentials && !testResult && (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-white px-3 py-2">
-          <div className="flex items-center gap-1.5 text-xs text-gray-600">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--rb-border-1)] bg-white px-3 py-2">
+          <div className="flex items-center gap-1.5 text-xs text-[var(--rb-fg-2)]">
             <CheckCircle2 className="size-3.5 text-emerald-500" />
             Credentials saved. Verify they work with Apple:
           </div>
@@ -237,14 +237,14 @@ function AppStoreForm({
       )}
 
       <label className="block">
-        <span className="text-xs font-medium text-gray-600">Key ID</span>
+        <span className="text-xs font-medium text-[var(--rb-fg-2)]">Key ID</span>
         <Input
           value={keyId}
           onChange={(e) => setKeyId(e.target.value)}
           placeholder="XXXXXXXXXX (10 chars)"
           className={cn(
             "mt-1 h-8 bg-white text-sm font-mono",
-            keyIdLooksValid ? "border-gray-200" : "border-amber-300",
+            keyIdLooksValid ? "border-[var(--rb-border-1)]" : "border-amber-300",
           )}
         />
         {!keyIdLooksValid && (
@@ -255,14 +255,14 @@ function AppStoreForm({
       </label>
 
       <label className="block">
-        <span className="text-xs font-medium text-gray-600">Issuer ID</span>
+        <span className="text-xs font-medium text-[var(--rb-fg-2)]">Issuer ID</span>
         <Input
           value={issuerId}
           onChange={(e) => setIssuerId(e.target.value)}
           placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
           className={cn(
             "mt-1 h-8 bg-white text-sm font-mono",
-            issuerIdLooksValid ? "border-gray-200" : "border-amber-300",
+            issuerIdLooksValid ? "border-[var(--rb-border-1)]" : "border-amber-300",
           )}
         />
         {!issuerIdLooksValid && (
@@ -273,13 +273,13 @@ function AppStoreForm({
       </label>
 
       <label className="block">
-        <span className="text-xs font-medium text-gray-600">.p8 Private key</span>
+        <span className="text-xs font-medium text-[var(--rb-fg-2)]">.p8 Private key</span>
         <textarea
           value={p8Key}
           onChange={(e) => setP8Key(e.target.value)}
           placeholder={"-----BEGIN PRIVATE KEY-----\nMIGHAgEAM...\n-----END PRIVATE KEY-----"}
           rows={5}
-          className="mt-1 w-full rounded-md border border-gray-200 bg-white px-3 py-2 font-mono text-xs text-gray-700 placeholder:text-gray-300 focus:outline-none focus:ring-2 focus:ring-[#0A84FF]/20 resize-none"
+          className="mt-1 w-full rounded-md border border-[var(--rb-border-1)] bg-white px-3 py-2 font-mono text-xs text-[var(--rb-fg-2)] placeholder:text-[var(--rb-fg-4)] focus:outline-none focus:ring-2 focus:ring-[#0A84FF]/20 resize-none"
         />
       </label>
 
@@ -307,17 +307,17 @@ function AppStoreForm({
 
 function GooglePlayInfo({ app, onOpenSetup }: { app: WorkspaceApp; onOpenSetup: () => void }) {
   return (
-    <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 p-4 space-y-3">
+    <div className="mt-3 rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-4 space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs font-medium text-gray-600">Google Play connection</p>
+        <p className="text-xs font-medium text-[var(--rb-fg-2)]">Google Play connection</p>
         {app.last_synced_at && (
-          <p className="text-[11px] text-gray-400">
+          <p className="text-[11px] text-[var(--rb-fg-4)]">
             Last synced: {formatReviewDate(app.last_synced_at)}
           </p>
         )}
       </div>
 
-      <p className="text-[12px] text-gray-500 leading-relaxed">
+      <p className="text-[12px] text-[var(--rb-fg-3)] leading-relaxed">
         ReviewBox connects via a shared service account. You need to invite its email address to your
         Play Console with <strong>Reply to reviews</strong> permission.
       </p>
@@ -335,7 +335,7 @@ function GooglePlayInfo({ app, onOpenSetup }: { app: WorkspaceApp; onOpenSetup: 
           href="/help/connect-google-play"
           target="_blank"
           rel="noopener noreferrer"
-          className="text-[11px] font-medium text-gray-400 hover:text-[#0A84FF] hover:underline"
+          className="text-[11px] font-medium text-[var(--rb-fg-4)] hover:text-[#0A84FF] hover:underline"
         >
           Read guide →
         </a>
@@ -406,20 +406,20 @@ function AppRow({
   }
 
   return (
-    <div className="border-b border-gray-100 last:border-0">
+    <div className="border-b border-[var(--rb-border-1)] last:border-0">
       <div className="flex items-center gap-3 px-4 py-3.5">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-gray-200 bg-gray-50">
-          <Icon className="size-4 text-gray-500" />
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)]">
+          <Icon className="size-4 text-[var(--rb-fg-3)]" />
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-sm font-semibold text-gray-900">{app.name}</span>
-            <span className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-[10px] text-gray-500">
+            <span className="text-sm font-semibold text-[var(--rb-fg-1)]">{app.name}</span>
+            <span className="rounded bg-[var(--rb-bg-hover)] px-1.5 py-0.5 font-mono text-[10px] text-[var(--rb-fg-3)]">
               {app.store_id}
             </span>
           </div>
-          <p className="mt-0.5 text-xs text-gray-400">
+          <p className="mt-0.5 text-xs text-[var(--rb-fg-4)]">
             {isAppStore ? "App Store Connect" : "Google Play"}
             {app.last_synced_at && (
               <> · Last synced {formatReviewDate(app.last_synced_at)}</>
@@ -445,7 +445,7 @@ function AppRow({
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 w-7 p-0 text-gray-400 hover:text-gray-600"
+            className="h-7 w-7 p-0 text-[var(--rb-fg-4)] hover:text-[var(--rb-fg-2)]"
             onClick={handleSync}
             disabled={syncing}
             title="Sync now"
@@ -456,7 +456,7 @@ function AppRow({
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
+            className="h-7 w-7 p-0 text-[var(--rb-fg-4)] hover:text-red-500"
             onClick={handleDelete}
             disabled={deleting}
             title="Remove app"
@@ -471,7 +471,7 @@ function AppRow({
           <Button
             variant="ghost"
             size="sm"
-            className="h-7 w-7 p-0 text-gray-400 hover:text-gray-600"
+            className="h-7 w-7 p-0 text-[var(--rb-fg-4)] hover:text-[var(--rb-fg-2)]"
             onClick={() => setExpanded((v) => !v)}
             title={expanded ? "Collapse" : "Configure"}
           >
@@ -491,7 +491,7 @@ function AppRow({
       )}
 
       {expanded && (
-        <div className="border-t border-gray-50 px-4 pb-4">
+        <div className="border-t border-[var(--rb-border-1)] px-4 pb-4">
           {isAppStore ? (
             <AppStoreForm app={app} onSaved={onUpdated} />
           ) : (
@@ -559,11 +559,11 @@ function AddAppForm({ onAdded }: { onAdded: () => void }) {
 
   if (!open) {
     return (
-      <div className="flex items-center justify-center border-t border-dashed border-gray-200 px-4 py-3">
+      <div className="flex items-center justify-center border-t border-dashed border-[var(--rb-border-1)] px-4 py-3">
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 gap-1.5 text-xs text-gray-500 hover:text-gray-700"
+          className="h-8 gap-1.5 text-xs text-[var(--rb-fg-3)] hover:text-[var(--rb-fg-2)]"
           onClick={() => setOpen(true)}
         >
           <Plus className="size-3.5" />
@@ -574,28 +574,28 @@ function AddAppForm({ onAdded }: { onAdded: () => void }) {
   }
 
   return (
-    <div className="space-y-3 border-t border-dashed border-gray-200 px-4 py-4">
-      <p className="text-xs font-medium text-gray-600">Add new app</p>
+    <div className="space-y-3 border-t border-dashed border-[var(--rb-border-1)] px-4 py-4">
+      <p className="text-xs font-medium text-[var(--rb-fg-2)]">Add new app</p>
 
       {error && <p className="text-xs text-red-600">{error}</p>}
 
       <div className="grid gap-2.5 sm:grid-cols-2">
         <label className="block">
-          <span className="text-xs font-medium text-gray-600">App name</span>
+          <span className="text-xs font-medium text-[var(--rb-fg-2)]">App name</span>
           <Input
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="My App"
-            className="mt-1 h-8 border-gray-200 bg-gray-50 text-sm focus:bg-white"
+            className="mt-1 h-8 border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] text-sm focus:bg-white"
           />
         </label>
 
         <label className="block">
-          <span className="text-xs font-medium text-gray-600">Platform</span>
+          <span className="text-xs font-medium text-[var(--rb-fg-2)]">Platform</span>
           <select
             value={platform}
             onChange={(e) => setPlatform(e.target.value as "google_play" | "app_store")}
-            className="mt-1 h-8 w-full rounded-md border border-gray-200 bg-gray-50 px-3 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#0A84FF]/20"
+            className="mt-1 h-8 w-full rounded-md border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 text-sm text-[var(--rb-fg-2)] focus:outline-none focus:ring-2 focus:ring-[#0A84FF]/20"
           >
             <option value="google_play">Google Play</option>
             <option value="app_store">App Store</option>
@@ -604,7 +604,7 @@ function AddAppForm({ onAdded }: { onAdded: () => void }) {
       </div>
 
       <label className="block">
-        <span className="text-xs font-medium text-gray-600">
+        <span className="text-xs font-medium text-[var(--rb-fg-2)]">
           {platform === "google_play" ? "Package name" : "Bundle ID"}
         </span>
         <Input
@@ -615,7 +615,7 @@ function AddAppForm({ onAdded }: { onAdded: () => void }) {
               ? "com.yourcompany.app"
               : "com.yourcompany.app"
           }
-          className="mt-1 h-8 border-gray-200 bg-gray-50 font-mono text-sm focus:bg-white"
+          className="mt-1 h-8 border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] font-mono text-sm focus:bg-white"
         />
       </label>
 
@@ -638,7 +638,7 @@ function AddAppForm({ onAdded }: { onAdded: () => void }) {
         <Button
           variant="ghost"
           size="sm"
-          className="h-8 text-xs text-gray-500"
+          className="h-8 text-xs text-[var(--rb-fg-3)]"
           onClick={() => {
             setOpen(false);
             setError(null);
@@ -658,22 +658,22 @@ export function AppConnections() {
   const invalidate = useInvalidateApps();
 
   return (
-    <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-      <div className="border-b border-gray-100 px-4 py-3">
-        <h2 className="text-sm font-semibold text-gray-900">Connected apps</h2>
-        <p className="mt-0.5 text-xs text-gray-400">
+    <section className="overflow-hidden rounded-xl border border-[var(--rb-border-1)] bg-white shadow-sm">
+      <div className="border-b border-[var(--rb-border-1)] px-4 py-3">
+        <h2 className="text-sm font-semibold text-[var(--rb-fg-1)]">Connected apps</h2>
+        <p className="mt-0.5 text-xs text-[var(--rb-fg-4)]">
           Apps synced to this workspace · reviews are fetched daily
         </p>
       </div>
 
       {isLoading ? (
         <div className="flex items-center justify-center py-8">
-          <Loader2 className="size-4 animate-spin text-gray-400" />
+          <Loader2 className="size-4 animate-spin text-[var(--rb-fg-4)]" />
         </div>
       ) : apps.length === 0 ? (
         <div className="flex flex-col items-center justify-center gap-2 px-4 py-8 text-center">
-          <p className="text-sm text-gray-500">No apps connected yet.</p>
-          <p className="text-xs text-gray-400">Add your first Google Play or App Store app below.</p>
+          <p className="text-sm text-[var(--rb-fg-3)]">No apps connected yet.</p>
+          <p className="text-xs text-[var(--rb-fg-4)]">Add your first Google Play or App Store app below.</p>
         </div>
       ) : (
         <div>

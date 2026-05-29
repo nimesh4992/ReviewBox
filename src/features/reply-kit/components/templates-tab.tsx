@@ -73,7 +73,7 @@ function TagPicker({ selected, onChange }: TagPickerProps) {
               "rounded-full px-2.5 py-0.5 text-[11px] font-medium transition-colors",
               active
                 ? "bg-indigo-600 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200",
+                : "bg-[var(--rb-bg-hover)] text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)]",
             )}
           >
             {tag}
@@ -92,7 +92,7 @@ function CharCounter({ count }: { count: number }) {
       ? "text-red-500"
       : count >= 300
         ? "text-amber-500"
-        : "text-gray-400";
+        : "text-[var(--rb-fg-4)]";
   return (
     <span className={cn("text-xs transition-colors", colorClass)}>
       {count}/{CHAR_LIMIT} chars
@@ -144,35 +144,35 @@ function TemplateForm({ initial, saving, submitLabel, onSubmit, onCancel }: Temp
   return (
     <form
       onSubmit={handleSubmit}
-      className="mb-4 rounded-2xl border border-[#5B5BD6]/30 bg-[#5B5BD6]/5 p-5 space-y-3"
+      className="mb-4 rounded-2xl border border-[var(--rb-indigo-500)]/30 bg-[var(--rb-indigo-500)]/5 p-5 space-y-3"
     >
       {/* Name */}
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-gray-600">Template name</label>
+        <label className="text-xs font-medium text-[var(--rb-fg-2)]">Template name</label>
         <input
           type="text"
           value={form.name}
           onChange={(e) => set("name", e.target.value)}
           placeholder="e.g. Thank you — 5 star"
           required
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30"
+          className="rounded-lg border border-[var(--rb-border-1)] bg-white px-3 py-2 text-sm text-[var(--rb-fg-1)] outline-none focus:border-[var(--rb-indigo-500)] focus:ring-1 focus:ring-[var(--rb-indigo-500)]/30"
         />
       </div>
 
       {/* Content */}
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-gray-600">Content</label>
+        <label className="text-xs font-medium text-[var(--rb-fg-2)]">Content</label>
         <textarea
           value={form.content}
           onChange={(e) => set("content", e.target.value)}
           placeholder="Write your reply template…"
           required
           rows={4}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30 resize-none"
+          className="rounded-lg border border-[var(--rb-border-1)] bg-white px-3 py-2 text-sm text-[var(--rb-fg-1)] outline-none focus:border-[var(--rb-indigo-500)] focus:ring-1 focus:ring-[var(--rb-indigo-500)]/30 resize-none"
         />
         <div className="flex items-center justify-between">
           <CharCounter count={form.content.length} />
-          <span className="text-[11px] italic text-gray-400">
+          <span className="text-[11px] italic text-[var(--rb-fg-4)]">
             Placeholders: {"{appName}"} · {"{supportEmail}"} · {"{teamName}"}
           </span>
         </div>
@@ -180,18 +180,18 @@ function TemplateForm({ initial, saving, submitLabel, onSubmit, onCancel }: Temp
 
       {/* Tags */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-xs font-medium text-gray-600">Issue tags</label>
+        <label className="text-xs font-medium text-[var(--rb-fg-2)]">Issue tags</label>
         <TagPicker selected={form.tags} onChange={(t) => set("tags", t)} />
       </div>
 
       {/* Rating range */}
       <div className="flex items-center gap-4">
         <div className="flex flex-col gap-1 flex-1">
-          <label className="text-xs font-medium text-gray-600">Min rating</label>
+          <label className="text-xs font-medium text-[var(--rb-fg-2)]">Min rating</label>
           <select
             value={form.ratingMin}
             onChange={(e) => set("ratingMin", Number(e.target.value))}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6]"
+            className="rounded-lg border border-[var(--rb-border-1)] bg-white px-3 py-2 text-sm text-[var(--rb-fg-1)] outline-none focus:border-[var(--rb-indigo-500)]"
           >
             {[1, 2, 3, 4, 5].map((n) => (
               <option key={n} value={n}>★{n}</option>
@@ -199,11 +199,11 @@ function TemplateForm({ initial, saving, submitLabel, onSubmit, onCancel }: Temp
           </select>
         </div>
         <div className="flex flex-col gap-1 flex-1">
-          <label className="text-xs font-medium text-gray-600">Max rating</label>
+          <label className="text-xs font-medium text-[var(--rb-fg-2)]">Max rating</label>
           <select
             value={form.ratingMax}
             onChange={(e) => set("ratingMax", Number(e.target.value))}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6]"
+            className="rounded-lg border border-[var(--rb-border-1)] bg-white px-3 py-2 text-sm text-[var(--rb-fg-1)] outline-none focus:border-[var(--rb-indigo-500)]"
           >
             {[1, 2, 3, 4, 5].map((n) => (
               <option key={n} value={n}>★{n}</option>
@@ -211,11 +211,11 @@ function TemplateForm({ initial, saving, submitLabel, onSubmit, onCancel }: Temp
           </select>
         </div>
         <div className="flex flex-col gap-1 flex-1">
-          <label className="text-xs font-medium text-gray-600">Language</label>
+          <label className="text-xs font-medium text-[var(--rb-fg-2)]">Language</label>
           <select
             value={form.language}
             onChange={(e) => set("language", e.target.value)}
-            className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[#5B5BD6]"
+            className="rounded-lg border border-[var(--rb-border-1)] bg-white px-3 py-2 text-sm text-[var(--rb-fg-1)] outline-none focus:border-[var(--rb-indigo-500)]"
           >
             {LANGUAGES.map((l) => (
               <option key={l} value={l}>{l}</option>
@@ -229,7 +229,7 @@ function TemplateForm({ initial, saving, submitLabel, onSubmit, onCancel }: Temp
           type="submit"
           size="sm"
           disabled={saving}
-          className="bg-[#5B5BD6] text-white hover:bg-[#4f4fbf] disabled:opacity-50"
+          className="bg-[var(--rb-indigo-500)] text-white hover:bg-[#4f4fbf] disabled:opacity-50"
         >
           {saving ? "Saving…" : submitLabel}
         </Button>
@@ -238,7 +238,7 @@ function TemplateForm({ initial, saving, submitLabel, onSubmit, onCancel }: Temp
           size="sm"
           variant="ghost"
           onClick={onCancel}
-          className="text-gray-500"
+          className="text-[var(--rb-fg-3)]"
         >
           Cancel
         </Button>
@@ -271,27 +271,27 @@ function TemplateCard({
   }
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm transition-shadow duration-150 hover:shadow-md">
+    <div className="rounded-2xl border border-[var(--rb-border-1)] bg-white p-5 shadow-sm transition-shadow duration-150 hover:shadow-md">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-sm font-semibold text-gray-900">{template.name}</span>
+        <span className="text-sm font-semibold text-[var(--rb-fg-1)]">{template.name}</span>
         {template.tags.map((tag) => (
           <TagChip key={tag} tag={tag} />
         ))}
-        <span className="ml-auto shrink-0 text-xs text-gray-400">
+        <span className="ml-auto shrink-0 text-xs text-[var(--rb-fg-4)]">
           Used {template.usage_count ?? 0} times
         </span>
       </div>
 
       {/* Content preview */}
-      <p className="mt-2 line-clamp-2 text-sm text-gray-500">{template.content}</p>
+      <p className="mt-2 line-clamp-2 text-sm text-[var(--rb-fg-3)]">{template.content}</p>
 
       {/* Footer */}
       <div className="mt-3 flex items-center gap-2">
-        <span className="rounded-full bg-gray-100 px-2 py-0.5 text-[10px] text-gray-500">
+        <span className="rounded-full bg-[var(--rb-bg-hover)] px-2 py-0.5 text-[10px] text-[var(--rb-fg-3)]">
           {template.language}
         </span>
-        <span className="text-[11px] text-gray-400">
+        <span className="text-[11px] text-[var(--rb-fg-4)]">
           ★{template.rating_min}–★{template.rating_max}
         </span>
         <div className="ml-auto flex items-center gap-1">
@@ -299,7 +299,7 @@ function TemplateCard({
             variant="ghost"
             size="icon-sm"
             onClick={() => onEdit(template)}
-            className="text-gray-400 hover:text-[#5B5BD6]"
+            className="text-[var(--rb-fg-4)] hover:text-[var(--rb-indigo-500)]"
           >
             <Pencil strokeWidth={1.5} className="size-3.5" />
           </Button>
@@ -308,7 +308,7 @@ function TemplateCard({
             size="icon-sm"
             disabled={deleting}
             onClick={handleDelete}
-            className="text-gray-400 hover:text-red-500"
+            className="text-[var(--rb-fg-4)] hover:text-red-500"
           >
             <Trash2 strokeWidth={1.5} className="size-3.5" />
           </Button>
@@ -431,10 +431,10 @@ export function TemplatesTab() {
     <div>
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-900">Reply templates</h2>
+        <h2 className="text-base font-semibold text-[var(--rb-fg-1)]">Reply templates</h2>
         <Button
           size="sm"
-          className="bg-[#5B5BD6] text-white hover:bg-[#4f4fbf]"
+          className="bg-[var(--rb-indigo-500)] text-white hover:bg-[#4f4fbf]"
           onClick={openCreate}
         >
           <Plus strokeWidth={1.5} className="size-4" />
@@ -475,14 +475,14 @@ export function TemplatesTab() {
       <div className="relative">
         <Search
           strokeWidth={1.5}
-          className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400"
+          className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-[var(--rb-fg-4)]"
         />
         <input
           type="text"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search templates..."
-          className="h-9 w-full rounded-full border border-gray-200 bg-gray-50 pl-9 pr-4 text-sm text-gray-800 outline-none placeholder:text-gray-400 focus:border-[#5B5BD6] focus:ring-1 focus:ring-[#5B5BD6]/30"
+          className="h-9 w-full rounded-full border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] pl-9 pr-4 text-sm text-[var(--rb-fg-1)] outline-none placeholder:text-[var(--rb-fg-4)] focus:border-[var(--rb-indigo-500)] focus:ring-1 focus:ring-[var(--rb-indigo-500)]/30"
         />
       </div>
 
@@ -493,7 +493,7 @@ export function TemplatesTab() {
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="h-28 animate-pulse rounded-2xl border border-gray-200 bg-gray-100"
+                className="h-28 animate-pulse rounded-2xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-hover)]"
               />
             ))}
           </div>
@@ -507,7 +507,7 @@ export function TemplatesTab() {
             />
           ))
         ) : (
-          <p className="py-8 text-center text-sm text-gray-400">
+          <p className="py-8 text-center text-sm text-[var(--rb-fg-4)]">
             {templates.length === 0
               ? "No templates yet. Create your first one above."
               : "No templates match your search."}

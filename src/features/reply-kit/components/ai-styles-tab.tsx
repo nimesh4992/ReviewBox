@@ -22,9 +22,9 @@ function StyleCard({
       onClick={onSelect}
       onKeyDown={(e) => e.key === "Enter" && onSelect()}
       className={cn(
-        "cursor-pointer rounded-2xl border-2 p-5 transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-[#5B5BD6]/40",
+        "cursor-pointer rounded-2xl border-2 p-5 transition-all duration-150 outline-none focus-visible:ring-2 focus-visible:ring-[var(--rb-indigo-500)]/40",
         isActive
-          ? "border-[#5B5BD6] bg-[#5B5BD6]/5"
+          ? "border-[var(--rb-indigo-500)] bg-[var(--rb-indigo-500)]/5"
           : "border-gray-200 bg-white hover:border-gray-300"
       )}
     >
@@ -32,7 +32,7 @@ function StyleCard({
       <div className="flex items-center gap-2">
         <span className="text-sm font-semibold text-gray-900">{style.name}</span>
         {isActive && (
-          <span className="ml-auto flex size-5 items-center justify-center rounded-full bg-[#5B5BD6]">
+          <span className="ml-auto flex size-5 items-center justify-center rounded-full bg-[var(--rb-indigo-500)]">
             <Check strokeWidth={2.5} className="size-3 text-white" />
           </span>
         )}
