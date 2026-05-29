@@ -3,30 +3,66 @@ import { NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
 
+export interface TopicReview {
+  id: string;
+  author: string;
+  rating: number;
+  text: string;
+  sentiment: string;
+  createdAt: string;
+  replyStatus: string;
+}
+
 export interface SentimentTopic {
   topic: string;
+  tag: string;          // raw tag key — used for coloring in UI
   count: number;
-  share: number;    // 0–100, 1dp
+  share: number;        // 0–100, 1dp
   trend: "up" | "down" | "flat";
-  sentiment: number; // -1 to +1, net sentiment score
+  sentiment: number;    // -1 to +1, net sentiment score
+  /** Top 3 most-recent reviews carrying this tag */
+  topReviews: TopicReview[];
+}
+
+export interface CriticalReview {
+  id: string;
+  author: string;
+  rating: number;
+  text: string;
+  sentiment: string;
+  createdAt: string;
+  replyStatus: string;
 }
 
 export interface SentimentOverview {
   avgRating: number | null;
+  avgRatingPrev: number | null;      // previous period avg (for delta)
   totalReviews: number;
-  positiveShare: number;    // 0–100 integer
+  positiveShare: number;             // 0–100 integer
+  positiveSharePrev: number | null;  // previous period (for delta)
   avgReplyMinutes: number | null;
   trend: { positive: number[]; negative: number[] }; // 14 data points, % each day
+  /** [1★, 2★, 3★, 4★, 5★] as percentages summing to 100 */
+  ratingDistribution: [number, number, number, number, number];
+  /** Google Play vs App Store review counts for this period */
+  platformSplit: { googlePlay: number; appStore: number };
   topics: SentimentTopic[];
+  /** Last 5 critical/negative reviews for the quick-list */
+  criticalReviews: CriticalReview[];
 }
 
 const EMPTY: SentimentOverview = {
   avgRating: null,
+  avgRatingPrev: null,
   totalReviews: 0,
   positiveShare: 0,
+  positiveSharePrev: null,
   avgReplyMinutes: null,
   trend: { positive: [], negative: [] },
+  ratingDistribution: [0, 0, 0, 0, 0],
+  platformSplit: { googlePlay: 0, appStore: 0 },
   topics: [],
+  criticalReviews: [],
 };
 
 // Human-readable labels for issue_tags values
@@ -41,7 +77,7 @@ const TAG_LABEL: Record<string, string> = {
   localization:         "Localisation",
 };
 
-// Negative tags score -0.7, positive/neutral score +0.3
+// Net sentiment score per tag (-1 to +1)
 const TAG_SENTIMENT: Record<string, number> = {
   crash:                -0.8,
   billing:              -0.7,
@@ -73,6 +109,11 @@ export async function GET(req: Request): Promise<NextResponse> {
     const windowStart = new Date(now);
     windowStart.setDate(windowStart.getDate() - days);
 
+    // previous period window (for deltas)
+    const prevWindowStart = new Date(now);
+    prevWindowStart.setDate(prevWindowStart.getDate() - days * 2);
+    const prevWindowEnd = windowStart;
+
     // base filter helper — select("*") first so .eq() is available on FilterBuilder
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const base = (): any => {
@@ -80,40 +121,60 @@ export async function GET(req: Request): Promise<NextResponse> {
       return appId ? q.eq("app_id", appId) : q;
     };
 
-    // ── 1. KPI metrics ───────────────────────────────────────────────────────
-    const [ratingRows, positiveCount, repliedRows] = await Promise.all([
-      base()
-        .select("rating")
-        .gte("store_created_at", windowStart.toISOString()),
-      base()
-        .select("id", { count: "exact", head: true })
-        .eq("sentiment", "positive")
-        .gte("store_created_at", windowStart.toISOString()),
-      base()
-        .select("store_created_at, replied_at")
-        .eq("reply_status", "replied")
-        .not("replied_at", "is", null)
-        .gte("store_created_at", windowStart.toISOString()),
-    ]);
+    // ── 1. KPI metrics (current + previous period) ───────────────────────────
+    const [ratingRows, positiveCount, repliedRows, prevRatingRows, prevPositiveCount] =
+      await Promise.all([
+        base()
+          .select("rating")
+          .gte("store_created_at", windowStart.toISOString()),
+        base()
+          .select("id", { count: "exact", head: true })
+          .eq("sentiment", "positive")
+          .gte("store_created_at", windowStart.toISOString()),
+        base()
+          .select("store_created_at, replied_at")
+          .eq("reply_status", "replied")
+          .not("replied_at", "is", null)
+          .gte("store_created_at", windowStart.toISOString()),
+        // previous period
+        base()
+          .select("rating")
+          .gte("store_created_at", prevWindowStart.toISOString())
+          .lt("store_created_at", prevWindowEnd.toISOString()),
+        base()
+          .select("id", { count: "exact", head: true })
+          .eq("sentiment", "positive")
+          .gte("store_created_at", prevWindowStart.toISOString())
+          .lt("store_created_at", prevWindowEnd.toISOString()),
+      ]);
 
-    const ratings = ((ratingRows.data ?? []) as { rating: number }[]).map(
-      (r) => r.rating,
-    );
+    const ratings = ((ratingRows.data ?? []) as { rating: number }[]).map((r) => r.rating);
     const totalReviews = ratings.length;
     const avgRating =
       totalReviews > 0
-        ? parseFloat(
-            (ratings.reduce((s, r) => s + r, 0) / totalReviews).toFixed(2),
-          )
+        ? parseFloat((ratings.reduce((s, r) => s + r, 0) / totalReviews).toFixed(2))
         : null;
     const positiveShare =
       totalReviews > 0
         ? Math.round(((positiveCount.count ?? 0) / totalReviews) * 100)
         : 0;
 
-    const replied = (
-      repliedRows.data ?? []
-    ) as { store_created_at: string; replied_at: string }[];
+    // previous period
+    const prevRatings = ((prevRatingRows.data ?? []) as { rating: number }[]).map((r) => r.rating);
+    const prevTotal = prevRatings.length;
+    const avgRatingPrev =
+      prevTotal > 0
+        ? parseFloat((prevRatings.reduce((s, r) => s + r, 0) / prevTotal).toFixed(2))
+        : null;
+    const positiveSharePrev =
+      prevTotal > 0
+        ? Math.round(((prevPositiveCount.count ?? 0) / prevTotal) * 100)
+        : null;
+
+    const replied = (repliedRows.data ?? []) as {
+      store_created_at: string;
+      replied_at: string;
+    }[];
     const avgReplyMinutes =
       replied.length > 0
         ? Math.round(
@@ -126,7 +187,24 @@ export async function GET(req: Request): Promise<NextResponse> {
           )
         : null;
 
-    // ── 2. 14-day trend ──────────────────────────────────────────────────────
+    // ── 2. Rating distribution [1★…5★] ──────────────────────────────────────
+    const dist: [number, number, number, number, number] = [0, 0, 0, 0, 0];
+    for (const r of ratings) {
+      const idx = Math.min(Math.max(Math.round(r) - 1, 0), 4);
+      dist[idx]++;
+    }
+    const ratingDistribution: [number, number, number, number, number] =
+      totalReviews > 0
+        ? [
+            Math.round((dist[0] / totalReviews) * 100),
+            Math.round((dist[1] / totalReviews) * 100),
+            Math.round((dist[2] / totalReviews) * 100),
+            Math.round((dist[3] / totalReviews) * 100),
+            Math.round((dist[4] / totalReviews) * 100),
+          ]
+        : [0, 0, 0, 0, 0];
+
+    // ── 3. 14-day trend ──────────────────────────────────────────────────────
     const trendStart = new Date(now);
     trendStart.setDate(trendStart.getDate() - 14);
 
@@ -150,8 +228,7 @@ export async function GET(req: Request): Promise<NextResponse> {
       if (!dayBuckets[key]) continue;
       dayBuckets[key].total++;
       if (r.sentiment === "positive") dayBuckets[key].pos++;
-      if (r.sentiment === "critical" || r.sentiment === "negative")
-        dayBuckets[key].neg++;
+      if (r.sentiment === "critical" || r.sentiment === "negative") dayBuckets[key].neg++;
     }
 
     const trendPositive: number[] = [];
@@ -161,11 +238,24 @@ export async function GET(req: Request): Promise<NextResponse> {
       trendNegative.push(b.total > 0 ? Math.round((b.neg / b.total) * 100) : 0);
     }
 
-    // ── 3. Topics ────────────────────────────────────────────────────────────
+    // ── 4. Platform split ────────────────────────────────────────────────────
+    const platformRows = await base()
+      .select("source")
+      .gte("store_created_at", windowStart.toISOString());
+
+    let gpCount = 0, asCount = 0;
+    for (const r of (platformRows.data ?? []) as { source: string }[]) {
+      if (r.source === "Google Play") gpCount++;
+      else if (r.source === "App Store") asCount++;
+    }
+    const platformSplit = { googlePlay: gpCount, appStore: asCount };
+
+    // ── 5. Topics ────────────────────────────────────────────────────────────
     const topicRows = await base()
-      .select("issue_tags, sentiment")
+      .select("id, author, rating, text, sentiment, store_created_at, reply_status, issue_tags")
       .gte("store_created_at", windowStart.toISOString())
-      .not("issue_tags", "is", null);
+      .not("issue_tags", "is", null)
+      .order("store_created_at", { ascending: false });
 
     // last 7d for trend comparison
     const prev7Start = new Date(now);
@@ -183,10 +273,32 @@ export async function GET(req: Request): Promise<NextResponse> {
         .gte("store_created_at", curr7Start.toISOString()),
     ]);
 
+    type TopicRow = {
+      id: string; author: string; rating: number; text: string;
+      sentiment: string; store_created_at: string; reply_status: string;
+      issue_tags: string[];
+    };
+    const topicRowsTyped = (topicRows.data ?? []) as TopicRow[];
+
     const tagCount: Record<string, number> = {};
-    for (const row of (topicRows.data ?? []) as { issue_tags: string[] }[]) {
+    // top 3 most-recent reviews per tag (rows already ordered desc by store_created_at)
+    const tagTopReviews: Record<string, TopicReview[]> = {};
+
+    for (const row of topicRowsTyped) {
       for (const tag of row.issue_tags ?? []) {
         tagCount[tag] = (tagCount[tag] ?? 0) + 1;
+        if (!tagTopReviews[tag]) tagTopReviews[tag] = [];
+        if (tagTopReviews[tag].length < 3) {
+          tagTopReviews[tag].push({
+            id:          row.id,
+            author:      row.author,
+            rating:      row.rating,
+            text:        row.text,
+            sentiment:   row.sentiment,
+            createdAt:   row.store_created_at,
+            replyStatus: row.reply_status,
+          });
+        }
       }
     }
 
@@ -218,26 +330,57 @@ export async function GET(req: Request): Promise<NextResponse> {
                 ? "down"
                 : "flat";
         return {
-          topic: TAG_LABEL[tag] ?? tag,
+          tag,
+          topic:      TAG_LABEL[tag] ?? tag,
           count,
-          share:
-            totalReviews > 0
-              ? Math.round((count / totalReviews) * 1000) / 10
-              : 0,
+          share:      totalReviews > 0 ? Math.round((count / totalReviews) * 1000) / 10 : 0,
           trend,
-          sentiment: TAG_SENTIMENT[tag] ?? 0,
+          sentiment:  TAG_SENTIMENT[tag] ?? 0,
+          topReviews: tagTopReviews[tag] ?? [],
         };
       })
       .sort((a, b) => b.count - a.count)
       .slice(0, 8);
 
+    // ── 5. Critical reviews quick-list ───────────────────────────────────────
+    const criticalRows = await base()
+      .select("id, author, rating, text, sentiment, store_created_at, reply_status")
+      .in("sentiment", ["critical", "negative"])
+      .order("store_created_at", { ascending: false })
+      .limit(5);
+
+    const criticalReviews: CriticalReview[] = (
+      (criticalRows.data ?? []) as {
+        id: string;
+        author: string;
+        rating: number;
+        text: string;
+        sentiment: string;
+        store_created_at: string;
+        reply_status: string;
+      }[]
+    ).map((r) => ({
+      id: r.id,
+      author: r.author,
+      rating: r.rating,
+      text: r.text,
+      sentiment: r.sentiment,
+      createdAt: r.store_created_at,
+      replyStatus: r.reply_status,
+    }));
+
     const result: SentimentOverview = {
       avgRating,
+      avgRatingPrev,
       totalReviews,
       positiveShare,
+      positiveSharePrev,
       avgReplyMinutes,
       trend: { positive: trendPositive, negative: trendNegative },
+      ratingDistribution,
+      platformSplit,
       topics,
+      criticalReviews,
     };
 
     return NextResponse.json(result);
