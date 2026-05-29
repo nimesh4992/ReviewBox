@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { apiError } from "@/lib/api-response";
 
 export interface TopicReview {
   id: string;
@@ -92,7 +93,7 @@ export async function GET(req: Request): Promise<NextResponse> {
   try {
     const session = await auth();
     const userId = session?.userId;
-    if (!userId) return NextResponse.json(EMPTY, { status: 401 });
+    if (!userId) return apiError("UNAUTHORIZED", 401);
 
     const workspaceId = await getWorkspaceId(userId);
     if (!workspaceId) return NextResponse.json(EMPTY);

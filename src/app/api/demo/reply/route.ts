@@ -1,24 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
+import { rateLimit } from "@/lib/api-rate-limit";
 
-// Public demo endpoint — no auth required. IP-based rate limit: 5 req/hr.
-// Keyed by X-Forwarded-For or cf-connecting-ip to stay serverless-friendly.
-
-const CALLS_PER_HOUR = 5;
-// Simple in-memory store (resets on cold start — acceptable for demo limits)
-const ipLog = new Map<string, { count: number; resetAt: number }>();
-
-function checkLimit(ip: string): boolean {
-  const now = Date.now();
-  const entry = ipLog.get(ip);
-  if (!entry || now > entry.resetAt) {
-    ipLog.set(ip, { count: 1, resetAt: now + 3_600_000 });
-    return true;
-  }
-  if (entry.count >= CALLS_PER_HOUR) return false;
-  entry.count += 1;
-  return true;
-}
+// Public demo endpoint — no auth required. IP-based rate limit via Redis
+// (in-memory Map doesn't work on serverless cold-start).
 
 function getIp(req: NextRequest): string {
   return (
@@ -30,7 +15,9 @@ function getIp(req: NextRequest): string {
 
 export async function POST(req: NextRequest): Promise<NextResponse> {
   const ip = getIp(req);
-  if (!checkLimit(ip)) {
+  // 5 demo drafts per hour per IP. Falls open if Redis unavailable.
+  const rl = await rateLimit(req, ip, { bucket: "demo-reply", limit: 5, window: "1 h" });
+  if (!rl.allowed) {
     return NextResponse.json(
       { error: "RATE_LIMITED", message: "Demo limit reached. Start a free trial for unlimited drafts." },
       { status: 429 },
@@ -48,6 +35,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (!reviewBody.trim()) {
     return NextResponse.json({ error: "MISSING_BODY" }, { status: 400 });
+  }
+  // Cap body to prevent quota abuse — demo responses don't need more than 1000 chars
+  if (reviewBody.length > 1000) {
+    return NextResponse.json({ error: "BAD_REQUEST", message: "Review text too long (max 1000 chars)" }, { status: 400 });
   }
 
   const apiKey = process.env.GROQ_API_KEY;

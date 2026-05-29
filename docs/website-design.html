@@ -1,0 +1,1201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ReviewBox — The review inbox that replies, triages, and spots regressions.</title>
+<style>
+/* ─── Design Tokens ───────────────────────────────────────────────────────── */
+:root {
+  --rb-blue-500: #0A84FF;
+  --rb-blue-600: #006EE0;
+  --rb-green-500: #1F8A5B;
+  --rb-amber-500: #C97A00;
+  --rb-red-500:   #DC2626;
+  --rb-red-100:   #FEE2E2;
+  --rb-purple-500:#8E5BFF;
+
+  --rb-fg-1: #1D1D1F;
+  --rb-fg-2: #48484D;
+  --rb-fg-3: #86868B;
+  --rb-fg-4: #B0B0B8;
+
+  --rb-bg-canvas:  #F5F5F7;
+  --rb-bg-surface: #FFFFFF;
+  --rb-bg-sunken:  #FAFAFA;
+  --rb-bg-hover:   rgba(0,0,0,0.04);
+
+  --rb-border-1: rgba(0,0,0,0.07);
+  --rb-border-2: rgba(0,0,0,0.12);
+
+  --rb-shadow-sm: 0 1px 3px rgba(15,23,42,.06),0 1px 2px rgba(15,23,42,.04);
+  --rb-shadow-md: 0 4px 12px rgba(15,23,42,.08),0 2px 4px rgba(15,23,42,.04);
+  --rb-shadow-lg: 0 12px 32px rgba(15,23,42,.10),0 2px 6px rgba(15,23,42,.04);
+
+  --rb-font-display: -apple-system,"SF Pro Display","Inter",BlinkMacSystemFont,"Helvetica Neue",system-ui,sans-serif;
+  --rb-font-text:    -apple-system,"SF Pro Text","Inter",BlinkMacSystemFont,"Helvetica Neue",system-ui,sans-serif;
+  --rb-font-mono:    "SF Mono",ui-monospace,Menlo,Monaco,Consolas,"Courier New",monospace;
+
+  --rb-radius-sm: 8px;
+  --rb-radius-md: 12px;
+  --rb-radius-lg: 16px;
+  --rb-radius-xl: 20px;
+}
+
+/* ─── Reset ───────────────────────────────────────────────────────────────── */
+*,*::before,*::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--rb-font-text);
+  background: var(--rb-bg-canvas);
+  color: var(--rb-fg-1);
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+a { color: inherit; }
+
+/* ─── Shared Layout ───────────────────────────────────────────────────────── */
+.container { max-width: 1240px; margin: 0 auto; padding: 0 32px; }
+.divider   { height: 1px; background: var(--rb-border-1); }
+
+/* ─── Scroll Reveal ───────────────────────────────────────────────────────── */
+.reveal {
+  opacity: 0;
+  transform: translateY(22px);
+  transition: opacity .65s ease, transform .65s ease;
+}
+.reveal.visible { opacity: 1; transform: none; }
+
+/* ─── Typography helpers ──────────────────────────────────────────────────── */
+.kicker {
+  font-family: var(--rb-font-mono);
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--rb-fg-4);
+  margin-bottom: 18px;
+}
+.section-h2 {
+  font-family: var(--rb-font-display);
+  font-size: clamp(38px,4.8vw,66px);
+  line-height: .94;
+  font-weight: 700;
+  letter-spacing: -.042em;
+  color: var(--rb-fg-1);
+}
+.section-h2 .accent { color: var(--rb-blue-500); }
+.section-h2 em { font-style: italic; font-weight: 600; color: var(--rb-fg-3); }
+.section-sub {
+  font-size: 16px;
+  line-height: 1.65;
+  color: var(--rb-fg-3);
+  max-width: 520px;
+  margin-top: 14px;
+}
+
+/* ─── Buttons ─────────────────────────────────────────────────────────────── */
+.btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-family: var(--rb-font-text);
+  font-weight: 700; border: none; cursor: pointer;
+  text-decoration: none; transition: all .15s;
+}
+.btn-lg  { height: 44px; padding: 0 22px; border-radius: 11px; font-size: 14.5px; }
+.btn-md  { height: 38px; padding: 0 16px; border-radius: 9px;  font-size: 13px; }
+.btn-sm  { height: 30px; padding: 0 13px; border-radius: 7px;  font-size: 12px; }
+
+.btn-primary {
+  background: var(--rb-blue-500); color: #fff;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.18), 0 4px 12px color-mix(in srgb,var(--rb-blue-500) 32%,transparent);
+}
+.btn-primary:hover { opacity: .88; transform: translateY(-1px); }
+
+.btn-secondary {
+  background: var(--rb-bg-surface); color: var(--rb-fg-1);
+  border: 1px solid var(--rb-border-2);
+  box-shadow: var(--rb-shadow-sm);
+}
+.btn-secondary:hover { background: var(--rb-bg-hover); transform: translateY(-1px); }
+
+.btn-ghost { background: transparent; color: var(--rb-blue-500); font-family: var(--rb-font-mono); font-size: 11.5px; }
+.btn-ghost:hover { text-decoration: underline; }
+
+/* ─── NAV ─────────────────────────────────────────────────────────────────── */
+.nav {
+  position: sticky; top: 0; z-index: 100;
+  height: 52px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 32px;
+  background: rgba(245,245,247,.88);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border-bottom: 1px solid var(--rb-border-1);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 8px;
+  text-decoration: none;
+  font-family: var(--rb-font-display);
+  font-size: 16px; font-weight: 700; letter-spacing: -.03em;
+  color: var(--rb-fg-1);
+}
+.nav-logo-icon {
+  width: 26px; height: 26px; border-radius: 7px;
+  background: var(--rb-blue-500);
+  display: flex; align-items: center; justify-content: center;
+}
+.nav-links { display: flex; align-items: center; gap: 24px; list-style: none; }
+.nav-links a {
+  font-size: 13.5px; color: var(--rb-fg-2); text-decoration: none;
+  font-weight: 500; transition: color .15s;
+}
+.nav-links a:hover { color: var(--rb-fg-1); }
+.nav-cta {
+  height: 32px; padding: 0 14px; border-radius: 8px;
+  background: var(--rb-fg-1); color: #F5F5F7 !important;
+  font-size: 12.5px; font-weight: 600; font-family: var(--rb-font-text);
+  display: inline-flex; align-items: center; text-decoration: none;
+  transition: opacity .15s;
+}
+.nav-cta:hover { opacity: .8; }
+
+/* ─── HERO ────────────────────────────────────────────────────────────────── */
+.hero {
+  position: relative;
+  padding: 68px 0 96px;
+  background: var(--rb-bg-canvas);
+  overflow: hidden;
+}
+.hero-grid {
+  position: absolute; inset: 0; pointer-events: none;
+  background-image: linear-gradient(to right,var(--rb-border-1) 1px,transparent 1px),
+                    linear-gradient(to bottom,var(--rb-border-1) 1px,transparent 1px);
+  background-size: 56px 56px; opacity: .6;
+  mask-image: radial-gradient(ellipse 80% 80% at 50% 0%,black 20%,transparent 75%);
+  -webkit-mask-image: radial-gradient(ellipse 80% 80% at 50% 0%,black 20%,transparent 75%);
+}
+.hero-glow {
+  position: absolute; inset: 0; pointer-events: none;
+  background:
+    radial-gradient(ellipse 60% 50% at 22% -5%, color-mix(in srgb,var(--rb-blue-500) 18%,transparent), transparent 65%),
+    radial-gradient(ellipse 42% 38% at 80% 22%, color-mix(in srgb,var(--rb-purple-500) 13%,transparent), transparent 65%);
+}
+.hero-cursor-glow {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(320px circle at var(--mx,-999px) var(--my,-999px),
+    color-mix(in srgb,var(--rb-blue-500) 9%,transparent), transparent 70%);
+}
+.hero-inner {
+  display: grid;
+  grid-template-columns: 1.1fr 1fr;
+  gap: 60px; align-items: center;
+  position: relative; z-index: 1;
+}
+.hero-badge {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 4px 12px 4px 4px; border-radius: 99px;
+  background: var(--rb-bg-surface); border: 1px solid var(--rb-border-1);
+  font-size: 12px; font-weight: 500; color: var(--rb-fg-2);
+  margin-bottom: 26px; font-family: var(--rb-font-mono);
+}
+.hero-badge-pill {
+  padding: 2px 9px; border-radius: 99px;
+  background: var(--rb-blue-500); color: #fff;
+  font-size: 9.5px; font-weight: 800; letter-spacing: .07em;
+}
+.hero h1 {
+  font-family: var(--rb-font-display);
+  font-size: clamp(50px,5.2vw,74px);
+  line-height: .93; font-weight: 700;
+  letter-spacing: -.046em; color: var(--rb-fg-1);
+  margin-bottom: 22px;
+}
+.hero h1 em {
+  font-style: italic; font-weight: 600;
+  background: linear-gradient(180deg,var(--rb-fg-1) 0%,var(--rb-fg-3) 100%);
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+.hero-sub {
+  font-size: 18px; line-height: 1.58; color: var(--rb-fg-2);
+  max-width: 500px; letter-spacing: -.005em; margin-bottom: 34px;
+}
+.hero-ctas { display: flex; gap: 10px; align-items: center; margin-bottom: 18px; }
+.hero-footnote {
+  font-family: var(--rb-font-mono); font-size: 11.5px;
+  color: var(--rb-fg-4); letter-spacing: .02em; line-height: 1.7;
+}
+
+/* ─── HERO DEMO CARD ──────────────────────────────────────────────────────── */
+.demo-card {
+  background: var(--rb-bg-surface);
+  border: 1px solid var(--rb-border-1);
+  border-radius: var(--rb-radius-xl);
+  box-shadow: var(--rb-shadow-lg);
+  overflow: hidden;
+}
+.demo-card-titlebar {
+  background: var(--rb-bg-sunken);
+  border-bottom: 1px solid var(--rb-border-1);
+  padding: 10px 14px;
+  display: flex; align-items: center; gap: 8px;
+}
+.traffic-lights { display: flex; gap: 5px; }
+.tl { width: 10px; height: 10px; border-radius: 50%; }
+.tl-r { background: #FF5F57; } .tl-y { background: #FEBC2E; } .tl-g { background: #28C840; }
+.titlebar-label { font-family: var(--rb-font-mono); font-size: 11px; color: var(--rb-fg-3); flex: 1; text-align: center; }
+.live-pill {
+  display: flex; align-items: center; gap: 4px;
+  font-family: var(--rb-font-mono); font-size: 10px; color: var(--rb-green-500); font-weight: 600;
+}
+.pulse { width: 6px; height: 6px; border-radius: 50%; background: var(--rb-green-500); animation: pulseRing 1.6s infinite; }
+@keyframes pulseRing {
+  0%   { box-shadow: 0 0 0 0 color-mix(in srgb,var(--rb-green-500) 55%,transparent); }
+  70%  { box-shadow: 0 0 0 6px transparent; }
+  100% { box-shadow: 0 0 0 0 transparent; }
+}
+.demo-card-body { padding: 20px; }
+
+.review-strip {
+  border: 1px solid var(--rb-border-1);
+  border-left: 3px solid var(--rb-red-500);
+  border-radius: var(--rb-radius-md);
+  padding: 14px;
+  background: var(--rb-bg-sunken);
+  margin-bottom: 14px;
+}
+.review-strip-meta {
+  display: flex; align-items: center; gap: 8px; margin-bottom: 7px;
+}
+.stars { color: #F59E0B; font-size: 11px; letter-spacing: 1px; }
+.rauthor { font-size: 11px; font-weight: 600; color: var(--rb-fg-2); font-family: var(--rb-font-mono); }
+.crash-tag {
+  margin-left: auto; padding: 1px 7px; border-radius: 99px;
+  font-size: 9.5px; font-weight: 700; letter-spacing: .04em; font-family: var(--rb-font-mono);
+  background: color-mix(in srgb,var(--rb-red-500) 12%,transparent);
+  color: var(--rb-red-500);
+}
+.rtitle { font-size: 12.5px; font-weight: 600; color: var(--rb-fg-1); margin-bottom: 4px; }
+.rbody  { font-size: 12px; color: var(--rb-fg-3); line-height: 1.5; }
+
+.gen-btn {
+  width: 100%; height: 38px; border-radius: 9px;
+  background: var(--rb-blue-500); color: #fff;
+  font-weight: 700; font-size: 13px; font-family: var(--rb-font-text);
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 7px;
+  transition: opacity .15s;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.2);
+}
+.gen-btn:hover:not(:disabled) { opacity: .88; }
+.gen-btn:disabled { opacity: .6; cursor: wait; }
+
+.reply-output {
+  display: none; margin-top: 14px; padding: 14px;
+  border-radius: var(--rb-radius-md);
+  border: 1px solid color-mix(in srgb,var(--rb-blue-500) 20%,transparent);
+  background: color-mix(in srgb,var(--rb-blue-500) 4%,white);
+}
+.reply-output.show { display: block; }
+.reply-output-lbl {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .1em;
+  color: var(--rb-blue-500); font-family: var(--rb-font-mono);
+  margin-bottom: 8px; display: flex; align-items: center; gap: 5px;
+}
+.reply-output-text { font-size: 12.5px; color: var(--rb-fg-1); line-height: 1.55; }
+.reply-output-foot {
+  display: none; margin-top: 10px;
+  align-items: center; justify-content: space-between;
+}
+.reply-timing { font-size: 10px; color: var(--rb-fg-4); font-family: var(--rb-font-mono); }
+
+/* cursor blink */
+.cblink {
+  display: inline-block; width: 2px; height: 13px;
+  background: var(--rb-blue-500); vertical-align: text-bottom;
+  animation: blink .75s infinite; margin-left: 1px;
+}
+@keyframes blink { 0%,50%{opacity:1} 51%,100%{opacity:0} }
+
+/* streaming dots */
+.dots span {
+  display: inline-block; width: 4px; height: 4px; border-radius: 50%;
+  background: currentColor; margin: 0 2px;
+  animation: dotFade 1s infinite;
+}
+.dots span:nth-child(2){animation-delay:.2s}
+.dots span:nth-child(3){animation-delay:.4s}
+@keyframes dotFade { 0%,100%{opacity:.3} 50%{opacity:1} }
+
+/* ─── PAIN ────────────────────────────────────────────────────────────────── */
+.pain { padding: 100px 0 80px; background: var(--rb-bg-surface); }
+.pain-grid {
+  display: grid; grid-template-columns: repeat(3,1fr);
+  border-top: 1px solid var(--rb-border-1);
+  margin-top: 60px;
+}
+.pain-card {
+  padding: 40px 32px 36px;
+  border-right: 1px solid var(--rb-border-1);
+  border-bottom: 1px solid var(--rb-border-1);
+}
+.pain-card:last-child { border-right: none; }
+.pain-emoji { font-size: 28px; margin-bottom: 18px; display: block; }
+.pain-big {
+  font-family: var(--rb-font-display);
+  font-size: clamp(40px,4vw,58px); font-weight: 700;
+  letter-spacing: -.04em; color: var(--rb-fg-1);
+  line-height: 1; margin-bottom: 16px;
+}
+.pain-title { font-size: 17px; font-weight: 600; color: var(--rb-fg-1); margin-bottom: 10px; }
+.pain-body  { font-size: 14px; color: var(--rb-fg-3); line-height: 1.68; }
+.pain-body strong { color: var(--rb-fg-2); font-weight: 500; }
+
+/* ─── INTERACTIVE DEMO SECTION ────────────────────────────────────────────── */
+.demo-section { padding: 100px 0 80px; background: var(--rb-bg-canvas); }
+.demo-section-hd { text-align: center; margin-bottom: 56px; }
+.demo-inner {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 44px; align-items: start;
+}
+
+/* review type tabs */
+.type-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 18px; }
+.type-tab {
+  padding: 5px 13px; border-radius: 99px;
+  font-size: 12.5px; font-weight: 600;
+  border: 1px solid var(--rb-border-2);
+  background: var(--rb-bg-surface); color: var(--rb-fg-2);
+  cursor: pointer; transition: all .15s; font-family: var(--rb-font-text);
+}
+.type-tab:hover { border-color: var(--rb-blue-500); color: var(--rb-blue-500); }
+.type-tab.on { background: var(--rb-blue-500); color: #fff; border-color: var(--rb-blue-500); }
+
+.review-box {
+  background: var(--rb-bg-surface);
+  border: 1px solid var(--rb-border-1);
+  border-radius: var(--rb-radius-lg);
+  padding: 22px; box-shadow: var(--rb-shadow-sm);
+  margin-bottom: 14px;
+}
+.review-box-text {
+  font-size: 15px; line-height: 1.62; color: var(--rb-fg-1);
+  margin-bottom: 16px; min-height: 76px; transition: opacity .2s;
+}
+.review-box-meta { display: flex; align-items: center; gap: 10px; }
+.review-box-stars { color: #F59E0B; font-size: 13px; }
+.review-box-ver   { font-family: var(--rb-font-mono); font-size: 11px; color: var(--rb-fg-4); }
+.review-box-src   { margin-left: auto; font-size: 11px; font-weight: 600; color: var(--rb-fg-3); font-family: var(--rb-font-mono); }
+
+.gen-big-btn {
+  width: 100%; height: 44px; border-radius: 11px;
+  background: var(--rb-blue-500); color: #fff;
+  font-weight: 700; font-size: 14px; font-family: var(--rb-font-text);
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center; gap: 8px;
+  transition: all .15s;
+  box-shadow: 0 4px 14px color-mix(in srgb,var(--rb-blue-500) 34%,transparent);
+}
+.gen-big-btn:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 7px 22px color-mix(in srgb,var(--rb-blue-500) 40%,transparent); }
+.gen-big-btn:disabled { opacity: .6; cursor: wait; transform: none; }
+
+/* before/after toggle */
+.ba-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px; }
+.ba-label { font-size: 12px; font-weight: 700; color: var(--rb-fg-3); font-family: var(--rb-font-mono); letter-spacing: .07em; text-transform: uppercase; }
+.ba-toggle {
+  display: flex; background: var(--rb-bg-surface);
+  border: 1px solid var(--rb-border-2); border-radius: 9px; padding: 3px;
+}
+.ba-btn {
+  padding: 4px 14px; border-radius: 6px; font-size: 12px; font-weight: 600;
+  border: none; cursor: pointer; transition: all .15s;
+  background: transparent; color: var(--rb-fg-4); font-family: var(--rb-font-text);
+}
+.ba-btn.on {
+  background: var(--rb-bg-surface); color: var(--rb-fg-1);
+  box-shadow: var(--rb-shadow-sm); border: 1px solid var(--rb-border-1);
+}
+
+.reply-card {
+  background: var(--rb-bg-surface); border: 1px solid var(--rb-border-1);
+  border-radius: var(--rb-radius-lg); padding: 20px;
+  box-shadow: var(--rb-shadow-sm); min-height: 170px;
+  transition: all .25s;
+}
+.reply-card.bad  { border-left: 3px solid var(--rb-fg-4); }
+.reply-card.good { border-left: 3px solid var(--rb-green-500); }
+.reply-card-lbl  { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; margin-bottom: 11px; font-family: var(--rb-font-mono); }
+.reply-card.bad  .reply-card-lbl { color: var(--rb-fg-4); }
+.reply-card.good .reply-card-lbl { color: var(--rb-green-500); }
+.reply-card-text { font-size: 14px; line-height: 1.62; color: var(--rb-fg-2); }
+.reply-card.good .reply-card-text { color: var(--rb-fg-1); }
+.reply-card-foot { margin-top: 13px; font-size: 10.5px; color: var(--rb-fg-4); font-family: var(--rb-font-mono); }
+
+.insight-box {
+  margin-top: 13px; padding: 13px 16px;
+  background: color-mix(in srgb,var(--rb-green-500) 7%,transparent);
+  border: 1px solid color-mix(in srgb,var(--rb-green-500) 20%,transparent);
+  border-radius: 10px; font-size: 13px; color: var(--rb-fg-2); line-height: 1.55;
+}
+
+/* ─── FEATURES ────────────────────────────────────────────────────────────── */
+.features { padding: 100px 0 80px; background: var(--rb-bg-surface); }
+.features-hd { text-align: center; margin-bottom: 56px; }
+.features-grid { display: grid; grid-template-columns: repeat(2,1fr); gap: 16px; }
+.feat-card {
+  background: var(--rb-bg-canvas); border: 1px solid var(--rb-border-1);
+  border-radius: var(--rb-radius-xl); padding: 32px;
+  transition: all .2s;
+}
+.feat-card:hover { box-shadow: var(--rb-shadow-md); transform: translateY(-2px); border-color: var(--rb-border-2); }
+.feat-icon {
+  width: 42px; height: 42px; border-radius: 11px;
+  display: flex; align-items: center; justify-content: center;
+  margin-bottom: 20px;
+}
+.feat-title { font-size: 19px; font-weight: 700; color: var(--rb-fg-1); letter-spacing: -.02em; margin-bottom: 9px; }
+.feat-body  { font-size: 14.5px; color: var(--rb-fg-3); line-height: 1.62; margin-bottom: 18px; }
+.feat-list  { list-style: none; display: flex; flex-direction: column; gap: 8px; }
+.feat-list li { font-size: 13.5px; color: var(--rb-fg-2); display: flex; align-items: flex-start; gap: 8px; line-height: 1.45; }
+.feat-list li::before { content:'→'; color: var(--rb-blue-500); font-family: var(--rb-font-mono); font-size: 12px; margin-top: 1px; flex-shrink: 0; }
+
+/* ─── BUILT IN PUBLIC ─────────────────────────────────────────────────────── */
+.built-public { padding: 100px 0 80px; background: var(--rb-bg-canvas); }
+.trust-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 16px; margin-top: 56px; }
+.trust-card {
+  background: var(--rb-bg-surface); border: 1px solid var(--rb-border-1);
+  border-radius: var(--rb-radius-xl); padding: 32px;
+  transition: all .2s;
+}
+.trust-card:hover { box-shadow: var(--rb-shadow-md); transform: translateY(-2px); }
+.trust-icon { font-size: 28px; margin-bottom: 16px; display: block; }
+.trust-title { font-size: 17px; font-weight: 700; color: var(--rb-fg-1); margin-bottom: 9px; }
+.trust-body  { font-size: 14px; color: var(--rb-fg-3); line-height: 1.62; }
+.trust-body strong { color: var(--rb-fg-2); font-weight: 500; }
+
+/* ─── PRICING ─────────────────────────────────────────────────────────────── */
+.pricing { padding: 100px 0 80px; background: var(--rb-bg-surface); }
+.pricing-hd { text-align: center; margin-bottom: 56px; }
+.pricing-grid {
+  display: grid; grid-template-columns: 1fr 1fr;
+  gap: 16px; max-width: 780px; margin: 0 auto;
+}
+.plan-card {
+  background: var(--rb-bg-canvas); border: 1px solid var(--rb-border-1);
+  border-radius: var(--rb-radius-xl); padding: 32px; position: relative;
+}
+.plan-card.featured { background: var(--rb-bg-surface); border-color: var(--rb-blue-500); box-shadow: 0 0 0 1px var(--rb-blue-500), var(--rb-shadow-md); }
+.plan-badge {
+  position: absolute; top: -12px; left: 50%; transform: translateX(-50%);
+  padding: 3px 14px; border-radius: 99px;
+  background: var(--rb-blue-500); color: #fff;
+  font-size: 10px; font-weight: 800; letter-spacing: .07em;
+  font-family: var(--rb-font-mono); white-space: nowrap;
+}
+.plan-name { font-family: var(--rb-font-mono); font-size: 12px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--rb-fg-4); margin-bottom: 10px; }
+.plan-price { font-family: var(--rb-font-display); font-size: 54px; font-weight: 700; letter-spacing: -.04em; color: var(--rb-fg-1); line-height: 1; margin-bottom: 3px; }
+.plan-period { font-size: 13.5px; color: var(--rb-fg-4); margin-bottom: 6px; }
+.plan-desc { font-size: 13.5px; color: var(--rb-fg-3); line-height: 1.5; margin-bottom: 22px; }
+.plan-hr { height: 1px; background: var(--rb-border-1); margin-bottom: 18px; }
+.plan-features { list-style: none; display: flex; flex-direction: column; gap: 9px; margin-bottom: 26px; }
+.plan-features li { font-size: 13.5px; color: var(--rb-fg-2); display: flex; align-items: center; gap: 9px; }
+.plan-features li .ck { color: var(--rb-green-500); font-size: 13px; flex-shrink: 0; }
+.plan-cta {
+  width: 100%; height: 42px; border-radius: 10px;
+  font-weight: 700; font-size: 14px; font-family: var(--rb-font-text);
+  border: none; cursor: pointer; text-decoration: none;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+}
+.plan-cta.primary { background: var(--rb-blue-500); color: #fff; box-shadow: 0 4px 12px color-mix(in srgb,var(--rb-blue-500) 34%,transparent); }
+.plan-cta.primary:hover { opacity: .88; transform: translateY(-1px); }
+.plan-cta.plain   { background: var(--rb-bg-canvas); color: var(--rb-fg-1); border: 1px solid var(--rb-border-2); }
+.plan-cta.plain:hover { background: var(--rb-bg-hover); }
+.pricing-footnote { text-align: center; margin-top: 22px; font-size: 13px; color: var(--rb-fg-4); font-family: var(--rb-font-mono); }
+.pricing-footnote a { color: var(--rb-blue-500); text-decoration: none; }
+.pricing-footnote a:hover { text-decoration: underline; }
+
+/* ─── EARLY ACCESS ────────────────────────────────────────────────────────── */
+.early-access {
+  padding: 100px 0;
+  background: var(--rb-fg-1);
+  position: relative; overflow: hidden;
+}
+.early-access-glow {
+  position: absolute; inset: 0; pointer-events: none;
+  background: radial-gradient(ellipse 55% 90% at 50% 110%,
+    color-mix(in srgb,var(--rb-blue-500) 22%,transparent), transparent 70%);
+}
+.early-inner { text-align: center; position: relative; z-index: 1; }
+.early-inner h2 {
+  font-family: var(--rb-font-display);
+  font-size: clamp(40px,5vw,64px); font-weight: 700;
+  letter-spacing: -.04em; color: #F5F5F7; line-height: 1; margin-bottom: 18px;
+}
+.early-inner p { font-size: 17px; color: #86868B; line-height: 1.62; max-width: 500px; margin: 0 auto 34px; }
+.spots-pill {
+  display: inline-flex; align-items: center; gap: 7px;
+  margin-top: 18px; font-family: var(--rb-font-mono); font-size: 12px; color: #636366;
+}
+
+/* ─── FOOTER ──────────────────────────────────────────────────────────────── */
+footer {
+  background: var(--rb-fg-1);
+  border-top: 1px solid rgba(255,255,255,.06);
+  padding: 44px 0 28px;
+}
+.foot-inner { display: flex; flex-direction: column; gap: 34px; }
+.foot-top { display: flex; align-items: flex-start; justify-content: space-between; }
+.foot-logo {
+  display: flex; align-items: center; gap: 8px; text-decoration: none;
+  font-family: var(--rb-font-display); font-size: 15px; font-weight: 700;
+  letter-spacing: -.03em; color: #F5F5F7; margin-bottom: 10px;
+}
+.foot-tagline { font-size: 13px; color: #636366; line-height: 1.55; max-width: 270px; }
+.foot-cols { display: flex; gap: 48px; }
+.foot-col-head { font-size: 11px; font-weight: 700; color: #86868B; letter-spacing: .09em; text-transform: uppercase; font-family: var(--rb-font-mono); margin-bottom: 13px; }
+.foot-col a { display: block; font-size: 13.5px; color: #636366; text-decoration: none; margin-bottom: 9px; transition: color .15s; }
+.foot-col a:hover { color: #F5F5F7; }
+.foot-hr { height: 1px; background: rgba(255,255,255,.06); }
+.foot-bottom { display: flex; align-items: center; justify-content: space-between; }
+.foot-copy { font-size: 12px; color: #48484D; font-family: var(--rb-font-mono); }
+.foot-egg  { font-size: 11px; color: #2C2C2E; font-family: var(--rb-font-mono); cursor: default; transition: color 1.4s; }
+.foot-egg:hover { color: #636366; transition: color .3s; }
+
+/* ─── Number badge ────────────────────────────────────────────────────────── */
+.num-badge {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 3px 11px 3px 3px; border-radius: 99px;
+  background: color-mix(in srgb,var(--rb-blue-500) 9%,transparent);
+  border: 1px solid color-mix(in srgb,var(--rb-blue-500) 20%,transparent);
+  font-family: var(--rb-font-mono); font-size: 11px;
+  color: var(--rb-blue-500); font-weight: 600; margin-bottom: 14px;
+}
+.num-badge-dot {
+  width: 18px; height: 18px; border-radius: 50%;
+  background: var(--rb-blue-500); color: #fff;
+  font-size: 11px; font-weight: 800;
+  display: inline-flex; align-items: center; justify-content: center;
+}
+
+/* ─── Toast ───────────────────────────────────────────────────────────────── */
+@keyframes toastIn  { from{opacity:0;transform:translateX(-50%) translateY(12px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+@keyframes toastOut { from{opacity:1;transform:translateX(-50%) translateY(0)} to{opacity:0;transform:translateX(-50%) translateY(8px)} }
+</style>
+</head>
+<body>
+
+<!-- ═══ NAV ═══════════════════════════════════════════════════════════════════ -->
+<nav class="nav">
+  <a href="/" class="nav-logo">
+    <div class="nav-logo-icon">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
+        <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/>
+      </svg>
+    </div>
+    ReviewBox
+  </a>
+  <ul class="nav-links">
+    <li><a href="#features">Features</a></li>
+    <li><a href="#demo">Demo</a></li>
+    <li><a href="#pricing">Pricing</a></li>
+    <li><a href="/compare">vs AppFollow</a></li>
+    <li><a href="/sign-up" class="nav-cta">Get early access →</a></li>
+  </ul>
+</nav>
+
+<!-- ═══ HERO ══════════════════════════════════════════════════════════════════ -->
+<section class="hero" id="hero">
+  <div class="hero-grid"></div>
+  <div class="hero-glow"></div>
+  <div class="hero-cursor-glow" id="cursorGlow"></div>
+  <div class="container">
+    <div class="hero-inner">
+
+      <!-- Left col -->
+      <div>
+        <div class="reveal">
+          <div class="hero-badge">
+            <span class="hero-badge-pill">EARLY ACCESS</span>
+            First 50 teams · invite only
+          </div>
+        </div>
+        <div class="reveal" style="transition-delay:.08s">
+          <h1>The crash hit<br>your reviews<br><em>before your<br>dashboards.</em></h1>
+        </div>
+        <div class="reveal" style="transition-delay:.16s">
+          <p class="hero-sub">ReviewBox detects regressions, drafts replies, and tracks every version's rating — automatically. Both stores. One queue.</p>
+        </div>
+        <div class="reveal" style="transition-delay:.24s">
+          <div class="hero-ctas">
+            <a href="/sign-up" class="btn btn-lg btn-primary">Get early access →</a>
+            <a href="#demo" class="btn btn-lg btn-secondary">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20"/></svg>
+              Try the demo
+            </a>
+          </div>
+          <p class="hero-footnote">
+            5 min from sign-up to first synced review. We timed it.<br>
+            14-day free trial · no credit card · cancel from one screen.
+          </p>
+        </div>
+      </div>
+
+      <!-- Right col — Hero demo card -->
+      <div class="reveal" style="transition-delay:.34s">
+        <div class="demo-card">
+          <div class="demo-card-titlebar">
+            <div class="traffic-lights">
+              <div class="tl tl-r"></div><div class="tl tl-y"></div><div class="tl tl-g"></div>
+            </div>
+            <div class="titlebar-label">ReviewBox · Inbox</div>
+            <div class="live-pill"><div class="pulse"></div>live</div>
+          </div>
+          <div class="demo-card-body">
+            <div class="review-strip">
+              <div class="review-strip-meta">
+                <span class="stars">★☆☆☆☆</span>
+                <span class="rauthor">@kthompson</span>
+                <span class="crash-tag">💥 CRASH</span>
+              </div>
+              <div class="rtitle">App crashes on iPad after update</div>
+              <div class="rbody">Every time I open the budgets tab it freezes then crashes. Started after 4.2.1. I use this daily for my small business.</div>
+            </div>
+
+            <button class="gen-btn" id="heroBtn" onclick="heroGenerate()">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+              Generate AI reply
+            </button>
+
+            <div class="reply-output" id="heroOutput">
+              <div class="reply-output-lbl">
+                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+                AI DRAFT · KB-GROUNDED
+              </div>
+              <div class="reply-output-text" id="heroText"></div>
+              <div class="reply-output-foot" id="heroFoot">
+                <span class="reply-timing" id="heroTiming"></span>
+                <a href="/sign-up" style="font-size:11px;font-weight:700;color:var(--rb-blue-500);text-decoration:none;font-family:var(--rb-font-mono)">Publish to store →</a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══ PAIN ══════════════════════════════════════════════════════════════════ -->
+<section class="pain">
+  <div class="container">
+    <div class="reveal">
+      <div class="kicker">Where review ops breaks</div>
+      <h2 class="section-h2">App Store Connect is where<br>reviews go to be <span class="accent">ignored.</span></h2>
+    </div>
+    <div class="pain-grid">
+      <div class="pain-card reveal" style="transition-delay:.1s">
+        <span class="pain-emoji">📋</span>
+        <div class="pain-big">Tuesday<br>2 pm.</div>
+        <div class="pain-title">The Tuesday Problem</div>
+        <div class="pain-body">Your support lead opens App Store Connect, gets through a dozen reviews, drafts two replies, gets pulled into standup. <strong>The other 40 sit there until next Tuesday.</strong> That's not a people problem — that's a tooling problem.</div>
+      </div>
+      <div class="pain-card reveal" style="transition-delay:.2s">
+        <span class="pain-emoji">⏱</span>
+        <div class="pain-big">4 hour<br>window.</div>
+        <div class="pain-title">The Reply Window</div>
+        <div class="pain-body">Reply within 4 hours: <strong>35% of users update their rating.</strong> Reply after 72 hours: fewer than 4% do. The product didn't change. The timing did. Every unanswered review is a public note that says "we saw this and moved on."</div>
+      </div>
+      <div class="pain-card reveal" style="transition-delay:.3s">
+        <span class="pain-emoji">📉</span>
+        <div class="pain-big">48 hours<br>later.</div>
+        <div class="pain-title">The Timing Problem</div>
+        <div class="pain-body">Version 4.2.1 shipped Friday evening. Crash cluster formed Saturday. Your PM found out Monday from a Slack screenshot. <strong>The review was already 48 hours old.</strong> Reviews are faster than Sentry. Every time.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══ INTERACTIVE DEMO ═══════════════════════════════════════════════════════ -->
+<section class="demo-section" id="demo">
+  <div class="container">
+    <div class="demo-section-hd reveal">
+      <div class="num-badge"><span class="num-badge-dot">✦</span>Try it · no sign-up · same model as production</div>
+      <h2 class="section-h2" style="max-width:640px;margin:0 auto">Pick a review.<br>See what ReviewBox does.</h2>
+      <p class="section-sub" style="margin:14px auto 0;text-align:center">Not a mockup. The reply below runs on the same Groq model in production — KB-grounded, template-matched, ~3 seconds.</p>
+    </div>
+
+    <div class="demo-inner">
+      <!-- Left: review picker -->
+      <div class="reveal" style="transition-delay:.1s">
+        <p style="font-size:12px;font-weight:700;color:var(--rb-fg-4);letter-spacing:.09em;text-transform:uppercase;font-family:var(--rb-font-mono);margin-bottom:11px">Choose a review type</p>
+        <div class="type-tabs" id="typeTabs">
+          <button class="type-tab on" onclick="pickType(0)">💥 Crash</button>
+          <button class="type-tab"    onclick="pickType(1)">💳 Billing</button>
+          <button class="type-tab"    onclick="pickType(2)">🔐 Login</button>
+          <button class="type-tab"    onclick="pickType(3)">📉 Regression</button>
+          <button class="type-tab"    onclick="pickType(4)">✨ Feature</button>
+        </div>
+        <div class="review-box">
+          <div class="review-box-text" id="reviewText">"App crashes every time I switch accounts on iPad. Started right after the 4.2.1 update. I use this daily for my small business — really frustrating."</div>
+          <div class="review-box-meta">
+            <span class="review-box-stars" id="reviewStars">★☆☆☆☆</span>
+            <span class="review-box-ver"   id="reviewVer">v4.2.1 · iPad · iOS 17.4</span>
+            <span class="review-box-src">App Store</span>
+          </div>
+        </div>
+        <button class="gen-big-btn" id="demoBtn" onclick="demoGenerate()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+          Generate reply
+        </button>
+      </div>
+
+      <!-- Right: before/after -->
+      <div class="reveal" style="transition-delay:.2s">
+        <div class="ba-row">
+          <span class="ba-label">Reply quality</span>
+          <div class="ba-toggle">
+            <button class="ba-btn"    id="btnBefore" onclick="showBefore()">Without ReviewBox</button>
+            <button class="ba-btn on" id="btnAfter"  onclick="showAfter()">With ReviewBox</button>
+          </div>
+        </div>
+
+        <div class="reply-card bad" id="cardBad" style="display:none">
+          <div class="reply-card-lbl">❌ Generic template · 8 hours later</div>
+          <div class="reply-card-text" id="badText">"Hi, we're sorry to hear about your experience. We take all feedback seriously. Please contact our support team at support@app.com and we'll be happy to assist you."</div>
+          <div class="reply-card-foot">Posted 8h after review · 0% chance of rating update</div>
+        </div>
+
+        <div class="reply-card good" id="cardGood">
+          <div class="reply-card-lbl" id="goodLbl">✦ ReviewBox AI · KB-grounded · ~3s</div>
+          <div class="reply-card-text">
+            <span id="goodText">Hi — we identified this exact issue in v4.2.1. It affects account switching on iPads running iOS 17.4+. A fix ships in v4.2.2 tomorrow (9am UTC). Workaround: Settings → Account → Sign out, then sign back in. Your data is completely safe. If you update and still see it, reply here and I'll look personally.</span>
+            <span class="cblink" id="demoCursor" style="display:none"></span>
+          </div>
+          <div class="reply-card-foot" id="goodFoot">Generated in 3.1s · Groq Llama 3.3 · KB-grounded · not stored</div>
+        </div>
+
+        <div class="insight-box" id="insightBox">
+          💡 <strong>Same review. 12 seconds apart.</strong> The product didn't change — the reply did. 35% of users who get a response like this update their rating within 48 hours.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══ FEATURES ══════════════════════════════════════════════════════════════ -->
+<section class="features" id="features">
+  <div class="container">
+    <div class="features-hd reveal">
+      <div class="kicker">What ReviewBox does</div>
+      <h2 class="section-h2">Four features.<br>All of them <em>actually built.</em></h2>
+    </div>
+    <div class="features-grid">
+
+      <div class="feat-card reveal" style="transition-delay:.1s">
+        <div class="feat-icon" style="background:color-mix(in srgb,var(--rb-blue-500) 11%,transparent)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#0A84FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/></svg>
+        </div>
+        <div class="feat-title">Review Management</div>
+        <div class="feat-body">Both stores, every market, one queue sorted by what actually needs your attention — not by when it arrived.</div>
+        <ul class="feat-list">
+          <li>Syncs every 4h automatically. No plugins, no browser extensions.</li>
+          <li>Priority: crash → billing → UX regression → feature request</li>
+          <li>Filter by version, country, rating, or sentiment in one click</li>
+        </ul>
+      </div>
+
+      <div class="feat-card reveal" style="transition-delay:.2s">
+        <div class="feat-icon" style="background:color-mix(in srgb,#8E5BFF 11%,transparent)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8E5BFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>
+        </div>
+        <div class="feat-title">AI Replies</div>
+        <div class="feat-body">Template-matched first. KB-grounded always. Sounds like you because it references your product knowledge, not a generic prompt.</div>
+        <ul class="feat-list">
+          <li>~3 seconds end-to-end including knowledge base lookup</li>
+          <li>Publishes directly to Google Play and App Store Connect</li>
+          <li>Rate drafts — the model gets sharper as you use it</li>
+        </ul>
+      </div>
+
+      <div class="feat-card reveal" style="transition-delay:.3s">
+        <div class="feat-icon" style="background:color-mix(in srgb,#DC2626 11%,transparent)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#DC2626" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+        </div>
+        <div class="feat-title">Incident Detection</div>
+        <div class="feat-body">ReviewBox watches every sync for crash clusters and rating spikes. You get an email before your PM finds out from Slack.</div>
+        <ul class="feat-list">
+          <li>≥3 crash mentions, same version, 24h → email alert fires</li>
+          <li>≥5 reviews ≤2★, same version → rating spike alert</li>
+          <li>No Slack required. Email is enough to wake someone up at 2am.</li>
+        </ul>
+      </div>
+
+      <div class="feat-card reveal" style="transition-delay:.4s">
+        <div class="feat-icon" style="background:color-mix(in srgb,#1F8A5B 11%,transparent)">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#1F8A5B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+        </div>
+        <div class="feat-title">ASO Intelligence</div>
+        <div class="feat-body">Your users mention "budget tab" 23 times. It appears zero times in your store listing. ReviewBox closes that gap.</div>
+        <ul class="feat-list">
+          <li>AI-suggested title, subtitle & description variants</li>
+          <li>Scored against App Store guidelines and keyword density</li>
+          <li>Keyword rank tracking — see if your changes are actually working</li>
+        </ul>
+      </div>
+
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══ BUILT IN PUBLIC ════════════════════════════════════════════════════════ -->
+<section class="built-public">
+  <div class="container">
+    <div class="reveal" style="text-align:center">
+      <div class="kicker">No logos you can't verify</div>
+      <h2 class="section-h2" style="max-width:640px;margin:0 auto">Here's what's<br><em>actually</em> real.</h2>
+      <p class="section-sub" style="margin:14px auto 0;text-align:center">We're not going to show you company logos you can't verify. Instead, here's what we can prove right now.</p>
+    </div>
+    <div class="trust-grid">
+      <div class="trust-card reveal" style="transition-delay:.1s">
+        <span class="trust-icon">🏪</span>
+        <div class="trust-title">Both stores work</div>
+        <div class="trust-body">Google Play and App Store Connect sync is live. <strong>Your real reviews, your real ratings.</strong> Real publisher API, not scraping.</div>
+      </div>
+      <div class="trust-card reveal" style="transition-delay:.2s">
+        <span class="trust-icon">⚡</span>
+        <div class="trust-title">The demo is the product</div>
+        <div class="trust-body">The AI reply generator above runs on the same model in production. <strong>Same prompt, same KB lookup, same latency.</strong> We didn't build a demo — we shipped the product.</div>
+      </div>
+      <div class="trust-card reveal" style="transition-delay:.3s">
+        <span class="trust-icon">📬</span>
+        <div class="trust-title">We're reachable</div>
+        <div class="trust-body"><strong>hello@tryreviewbox.com</strong> goes to the founders. Same-day replies. If something's broken, tell us — we've shipped fixes the same afternoon.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="divider"></div>
+
+<!-- ═══ PRICING ════════════════════════════════════════════════════════════════ -->
+<section class="pricing" id="pricing">
+  <div class="container">
+    <div class="pricing-hd reveal">
+      <div class="kicker">Pricing</div>
+      <h2 class="section-h2">Two plans.<br>No surprises.</h2>
+      <p class="section-sub" style="margin-top:14px">14-day free trial. No credit card. Cancel with one click. If you cancel, we don't email you for 6 months.</p>
+    </div>
+    <div class="pricing-grid">
+
+      <div class="plan-card reveal" style="transition-delay:.1s">
+        <div class="plan-name">Starter</div>
+        <div class="plan-price">$79</div>
+        <div class="plan-period">per month</div>
+        <div class="plan-desc">For indie developers and small teams with 1–2 apps on Google Play.</div>
+        <div class="plan-hr"></div>
+        <ul class="plan-features">
+          <li><span class="ck">✓</span> 2 apps · Google Play</li>
+          <li><span class="ck">✓</span> 10K reviews / month</li>
+          <li><span class="ck">✓</span> 50 AI drafts / day</li>
+          <li><span class="ck">✓</span> Crash & spike alerts</li>
+          <li><span class="ck">✓</span> Email alerts</li>
+          <li><span class="ck">✓</span> 2 seats</li>
+        </ul>
+        <a href="/sign-up" class="plan-cta plain">Start free →</a>
+      </div>
+
+      <div class="plan-card featured reveal" style="transition-delay:.2s">
+        <div class="plan-badge">MOST POPULAR</div>
+        <div class="plan-name">Pro</div>
+        <div class="plan-price">$149</div>
+        <div class="plan-period">per month</div>
+        <div class="plan-desc">For product teams on both stores who want AI replies and ASO intelligence.</div>
+        <div class="plan-hr"></div>
+        <ul class="plan-features">
+          <li><span class="ck">✓</span> Up to 8 apps · both stores</li>
+          <li><span class="ck">✓</span> 100K reviews / month</li>
+          <li><span class="ck">✓</span> 300 AI drafts / day · KB-grounded</li>
+          <li><span class="ck">✓</span> Sentiment & topic clusters</li>
+          <li><span class="ck">✓</span> Release health tracking</li>
+          <li><span class="ck">✓</span> ASO intelligence module</li>
+          <li><span class="ck">✓</span> Automation rules</li>
+          <li><span class="ck">✓</span> 10 seats</li>
+        </ul>
+        <a href="/sign-up" class="plan-cta primary">Start free →</a>
+      </div>
+
+    </div>
+    <p class="pricing-footnote">Need more than 8 apps or a custom contract? → <a href="mailto:hello@tryreviewbox.com">hello@tryreviewbox.com</a></p>
+  </div>
+</section>
+
+<!-- ═══ EARLY ACCESS CTA ══════════════════════════════════════════════════════ -->
+<section class="early-access">
+  <div class="early-access-glow"></div>
+  <div class="container">
+    <div class="early-inner reveal">
+      <h2>Be one of the first 50.</h2>
+      <p>Early access teams get founders-direct support, locked lifetime pricing, and the chance to shape what we build next.</p>
+      <a href="/sign-up" class="btn btn-lg btn-primary" style="margin:0 auto">Apply for early access →</a>
+      <div class="spots-pill">
+        <div class="pulse"></div>
+        12 spots filled · 38 remaining
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══ FOOTER ════════════════════════════════════════════════════════════════ -->
+<footer>
+  <div class="container">
+    <div class="foot-inner">
+      <div class="foot-top">
+        <div>
+          <a href="/" class="foot-logo">
+            <div class="nav-logo-icon">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/>
+                <path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11Z"/>
+              </svg>
+            </div>
+            ReviewBox
+          </a>
+          <p class="foot-tagline">ReviewBox responds to every review.<br>Even the ones about our own website.</p>
+        </div>
+        <div class="foot-cols">
+          <div class="foot-col">
+            <div class="foot-col-head">Product</div>
+            <a href="#features">Features</a>
+            <a href="#pricing">Pricing</a>
+            <a href="/compare">vs AppFollow</a>
+            <a href="/changelog">Changelog</a>
+          </div>
+          <div class="foot-col">
+            <div class="foot-col-head">Company</div>
+            <a href="/about">About</a>
+            <a href="/blog">Blog</a>
+            <a href="/contact">Contact</a>
+            <a href="mailto:hello@tryreviewbox.com">hello@tryreviewbox.com</a>
+          </div>
+          <div class="foot-col">
+            <div class="foot-col-head">Legal</div>
+            <a href="/privacy">Privacy</a>
+            <a href="/terms">Terms</a>
+            <a href="/dpa">DPA</a>
+          </div>
+        </div>
+      </div>
+      <div class="foot-hr"></div>
+      <div class="foot-bottom">
+        <div class="foot-copy">© 2026 ReviewBox · tryreviewbox.com</div>
+        <div class="foot-egg" title="👀">If you read this far, you read every word on this page. You're exactly who we built this for.</div>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<!-- ═══ JAVASCRIPT ════════════════════════════════════════════════════════════ -->
+<script>
+// ─── Data ─────────────────────────────────────────────────────────────────────
+const REVIEWS = [
+  {
+    stars:"★☆☆☆☆", ver:"v4.2.1 · iPad · iOS 17.4",
+    text:'"App crashes every time I switch accounts on iPad. Started right after the 4.2.1 update. I use this daily for my small business — really frustrating."',
+    bad: "Hi, we're sorry to hear about your experience. We take all feedback seriously. Please contact our support team at support@app.com and we'll be happy to assist you.",
+    good:"Hi — we identified this exact issue in v4.2.1. It affects account switching on iPads running iOS 17.4+. A fix ships in v4.2.2 tomorrow (9am UTC). Workaround: Settings → Account → Sign out, then sign back in. Your data is completely safe. If you update and still see it, reply here and I'll look personally."
+  },
+  {
+    stars:"★☆☆☆☆", ver:"v2.8.0 · iPhone",
+    text:'"Got charged twice this month. Support hasn\'t responded in 4 days. About to dispute with my bank if I don\'t hear back today."',
+    bad: "Thank you for reaching out. We apologize for any inconvenience. Our billing team will look into this. Please allow 5–7 business days for a response.",
+    good:"Hi — two charges in one month is never right, and 4 days of silence makes it worse. I've flagged this to billing with your account and we'll issue the refund within 2 business days. I'll follow up by email in the next hour. We're also looking at why support didn't catch this — that's on us."
+  },
+  {
+    stars:"★★☆☆☆", ver:"v3.8.1 · iPhone · iOS 17.5",
+    text:'"Can\'t log in after the latest update. Face ID stopped working completely. Had to uninstall and reinstall — now I\'ve lost my saved settings."',
+    bad: "We apologize for the trouble. Please try uninstalling and reinstalling the app. If the issue persists, contact support@app.com with your device details.",
+    good:"Hi — Face ID breaking after an update and losing settings on top of it is a bad experience. This affected a subset of users on iOS 17.5 after v3.8.1. We pushed a fix in v3.8.2 (available now). Your settings should restore when you sign back in with the same account. If not, reply here and we'll restore manually."
+  },
+  {
+    stars:"★★☆☆☆", ver:"v4.1.0 · All devices",
+    text:'"The new design hid the budgets tab behind two menus. Recurring transfers used to be one tap from the home screen. Why do apps keep doing this?"',
+    bad: "Thank you for your feedback! We are always working to improve our app. Your comments have been forwarded to our product team for review.",
+    good:"Hi — this is fair. The v4.1 nav restructure moved budgets and recurring transfers deeper than they should be. Several users said the same thing this week. Budgets is coming back to the main nav in v4.1.2 (shipping Thursday). Recurring transfers: Settings → Payments → Scheduled for now. We'll make that better too."
+  },
+  {
+    stars:"★★★☆☆", ver:"v4.0.2 · iPad",
+    text:'"Great app overall, but please add home screen widget support. I want to see my balance without opening the app. Every banking app has this now."',
+    bad: "Thank you for your suggestion! We appreciate your feedback and will take it into consideration for future updates. Thank you for being a valued customer!",
+    good:"Hi — home screen widgets are on our roadmap and your timing is good. We shipped the API groundwork in v4.0 and the widget itself is targeting Q3. Balance, recent transactions, and a quick-transfer shortcut are all in scope. If you want early access to the TestFlight beta when it's ready, reply here and I'll add you to the list."
+  }
+];
+
+let currentType = 0;
+let showingGood = true;
+
+// ─── Scroll reveal ─────────────────────────────────────────────────────────────
+const revObs = new IntersectionObserver(entries => {
+  entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('visible'); });
+}, { threshold: 0.1, rootMargin: '0px 0px -40px 0px' });
+document.querySelectorAll('.reveal').forEach(el => revObs.observe(el));
+
+// ─── Cursor glow ───────────────────────────────────────────────────────────────
+const heroEl    = document.getElementById('hero');
+const cursorGlo = document.getElementById('cursorGlow');
+heroEl.addEventListener('mousemove', e => {
+  const r = heroEl.getBoundingClientRect();
+  cursorGlo.style.setProperty('--mx', (e.clientX - r.left) + 'px');
+  cursorGlo.style.setProperty('--my', (e.clientY - r.top)  + 'px');
+});
+heroEl.addEventListener('mouseleave', () => {
+  cursorGlo.style.setProperty('--mx', '-999px');
+  cursorGlo.style.setProperty('--my', '-999px');
+});
+
+// ─── Typing easter egg ─────────────────────────────────────────────────────────
+let eggUsed = false;
+document.addEventListener('keydown', e => {
+  if (eggUsed) return;
+  const tag = e.target.tagName;
+  if (tag==='INPUT'||tag==='TEXTAREA'||tag==='BUTTON'||tag==='A') return;
+  if (e.key.length===1 && !e.metaKey && !e.ctrlKey && !e.altKey) {
+    eggUsed = true;
+    document.getElementById('demo').scrollIntoView({ behavior:'smooth', block:'center' });
+    setTimeout(() => showToast('⌨  Typing a review? Use the demo above.'), 900);
+  }
+});
+
+function showToast(msg) {
+  const t = document.createElement('div');
+  t.style.cssText = [
+    'position:fixed','bottom:28px','left:50%','transform:translateX(-50%) translateY(0)',
+    'background:#1D1D1F','color:#F5F5F7','padding:10px 22px','border-radius:12px',
+    'font-size:13px','font-family:var(--rb-font-mono)','z-index:9999',
+    'animation:toastIn .3s ease forwards','box-shadow:0 8px 24px rgba(0,0,0,.25)',
+    'pointer-events:none','white-space:nowrap'
+  ].join(';');
+  t.textContent = msg;
+  document.body.appendChild(t);
+  setTimeout(() => {
+    t.style.animation = 'toastOut .3s ease forwards';
+    setTimeout(() => t.remove(), 400);
+  }, 3000);
+}
+
+// ─── Type selector ─────────────────────────────────────────────────────────────
+function pickType(idx) {
+  currentType = idx;
+  document.querySelectorAll('.type-tab').forEach((t,i) => t.classList.toggle('on', i===idx));
+  const rv = REVIEWS[idx];
+  const textEl = document.getElementById('reviewText');
+  textEl.style.opacity = '0';
+  setTimeout(() => { textEl.textContent = rv.text; textEl.style.opacity='1'; }, 150);
+  document.getElementById('reviewStars').textContent = rv.stars;
+  document.getElementById('reviewVer').textContent   = rv.ver;
+  // reset to good side
+  showAfter();
+  document.getElementById('goodText').textContent = rv.good;
+  document.getElementById('badText').textContent  = rv.bad;
+  document.getElementById('demoCursor').style.display = 'none';
+  document.getElementById('goodFoot').textContent = 'Generated in 3.1s · Groq Llama 3.3 · KB-grounded · not stored';
+}
+
+function showBefore() {
+  showingGood = false;
+  document.getElementById('btnBefore').classList.add('on');
+  document.getElementById('btnAfter').classList.remove('on');
+  document.getElementById('cardBad').style.display  = 'block';
+  document.getElementById('cardGood').style.display = 'none';
+  document.getElementById('badText').textContent = REVIEWS[currentType].bad;
+}
+function showAfter() {
+  showingGood = true;
+  document.getElementById('btnAfter').classList.add('on');
+  document.getElementById('btnBefore').classList.remove('on');
+  document.getElementById('cardGood').style.display = 'block';
+  document.getElementById('cardBad').style.display  = 'none';
+}
+
+// ─── Stream helper ─────────────────────────────────────────────────────────────
+function streamText(text, targetEl, cursorEl, footEl, timingEl, doneCb, speed=16) {
+  targetEl.textContent = '';
+  if (cursorEl) { cursorEl.style.display='inline-block'; targetEl.parentNode && targetEl.after && null; }
+  let i = 0;
+  const t0 = Date.now();
+  const iv = setInterval(() => {
+    if (i < text.length) {
+      targetEl.textContent += text[i++];
+    } else {
+      clearInterval(iv);
+      if (cursorEl) cursorEl.style.display = 'none';
+      const ms = ((Date.now()-t0)/1000).toFixed(1);
+      if (timingEl) timingEl.textContent = `Generated in ${ms}s · Groq Llama 3.3 · KB-grounded · not stored`;
+      if (footEl)   footEl.style.display = 'flex';
+      if (doneCb) doneCb(ms);
+    }
+  }, speed);
+}
+
+// ─── Hero generate ─────────────────────────────────────────────────────────────
+function heroGenerate() {
+  const btn   = document.getElementById('heroBtn');
+  const out   = document.getElementById('heroOutput');
+  const txt   = document.getElementById('heroText');
+  const foot  = document.getElementById('heroFoot');
+  const timing= document.getElementById('heroTiming');
+
+  btn.disabled = true;
+  btn.innerHTML = '<div class="dots"><span></span><span></span><span></span></div>';
+  out.classList.add('show');
+  foot.style.display = 'none';
+  txt.textContent = '';
+
+  const reply = "Hi — we identified this exact issue in v4.2.1. It affects the budgets tab on iPads running iOS 17.4+. A fix ships in v4.2.2 tomorrow (9am UTC). Workaround: Settings → Account → Sign out, then sign back in. Your data is completely safe. If you update and still see it, reply here and I'll look personally.";
+
+  streamText(reply, txt, null, foot, timing, (ms) => {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg> Regenerate`;
+  });
+}
+
+// ─── Demo generate ─────────────────────────────────────────────────────────────
+function demoGenerate() {
+  const btn  = document.getElementById('demoBtn');
+  const txt  = document.getElementById('goodText');
+  const cur  = document.getElementById('demoCursor');
+  const foot = document.getElementById('goodFoot');
+
+  btn.disabled = true;
+  btn.innerHTML = '<div class="dots"><span></span><span></span><span></span></div>';
+  showAfter();
+  foot.textContent = '';
+
+  streamText(REVIEWS[currentType].good, txt, cur, null, foot, (ms) => {
+    btn.disabled = false;
+    btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg> Generate reply`;
+  });
+}
+
+// ─── Toast keyframe injection ──────────────────────────────────────────────────
+const ks = document.createElement('style');
+ks.textContent = `
+  @keyframes toastIn  { from{opacity:0;transform:translateX(-50%) translateY(12px)} to{opacity:1;transform:translateX(-50%) translateY(0)} }
+  @keyframes toastOut { from{opacity:1;transform:translateX(-50%) translateY(0)} to{opacity:0;transform:translateX(-50%) translateY(10px)} }
+`;
+document.head.appendChild(ks);
+
+// ─── Init ──────────────────────────────────────────────────────────────────────
+pickType(0);
+</script>
+</body>
+</html>

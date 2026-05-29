@@ -9,6 +9,7 @@ import {
   Loader2,
   Plus,
   RefreshCw,
+  Settings2,
   Smartphone,
   Trash2,
   TriangleAlert,
@@ -19,8 +20,16 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useApps, useInvalidateApps, type WorkspaceApp } from "@/hooks/use-apps";
 import { formatReviewDate } from "@/utils/format";
+import { GooglePlaySetupModal } from "@/components/dashboard/google-play-setup-modal";
 
 // ── App Store credential form ─────────────────────────────────────────────────
+
+interface TestResult {
+  ok: boolean;
+  message: string;
+  appStoreId?: string;
+  verifiedAt: string;
+}
 
 function AppStoreForm({
   app,
@@ -33,8 +42,31 @@ function AppStoreForm({
   const [issuerId, setIssuerId] = useState("");
   const [p8Key, setP8Key] = useState("");
   const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [testResult, setTestResult] = useState<TestResult | null>(null);
+
+  // Validate field formats inline so users see issues before submit.
+  const keyIdLooksValid    = keyId.length === 0 || /^[A-Z0-9]{8,12}$/i.test(keyId.trim());
+  const issuerIdLooksValid = issuerId.length === 0 || /^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/i.test(issuerId.trim());
+
+  async function testConnection() {
+    setTesting(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/apps/${app.id}/test-credentials`, { method: "POST" });
+      const data = (await res.json()) as TestResult;
+      setTestResult(data);
+    } catch {
+      setTestResult({
+        ok: false,
+        message: "Network error — couldn't reach our server. Try again.",
+        verifiedAt: new Date().toISOString(),
+      });
+    } finally {
+      setTesting(false);
+    }
+  }
 
   async function handleSave() {
     if (!keyId.trim() || !issuerId.trim() || !p8Key.trim()) {
@@ -45,7 +77,12 @@ function AppStoreForm({
       setError("Private key must include the full PEM block (-----BEGIN PRIVATE KEY-----).");
       return;
     }
+    if (!keyIdLooksValid || !issuerIdLooksValid) {
+      setError("Key ID or Issuer ID format looks wrong — double-check you copied them correctly.");
+      return;
+    }
     setError(null);
+    setTestResult(null);
     setSaving(true);
     try {
       const res = await fetch(`/api/apps/${app.id}`, {
@@ -58,13 +95,26 @@ function AppStoreForm({
         setError(body.error ?? "Save failed.");
         return;
       }
-      const ts = Date.now();
-      setSavedAt(ts);
       setKeyId("");
       setIssuerId("");
       setP8Key("");
       onSaved();
-      setTimeout(() => setSavedAt((prev) => (prev === ts ? null : prev)), 3000);
+      // Auto-test the credentials we just saved so the user sees if Apple
+      // accepts them BEFORE they wait for the next sync cron.
+      setTesting(true);
+      try {
+        const testRes = await fetch(`/api/apps/${app.id}/test-credentials`, { method: "POST" });
+        const data = (await testRes.json()) as TestResult;
+        setTestResult(data);
+      } catch {
+        setTestResult({
+          ok: false,
+          message: "Saved — but verification network call failed. Click 'Test connection' to retry.",
+          verifiedAt: new Date().toISOString(),
+        });
+      } finally {
+        setTesting(false);
+      }
     } catch {
       setError("Network error — please try again.");
     } finally {
@@ -74,29 +124,116 @@ function AppStoreForm({
 
   return (
     <div className="mt-3 space-y-3 rounded-lg border border-gray-100 bg-gray-50 p-4">
-      <p className="text-xs font-medium text-gray-600">
-        App Store Connect credentials
-      </p>
-      <p className="text-xs text-gray-400 leading-relaxed">
-        Create an API key in{" "}
-        <span className="font-medium text-gray-500">
-          App Store Connect → Users &amp; Access → Integrations → API Keys
-        </span>
-        . Set role to <span className="font-medium text-gray-500">Customer Support</span>.
-      </p>
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-gray-600">
+          App Store Connect credentials
+        </p>
+        <a
+          href="/help/connect-app-store"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[11px] font-semibold text-[#0A84FF] hover:underline"
+        >
+          Full guide →
+        </a>
+      </div>
+      <ol className="space-y-1.5 text-xs text-gray-500 leading-relaxed">
+        <li>
+          <span className="font-semibold text-gray-700">1.</span>{" "}
+          <a
+            href="https://appstoreconnect.apple.com/access/integrations/api"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="font-medium text-[#0A84FF] underline-offset-2 hover:underline"
+          >
+            Open App Store Connect → Users &amp; Access → Integrations → Keys
+          </a>
+        </li>
+        <li>
+          <span className="font-semibold text-gray-700">2.</span> Click Generate API Key.
+          Name it &quot;ReviewBox&quot;. Set access to{" "}
+          <span className="font-medium text-gray-700">Customer Support</span>.
+        </li>
+        <li>
+          <span className="font-semibold text-gray-700">3.</span> Download the{" "}
+          <code className="rounded bg-gray-100 px-1 py-0.5 font-mono text-[10px] text-gray-600">
+            AuthKey_XXXXXX.p8
+          </code>{" "}
+          file (only available ONCE — save it).
+        </li>
+        <li>
+          <span className="font-semibold text-gray-700">4.</span> Copy the{" "}
+          <span className="font-medium text-gray-700">Key ID</span> +{" "}
+          <span className="font-medium text-gray-700">Issuer ID</span> from the same page,
+          paste below along with the .p8 file contents.
+        </li>
+      </ol>
 
-      {app.has_credentials && (
-        <div className="flex items-center gap-1.5 text-xs text-emerald-600">
-          <CheckCircle2 className="size-3.5" />
-          Credentials saved — enter new values below to rotate them
+      {app.has_credentials && !testResult && (
+        <div className="flex items-center justify-between gap-3 rounded-md border border-gray-200 bg-white px-3 py-2">
+          <div className="flex items-center gap-1.5 text-xs text-gray-600">
+            <CheckCircle2 className="size-3.5 text-emerald-500" />
+            Credentials saved. Verify they work with Apple:
+          </div>
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={testConnection}
+            disabled={testing}
+            className="h-7 text-[11px]"
+          >
+            {testing ? (
+              <><Loader2 className="mr-1 size-3 animate-spin" />Testing…</>
+            ) : (
+              "Test connection"
+            )}
+          </Button>
+        </div>
+      )}
+
+      {testResult && (
+        <div
+          className={cn(
+            "rounded-md border px-3 py-2.5",
+            testResult.ok
+              ? "border-emerald-200 bg-emerald-50"
+              : "border-red-200 bg-red-50",
+          )}
+        >
+          <div className={cn(
+            "flex items-center gap-1.5 text-xs font-semibold",
+            testResult.ok ? "text-emerald-700" : "text-red-700",
+          )}>
+            {testResult.ok ? <CheckCircle2 className="size-3.5" /> : <TriangleAlert className="size-3.5" />}
+            {testResult.ok ? "Verified" : "Verification failed"}
+          </div>
+          <p className={cn(
+            "mt-1 text-[11px] leading-relaxed",
+            testResult.ok ? "text-emerald-700/90" : "text-red-700/90",
+          )}>
+            {testResult.message}
+          </p>
+          {testResult.ok && (
+            <div className="mt-2 flex items-center gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={testConnection}
+                disabled={testing}
+                className="h-6 text-[10px]"
+              >
+                Re-test
+              </Button>
+              <span className="text-[10px] text-emerald-700/70">
+                Now click <strong>Sync now</strong> above to pull reviews.
+              </span>
+            </div>
+          )}
         </div>
       )}
 
       {error && (
         <p className="text-xs text-red-600">{error}</p>
-      )}
-      {savedAt && (
-        <p className="text-xs text-emerald-600">Credentials saved successfully.</p>
       )}
 
       <label className="block">
@@ -104,9 +241,17 @@ function AppStoreForm({
         <Input
           value={keyId}
           onChange={(e) => setKeyId(e.target.value)}
-          placeholder="XXXXXXXXXX"
-          className="mt-1 h-8 border-gray-200 bg-white text-sm font-mono"
+          placeholder="XXXXXXXXXX (10 chars)"
+          className={cn(
+            "mt-1 h-8 bg-white text-sm font-mono",
+            keyIdLooksValid ? "border-gray-200" : "border-amber-300",
+          )}
         />
+        {!keyIdLooksValid && (
+          <span className="mt-0.5 text-[10px] text-amber-600">
+            Key ID is usually 10 uppercase chars (letters + digits).
+          </span>
+        )}
       </label>
 
       <label className="block">
@@ -115,8 +260,16 @@ function AppStoreForm({
           value={issuerId}
           onChange={(e) => setIssuerId(e.target.value)}
           placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-          className="mt-1 h-8 border-gray-200 bg-white text-sm font-mono"
+          className={cn(
+            "mt-1 h-8 bg-white text-sm font-mono",
+            issuerIdLooksValid ? "border-gray-200" : "border-amber-300",
+          )}
         />
+        {!issuerIdLooksValid && (
+          <span className="mt-0.5 text-[10px] text-amber-600">
+            Issuer ID should be a UUID (36 chars with dashes).
+          </span>
+        )}
       </label>
 
       <label className="block">
@@ -133,46 +286,60 @@ function AppStoreForm({
       <Button
         size="sm"
         onClick={handleSave}
-        disabled={saving}
+        disabled={saving || testing}
         className="h-8 bg-[#0A84FF] text-white hover:bg-[#0070e0]"
       >
         {saving ? (
-          <>
-            <Loader2 className="mr-1.5 size-3 animate-spin" />
-            Saving…
-          </>
+          <><Loader2 className="mr-1.5 size-3 animate-spin" />Saving…</>
+        ) : testing ? (
+          <><Loader2 className="mr-1.5 size-3 animate-spin" />Verifying with Apple…</>
+        ) : app.has_credentials ? (
+          "Replace credentials"
         ) : (
-          "Save credentials"
+          "Save & verify"
         )}
       </Button>
     </div>
   );
 }
 
-// ── Google Play info panel ────────────────────────────────────────────────────
+// ── Google Play setup panel (inline — opens full modal) ───────────────────────
 
-function GooglePlayInfo({ app }: { app: WorkspaceApp }) {
+function GooglePlayInfo({ app, onOpenSetup }: { app: WorkspaceApp; onOpenSetup: () => void }) {
   return (
-    <div className="mt-3 space-y-2.5 rounded-lg border border-gray-100 bg-gray-50 p-4">
-      <p className="text-xs font-medium text-gray-600">Google Play connection</p>
-      <p className="text-xs text-gray-400 leading-relaxed">
-        Reviews are fetched using the workspace service account. To grant access,
-        invite the service account email in{" "}
-        <span className="font-medium text-gray-500">
-          Google Play Console → Users &amp; Permissions
-        </span>{" "}
-        with <span className="font-medium text-gray-500">View app information</span> and{" "}
-        <span className="font-medium text-gray-500">Reply to reviews</span> permissions.
-      </p>
-      <div className="flex items-center gap-1.5 text-xs text-emerald-600">
-        <CheckCircle2 className="size-3.5" />
-        Service account configured
+    <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 p-4 space-y-3">
+      <div className="flex items-center justify-between">
+        <p className="text-xs font-medium text-gray-600">Google Play connection</p>
+        {app.last_synced_at && (
+          <p className="text-[11px] text-gray-400">
+            Last synced: {formatReviewDate(app.last_synced_at)}
+          </p>
+        )}
       </div>
-      {app.last_synced_at && (
-        <p className="text-xs text-gray-400">
-          Last synced: {formatReviewDate(app.last_synced_at)}
-        </p>
-      )}
+
+      <p className="text-[12px] text-gray-500 leading-relaxed">
+        ReviewBox connects via a shared service account. You need to invite its email address to your
+        Play Console with <strong>Reply to reviews</strong> permission.
+      </p>
+
+      <div className="flex items-center gap-2">
+        <Button
+          size="sm"
+          onClick={onOpenSetup}
+          className="h-8 bg-[#0A84FF] text-white hover:bg-[#0070e0] gap-1.5"
+        >
+          <Settings2 className="size-3.5" />
+          Connection setup
+        </Button>
+        <a
+          href="/help/connect-google-play"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="text-[11px] font-medium text-gray-400 hover:text-[#0A84FF] hover:underline"
+        >
+          Read guide →
+        </a>
+      </div>
     </div>
   );
 }
@@ -191,6 +358,8 @@ function AppRow({
   const [expanded, setExpanded] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [syncing, setSyncing] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [setupModalOpen, setSetupModalOpen] = useState(false);
 
   const isAppStore = app.platform === "app_store";
   const Icon = isAppStore ? Globe : Smartphone;
@@ -206,8 +375,15 @@ function AppRow({
     if (!confirm(`Remove "${app.name}"? This will delete all synced reviews.`)) return;
     setDeleting(true);
     try {
-      await fetch(`/api/apps/${app.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/apps/${app.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        setDeleteError(body.error ?? "Failed to remove app. Please try again.");
+        return;
+      }
       onDeleted();
+    } catch {
+      setDeleteError("Network error — could not remove app. Please try again.");
     } finally {
       setDeleting(false);
     }
@@ -216,9 +392,16 @@ function AppRow({
   async function handleSync() {
     setSyncing(true);
     try {
-      await fetch("/api/sync/reviews", { method: "POST" });
+      // Trigger an inline sync for THIS user's workspace only. The global
+      // coordinator fans out to all workspaces — wasteful when one user
+      // just wants to see their own reviews after wiring credentials.
+      // We don't have workspace_id on the client, but the worker route
+      // accepts ?workspaceId=X. Lacking that, hit the global endpoint
+      // which will still pick up this workspace within seconds.
+      await fetch("/api/sync/reviews");
     } finally {
       setSyncing(false);
+      onUpdated();
     }
   }
 
@@ -301,14 +484,29 @@ function AppRow({
         </div>
       </div>
 
+      {deleteError && (
+        <div className="mx-4 mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+          {deleteError}
+        </div>
+      )}
+
       {expanded && (
         <div className="border-t border-gray-50 px-4 pb-4">
           {isAppStore ? (
             <AppStoreForm app={app} onSaved={onUpdated} />
           ) : (
-            <GooglePlayInfo app={app} />
+            <GooglePlayInfo app={app} onOpenSetup={() => setSetupModalOpen(true)} />
           )}
         </div>
+      )}
+
+      {/* Google Play setup modal — also opened via "Connection setup" button above */}
+      {app.platform === "google_play" && (
+        <GooglePlaySetupModal
+          open={setupModalOpen}
+          onClose={() => { setSetupModalOpen(false); onUpdated(); }}
+          app={{ id: app.id, store_id: app.store_id, name: app.name }}
+        />
       )}
     </div>
   );

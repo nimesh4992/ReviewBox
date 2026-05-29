@@ -2,7 +2,21 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { apiError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
+import type { AutomationAction } from "@/types/review";
+
+// Allowlist — must stay in sync with AutomationAction union in types/review.ts
+const VALID_ACTIONS: AutomationAction[] = [
+  "ai_reply",
+  "template_reply",
+  "apply_tag",
+  "escalate",
+  "report_spam",
+];
+
+const NAME_MAX_LEN = 120;
+const CONDITIONS_MAX = 10;
 
 interface PatchRuleBody {
   name?: string;
@@ -23,25 +37,29 @@ export async function PATCH(
   // 1. Auth
   const session = await auth();
   const userId = session?.userId;
-  if (!userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  if (!userId) return apiError("UNAUTHORIZED", 401);
 
-  // 2. Resolve workspace
   const workspaceId = await getWorkspaceId(userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
-  }
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
   const { id } = await params;
 
   // 3. Parse body
   const body = (await req.json()) as PatchRuleBody;
 
+  // Validate action if provided
+  if (body.action !== undefined && !VALID_ACTIONS.includes(body.action as AutomationAction)) {
+    return apiError("INVALID_INPUT", 400, `action must be one of: ${VALID_ACTIONS.join(", ")}`);
+  }
+
+  if (body.conditions !== undefined && Array.isArray(body.conditions) && body.conditions.length > CONDITIONS_MAX) {
+    return apiError("INVALID_INPUT", 400, `max ${CONDITIONS_MAX} conditions allowed`);
+  }
+
   // Build update payload — only include fields that were sent
   const updates: Record<string, unknown> = {};
-  if (body.name !== undefined) updates.name = body.name;
-  if (body.description !== undefined) updates.description = body.description;
+  if (body.name !== undefined) updates.name = String(body.name).slice(0, NAME_MAX_LEN);
+  if (body.description !== undefined) updates.description = String(body.description).slice(0, 500);
   if (body.enabled !== undefined) updates.enabled = body.enabled;
   if (body.conditions !== undefined) updates.conditions = body.conditions;
   if (body.action !== undefined) updates.action = body.action;
@@ -62,10 +80,7 @@ export async function PATCH(
 
   if (error) {
     console.error("automations/rules PATCH error:", error);
-    return NextResponse.json(
-      { error: "INTERNAL_SERVER_ERROR" },
-      { status: 500 },
-    );
+    return apiError("INTERNAL_SERVER_ERROR", 500);
   }
 
   await audit({
@@ -88,15 +103,10 @@ export async function DELETE(
   // 1. Auth
   const session = await auth();
   const userId = session?.userId;
-  if (!userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  if (!userId) return apiError("UNAUTHORIZED", 401);
 
-  // 2. Resolve workspace
   const workspaceId = await getWorkspaceId(userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
-  }
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
   const { id } = await params;
 
@@ -110,10 +120,7 @@ export async function DELETE(
 
   if (error) {
     console.error("automations/rules DELETE error:", error);
-    return NextResponse.json(
-      { error: "INTERNAL_SERVER_ERROR" },
-      { status: 500 },
-    );
+    return apiError("INTERNAL_SERVER_ERROR", 500);
   }
 
   await audit({

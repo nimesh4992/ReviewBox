@@ -2,67 +2,79 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { apiError } from "@/lib/api-response";
+import { audit } from "@/lib/audit";
+
+const VALID_CATEGORIES = ["bug", "feature", "praise", "billing", "general"] as const;
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
 export async function PATCH(req: NextRequest, { params }: RouteParams): Promise<NextResponse> {
-  // 1. Auth
   const session = await auth();
-  const userId = session?.userId;
-  if (!userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  if (!session?.userId) return apiError("UNAUTHORIZED", 401);
 
-  // 2. Resolve workspace
-  const workspaceId = await getWorkspaceId(userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
-  }
+  const workspaceId = await getWorkspaceId(session.userId);
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
   const { id } = await params;
-  const body = (await req.json()) as Record<string, unknown>;
+  const raw = (await req.json()) as Record<string, unknown>;
 
-  // 3. Update — scoped to workspace
+  // Build an explicit allowlist — never pass raw body to .update()
+  const patch: Record<string, unknown> = {};
+  if (typeof raw.title === "string") {
+    const t = raw.title.trim();
+    if (!t || t.length > 200) return apiError("INVALID_INPUT", 400, "title max 200 chars");
+    patch.title = t;
+  }
+  if (typeof raw.content === "string") {
+    const c = raw.content.trim();
+    if (!c || c.length > 5000) return apiError("INVALID_INPUT", 400, "content max 5000 chars");
+    patch.content = c;
+  }
+  if (typeof raw.category === "string") {
+    if (!VALID_CATEGORIES.includes(raw.category as typeof VALID_CATEGORIES[number]))
+      return apiError("INVALID_INPUT", 400, "invalid category");
+    patch.category = raw.category;
+  }
+
+  if (Object.keys(patch).length === 0) return apiError("INVALID_INPUT", 400, "no valid fields to update");
+
   const sb = getServiceClient();
   const { data, error } = await sb
     .from("knowledge_base")
-    .update(body)
+    .update(patch)
     .eq("id", id)
     .eq("workspace_id", workspaceId)
     .select("*")
     .single();
 
-  if (error) {
-    console.error("reply-kit/knowledge-base PATCH error:", error);
-    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
-  }
+  if (error) return apiError("INTERNAL_SERVER_ERROR", 500);
+  if (!data)  return apiError("NOT_FOUND", 404);
 
-  if (!data) {
-    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
-  }
+  await audit({
+    workspaceId,
+    actorUserId: session.userId,
+    action: "kb.update",
+    targetType: "kb",
+    targetId: id,
+    payload: { fields: Object.keys(patch) },
+    request: req,
+  });
 
   return NextResponse.json({ entry: data }, { status: 200 });
 }
 
 export async function DELETE(_req: NextRequest, { params }: RouteParams): Promise<NextResponse> {
-  // 1. Auth
   const session = await auth();
-  const userId = session?.userId;
-  if (!userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  if (!session?.userId) return apiError("UNAUTHORIZED", 401);
 
-  // 2. Resolve workspace
-  const workspaceId = await getWorkspaceId(userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
-  }
+  const workspaceId = await getWorkspaceId(session.userId);
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
   const { id } = await params;
 
-  // 3. Delete — scoped to workspace
   const sb = getServiceClient();
   const { error } = await sb
     .from("knowledge_base")
@@ -70,10 +82,16 @@ export async function DELETE(_req: NextRequest, { params }: RouteParams): Promis
     .eq("id", id)
     .eq("workspace_id", workspaceId);
 
-  if (error) {
-    console.error("reply-kit/knowledge-base DELETE error:", error);
-    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
-  }
+  if (error) return apiError("INTERNAL_SERVER_ERROR", 500);
+
+  await audit({
+    workspaceId,
+    actorUserId: session.userId,
+    action: "kb.delete",
+    targetType: "kb",
+    targetId: id,
+    request: _req,
+  });
 
   return new NextResponse(null, { status: 204 });
 }

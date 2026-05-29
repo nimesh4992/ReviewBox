@@ -73,7 +73,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
     await audit({
       workspaceId,
       actorUserId: userId,
-      action: "workspace.create", // closest stable action; export is a workspace read event
+      action: "gdpr.export",
       targetType: "workspace",
       targetId: workspaceId,
       payload: { event: "gdpr_export", rowCounts: countRows(payload.data) },
@@ -101,6 +101,6 @@ function countRows(data: Record<string, unknown>): Record<string, number> {
   return counts;
 }
 
-// Accept both verbs; UI calls POST, curl users may use GET.
-export const GET = handler;
+// POST only — GET on a data-export route is a CSRF vector (triggerable via
+// img src, link prefetch, browser history preload). The UI already uses POST.
 export const POST = handler;

@@ -1,7 +1,7 @@
 # Today — Handoff for next agent
 
-**Last updated:** 2026-05-19 (end of session)
-**Founder is switching Claude accounts** — this file is your only source of state.
+**Last updated:** 2026-05-26
+**Branch agent left on:** `fix/audit-round-3` (pushed, PR at https://github.com/nimesh4992/ReviewBox/pull/new/fix/audit-round-3)
 
 You are the next Claude agent. Read this top-to-bottom before doing anything.
 
@@ -9,75 +9,88 @@ You are the next Claude agent. Read this top-to-bottom before doing anything.
 
 ## Read order, every session
 
-Don't skip. Even if you think you remember:
-
 1. **`CLAUDE.md`** (repo root) — stack, conventions, autopilot model, what NOT to do
-2. **`docs/decisions.md`** — IMMUTABLE rules. D000 (non-coder contract) and D009 (14 things you never do) are the most important
+2. **`docs/decisions.md`** — IMMUTABLE rules. D000 (non-coder contract) and D009 (14 things you never do) are critical.
 3. **`docs/backlog.md`** — single source of truth for what to build next, ICE-ranked
 4. **This file (`docs/today.md`)** — last session's handoff
 
-After that, the work begins.
+---
+
+## What shipped this session (2026-05-26)
+
+### `fix/audit-round-3` — **awaiting founder merge** (9 fixes)
+
+Cross-verification audit by a third-party review agent found bugs missed in the prior two passes. All 9 fixed in one commit (`e59d0cf`).
+
+| ID | File | Fix |
+|----|------|-----|
+| C-02 | `cron/trial-nudge/route.ts` | `isAuthorized()` now fail-closed — was `return true` when `CRON_SECRET` unset, allowing anyone to fire mass trial emails |
+| H-01 | `onboarding/complete` + `onboarding/slug-check` | Slug regex fixed — `(?:...)?` optional group allowed 1-char slugs; now requires min 3 chars |
+| H-02 | `cron/trial-nudge/route.ts` | Dedup Redis key now written BEFORE sending email (both day5 + day12 loops) |
+| H-03 | `account/accept-invite/route.ts` | Invite email check iterates all `emailAddresses`, not just `[0]` |
+| H-05 | `reviews/[id]/reply/route.ts` | Server-side char limit before store submit (Google Play: 350, App Store: 5950) |
+| H-06 | `gdpr/export/route.ts` | Removed `export const GET = handler` — CSRF vector |
+| M-01 | `reports/export/route.ts` | `days` param clamped 1-365; NaN/negative now default to 30 |
+| C-03 | `reviews/route.ts` | PostgREST `.or()` search param strips `,().'"\` before interpolation |
+| M-03 | `sync/reviews/route.ts` | `notifyWorkspaceOwner` `.single()` → `.maybeSingle()` |
+| L-01 | `google-play/service-account/route.ts` | Uses `apiError("UNAUTHORIZED", 401)` not raw `NextResponse.json` |
+
+Also added `REPLY_TOO_LONG` to `ApiErrorCode` union in `src/lib/api-response.ts`.
+
+**TypeScript:** 0 errors.
 
 ---
 
-## What shipped this session (2026-05-19)
+## PRs awaiting founder merge (priority order)
 
-### N1 — Supabase migrations 002–006 applied to production ✅
-Founder ran all 5 pending migrations in Supabase SQL Editor.
-- 002: plan vocabulary constraint (required custom fix — existing rows had non-conforming values, normalized to `trial` before adding constraint)
-- 003: audit_log table + RLS
-- 004: webhook_events dedup table
-- 005: workspace soft-delete + pg_cron 30-day hard-delete job
-- 006: workspace_invites table + RLS
+| # | Branch | What it does | Priority |
+|---|--------|-------------|----------|
+| 1 | `fix/audit-round-3` | 9 security + correctness fixes | 🔴 HIGH |
 
-### N5 — /compare/appfollow rewrite ✅
-Branch: `claude/n5-compare-appfollow-rewrite` — **awaiting founder merge**
-
-Full rewrite of `src/app/compare/page.tsx`:
-- Strong hero: "Same reviews. Better AI. At a quarter of the price." with dual CTA
-- Price callout: $149 AppFollow (strikethrough) vs $49 ReviewBox
-- 42-row feature comparison table across 7 categories
-- Interactive ROI calculator (`src/components/marketing/roi-calculator.tsx`) — sliders for #apps and #reviews/mo → annual savings
-- 4-step "Switch in an afternoon" timeline with time badges
-- 3 placeholder customer quotes (marked with code comment for replacement)
-- Final CTA: Start trial + mailto:hello@tryreviewbox.com
-- Fixed metadata title encoding bug (â€" → –)
-- MarketingShell wrapper gives mobile responsive for free
+Check all open PRs: https://github.com/nimesh4992/ReviewBox/pulls
 
 ---
 
-## PRs awaiting founder merge
+## Untracked artifacts — do NOT commit
 
-1. `claude/n5-compare-appfollow-rewrite` — N5 compare page (created this session)
-2. `claude/n7a-landing-mobile-responsive` — N7 marketing mobile responsive (from prior session)
-3. `claude/docs-claudemd-refresh` — CLAUDE.md autopilot system docs (from prior session)
+Two files in repo root from cross-verification agent:
+- `gen_report.js` — session-specific path, unusable outside original env
+- `ReviewBox_Code_Review_Report.docx` — generated artifact
 
-Check these first — they may have merged while the founder was switching accounts.
+Leave unstaged.
+
+---
+
+## One HUMAN action needed right now
+
+**Set `CRON_SECRET` in Vercel environment variables.**
+
+- Vercel dashboard → your project → Settings → Environment Variables
+- Add: `CRON_SECRET` = `e61b2c02c385535daa15e71d533dde895b8dcdf396c825841fa59ac1dbeb4480`
+- Apply to: Production + Preview + Development
+- Redeploy after setting it
+
+Why: `weekly-digest`, `unreplied-alert`, AND `trial-nudge` all fail closed without this. None of the email crons fire until this is set.
 
 ---
 
 ## What you should pick up next
 
+**Merge all PRs first (founder job). Then:**
+
 **Top non-blocked NOW item: N3 — Detail pages · ICE 64**
 
-`/incidents/[id]` and `/releases/[version]` both exist as dynamic routes (they appeared in the build output), but need proper detail content. Users will click these from the incident list and release health table — a blank or 404 page kills trust.
+`/incidents/[id]` and `/releases/[version]` show stubs or blank content. Users click from lists and hit nothing — trust killer.
 
 ### N3 scope — Done when:
-1. `/incidents/[id]` — shows incident title, severity badge, description, owner, detected-at, timeline of status changes. Wire to mock data for now (real Supabase query is N3b / later sprint).
-2. `/releases/[version]` — shows version, rollout %, rating delta, complaint delta, status badge, list of reviews tagged for that version.
-3. Both pages use `AppShell` (authenticated shell, not MarketingShell).
-4. Both pages have a back link ("← Incidents" / "← Releases").
-5. Mobile responsive — AppShell handles this.
+1. `/incidents/[id]` — shows: title, severity badge, description, owner, detected-at, status chip, timeline.
+2. `/releases/[version]` — shows: version, rollout % bar, rating delta, complaint delta, status badge, reviews tagged for that version.
+3. Both have a back link and use `AppShell`.
+4. Mobile usable.
 
-### N3 implementation notes
-- **Files:** `src/app/(app)/incidents/[id]/page.tsx`, `src/app/(app)/releases/[version]/page.tsx`
-- Check what's currently in those files — they appeared in the build as dynamic routes so stubs may already exist
-- Use mock data from `src/features/incidents/` and `src/features/releases/` — don't create new mock files, extend what exists
-- Server components by default
-- No ADR required — layout change only, no new patterns or schema
-
-### How to start
+### Start
 ```powershell
+cd D:\Projects\Reviews
 git checkout master
 git pull origin master
 git checkout -b claude/n3-detail-pages
@@ -85,30 +98,43 @@ git checkout -b claude/n3-detail-pages
 
 ---
 
-## What requires the founder (don't try to do these alone)
+## After N3: N4 — Remove or wire dead buttons · ICE 56
 
-- **N6** — Add Stripe test keys to `.env.local`. Until done, billing flow can't be tested.
-- **Merge pending PRs** — N5, N7a, docs-claudemd-refresh are all ready.
+Remaining dead buttons:
+- `aso-screen.tsx` — "Export" and "Suggest keywords"
+- `reports-screen.tsx` — "Run report" and "Configure"
+  (note: dead "+ New report" already removed on branch `claude/n3-n4-detail-pages-and-dead-buttons` — cherry-pick or re-apply that one change)
+
+---
+
+## What requires the founder (D009 — never do these yourself)
+
+- **Merge the open PR** above
+- **Set `CRON_SECRET`** in Vercel (see above)
+- **N6** — Add Stripe test keys to `.env.local`
 
 ---
 
 ## Lessons learned this session
 
-1. **Migration 002 constraint fix.** When adding a `CHECK` constraint to an existing table, always normalize existing rows to valid values BEFORE adding the constraint — even if the migration script only updates one known bad value. The safe pattern: `UPDATE ... SET col = 'default' WHERE col NOT IN (valid_values)` before `ADD CONSTRAINT`.
+1. **Cross-verification catches bugs after two audit passes.** A fresh agent found 9 more real bugs. Run a secondary audit after major security work — it always pays.
 
-2. **PowerShell `tail` not available.** Use `Select-Object -Last N` instead of `| tail -N`.
+2. **Dedup-before-send is the correct order.** Write the idempotency key BEFORE firing the side effect. Safer failure: missed email (retryable) > double-send (trust damage).
 
-3. **Pre-existing sidebar.tsx lint warning** (`react-hooks/exhaustive-deps` on useEffect in sidebar). This is a warning not an error — it doesn't block CI. Don't fix it unless the task specifically covers sidebar work.
+3. **All email crons must fail closed.** Sync route stays open intentionally (onboarding sync). Email crons (weekly-digest, unreplied-alert, trial-nudge) must all return 401 when CRON_SECRET unset.
 
-4. All other lessons from prior session still apply (PowerShell quirks, stale .next cache, @clerk/types not a separate package, etc.).
+4. **`(?:...)?` ≠ required group.** The trailing `?` makes the whole group optional, silently allowing 1-char slugs despite "3-40 chars" in the error message.
+
+5. All prior lessons still apply — PowerShell `&&` broken (use `;`), no `gh` CLI on this machine.
 
 ---
 
-## Active state of the repo right now
+## Active state of the repo
 
-- **On branch:** `claude/n5-compare-appfollow-rewrite` (committed, pushed, awaiting founder merge)
-- **Master:** clean, all prior session PRs merged
-- **Build:** passing — 0 errors, 1 pre-existing warning
+- **Local branch:** `fix/audit-round-3` (committed and pushed)
+- **Master:** clean
+- **Build:** TypeScript clean (0 errors)
+- **Tests:** 70 unit tests (unchanged this session)
 
 ---
 
@@ -116,8 +142,9 @@ git checkout -b claude/n3-detail-pages
 
 - Solo founder, marketing-strong, non-coder
 - Autopilot loop: Claude ships PRs on branches → founder verifies on Vercel preview → founder merges
-- Goal: take on AppFollow on price + AI + UX
+- Goal: take on AppFollow ($49 vs $399) + AI-first + modern UX
 - Works in pockets around a full-time job
+- No `gh` CLI installed — give GitHub web PR URLs
 
 ---
 
@@ -126,6 +153,7 @@ git checkout -b claude/n3-detail-pages
 - Never push to `master`. PR only.
 - Never merge PRs. Founder merges.
 - Never run migrations against prod Supabase. Founder runs them.
-- Always write PR descriptions as plain-English test plans (see `.github/PULL_REQUEST_TEMPLATE.md`).
+- Never send real emails. Drafts only.
+- Always write PR descriptions as plain-English 5-minute test plans.
 - Always update this file at end of session.
-- Always ICE-score new backlog items.
+- Always ICE-score new backlog items added to `docs/backlog.md`.

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSentimentAnalysis } from "@/hooks/use-sentiment-analysis";
 import { useSentimentOverview } from "@/hooks/use-sentiment-overview";
+import { useReviewQueue } from "@/hooks/use-review-queue";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
 import { useReviewQueue } from "@/hooks/use-review-queue";
 import type { AnalysisResult } from "@/app/api/sentiment/analyze/route";
@@ -473,6 +474,9 @@ export function SentimentScreen() {
         : "All apps";
 
   const { data: overview, isLoading } = useSentimentOverview(appId, range);
+  // Pull recent real reviews for the "Re-cluster with AI" button.
+  // Without real workspace data, we don't surface the button at all.
+  const { reviews: workspaceReviews } = useReviewQueue();
 
   // Fetch real reviews for Re-cluster button (critical + negative, first page)
   const { reviews: reclusterReviews } = useReviewQueue({ sentiment: "critical" });
@@ -481,6 +485,7 @@ export function SentimentScreen() {
   const trendPos = overview?.trend.positive ?? [];
   const trendNeg = overview?.trend.negative ?? [];
   const hasChartData = trendPos.length >= 2;
+  const canRecluster = workspaceReviews.length > 0;
 
   // KPI deltas
   const ratingDelta = fmtDelta(overview?.avgRating ?? null, overview?.avgRatingPrev ?? null);
@@ -669,6 +674,12 @@ export function SentimentScreen() {
             onClick={handleRecluster}
             disabled={isPending || reclusterReviews.length === 0}
             className="ml-auto flex h-7 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40"
+            onClick={() =>
+              analyze(workspaceReviews.slice(0, 100), { onSuccess: setAiResults })
+            }
+            disabled={isPending || !canRecluster}
+            title={canRecluster ? "Run AI sentiment clustering on recent reviews" : "Sync reviews first"}
+            className="ml-auto flex h-7 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50"
           >
             {isPending ? (
               <Loader2 className="size-3 animate-spin" />

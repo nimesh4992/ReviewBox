@@ -1,27 +1,28 @@
-import { createClient } from "@supabase/supabase-js";
+import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
-// Use the Supavisor pooler URL (transaction mode, port 6543) for server-side
-// queries from Vercel serverless functions. Falls back to direct URL in dev.
-// Get pooler URL from: Supabase dashboard → Settings → Database → Connection string → Transaction mode
-function getDbUrl(): string {
-  return (
-    process.env.SUPABASE_DB_POOLER_URL ?? // transaction-mode pooler (prod)
-    process.env.NEXT_PUBLIC_SUPABASE_URL!  // direct connection (dev fallback)
-  );
+// supabase-js client REQUIRES the HTTPS REST URL (https://xxx.supabase.co).
+// The Postgres pooler URL (postgresql://, port 6543) is for direct DB libraries
+// like `pg` — passing it here crashes every query. Do NOT add a fallback to it.
+
+let _client: SupabaseClient | null = null;
+
+export function getServiceClient(): SupabaseClient {
+  if (_client) return _client;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) {
+    throw new Error(
+      "Supabase env vars missing: NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY required",
+    );
+  }
+  _client = createClient(url, key, {
+    auth: { persistSession: false },
+    db: { schema: "public" },
+  });
+  return _client;
 }
 
-export function getServiceClient() {
-  return createClient(
-    getDbUrl(),
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-      auth: { persistSession: false }, // server-side — never persist
-      db: { schema: "public" },
-    }
-  );
-}
-
-// Get workspace_id for a clerk user
+// Get workspace_id for a clerk user. Returns null if user has no workspace yet.
 export async function getWorkspaceId(clerkUserId: string): Promise<string | null> {
   const sb = getServiceClient();
   const { data } = await sb
@@ -29,6 +30,6 @@ export async function getWorkspaceId(clerkUserId: string): Promise<string | null
     .select("workspace_id")
     .eq("clerk_user_id", clerkUserId)
     .limit(1)
-    .single();
-  return data?.workspace_id ?? null;
+    .maybeSingle();
+  return (data?.workspace_id as string | null) ?? null;
 }

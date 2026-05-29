@@ -2,8 +2,20 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { apiError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
 import type { AutomationAction, AutomationCondition } from "@/types/review";
+
+// Allowlist — must stay in sync with AutomationAction union in types/review.ts
+const VALID_ACTIONS: AutomationAction[] = [
+  "ai_reply",
+  "template_reply",
+  "apply_tag",
+  "escalate",
+  "report_spam",
+];
+const NAME_MAX_LEN = 120;
+const CONDITIONS_MAX = 10;
 
 interface CreateRuleBody {
   name: string;
@@ -20,17 +32,11 @@ export async function GET(): Promise<NextResponse> {
   // 1. Auth
   const session = await auth();
   const userId = session?.userId;
-  if (!userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  if (!userId) return apiError("UNAUTHORIZED", 401);
 
-  // 2. Resolve workspace
   const workspaceId = await getWorkspaceId(userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
-  }
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
-  // 3. Fetch rules
   const sb = getServiceClient();
   const { data, error } = await sb
     .from("automation_rules")
@@ -40,10 +46,7 @@ export async function GET(): Promise<NextResponse> {
 
   if (error) {
     console.error("automations/rules GET error:", error);
-    return NextResponse.json(
-      { error: "INTERNAL_SERVER_ERROR" },
-      { status: 500 },
-    );
+    return apiError("INTERNAL_SERVER_ERROR", 500);
   }
 
   return NextResponse.json({ rules: data }, { status: 200 });
@@ -53,19 +56,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // 1. Auth
   const session = await auth();
   const userId = session?.userId;
-  if (!userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  if (!userId) return apiError("UNAUTHORIZED", 401);
 
-  // 2. Resolve workspace
   const workspaceId = await getWorkspaceId(userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
-  }
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
   // 3. Parse body
   const body = (await req.json()) as CreateRuleBody;
   const { name, description, conditions, action, actionLabel, actionConfig, appsScope, priority } = body;
+
+  // 3a. Validate
+  if (!name?.trim()) {
+    return apiError("INVALID_INPUT", 400, "name is required");
+  }
+  if (!VALID_ACTIONS.includes(action)) {
+    return apiError("INVALID_INPUT", 400, `action must be one of: ${VALID_ACTIONS.join(", ")}`);
+  }
+  if (!Array.isArray(conditions) || conditions.length === 0 || conditions.length > CONDITIONS_MAX) {
+    return apiError("INVALID_INPUT", 400, `conditions must be a non-empty array of max ${CONDITIONS_MAX}`);
+  }
 
   // 4. Insert
   const sb = getServiceClient();
@@ -73,7 +82,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .from("automation_rules")
     .insert({
       workspace_id:  workspaceId,
-      name,
+      name:          name.trim().slice(0, NAME_MAX_LEN),
       description:   description ?? "",
       conditions,
       action,
@@ -90,10 +99,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   if (error) {
     console.error("automations/rules POST error:", error);
-    return NextResponse.json(
-      { error: "INTERNAL_SERVER_ERROR" },
-      { status: 500 },
-    );
+    return apiError("INTERNAL_SERVER_ERROR", 500);
   }
 
   await audit({

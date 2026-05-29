@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useDeferredValue } from "react";
 import Link from "next/link";
 import {
   CheckCheck,
@@ -11,10 +11,65 @@ import {
   Sparkles,
   X,
 } from "lucide-react";
+import { useQueryClient } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
 import { AppReview, ReviewSentiment, AIReplyTone } from "@/types/review";
 import { humanizeToken, formatReviewDate } from "@/utils/format";
+
+// Helper — stamp a review as replied in the infinite query cache
+function useMarkReplied() {
+  const qc = useQueryClient();
+  return (reviewId: string, replyText: string) => {
+    qc.setQueriesData<{
+      pages: Array<{ reviews: AppReview[]; nextCursor: string | null; hasMore: boolean }>;
+      pageParams: unknown[];
+    }>(
+      { queryKey: ["reviews"] },
+      (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            reviews: page.reviews.map((r) =>
+              r.id === reviewId
+                ? { ...r, replyStatus: "replied" as const, replyText }
+                : r,
+            ),
+          })),
+        };
+      },
+    );
+  };
+}
+
+// Helper — stamp a review as draft_ready in the infinite query cache
+function useMarkDraft() {
+  const qc = useQueryClient();
+  return (reviewId: string, replyText: string) => {
+    qc.setQueriesData<{
+      pages: Array<{ reviews: AppReview[]; nextCursor: string | null; hasMore: boolean }>;
+      pageParams: unknown[];
+    }>(
+      { queryKey: ["reviews"] },
+      (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            reviews: page.reviews.map((r) =>
+              r.id === reviewId
+                ? { ...r, replyStatus: "draft_ready" as const, replyText }
+                : r,
+            ),
+          })),
+        };
+      },
+    );
+  };
+}
 
 // ── Store char limits ─────────────────────────────────────────────────────────
 
@@ -84,20 +139,36 @@ function shortTitle(text: string): string {
 
 // ── ReviewRow ─────────────────────────────────────────────────────────────────
 
-function ReviewRow({ review, selected, onClick }: {
+function ReviewRow({ review, selected, onClick, selectMode, isChecked, onCheck }: {
   review: AppReview;
   selected: boolean;
   onClick: () => void;
+  selectMode?: boolean;
+  isChecked?: boolean;
+  onCheck?: (id: string) => void;
 }) {
   return (
     <div
-      onClick={onClick}
+      onClick={selectMode ? () => onCheck?.(review.id) : onClick}
       className={cn(
         "flex cursor-pointer gap-3 border-b border-[var(--rb-border-1)] px-4 py-3.5 transition-colors",
-        selected ? "bg-[var(--rb-bg-selected)]" : "hover:bg-[var(--rb-bg-hover)]",
+        selected && !selectMode ? "bg-[var(--rb-bg-selected)]" : "hover:bg-[var(--rb-bg-hover)]",
+        isChecked && "bg-[var(--rb-blue-50)]",
       )}
     >
-      <AppIconAvatar source={review.source} />
+      {selectMode ? (
+        <div className="flex shrink-0 items-center">
+          <input
+            type="checkbox"
+            checked={isChecked ?? false}
+            onChange={() => onCheck?.(review.id)}
+            onClick={(e) => e.stopPropagation()}
+            className="size-3.5 accent-[var(--rb-blue-500)]"
+          />
+        </div>
+      ) : (
+        <AppIconAvatar source={review.source} />
+      )}
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
           <span className="min-w-0 truncate text-[13px] font-semibold text-[var(--rb-fg-1)]">
@@ -183,14 +254,41 @@ function ReplyComposer({
   const [isSending, setIsSending]         = useState(false);
   const [sendFeedback, setSendFeedback]   = useState<"success" | "error" | null>(null);
   const [sendError, setSendError]         = useState<string | null>(null);
+  const [sendErrorLink, setSendErrorLink] = useState<{ label: string; href: string } | null>(null);
   const [replyDone, setReplyDone]         = useState(alreadyReplied);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [draftSaved, setDraftSaved]       = useState(false);
   // Learning loop: track draft source + whether user edited before sending
   const [draftSource, setDraftSource]     = useState<string | null>(null);
   const [originalDraft, setOriginalDraft] = useState<string | null>(null);
   const prevToneRef                       = useRef(tone);
 
-  const overLimit = text.length > limit;
-  const badge     = SENTIMENT_BADGE[review.sentiment];
+  const overLimit   = text.length > limit;
+  const badge       = SENTIMENT_BADGE[review.sentiment];
+  const markReplied = useMarkReplied();
+  const markDraft   = useMarkDraft();
+
+  // Translation state
+  const [isTranslating, setIsTranslating] = useState(false);
+  const [translatedText, setTranslatedText] = useState<string | null>(null);
+  const [sourceLang, setSourceLang]         = useState<string | null>(null);
+  const [showTranslation, setShowTranslation] = useState(false);
+
+  async function handleTranslate() {
+    if (translatedText) { setShowTranslation((v) => !v); return; }
+    setIsTranslating(true);
+    try {
+      const res = await fetch(`/api/reviews/${review.id}/translate`, { method: "POST" });
+      if (res.ok) {
+        const data = await res.json() as { translatedText: string; sourceLang: string };
+        setTranslatedText(data.translatedText);
+        setSourceLang(data.sourceLang);
+        setShowTranslation(true);
+      }
+    } finally {
+      setIsTranslating(false);
+    }
+  }
 
   const handleGenerate = useCallback(async (selectedTone: AIReplyTone) => {
     setIsGenerating(true);
@@ -240,6 +338,8 @@ function ReplyComposer({
     if (!text.trim() || overLimit) return;
     setIsSending(true);
     setSendFeedback(null);
+    setSendError(null);
+    setSendErrorLink(null);
     try {
       const res = await fetch(`/api/reviews/${review.id}/reply`, {
         method: "POST",
@@ -248,44 +348,68 @@ function ReplyComposer({
           replyText:   text,
           status:      "sent",
           draftSource: draftSource ?? "manual",
-          // Edited = had a draft AND user changed it before sending
           draftEdited: originalDraft !== null && text.trim() !== originalDraft.trim(),
         }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({})) as { error?: string };
+        const isCredentialError =
+          data.error === "APP_STORE_NOT_CONNECTED" ||
+          data.error === "GOOGLE_PLAY_NOT_CONFIGURED";
         const msg =
-          data.error === "APP_STORE_NOT_CONNECTED"   ? "Connect App Store credentials in Settings first." :
-          data.error === "STORE_RATE_LIMITED"        ? "Store rate limit — try again in a few minutes."   :
-          data.error === "REVIEW_NOT_FOUND_ON_STORE" ? "Review no longer available on the store."         :
-          data.error === "STORE_SUBMIT_FAILED"       ? "Store rejected the reply — check console."         :
+          data.error === "APP_STORE_NOT_CONNECTED"   ? "App Store credentials not connected."      :
+          data.error === "GOOGLE_PLAY_NOT_CONFIGURED"? "Google Play service account not configured." :
+          data.error === "STORE_RATE_LIMITED"        ? "Store rate limit — try again in a few minutes." :
+          data.error === "REVIEW_NOT_FOUND_ON_STORE" ? "Review no longer available on the store."   :
+          data.error === "STORE_SUBMIT_FAILED"       ? "Store rejected the reply — check credentials." :
+          data.error === "REPLY_TOO_LONG"            ? "Reply exceeds the store's character limit."  :
           "Something went wrong.";
         setSendFeedback("error");
         setSendError(msg);
-        setTimeout(() => { setSendFeedback(null); setSendError(null); }, 4000);
+        if (isCredentialError) {
+          setSendErrorLink({ label: "Set up in Settings →", href: "/settings" });
+          // Credential errors stay visible — user needs to act
+        } else {
+          setTimeout(() => { setSendFeedback(null); setSendError(null); }, 5000);
+        }
         return;
       }
+      markReplied(review.id, text.trim());
       setReplyDone(true);
       setTimeout(() => onAdvance(review.id), 1200);
     } catch {
       setSendFeedback("error");
-      setTimeout(() => setSendFeedback(null), 2500);
+      setSendError("Network error — check your connection.");
+      setTimeout(() => { setSendFeedback(null); setSendError(null); }, 5000);
     } finally {
       setIsSending(false);
     }
   }
 
   async function handleSaveDraft() {
-    if (!text.trim()) return;
-    await fetch(`/api/reviews/${review.id}/reply`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ replyText: text, status: "draft" }),
-    });
+    if (!text.trim() || isSavingDraft) return;
+    setIsSavingDraft(true);
+    setDraftSaved(false);
+    try {
+      const res = await fetch(`/api/reviews/${review.id}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ replyText: text, status: "draft" }),
+      });
+      if (res.ok) {
+        markDraft(review.id, text.trim());
+        setDraftSaved(true);
+        setTimeout(() => setDraftSaved(false), 3000);
+      }
+    } catch {
+      // best-effort — silent fail on draft save
+    } finally {
+      setIsSavingDraft(false);
+    }
   }
 
   return (
-    <div className="flex w-[420px] shrink-0 flex-col border-l border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)]">
+    <div className="flex w-[420px] shrink-0 flex-col border-l border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)]">
       {/* Header */}
       <div className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-[18px] py-[14px]">
         <AppIconAvatar source={review.source} size="xs" />
@@ -313,7 +437,7 @@ function ReplyComposer({
           {shortTitle(review.text)}
         </p>
         <p className="mt-1.5 text-[13px] leading-relaxed text-[var(--rb-fg-2)]">{review.text}</p>
-        <div className="mt-2.5 flex flex-wrap gap-1.5">
+        <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
           <span className={cn(
             "inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 text-[11px] font-semibold",
             badge.className,
@@ -330,7 +454,33 @@ function ReplyComposer({
               {humanizeToken(tag)}
             </span>
           ))}
+          {/* Translate button */}
+          <button
+            onClick={handleTranslate}
+            disabled={isTranslating}
+            className="ml-auto flex items-center gap-1 rounded-full border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--rb-fg-2)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50"
+          >
+            {isTranslating ? (
+              <Loader2 className="size-2.5 animate-spin" strokeWidth={2} />
+            ) : (
+              <span className="text-[10px]">🌐</span>
+            )}
+            {showTranslation ? "Original" : "Translate"}
+          </button>
         </div>
+
+        {/* Translated text */}
+        {showTranslation && translatedText && sourceLang !== "en" && (
+          <div className="mt-2 rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2">
+            <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-[var(--rb-fg-3)]">
+              Translated from {sourceLang?.toUpperCase() ?? "?"}
+            </div>
+            <p className="text-[13px] leading-relaxed text-[var(--rb-fg-2)]">{translatedText}</p>
+          </div>
+        )}
+        {showTranslation && sourceLang === "en" && (
+          <p className="mt-1.5 text-[11px] text-[var(--rb-fg-3)]">Already in English.</p>
+        )}
       </div>
 
       {/* Existing reply banner */}
@@ -428,32 +578,44 @@ function ReplyComposer({
         {replyDone && !alreadyReplied ? (
           <p className="text-[12px] font-semibold text-[var(--rb-green-500)]">✓ Reply sent — moving to next…</p>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-1.5">
             {sendFeedback === "error" && sendError && (
-              <p className="text-[11px] text-[var(--rb-red-500)]">{sendError}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-[11px] text-[var(--rb-red-500)]">{sendError}</p>
+                {sendErrorLink && (
+                  <Link
+                    href={sendErrorLink.href}
+                    className="shrink-0 text-[11px] font-semibold text-[var(--rb-blue-500)] hover:underline"
+                  >
+                    {sendErrorLink.label}
+                  </Link>
+                )}
+              </div>
             )}
-            <button
-              onClick={handleSend}
-              disabled={isSending || !text.trim() || overLimit}
-              className={cn(
-                "h-[30px] rounded-[7px] px-3 text-[12px] font-semibold text-white transition-colors disabled:opacity-50",
-                sendFeedback === "error"
-                  ? "bg-[var(--rb-red-500)] hover:bg-[var(--rb-red-600)]"
-                  : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
-              )}
-            >
-              {isSending ? "Posting…" : sendFeedback === "error" ? "Retry" : alreadyReplied ? "Update reply" : "Post reply"}
-            </button>
-            <button
-              onClick={handleSaveDraft}
-              disabled={!text.trim() || overLimit}
-              className="h-[30px] rounded-[7px] border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] px-3 text-[12px] font-semibold text-[var(--rb-fg-1)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40"
-            >
-              Save draft
-            </button>
-            <span className="ml-auto shrink-0 text-[11px] text-[var(--rb-fg-3)]">
-              {review.source === "App Store" ? "Posts to App Store" : "Posts to Google Play"} · ~5 min
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSend}
+                disabled={isSending || !text.trim() || overLimit}
+                className={cn(
+                  "h-9 rounded-[7px] px-4 text-[12px] font-semibold text-white transition-colors disabled:opacity-50",
+                  sendFeedback === "error"
+                    ? "bg-[var(--rb-red-500)] hover:bg-[var(--rb-red-600)]"
+                    : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
+                )}
+              >
+                {isSending ? "Posting…" : sendFeedback === "error" ? "Retry" : alreadyReplied ? "Update reply" : "Post reply"}
+              </button>
+              <button
+                onClick={handleSaveDraft}
+                disabled={!text.trim() || overLimit || isSavingDraft}
+                className="h-8 rounded-[7px] px-3 text-[12px] font-medium text-[var(--rb-fg-3)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40"
+              >
+                {isSavingDraft ? "Saving…" : draftSaved ? "✓ Saved" : "Save draft"}
+              </button>
+              <span className="ml-auto shrink-0 text-[11px] text-[var(--rb-fg-3)]">
+                {review.source === "App Store" ? "Posts to App Store" : "Posts to Google Play"} · ~5 min
+              </span>
+            </div>
           </div>
         )}
       </div>
@@ -499,6 +661,7 @@ function GroupReplyPanel({
   const [sendErrors, setSendErrors]         = useState<SendError[]>([]);
   const [allDone, setAllDone]               = useState(false);
   const prevToneRef                         = useRef(tone);
+  const markReplied                         = useMarkReplied();
 
   // Use the first candidate as the representative for AI generation
   const rep = candidates[0];
@@ -578,6 +741,8 @@ function GroupReplyPanel({
         if (!res.ok) {
           const data = await res.json().catch(() => ({})) as { error?: string };
           errs.push({ reviewId: r.id, author: r.author, message: data.error ?? "Failed" });
+        } else {
+          markReplied(r.id, text.trim());
         }
       } catch {
         errs.push({ reviewId: r.id, author: r.author, message: "Network error" });
@@ -847,6 +1012,7 @@ interface InboxScreenProps {
   reviews: AppReview[];
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
+  isFetching?: boolean;
   fetchNextPage?: () => void;
 }
 
@@ -854,22 +1020,54 @@ export function InboxScreen({
   reviews,
   hasNextPage = false,
   isFetchingNextPage = false,
+  isFetching = false,
   fetchNextPage,
 }: InboxScreenProps) {
-  const [selectedId, setSelectedId]       = useState<string | null>(reviews[0]?.id ?? null);
-  const [activeFilter, setActiveFilter]   = useState<InboxFilter>("all");
-  const [sort, setSort]                   = useState<InboxSort>("newest");
-  const [search, setSearch]               = useState("");
-  const [versionFilter, setVersionFilter] = useState<string>("all");
-  const [groupMode, setGroupMode]         = useState(false);
+  const [selectedId, setSelectedId]         = useState<string | null>(reviews[0]?.id ?? null);
+  const [activeFilter, setActiveFilter]     = useState<InboxFilter>("all");
+  const [sort, setSort]                     = useState<InboxSort>("newest");
+  const [search, setSearch]                 = useState("");
+  const [versionFilter, setVersionFilter]   = useState<string>("all");
+  const [groupMode, setGroupMode]           = useState(false);
+  const [selectMode, setSelectMode]           = useState(false);
+  const [manuallySelected, setManuallySelected] = useState<Set<string>>(new Set());
+  const [bulkWorking, setBulkWorking]         = useState(false);
+  const [groupReviewsOverride, setGroupReviewsOverride] = useState<AppReview[] | null>(null);
+  const markRepliedBulk                       = useMarkReplied();
+
+  // ── Server-side full-text search (fires when search ≥ 3 chars) ──────────────
+  const deferredSearch = useDeferredValue(search);
+  const [serverResults, setServerResults] = useState<AppReview[] | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    if (deferredSearch.trim().length < 3) {
+      setServerResults(null);
+      return;
+    }
+    let cancelled = false;
+    setIsSearching(true);
+    const params = new URLSearchParams({ search: deferredSearch.trim(), limit: "50" });
+    fetch(`/api/reviews?${params.toString()}`)
+      .then((r) => r.json() as Promise<{ reviews: AppReview[] }>)
+      .then((data) => {
+        if (!cancelled) setServerResults(data.reviews ?? []);
+      })
+      .catch(() => { if (!cancelled) setServerResults(null); })
+      .finally(() => { if (!cancelled) setIsSearching(false); });
+    return () => { cancelled = true; };
+  }, [deferredSearch]);
+
+  // When server search is active, replace the reviews set
+  const effectiveReviews = serverResults !== null ? serverResults : reviews;
 
   // Unique versions from loaded reviews (top 4)
   const uniqueVersions = Array.from(
-    new Set(reviews.map((r) => r.appVersion).filter(Boolean)),
+    new Set(effectiveReviews.map((r) => r.appVersion).filter(Boolean)),
   ).slice(0, 4);
 
-  const unrepliedCount = reviews.filter((r) => r.replyStatus === "needs_reply").length;
-  const lowRatingCount = reviews.filter((r) => r.rating <= 2).length;
+  const unrepliedCount = effectiveReviews.filter((r) => r.replyStatus === "needs_reply").length;
+  const lowRatingCount = effectiveReviews.filter((r) => r.rating <= 2).length;
 
   const FILTERS: { value: InboxFilter; label: React.ReactNode }[] = [
     { value: "all",        label: `All · ${reviews.length}` },
@@ -887,7 +1085,7 @@ export function InboxScreen({
     { value: "play_store", label: "Play Store" },
   ];
 
-  const filtered = reviews
+  const filtered = effectiveReviews
     .filter((r) => {
       if (activeFilter === "unreplied")  return r.replyStatus === "needs_reply";
       if (activeFilter === "low_rating") return r.rating <= 2;
@@ -896,7 +1094,9 @@ export function InboxScreen({
       return true;
     })
     .filter((r) => versionFilter !== "all" ? r.appVersion === versionFilter : true)
+    // Client-side text filter only when server search isn't active (< 3 chars)
     .filter((r) => {
+      if (serverResults !== null) return true; // already filtered server-side
       if (!search.trim()) return true;
       const q = search.toLowerCase();
       return r.text.toLowerCase().includes(q) || r.author.toLowerCase().includes(q);
@@ -909,6 +1109,41 @@ export function InboxScreen({
   const selected     = sorted.find((r) => r.id === selectedId) ?? null;
   const groupCount   = sorted.filter((r) => r.replyStatus === "needs_reply").length;
   const showGroupBtn = groupCount >= 2 && !groupMode;
+
+  function toggleSelect(id: string) {
+    setManuallySelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }
+
+  function exitSelectMode() {
+    setSelectMode(false);
+    setManuallySelected(new Set());
+  }
+
+  async function handleBulkMarkReplied() {
+    if (manuallySelected.size === 0) return;
+    setBulkWorking(true);
+    try {
+      const ids = Array.from(manuallySelected);
+      const res = await fetch("/api/reviews/bulk-action", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids, action: "mark_replied" }),
+      });
+      if (res.ok) {
+        // Update cache for each selected review
+        for (const id of ids) {
+          markRepliedBulk(id, "");
+        }
+        exitSelectMode();
+      }
+    } finally {
+      setBulkWorking(false);
+    }
+  }
 
   // Auto-advance after single reply
   const handleAdvance = useCallback((currentId: string) => {
@@ -923,17 +1158,45 @@ export function InboxScreen({
     <div className="flex flex-1 min-h-0 overflow-hidden">
 
       {/* ── Left — review list ─────────────────────────────────────────────── */}
-      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
 
         {/* Header */}
         <div className="shrink-0 border-b border-[var(--rb-border-1)] px-7 pb-3.5 pt-5">
           <div className="mb-3.5 flex items-end justify-between gap-4">
             <div>
-              <div className="text-[12px] font-medium text-[var(--rb-fg-3)]">
-                {reviews.length} review{reviews.length !== 1 ? "s" : ""}
-                {sorted.length !== reviews.length && (
-                  <span className="ml-1 text-[var(--rb-blue-500)]">· {sorted.length} shown</span>
-                )}
+              <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--rb-fg-3)]">
+                <span>
+                  {isSearching ? (
+                    <span className="flex items-center gap-1">
+                      <Loader2 className="size-3 animate-spin" strokeWidth={1.5} />
+                      Searching…
+                    </span>
+                  ) : (
+                    <>
+                      {effectiveReviews.length} review{effectiveReviews.length !== 1 ? "s" : ""}
+                      {serverResults !== null && (
+                        <span className="ml-1 text-[var(--rb-blue-500)]">· search results</span>
+                      )}
+                      {sorted.length !== effectiveReviews.length && serverResults === null && (
+                        <span className="ml-1 text-[var(--rb-blue-500)]">· {sorted.length} shown</span>
+                      )}
+                    </>
+                  )}
+                </span>
+                {/* Live-refresh indicator — pulses while polling */}
+                <span
+                  title="Auto-refreshes every 60 seconds"
+                  className={cn(
+                    "inline-flex items-center gap-1 text-[10px] font-semibold",
+                    isFetching && !isFetchingNextPage ? "text-[var(--rb-blue-500)]" : "text-[var(--rb-fg-4)]",
+                  )}
+                >
+                  <span className={cn(
+                    "size-1.5 rounded-full",
+                    isFetching && !isFetchingNextPage ? "animate-pulse bg-[var(--rb-blue-500)]" : "bg-[var(--rb-fg-4)]",
+                  )} />
+                  Live
+                </span>
               </div>
               <h1
                 className="mt-1 text-[24px] font-semibold leading-tight tracking-[-0.022em] text-[var(--rb-fg-1)]"
@@ -944,15 +1207,27 @@ export function InboxScreen({
             </div>
             <div className="flex items-center gap-2">
               {/* Group reply button — appears when 2+ unreplied in current filter */}
-              {showGroupBtn && (
+              {showGroupBtn && !selectMode && (
                 <button
-                  onClick={() => { setGroupMode(true); setSelectedId(null); }}
+                  onClick={() => { setGroupMode(true); setSelectedId(null); setGroupReviewsOverride(null); }}
                   className="flex h-8 items-center gap-1.5 rounded-[8px] bg-[rgba(142,91,255,0.10)] px-3 text-[12px] font-semibold text-[var(--rb-purple-500)] transition-colors hover:bg-[rgba(142,91,255,0.16)]"
                 >
                   <MessageSquareDiff className="size-3.5" strokeWidth={2} />
                   Reply all · {groupCount}
                 </button>
               )}
+              {/* Select / cancel select */}
+              <button
+                onClick={() => { if (selectMode) exitSelectMode(); else { setSelectMode(true); setGroupMode(false); setSelectedId(null); } }}
+                className={cn(
+                  "h-8 rounded-[8px] px-3 text-[12px] font-semibold transition-colors",
+                  selectMode
+                    ? "bg-[var(--rb-bg-sunken)] text-[var(--rb-fg-1)]"
+                    : "text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)]",
+                )}
+              >
+                {selectMode ? "Cancel" : "Select"}
+              </button>
               {/* Sort */}
               <div className="flex shrink-0 items-center rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-0.5">
                 {(["newest", "lowest"] as const).map((s) => (
@@ -1030,6 +1305,36 @@ export function InboxScreen({
               ))}
             </div>
           )}
+
+          {/* KPI metrics strip — derived from currently filtered set */}
+          {sorted.length > 0 && (() => {
+            const sortedReplied   = sorted.filter((r) => r.replyStatus === "replied").length;
+            const sortedUnreplied = sorted.filter((r) => r.replyStatus === "needs_reply").length;
+            const avgRating       = sorted.reduce((s, r) => s + r.rating, 0) / sorted.length;
+            const replyRate       = sorted.length > 0 ? Math.round((sortedReplied / sorted.length) * 100) : 0;
+            const stats = [
+              { label: "Shown",        value: String(sorted.length)             },
+              { label: "Avg ★",        value: avgRating.toFixed(1)              },
+              { label: "Needs reply",  value: String(sortedUnreplied),  alert: sortedUnreplied > 0 },
+              { label: "Replied",      value: String(sortedReplied)             },
+              { label: "Reply rate",   value: replyRate + "%"                   },
+            ];
+            return (
+              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 border-t border-[var(--rb-border-1)] pt-2.5">
+                {stats.map((s) => (
+                  <div key={s.label} className="flex items-baseline gap-1.5">
+                    <span className={cn(
+                      "text-[13px] font-semibold tabular-nums leading-none",
+                      s.alert ? "text-[var(--rb-blue-500)]" : "text-[var(--rb-fg-1)]",
+                    )}>
+                      {s.value}
+                    </span>
+                    <span className="text-[11px] text-[var(--rb-fg-3)]">{s.label}</span>
+                  </div>
+                ))}
+              </div>
+            );
+          })()}
         </div>
 
         {/* Review rows */}
@@ -1062,6 +1367,9 @@ export function InboxScreen({
                   review={r}
                   selected={!groupMode && r.id === selectedId}
                   onClick={() => { setGroupMode(false); setSelectedId(r.id); }}
+                  selectMode={selectMode}
+                  isChecked={manuallySelected.has(r.id)}
+                  onCheck={toggleSelect}
                 />
               ))}
               {hasNextPage && (
@@ -1078,15 +1386,57 @@ export function InboxScreen({
             </>
           )}
         </div>
+
+        {/* ── Bulk action bar — floats above review list when items selected ─ */}
+        {selectMode && manuallySelected.size > 0 && (
+          <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
+            <div className="flex items-center gap-2 rounded-[10px] border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] px-3 py-2 shadow-[var(--rb-shadow-sm)]">
+              <span className="text-[12px] font-semibold text-[var(--rb-fg-1)]">
+                {manuallySelected.size} selected
+              </span>
+              <div className="mx-1 h-4 w-px bg-[var(--rb-border-2)]" />
+              <button
+                onClick={handleBulkMarkReplied}
+                disabled={bulkWorking}
+                className="flex h-7 items-center gap-1.5 rounded-[7px] bg-[var(--rb-green-500)] px-3 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              >
+                {bulkWorking ? <Loader2 className="size-3 animate-spin" strokeWidth={1.5} /> : <CheckCheck className="size-3" strokeWidth={2} />}
+                Mark replied
+              </button>
+              <button
+                onClick={() => {
+                  const selected = sorted.filter((r) => manuallySelected.has(r.id));
+                  if (selected.length > 0) {
+                    setGroupReviewsOverride(selected);
+                    setGroupMode(true);
+                    setSelectedId(null);
+                    setSelectMode(false);
+                    setManuallySelected(new Set());
+                  }
+                }}
+                className="flex h-7 items-center gap-1.5 rounded-[7px] bg-[rgba(142,91,255,0.10)] px-3 text-[11px] font-semibold text-[var(--rb-purple-500)] transition-colors hover:bg-[rgba(142,91,255,0.16)]"
+              >
+                <MessageSquareDiff className="size-3" strokeWidth={2} />
+                Reply all
+              </button>
+              <button
+                onClick={exitSelectMode}
+                className="ml-1 text-[11px] text-[var(--rb-fg-3)] hover:text-[var(--rb-fg-2)]"
+              >
+                <X className="size-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* ── Right — composer or group panel ───────────────────────────────── */}
       {groupMode ? (
         <GroupReplyPanel
-          key={sorted.map((r) => r.id).join(",")}
-          reviews={sorted}
-          onDone={() => { setGroupMode(false); setSelectedId(null); }}
-          onClose={() => setGroupMode(false)}
+          key={(groupReviewsOverride ?? sorted).map((r) => r.id).join(",")}
+          reviews={groupReviewsOverride ?? sorted}
+          onDone={() => { setGroupMode(false); setSelectedId(null); setGroupReviewsOverride(null); }}
+          onClose={() => { setGroupMode(false); setGroupReviewsOverride(null); }}
         />
       ) : selected ? (
         <ReplyComposer

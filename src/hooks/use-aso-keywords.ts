@@ -52,6 +52,27 @@ export function useAddKeyword() {
   });
 }
 
+export function useUpdateKeyword() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (payload: {
+      id: string;
+      current_rank?: number | null;
+      volume_estimate?: number | null;
+    }) => {
+      const { id, ...body } = payload;
+      const res = await fetch(`/api/aso/keywords/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (!res.ok) throw new Error("Failed to update keyword");
+      return res.json() as Promise<AsoKeyword>;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["aso-keywords"] }),
+  });
+}
+
 export function useDeleteKeyword() {
   const qc = useQueryClient();
   return useMutation({

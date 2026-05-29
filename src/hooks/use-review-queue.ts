@@ -2,7 +2,6 @@
 
 import { useInfiniteQuery } from "@tanstack/react-query";
 
-import { mockReviews } from "@/features/reviews/data/mock-reviews";
 import { AppReview } from "@/types/review";
 
 export interface ReviewFiltersQuery {
@@ -10,6 +9,8 @@ export interface ReviewFiltersQuery {
   sentiment?: string;
   rating?: number;
   platform?: string;
+  /** Server-side full-text search on review body + author. Pass when ≥3 chars. */
+  search?: string;
 }
 
 interface ReviewPage {
@@ -29,14 +30,10 @@ async function fetchReviews(
   if (filters.sentiment) params.set("sentiment", filters.sentiment);
   if (filters.rating !== undefined) params.set("rating", String(filters.rating));
   if (filters.platform) params.set("platform", filters.platform);
+  if (filters.search)   params.set("search", filters.search);
 
   const res = await fetch(`/api/reviews?${params.toString()}`);
-
-  // 401 = not authed in dev, or any other error → fall back to mock data
-  if (res.status === 401 || !res.ok) {
-    return { reviews: mockReviews, nextCursor: null, hasMore: false };
-  }
-
+  if (!res.ok) throw new Error(`Reviews fetch failed: ${res.status}`);
   return res.json() as Promise<ReviewPage>;
 }
 
@@ -47,6 +44,7 @@ export function useReviewQueue(filters: ReviewFiltersQuery = {}) {
     hasNextPage,
     isFetchingNextPage,
     isLoading,
+    isFetching,
     isError,
   } = useInfiniteQuery({
     queryKey: ["reviews", filters] as [string, ReviewFiltersQuery],
@@ -55,19 +53,22 @@ export function useReviewQueue(filters: ReviewFiltersQuery = {}) {
     initialPageParam: undefined as string | undefined,
     getNextPageParam: (lastPage: ReviewPage) =>
       lastPage.hasMore && lastPage.nextCursor ? lastPage.nextCursor : undefined,
+    // Poll every 60s when the browser tab is visible — new reviews appear
+    // automatically without a manual refresh. Pauses when tab is hidden to
+    // avoid waking the server on idle sessions.
+    refetchInterval: 60_000,
+    refetchIntervalInBackground: false,
   });
 
   // Flatten pages into a single reviews array; fall back to mock on error
-  const reviews: AppReview[] =
-    isError
-      ? mockReviews
-      : (data?.pages.flatMap((page) => page.reviews) ?? []);
+  const reviews: AppReview[] = data?.pages.flatMap((page) => page.reviews) ?? [];
 
   return {
     reviews,
     fetchNextPage,
     hasNextPage: hasNextPage ?? false,
     isFetchingNextPage,
+    isFetching,
     isLoading,
   };
 }

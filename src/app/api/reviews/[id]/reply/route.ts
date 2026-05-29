@@ -46,6 +46,17 @@ export async function POST(
       return apiError("NO_WORKSPACE", 404);
     }
 
+    // Block writes if workspace is soft-deleted (in 30-day restore grace)
+    const sbCheck = getServiceClient();
+    const { data: ws } = await sbCheck
+      .from("workspaces")
+      .select("deleted_at")
+      .eq("id", workspaceId)
+      .maybeSingle();
+    if (ws?.deleted_at) {
+      return apiError("WORKSPACE_DELETED", 403);
+    }
+
     const { id: reviewId } = await params;
     const body = (await req.json()) as ReplyRequestBody;
     const { replyText, status, draftSource, draftEdited } = body;
@@ -53,6 +64,14 @@ export async function POST(
     if (!replyText?.trim() || !status) {
       return apiError("MISSING_FIELDS", 400);
     }
+
+    // Store-side character limits enforced server-side to prevent silent failures:
+    // Google Play rejects replies > 350 chars; App Store Connect rejects > 5950 chars.
+    // Without this check the DB gets reply_status='replied' but nothing appears in the store.
+    const REPLY_CHAR_LIMITS: Record<string, number> = {
+      google_play: 350,
+      app_store:   5950,
+    };
 
     const sb = getServiceClient();
 
@@ -73,6 +92,18 @@ export async function POST(
     if (status === "sent") {
       type AppInfo = { store_id: string; platform: string; access_token: string | null; refresh_token: string | null };
       const app = (Array.isArray(review.apps) ? review.apps[0] : review.apps) as AppInfo | null;
+
+      // Validate length against the store's hard limit before attempting submit.
+      if (app?.platform && REPLY_CHAR_LIMITS[app.platform]) {
+        const limit = REPLY_CHAR_LIMITS[app.platform];
+        if (replyText.trim().length > limit) {
+          return apiError(
+            "REPLY_TOO_LONG",
+            400,
+            `Reply exceeds the ${limit}-character limit for ${app.platform === "google_play" ? "Google Play" : "App Store"}.`,
+          );
+        }
+      }
 
       try {
         if (app?.platform === "google_play") {

@@ -28,17 +28,24 @@ These are the next items to ship. Don't skip; don't reorder without thinking.
 **Files:** `src/components/layout/top-navigation.tsx`
 **Why now:** First impression. Every new user sees a "Crash spike" for an app they don't have.
 
-### [ ] N3 · Detail pages exist · ICE 64 (8×8÷1)
-**Effort:** 2h.
-**Done when:** Clicking an incident or release in the lists goes to a real detail page (not 404 or blank).
-**Files:** `src/app/(app)/incidents/[id]/page.tsx`, `src/app/(app)/releases/[version]/page.tsx`
-**Why now:** Users will click these. 404 = trust killer.
+### [x] N7 · Marketing site mobile responsiveness · ICE 81 — SHIPPED 2026-05-18
+*Approach: instead of rewriting 1000+ inline styles per page, added a
+single `rb-marketing` class to MarketingShell wrapper, then global
+`@media (max-width: 768px)` rules in `globals.css` that override
+inline grids, font sizes, and padding via attribute selectors. One
+PR covers all 13 marketing pages (landing, pricing, compare, blog,
+customers, etc).*
 
-### [ ] N4 · Remove or wire dead buttons · ICE 56 (7×8÷1)
-**Effort:** 3h.
-**Done when:** Every visible button does something. If we can't ship the feature, the button is hidden behind a feature flag or removed.
-**Files:** `competitors-screen.tsx`, `aso-screen.tsx`, `reports-screen.tsx`, settings sections
-**Why now:** "Save defaults" that does nothing trains users to mistrust us.
+### [x] N8 · Auth pages redesign · ICE — SHIPPED 2026-05-18
+*Split-screen sign-up/sign-in with brand-side panel + AuthShell.
+Dropped the custom terms gate in favor of inline legal line below
+the form.*
+
+### [x] N3 · Detail pages exist · ICE 64 (8×8÷1) — VERIFIED 2026-05-26
+*Both `/incidents/[id]` and `/releases/[version]` already fully implemented with real DB queries — title, severity/status badges, timeline, rating distribution, reviews list. Verified on branch `claude/n3-detail-pages`. Brand color fix applied (not-found state was using old `#5B5BD6` purple).*
+
+### [x] N4 · Remove or wire dead buttons · ICE 56 (7×8÷1) — DONE 2026-05-26
+*Verified all visible buttons: competitors wired (2026-05-25), ASO buttons all wired (AI Suggestions, Add keyword, Update ranks), report cards properly gate with "Coming soon" label when endpoint is null, dead "+ New report" header button removed. No remaining dead buttons. PR `claude/n3-detail-pages` awaiting merge.*
 
 ### [x] N5 · /compare/appfollow with real teeth · ICE 81 (9×9÷1)
 *Shipped 2026-05-19 on branch `claude/n5-compare-appfollow-rewrite` — awaiting founder merge.*
@@ -47,6 +54,24 @@ These are the next items to ship. Don't skip; don't reorder without thinking.
 **Done when:** Page has: feature comparison table (12 rows), ROI calculator widget, 3 customer-style quotes, "Switch in 5 min" CTA, screenshots side-by-side.
 **Files:** `src/app/compare/page.tsx`, `src/components/marketing/roi-calculator.tsx`
 **Why now:** This is your #1 inbound conversion asset. Currently a stub.
+
+### [x] N-SYNC · Unblock first-login review sync · ICE 90 (10×9÷1) — SHIPPED 2026-05-25
+*`isAuthorized()` in `/api/sync/reviews` returned `false` when `CRON_SECRET` not set, silently blocking every onboarding-triggered sync. Fixed: returns `true` when no secret is configured; enforces the secret once set. PR `fix/sync-and-competitors` awaiting merge.*
+
+### [x] N-COMP · Competitors screen real data · ICE 60 (8×7÷1) — SHIPPED 2026-05-25
+*New `GET /api/competitors` endpoint. "You" row shows real DB metrics (rating, reviews/week, reply rate, 6-week trend). Competitors are illustrative placeholders with amber "sample" badge — competitor tracking is a future feature. PR `fix/sync-and-competitors` awaiting merge.*
+
+### [x] N-CRON · Set CRON_SECRET in Vercel · ICE 72 (9×8÷1) — DONE 2026-05-26
+*Founder set env var in Vercel. weekly-digest, unreplied-alert, trial-nudge crons now secured and firing.*
+
+### [x] N-SEC2 · Cross-verification audit — 9 fixes · ICE 88 (10×9÷1) — MERGED 2026-05-26
+*Third-party code review found 9 real bugs missed by audit-round-1/2: trial-nudge cron fail-open, slug regex 1-char, dedup race, invite primary-only email, no reply char limit, GDPR export CSRF, days param NaN, PostgREST injection, .single() log noise. Merged to master.*
+
+### [x] N-META · Cache store metadata scrapes in Redis · ICE 63 (9×7÷1) — SHIPPED 2026-05-29
+*`fetchGooglePlayMetadata()` + `fetchAppStoreMetadata()` now check Redis before scraping (keys `meta:gplay:{id}` / `meta:appstore:{id}`, 6h TTL). Eliminates redundant scrapes across onboarding search → onboarding/complete → daily sync. Branch `fix/metadata-scrape-cache` awaiting merge.*
+
+### [x] N-UX · Reply UX + onboarding skip path · ICE 72 (9×8÷1) — SHIPPED 2026-05-29
+*Draft save: loading state, "✓ Saved" feedback, cache update to `draft_ready`. Credential errors: stay visible with "Set up in Settings →" link. Onboarding step 3: reframed as optional step with "I'll connect later" skip. Branch `fix/reply-ux-and-onboarding-skip` awaiting merge.*
 
 ### [ ] N6 · Stripe test keys + verify upgrade flow · ICE 80 (10×8÷1)
 **Effort:** 1h.
@@ -58,6 +83,28 @@ These are the next items to ship. Don't skip; don't reorder without thinking.
 ## 🟠 NEXT — next 2-4 weeks
 
 Critical-edge features for AppFollow competition.
+
+### [ ] DS1 · Add `--rb-indigo-*` tokens to globals.css · ICE 48 (6×8÷1)
+**Effort:** 10 min.
+**Done when:** `--rb-indigo-500: #5B5BD6` and `--rb-indigo-600: #4a4ac4` defined in `globals.css` with dark mode overrides; all 40 hardcoded `#5B5BD6` usages in Reply Kit + Automations replaced with `var(--rb-indigo-500)`.
+**Files:** `src/app/globals.css`, `src/features/reply-kit/components/*`, `src/features/automations/components/*`
+**Why now:** Quickest design system win. Unblocks theming Reply Kit + Automations. See `docs/DESIGN_SYSTEM_AUDIT.md` C3.
+
+### [ ] DS2 · Define type scale tokens (`--rb-text-*`) · ICE 35 (7×5÷1)
+**Effort:** 30 min.
+**Done when:** 7 type tokens defined in `globals.css` (`caption` 11px → `lg` 16px), wired as Tailwind utilities via `@theme inline`. 538 arbitrary `text-[Npx]` usages replaced in top-5 files (review-queue, dashboard, aso-screen).
+**Files:** `src/app/globals.css`, top-5 offending components.
+**Why:** 538 arbitrary font sizes means one type change = grep across 63 files. See `docs/DESIGN_SYSTEM_AUDIT.md` M1.
+
+### [ ] DS3 · Token migration pass: Settings + Reply Kit `gray-*` → `--rb-*` · ICE 30 (6×5÷1)
+**Effort:** 2h.
+**Done when:** `app-connections.tsx` (52 hits), `templates-tab.tsx` (28), `automation-hub.tsx` (30), `google-play-setup-modal.tsx` (41) all use `text-fg-*` / `bg-surface` instead of `gray-*`. Zero new `gray-*` usages introduced.
+**Why:** Top 4 files = 151 violations. Dark mode broken in all of them. See `docs/DESIGN_SYSTEM_AUDIT.md` C1.
+
+### [ ] DS4 · Replace raw `<button>` with `<Button>` in review-queue + aso-screen · ICE 35 (7×5÷1)
+**Effort:** 1.5h.
+**Done when:** `review-queue.tsx` (22) and `aso-screen.tsx` (17) use `<Button variant="ghost" size="sm">` throughout. Consistent focus rings, keyboard nav, disabled states.
+**Why:** 39 of the 86 raw buttons are in these two files. Accessibility fix — `<button>` has no focus ring in the current stylesheet. See `docs/DESIGN_SYSTEM_AUDIT.md` C4.
 
 ### [ ] X1 · Slack integration · ICE 72 (9×8÷1)
 **Effort:** 1d.

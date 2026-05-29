@@ -1,4 +1,5 @@
 import { AppShell } from "@/components/layout/app-shell";
+import { CredentialsBanner } from "@/components/layout/credentials-banner";
 
 export default function AuthenticatedLayout({
   children,
@@ -6,6 +7,9 @@ export default function AuthenticatedLayout({
   children: React.ReactNode;
 }) {
   return (
-    <AppShell>{children}</AppShell>
+    <AppShell>
+      <CredentialsBanner />
+      {children}
+    </AppShell>
   );
 }

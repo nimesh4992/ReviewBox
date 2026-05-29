@@ -4,15 +4,12 @@ import { stripe } from "@/lib/stripe";
 import Stripe from "stripe";
 import { sendPaymentFailedEmail } from "@/lib/email/send-payment-failed";
 import { audit } from "@/lib/audit";
+import { getServiceClient } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
 async function syncPlanToSupabase(clerkUserId: string, plan: string): Promise<string | null> {
-  const { createClient } = await import("@supabase/supabase-js");
-  const sb = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-  );
+  const sb = getServiceClient();
   const { data } = await sb
     .from("workspace_members")
     .select("workspace_id")
@@ -43,7 +40,7 @@ export async function POST(request: NextRequest) {
   const sig = request.headers.get("stripe-signature");
 
   if (!sig) {
-    return NextResponse.json({ error: "Missing signature" }, { status: 400 });
+    return NextResponse.json({ received: false }, { status: 400 });
   }
 
   let event: Stripe.Event;
@@ -57,16 +54,13 @@ export async function POST(request: NextRequest) {
   } catch (err) {
     const message = err instanceof Error ? err.message : "Signature verification failed";
     console.error("[stripe/webhook] Signature error:", message);
-    return NextResponse.json({ error: message }, { status: 400 });
+    // Never echo internal error message back to the caller — Stripe doesn't use it
+    return NextResponse.json({ received: false }, { status: 400 });
   }
 
   // ── Idempotency: ack duplicates without re-processing ────────────────────────
   {
-    const { createClient } = await import("@supabase/supabase-js");
-    const sb = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    );
+    const sb = getServiceClient();
     const { error: insertError } = await sb
       .from("webhook_events")
       .insert({ id: event.id, source: "stripe", type: event.type });

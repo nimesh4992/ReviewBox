@@ -1,10 +1,51 @@
 import { google } from "googleapis";
+import { createPrivateKey } from "crypto";
 
 // Ensure the environment variables are loaded
-// In production, these will either come from Vercel ENV or be fetched securely from Supabase
 const CLIENT_EMAIL = process.env.GOOGLE_CLIENT_EMAIL;
-// Private keys in .env often have literal "\n" strings that need to be parsed back to actual newlines
-const PRIVATE_KEY = process.env.GOOGLE_PRIVATE_KEY?.replace(/\\n/g, "\n");
+
+/**
+ * Normalise a Google service-account private key from whatever format
+ * Vercel / .env stores it in so that Node 18+ / OpenSSL 3 can parse it.
+ *
+ * Fixes:
+ *  1. Literal `\n` sequences stored in the env var (Vercel default)
+ *  2. Surrounding double-quotes copied from the JSON file
+ *  3. Windows CRLF line endings
+ *
+ * Throws a clear message if still unparseable so it surfaces in Sentry
+ * rather than as the opaque `error:1E08010C:DECODER routines::unsupported`.
+ */
+function parsePrivateKey(raw: string | undefined): string | undefined {
+  if (!raw) return undefined;
+
+  // Strip surrounding quotes (common copy-paste artifact from the JSON file)
+  let key = raw.trim().replace(/^["']|["']$/g, "");
+
+  // Unescape \n sequences only when no real newlines are present
+  if (!key.includes("\n")) {
+    key = key.replace(/\\n/g, "\n");
+  }
+
+  // Normalise Windows CRLF → LF
+  key = key.replace(/\r\n/g, "\n");
+
+  // Validate via Node crypto — throws a clear error if still malformed
+  try {
+    createPrivateKey({ key, format: "pem" });
+  } catch (err) {
+    throw new Error(
+      `GOOGLE_PRIVATE_KEY is malformed and cannot be parsed by OpenSSL. ` +
+      `Check that the key in Vercel env vars is the full PEM block ` +
+      `(including -----BEGIN PRIVATE KEY----- header/footer) with no ` +
+      `surrounding quotes. Original error: ${err instanceof Error ? err.message : String(err)}`,
+    );
+  }
+
+  return key;
+}
+
+const PRIVATE_KEY = parsePrivateKey(process.env.GOOGLE_PRIVATE_KEY);
 
 /**
  * Creates an authenticated Google Play Publisher API client using the Service Account.
@@ -34,14 +75,16 @@ export async function fetchReviews(packageName: string) {
   const play = getPlayClient();
 
   try {
-    const response = await play.reviews.list({
-      packageName: packageName,
-      maxResults: 100, // Google's max limit per request
-    });
+    const response = await Promise.race([
+      play.reviews.list({ packageName, maxResults: 100 }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Google Play fetchReviews timeout")), 15_000),
+      ),
+    ]);
 
     return response.data.reviews || [];
   } catch (error) {
-    console.error("Failed to fetch Google Play reviews:", error);
+    console.error("Failed to fetch Google Play reviews:", error instanceof Error ? error.message : String(error));
     throw error;
   }
 }
@@ -56,17 +99,20 @@ export async function submitReply(packageName: string, reviewId: string, replyTe
   const play = getPlayClient();
 
   try {
-    const response = await play.reviews.reply({
-      packageName: packageName,
-      reviewId: reviewId,
-      requestBody: {
-        replyText: replyText,
-      },
-    });
+    const response = await Promise.race([
+      play.reviews.reply({
+        packageName,
+        reviewId,
+        requestBody: { replyText },
+      }),
+      new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Google Play submitReply timeout")), 15_000),
+      ),
+    ]);
 
     return response.data;
   } catch (error) {
-    console.error("Failed to submit reply to Google Play:", error);
+    console.error("Failed to submit reply to Google Play:", error instanceof Error ? error.message : String(error));
     throw error;
   }
 }

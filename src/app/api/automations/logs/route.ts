@@ -12,6 +12,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { apiError } from "@/lib/api-response";
 import type { AutomationExecutionLog } from "@/types/review";
 
 function mapRow(r: Record<string, unknown>): AutomationExecutionLog {
@@ -32,14 +33,10 @@ function mapRow(r: Record<string, unknown>): AutomationExecutionLog {
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const session = await auth();
-  if (!session?.userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  if (!session?.userId) return apiError("UNAUTHORIZED", 401);
 
   const workspaceId = await getWorkspaceId(session.userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
-  }
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
   const { searchParams } = new URL(req.url);
   const ruleId    = searchParams.get("ruleId") ?? undefined;
@@ -62,7 +59,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (error) {
     console.error("automations/logs GET error:", error);
-    return NextResponse.json({ error: "INTERNAL_SERVER_ERROR" }, { status: 500 });
+    return apiError("INTERNAL_SERVER_ERROR", 500);
   }
 
   return NextResponse.json({

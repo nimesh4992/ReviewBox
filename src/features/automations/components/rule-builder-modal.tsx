@@ -60,6 +60,7 @@ const OPERATOR_OPTIONS_BY_FIELD: Record<
 
 const ACTION_OPTIONS: { value: AutomationAction; label: string; description: string }[] = [
   { value: "ai_reply",       label: "Generate AI reply",    description: "Draft a reply with AI — you review before publishing" },
+  { value: "auto_reply",     label: "Auto-reply (AI)",      description: "Generate and publish an AI reply automatically — no review needed" },
   { value: "template_reply", label: "Reply with template",  description: "Use a saved reply template (auto-matched by rating if none chosen)" },
   { value: "apply_tag",      label: "Apply tag",            description: "Add an issue tag to the review for filtering" },
   { value: "escalate",       label: "Escalate to team",     description: "Mark as urgent and set escalation to engineering" },
@@ -68,6 +69,7 @@ const ACTION_OPTIONS: { value: AutomationAction; label: string; description: str
 
 const ACTION_LABELS: Record<AutomationAction, string> = {
   ai_reply:       "AI reply",
+  auto_reply:     "Auto-reply (AI)",
   template_reply: "Template reply",
   apply_tag:      "Apply tag",
   escalate:       "Escalate",

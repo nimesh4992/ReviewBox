@@ -1,33 +1,46 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
 
 import type { DashboardMetrics } from "@/app/api/dashboard/metrics/route";
 
-const FALLBACK_METRICS: DashboardMetrics = {
-  unrepliedCount: 127,
-  urgentCount: 9,
-  avgRating: 3.8,
-  aiDraftsThisWeek: 5,
-  reviewsToday: 84,
-  totalReviews: 2764,
+// Real zeros — never show fabricated numbers. An empty workspace shows real
+// zeros so the dashboard accurately reflects the user's actual data.
+const EMPTY_METRICS: DashboardMetrics = {
+  unrepliedCount: 0,
+  urgentCount: 0,
+  avgRating: null,
+  aiDraftsThisWeek: 0,
+  reviewsToday: 0,
+  totalReviews: 0,
+  reviewsWeekDelta: null,
+  avgRatingDelta: null,
+  ratingTrend: [],
+  lifetimeRating: null,
+  lifetimeReviewCount: null,
 };
 
 async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
   const res = await fetch("/api/dashboard/metrics");
-  if (!res.ok) return FALLBACK_METRICS;
+  if (!res.ok) throw new Error(`Dashboard metrics fetch failed: ${res.status}`);
   return res.json() as Promise<DashboardMetrics>;
 }
 
 export function useDashboardMetrics() {
-  const { data, isLoading } = useQuery<DashboardMetrics>({
+  const { data, isLoading, isError, refetch } = useQuery<DashboardMetrics>({
     queryKey: ["dashboard-metrics"],
     queryFn: fetchDashboardMetrics,
-    staleTime: 5 * 60 * 1000, // 5 minutes
+    staleTime: 5 * 60 * 1000,
+    retry: 1,
+    // Show previous data while a background refetch runs so the dashboard
+    // never blanks out on return visits.
+    placeholderData: keepPreviousData,
   });
 
   return {
-    data: data ?? FALLBACK_METRICS,
+    data: data ?? EMPTY_METRICS,
     isLoading,
+    isError,
+    refetch,
   };
 }

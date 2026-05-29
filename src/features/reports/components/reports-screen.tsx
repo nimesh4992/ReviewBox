@@ -1,63 +1,85 @@
 "use client";
 
 import { useState } from "react";
+import { Download, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
 
-const REPORTS = [
+interface Report {
+  id:          string;
+  title:       string;
+  description: string;
+  icon:        string;
+  schedule:    string;
+  format:      string;
+  configured:  boolean;
+  /** POST endpoint to trigger immediately; null = coming soon */
+  endpoint:    string | null;
+}
+
+const REPORTS: Report[] = [
   {
-    id: "weekly-digest",
-    title: "Weekly digest",
-    description: "Rating trends, top issues, reply performance, and competitor snapshot. Sent every Monday 9 AM.",
-    icon: "📊",
-    lastRun: "2 days ago",
-    schedule: "Weekly · Mon 9 AM",
-    format: "Email + PDF",
-    configured: true,
+    id:          "weekly-digest",
+    title:       "Weekly digest",
+    description: "Rating trends, top issues, reply performance. Sent to workspace owner every Monday at 9 AM.",
+    icon:        "📊",
+    schedule:    "Weekly · Mon 9 AM",
+    format:      "Email + Slack",
+    configured:  true,
+    endpoint:    "/api/reports/weekly-digest",
   },
   {
-    id: "exec-dashboard",
-    title: "Exec dashboard",
-    description: "One-page summary of KPIs, NPS proxy, and top 3 action items. Shareable link with no login required.",
-    icon: "📈",
-    lastRun: "5 days ago",
-    schedule: "Monthly · 1st",
-    format: "Link + PDF",
-    configured: true,
+    id:          "unreplied-alert",
+    title:       "Unreplied review alert",
+    description: "Notifies when reviews have waited 48+ hours without a reply. Runs daily at 10 AM.",
+    icon:        "⏰",
+    schedule:    "Daily · 10 AM",
+    format:      "Email + Slack",
+    configured:  true,
+    endpoint:    "/api/reports/unreplied-alert",
   },
   {
-    id: "bug-triage",
-    title: "Bug triage export",
+    id:          "bug-triage",
+    title:       "Bug triage export",
     description: "All crash-tagged reviews grouped by version, device, and frequency. CSV for engineering handoff.",
-    icon: "🐛",
-    lastRun: "Never",
-    schedule: "On demand",
-    format: "CSV",
-    configured: false,
+    icon:        "🐛",
+    schedule:    "On demand",
+    format:      "CSV",
+    configured:  false,
+    endpoint:    null,
   },
   {
-    id: "store-reply-audit",
-    title: "Reply audit",
-    description: "Reviews older than SLA threshold with no reply. Includes suggested reply drafts per review.",
-    icon: "💬",
-    lastRun: "1 week ago",
-    schedule: "Weekly · Fri 5 PM",
-    format: "Email",
-    configured: true,
+    id:          "exec-dashboard",
+    title:       "Exec dashboard",
+    description: "One-page KPI summary with top action items. Shareable PDF for stakeholders.",
+    icon:        "📈",
+    schedule:    "Monthly · 1st",
+    format:      "PDF",
+    configured:  false,
+    endpoint:    null,
   },
 ];
 
-function ReportCard({
-  report,
-}: {
-  report: (typeof REPORTS)[number];
-}) {
-  const [running, setRunning] = useState(false);
+function ReportCard({ report }: { report: Report }) {
+  const [running,    setRunning]    = useState(false);
+  const [runResult,  setRunResult]  = useState<"ok" | "err" | null>(null);
 
-  function handleRun() {
+  async function handleRun() {
+    if (!report.endpoint) return;
     setRunning(true);
-    setTimeout(() => setRunning(false), 2000);
+    setRunResult(null);
+    try {
+      const res = await fetch(report.endpoint, { method: "POST" });
+      setRunResult(res.ok ? "ok" : "err");
+    } catch {
+      setRunResult("err");
+    } finally {
+      setRunning(false);
+      setTimeout(() => setRunResult(null), 4000);
+    }
   }
+
+  const canRun = !!report.endpoint;
 
   return (
     <div className="flex flex-col gap-4 rounded-[14px] border border-[var(--rb-border-1)] bg-surface p-5 shadow-[var(--rb-shadow-xs)]">
@@ -71,9 +93,8 @@ function ReportCard({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-2 rounded-[10px] border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-4 py-3">
+      <div className="grid grid-cols-2 gap-2 rounded-[10px] border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-4 py-3">
         {[
-          { label: "Last run", value: report.lastRun },
           { label: "Schedule", value: report.schedule },
           { label: "Format",   value: report.format   },
         ].map(({ label, value }) => (
@@ -85,28 +106,36 @@ function ReportCard({
       </div>
 
       <div className="flex items-center gap-2">
-        <button
-          className={cn(
-            "flex h-7 items-center gap-1.5 rounded-[7px] px-3 text-[12px] font-semibold transition-colors",
-            running
-              ? "bg-[#0A84FF]/20 text-[#0A84FF] cursor-wait"
-              : "bg-[#0A84FF] text-white hover:bg-[#006EE0]",
-          )}
-          onClick={handleRun}
-          disabled={running}
-        >
-          {running ? (
-            <>
-              <span className="size-3 animate-spin rounded-full border-2 border-[#0A84FF] border-t-transparent" />
-              Running…
-            </>
-          ) : (
-            "Run now"
-          )}
-        </button>
-        <button className="h-7 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)]">
-          Configure
-        </button>
+        {canRun ? (
+          <button
+            className={cn(
+              "flex h-7 items-center gap-1.5 rounded-[7px] px-3 text-[12px] font-semibold transition-colors",
+              running
+                ? "bg-[#0A84FF]/20 text-[#0A84FF] cursor-wait"
+                : "bg-[#0A84FF] text-white hover:bg-[#006EE0]",
+            )}
+            onClick={handleRun}
+            disabled={running}
+          >
+            {running ? (
+              <><Loader2 size={11} className="animate-spin" />Running…</>
+            ) : (
+              "Send now"
+            )}
+          </button>
+        ) : (
+          <span className="h-7 flex items-center px-3 text-[12px] font-medium text-fg-3 rounded-[7px] border border-[var(--rb-border-2)]">
+            Coming soon
+          </span>
+        )}
+
+        {runResult === "ok" && (
+          <span className="text-[12px] font-semibold text-[#1F8A5B]">✓ Sent!</span>
+        )}
+        {runResult === "err" && (
+          <span className="text-[12px] font-semibold text-red-500">Failed — try again</span>
+        )}
+
         {report.configured && (
           <span className="ml-auto flex items-center gap-1 text-[11px] text-[#1F8A5B]">
             <span className="size-1.5 rounded-full bg-[#1F8A5B]" />
@@ -118,12 +147,96 @@ function ReportCard({
   );
 }
 
+const EXPORT_RANGES = [
+  { label: "Last 7 days",  value: "7"   },
+  { label: "Last 30 days", value: "30"  },
+  { label: "Last 90 days", value: "90"  },
+  { label: "All time",     value: "all" },
+];
+
+function CsvExportCard() {
+  const [days,        setDays]        = useState<string>("30");
+  const [downloading, setDownloading] = useState(false);
+
+  async function handleExport() {
+    setDownloading(true);
+    try {
+      const url = `/api/reports/export?days=${days}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error("Export failed");
+
+      const blob = await res.blob();
+      const href = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href     = href;
+      a.download = `reviews-${new Date().toISOString().split("T")[0]}.csv`;
+      a.click();
+      URL.revokeObjectURL(href);
+    } finally {
+      setDownloading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-[14px] border border-[var(--rb-border-1)] bg-surface p-5 shadow-[var(--rb-shadow-xs)]">
+      <div className="flex items-center gap-3 mb-4">
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[var(--rb-bg-sunken)] text-[18px]">
+          📥
+        </div>
+        <div>
+          <div className="text-[14px] font-semibold text-fg-1">Export reviews</div>
+          <div className="text-[12px] text-fg-3">Download filtered reviews as CSV for spreadsheets or engineering handoff</div>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="flex rounded-[8px] border border-[var(--rb-border-2)] overflow-hidden">
+          {EXPORT_RANGES.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => setDays(opt.value)}
+              className={cn(
+                "h-7 px-3 text-[12px] font-medium transition-colors border-r border-[var(--rb-border-2)] last:border-r-0",
+                days === opt.value
+                  ? "bg-[#0A84FF] text-white"
+                  : "bg-surface text-fg-2 hover:bg-[var(--rb-bg-hover)]",
+              )}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+
+        <button
+          onClick={handleExport}
+          disabled={downloading}
+          className="flex h-7 items-center gap-1.5 rounded-[7px] bg-[#0A84FF] px-3.5 text-[12px] font-semibold text-white hover:bg-[#006EE0] disabled:opacity-50 transition-colors"
+        >
+          {downloading ? (
+            <><Loader2 size={12} className="animate-spin" /> Downloading…</>
+          ) : (
+            <><Download size={12} /> Download CSV</>
+          )}
+        </button>
+
+        <span className="text-[11px] text-fg-3 ml-auto">
+          Up to 5,000 rows · UTF-8
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function ReportsScreen() {
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8 max-w-[1240px] mx-auto">
 
-      {/* Header */}
+      {/* Header.
+          The "+ New report" button used to live here but did nothing —
+          custom report authoring is queued behind the four built-in
+          reports (weekly digest, unreplied alert, monthly summary,
+          crash spike). Re-add once that backlog item ships. */}
       <header className="flex items-end justify-between gap-6">
         <div>
           <div className="text-[12px] font-medium text-fg-3">{selectedApp || "All apps"}</div>
@@ -131,9 +244,6 @@ export function ReportsScreen() {
             Reports
           </h1>
         </div>
-        <button className="flex h-8 items-center gap-1.5 rounded-lg bg-[#0A84FF] px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#006EE0]">
-          + New report
-        </button>
       </header>
 
       {/* Report cards */}
@@ -142,6 +252,9 @@ export function ReportsScreen() {
           <ReportCard key={r.id} report={r} />
         ))}
       </div>
+
+      {/* CSV Export */}
+      <CsvExportCard />
     </div>
   );
 }

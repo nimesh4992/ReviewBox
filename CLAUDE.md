@@ -4,13 +4,39 @@ AI-powered review management platform for Google Play and Apple App Store operat
 
 **Brand:** ReviewBox · **Domain:** `tryreviewbox.com` · **Email:** `hello@tryreviewbox.com`
 
-> **Active launch plan:** `docs/LAUNCH_PLAN.md` — read this before starting any backend or infra work.
-> **Zero-cost survival plan:** `docs/ZERO_COST_PLAN.md` — read this before adding ANY paid service.
-> **Architecture:** `docs/ARCHITECTURE.md` · **Features:** `docs/FEATURES.md`
+> **READ THESE FIRST, EVERY SESSION** (the autopilot relies on them):
+> 1. **`docs/decisions.md`** — IMMUTABLE rules + the non-coder contract. Agents obey D000–D013.
+> 2. **`docs/backlog.md`** — single source of truth for what we build next. ICE-scored.
+> 3. **`docs/today.md`** — what shipped last session, what's queued. Overwritten each session.
+> 4. **`.claude/agents/*.md`** — pm, architect, coder, tester, reviewer roles. Spawn per task.
+
+> **Other docs:** `docs/LAUNCH_PLAN.md` · `docs/ZERO_COST_PLAN.md` · `docs/ARCHITECTURE.md` · `docs/FEATURES.md`
 
 ## The one rule
 Do not add a paid service until a customer pays first. Every tool has a free tier that covers 0–20 customers.
 See `docs/ZERO_COST_PLAN.md` for the full breakdown.
+
+## The autopilot
+
+The founder is a non-coder. The product ships via this loop:
+
+1. **PM agent** picks the top NOW item from `docs/backlog.md` (ICE-ranked, skip HUMAN-REQUIRED)
+2. **Architect agent** writes an ADR in `docs/adr/` if the item is non-trivial
+3. **Coder agent** branches `claude/<id>-<slug>`, implements, opens a PR
+4. **Tester agent** writes Vitest + Playwright tests for new logic
+5. **Reviewer agent** comments BLOCKER/NIT on the PR before founder merge
+6. CI on every PR (`.github/workflows/ci.yml`): build, type-check, lint, unit tests, e2e tests, security audit. Failure blocks the merge button
+7. Founder verifies on the Vercel preview using the plain-English "How to test" section of the PR template, then merges
+8. Vercel auto-deploys main to production. Founder gets ~60s to roll back via Vercel if needed
+
+Hard rules (`docs/decisions.md` D009):
+- I never push to `main`. PRs only.
+- I never deploy to production.
+- I never run migrations against prod Supabase. Founder pastes them manually.
+- I never send real emails or change pricing or billing.
+- Every PR description must be a 5-minute test plan in plain English.
+
+End of every session: overwrite `docs/today.md` with what shipped and what's next.
 
 ## Stack
 
@@ -69,13 +95,20 @@ src/
       reviews/route.ts                → GET /api/reviews (paginated, Supabase)
       reviews/[id]/reply/route.ts     → POST reply submission
       reply/draft/route.ts            → POST AI draft via Groq
-      dashboard/metrics/route.ts      → GET KPI metrics
+      dashboard/metrics/route.ts      → GET KPI metrics (real deltas + ratingTrend)
       incidents/[id]/route.ts         → GET incident detail
+      incidents/route.ts              → GET/POST incidents
       automations/rules/route.ts      → GET/POST automation rules
       reply-kit/templates/route.ts    → GET/POST reply templates
       reply-kit/knowledge-base/       → GET/POST/DELETE KB entries
       settings/alerts/route.ts        → GET/PUT alert preferences
-      onboarding/complete/route.ts    → POST mark onboarding done
+      onboarding/state/route.ts       → GET onboarding state (DB-authoritative)
+      onboarding/slug-check/route.ts  → GET slug availability (rate-limited)
+      onboarding/search-app/route.ts  → GET search App Store / Google Play
+      onboarding/complete/route.ts    → POST mark onboarding done (sets rb_onboarded cookie)
+      reports/export/route.ts         → GET CSV export with totals
+      reports/weekly-digest/route.ts  → Cron (Mon 9am) parallel batched
+      reports/unreplied-alert/route.ts → Cron (daily 10am)
       stripe/checkout/route.ts        → POST create Stripe session
       stripe/portal/route.ts          → POST billing portal
       stripe/webhook/route.ts         → POST Stripe webhooks
@@ -139,7 +172,10 @@ src/
 
   services/
     supabase/client.ts                → getSupabaseClient() / getServiceClient() factories
-    reviews/review-service.ts         → listReviewQueue() (still returning mock — needs wiring)
+    reviews/review-service.ts         → listReviewQueue() wired to Supabase
+    store-search.ts                   → searchAppStore() + searchGooglePlay()
+    google-play/publisher-api.ts      → reviews + reply submission
+    app-store/connect-api.ts          → reviews + reply submission via JWT
 
   store/
     use-workspace-store.ts            → Zustand: selectedApp, environment (persisted)
@@ -336,7 +372,7 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 | Competitors screen — benchmark table + sparklines | ✅ Done (mock) |
 | ASO screen — keyword rank tracker + AI suggestions panel | ✅ Done (real data) |
 | Reports screen — report cards + run/configure | ✅ Done (mock) |
-| Onboarding wizard — 4-step (connect → apps → team → alerts) | ✅ Done |
+| Onboarding wizard — 4-step (workspace → app search → connect → done), AppFollow-style live app search | ✅ Done (search-first) |
 | Settings UI — alerts, profile, billing | ✅ Done |
 | Landing page — Apple-style light design | ✅ Done |
 | Sign-in / Sign-up — light theme, Clerk appearance API | ✅ Done |
@@ -376,8 +412,12 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 | PostHog analytics | ✅ Done |
 | Sentry error monitoring | ✅ Done |
 | Admin panel wired to real customer data | 🔲 Pending |
-| Security audit + RLS verification | 🔲 Pending |
+| Security audit + RLS verification | ✅ Done (3 passes: 2026-05-21 + 2026-05-25 round-1/2 + 2026-05-26 cross-verify — 44+ fixes) |
 | Next.js 15 → 16 upgrade | 🔲 When stable |
+| Unit test suite (Vitest) | ✅ Done — 70 tests across 9 files, CI-gated |
+| CI pipeline (tsc, lint, vitest, e2e, audit) | ✅ Done — `.github/workflows/ci.yml` |
+| Launch checklist | ✅ `docs/LAUNCH_CHECKLIST.md` (80+ items) |
+| App Store / Google Play search during onboarding | ✅ Done — `/api/onboarding/search-app` |
 
 ---
 
@@ -539,99 +579,245 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 
 ## Current Sprint
 
-**Active: S1.3 — Help Center**
-Last updated: 2026-05-20
+**Active: UX polish + design system audit**
+Last updated: 2026-05-29
 
-Completed sprints: S0.1 · S0.2 · S0.3 · S1.1 · S1.2
+### PRs awaiting founder merge
 
-Key completions (S1.1 + S1.2 — earlier sessions):
-- ✅ `review-service.ts` — wired to Supabase, accepts workspaceId + filters
-- ✅ `src/hooks/use-apps.ts` — React Query hook calling `/api/apps`
-- ✅ Dashboard `MOCK_APPS` → real apps from Supabase via `useApps()` hook
-- ✅ `/api/onboarding/complete` — fires `sendWelcomeEmail()` after workspace creation
-- ✅ `/api/sync/reviews` — Google Play fetch → `enrichReview()` → Supabase upsert
-- ✅ `vercel.json` — Vercel Cron `0 */4 * * *` triggers sync
-- ✅ Rating spike detection: ≥5 reviews ≤2★ same version/24h → email workspace owner
-- ✅ `src/lib/email/send-rating-spike-alert.ts` — alert email template
-- ✅ `/api/sync/reviews` added to Clerk middleware public routes
-
-Key completions 2026-05-19:
-- ✅ **N1** — Supabase migrations 002–006 applied to production
-  - 002: plan vocabulary (trial/starter/pro/team/past_due/canceled), default → trial
-  - 003: audit_log table + RLS (workspace-scoped reads, service-role writes)
-  - 004: webhook_events dedup table (Stripe retry safety)
-  - 005: workspace soft-delete column + pg_cron 30-day hard-delete job
-  - 006: workspace_invites table + RLS
-- ✅ **N5** — `/compare/appfollow` full rewrite (branch `claude/n5-compare-appfollow-rewrite`, merged)
-  - Hero with price punch, 42-row feature table, ROI calculator widget, switch timeline, placeholder quotes
-  - New component: `src/components/marketing/roi-calculator.tsx`
-- ✅ **N7** — Marketing site mobile responsive (branch `claude/n7-marketing-responsive`, merged)
-  - `rb-marketing` class on `MarketingShell` + `@media (max-width: 768px/480px)` overrides in `globals.css`
-- ✅ **Landing page de-AI** — Removed AI template tells from `src/app/page.tsx` (branch `claude/landing-deai`, awaiting merge)
-  - Removed `groq · llama-3.3-70b` model attribution from hero card
-  - Renamed `AI DRAFT` → `Compose` (hero + demo section)
-  - Dropped REPLAY button; simplified 3-tag cluster to single KB grounding indicator
-  - Rewrote "busywork" copy (x2) and "smallest possible tool" copy
-  - Removed `01/02/03/04` numbered badges from Pillars + Free Tools
-  - Removed placeholder blue-gradient avatar from quote section
-  - Redesigned `Kicker` component: ALL-CAPS monospace → sentence case sans-serif
-  - Two items deferred to founder: hero gradient direction, quote photo (needs real customer)
-
-Key completions 2026-05-20:
-- ✅ **Sentiment screen wired** — `GET /api/sentiment/overview` + `useSentimentOverview` hook (branch `claude/sentiment-wiring`, awaiting merge)
-  - Real avg rating, review count, positive share, reply time from Supabase
-  - 14-day positive/negative trend chart from live review data
-  - Topics table from `issue_tags[]` array with trend direction (rising/falling/steady)
-  - Skeleton loading state + empty state for new workspaces
-- ✅ **ASO screen wired** — `aso_keywords` table + CRUD API + `useAsoKeywords` hook (branch `claude/aso-wiring`, awaiting merge)
-  - Migration `supabase/migrations/007_aso_keywords.sql` — **founder must run in Supabase SQL editor**
-  - `GET/POST /api/aso/keywords` + `DELETE /api/aso/keywords/[id]`
-  - Add keyword inline row, delete per-row, rank delta computed from previous_rank
-  - AI Suggestions "+ Track" button wires directly to `addKeyword` mutation
-- ✅ **Incident detail page wired** — `src/app/(app)/incidents/[id]/page.tsx` (branch `claude/n3-detail-pages`, awaiting merge)
-  - Drops mock lookup → live Supabase query on `incidents` table scoped to workspace
-  - Formats `detected_at`/`resolved_at` timestamps; shows resolved entry in timeline
-  - Status actions (Mark Investigating / Mark Resolved) already hit `PATCH /api/incidents/[id]`
-- ✅ **Release detail page wired** — `src/app/(app)/releases/[version]/page.tsx` (branch `claude/n3-detail-pages`, awaiting merge)
-  - Aggregates live reviews by `app_version` from Supabase
-  - Derives health status, avg rating, rating distribution bars, top issue tags, first 20 reviews inline
-  - Graceful empty state when no reviews synced for that version yet
-- ✅ **Compare page fix** — Slack alerts marked "Coming soon" (was incorrectly shown as built)
-- ✅ **ESLint worktree fix** — `.claude/worktrees/**` added to ignores (on all wiring branches)
-
-### PRs awaiting founder merge (open in GitHub)
-| Branch | PR link | Founder action needed |
+| Branch | What | Priority |
 |---|---|---|
-| `claude/landing-deai` | github.com/nimesh4992/ReviewBox/pull/new/claude/landing-deai | Merge |
-| `claude/sentiment-wiring` | github.com/nimesh4992/ReviewBox/pull/new/claude/sentiment-wiring | Merge |
-| `claude/aso-wiring` | github.com/nimesh4992/ReviewBox/pull/new/claude/aso-wiring | Run migration 007 first, then merge |
-| `claude/n3-detail-pages` | github.com/nimesh4992/ReviewBox/pull/new/claude/n3-detail-pages | Merge |
+| `fix/sync-openssl-metadata` | OpenSSL 3 private key fix + sync parallelisation + metadata refresh | 🔴 HIGH — merge first |
+| `fix/dashboard-lifetime-rating` | Lifetime rating/review count from store (fixes 2.46★ vs 3.3★ discrepancy) | 🔴 HIGH — merge second |
+| `feat/google-play-setup-modal` | AppFollow-style GP connection modal with verify flow | 🟡 MEDIUM |
+| `fix/query-cache-retention` | React Query `gcTime` 30 min + `keepPreviousData` — fixes data vanishing on return | 🟡 MEDIUM |
+| `fix/metadata-scrape-cache` | Redis 6h TTL for Play Store / App Store metadata scrapes | 🟡 MEDIUM |
+| `fix/reply-ux-and-onboarding-skip` | Draft save feedback, credential error CTAs, onboarding step 3 skip path | 🟡 MEDIUM |
 
-Up next (S1.3):
+Check: https://github.com/nimesh4992/ReviewBox/pulls
+
+**After `fix/sync-openssl-metadata` + `fix/dashboard-lifetime-rating` merge:** trigger a manual sync via Settings → Apps → Sync now to populate `apps.lifetime_rating` with real store values.
+
+### What shipped 2026-05-29
+
+**`fix/metadata-scrape-cache`** — Redis caching for store metadata scrapes.
+- `fetchGooglePlayMetadata()` and `fetchAppStoreMetadata()` now check Redis first (keys `meta:gplay:{id}` / `meta:appstore:{id}`, 6h TTL) before hitting the store.
+- Eliminates redundant scrapes across onboarding search → onboarding/complete → daily sync.
+- Best-effort: Redis errors fall through to live scrape transparently.
+
+**`fix/reply-ux-and-onboarding-skip`** — 3 user-facing friction fixes:
+- Draft save was fire-and-forget (no feedback). Now shows "Saving…" → "✓ Saved", updates cache to `draft_ready`, handles errors silently.
+- Credential errors (`APP_STORE_NOT_CONNECTED`, `GOOGLE_PLAY_NOT_CONFIGURED`) now stay visible with "Set up in Settings →" link instead of auto-clearing in 4s.
+- Onboarding step 3 heading reframed from "One thing before reviews can sync" (implied blocking) to "Connect X to sync reviews". Primary CTA changed to "I've done this — launch workspace". Added "I'll connect later" text link so non-technical users aren't blocked.
+
+**`docs/DESIGN_SYSTEM_AUDIT.md`** — Comprehensive design system audit:
+- 4 critical issues, 3 medium, 2 low. See `docs/DESIGN_SYSTEM_AUDIT.md` for full findings.
+- Biggest gap: 1,095 raw `gray-*` usages across 69 files instead of `--rb-*` tokens. 47 tokens defined but rarely used.
+- Quick win: add `--rb-indigo-*` tokens (10 min) — unblocks 40 hardcoded `#5B5BD6` values in Reply Kit + Automations.
+
+### What shipped 2026-05-26 (branch `fix/audit-round-3`)
+
+**Cross-verification audit — 9 fixes:**
+- `trial-nudge` `isAuthorized()` fail-closed (C-02)
+- Slug regex minimum 3 chars (H-01)
+- Dedup key before email send in trial-nudge (H-02)
+- Invite email checks all addresses not just `[0]` (H-03)
+- Server-side reply char limit → `REPLY_TOO_LONG` (H-05)
+- GDPR export `GET` removed — CSRF vector (H-06)
+- Export `days` param clamped 1-365 (M-01)
+- PostgREST `.or()` search sanitized (C-03)
+- `notifyWorkspaceOwner` `.single()` → `.maybeSingle()` (M-03)
+
+### Up next (per backlog NOW)
+
+1. Merge 6 open PRs (founder action, in order listed above)
+2. Trigger manual sync after first two merges
+3. **N6** — Stripe test keys + upgrade flow (HUMAN-REQUIRED). ICE 80.
+4. **DS1** — Add `--rb-indigo-500/600` tokens to `globals.css` (10 min, unblocks Reply Kit design debt)
+5. **DS4** — Replace 86 raw `<button>` in review-queue + aso-screen with `<Button>` (accessibility)
+
+### Completed (2026-05-19 → 2026-05-22)
+
+**Codebase audit + bug fixes** (now merged to master via `claude/aso-mining`):
+- ✅ Full codebase audit — 27 bugs found across 5 BLOCKER / 10 HIGH / 6 MEDIUM
+- ✅ All BLOCKERs fixed:
+  - `supabase-server.ts` was using Postgres pooler URL with supabase-js (wrong API). Now uses HTTPS REST URL only
+  - `aso_keywords` table schema mismatch — recreated with correct columns via SQL migration
+  - `automation_rules.action_label` column added
+  - `alert_preferences` schema aligned (`channels`, `schedule_day_of_week`, `schedule_day_of_month`)
+  - `/api/aso/suggest` was querying non-existent `reviews.text` and `apps.description` — fixed to use `body` and skip non-existent
+- ✅ All HIGH fixes:
+  - Removed fake fallback metrics from `useDashboardMetrics` (was showing hardcoded `127 unreplied / 9 urgent / 2764 total` on errors)
+  - Removed mock-review fallback from `/api/reviews` (was hiding real failures with seeded data)
+  - Added `"use client"` to `src/hooks/use-incidents.ts`
+  - `/api/incidents` GET returns empty array (not 404) when user has no workspace
+  - Deleted `/api/sentry-example-api` (always-500 test route)
+  - `/api/demo/reply` uses Upstash Redis rate limiting (in-memory Map was useless on serverless)
+  - Stripe webhook uses `getServiceClient()` singleton (was creating fresh client per webhook)
+  - `/api/reviews/[id]/reply` rejects if workspace soft-deleted
+  - `/api/onboarding/complete` validates slug format server-side
+- ✅ All MEDIUM fixes:
+  - CSV export includes `X-Total-Count` / `X-Truncated` headers and `totalMatching` in JSON
+  - `session.reload()` wrapped in try/catch on onboarding page
+  - `BYPASS_AUTH` env var removed (was test-only)
+  - Stripe checkout caches `stripe_customer_id` on workspace
+  - Weekly digest cron now processes workspaces in parallel batches of 10
+  - `/api/health` actually pings Supabase, returns 503 on failure
+
+**DB migration applied 2026-05-21** (founder ran):
+- `supabase/migrations/007_aso_keywords.sql` (correct schema: `volume_estimate INT`, `trend_data INT[]`, `added_at`, `updated_at`)
+- `automation_rules.action_label TEXT` column
+- `alert_preferences` new columns: `label`, `description`, `channels JSONB`, `schedule_day_of_week`, `schedule_day_of_month`
+- Plus pending migrations 007_workspace_brand_voice, 008–011
+
+**Onboarding 500 + loop fixes** (merged):
+- `/api/onboarding/complete` defensive fallback: catches Postgres error 42703 (column doesn't exist) and retries insert without `brand_voice`/`app_category` so onboarding works even before migrations are applied
+- `/api/onboarding/state` replaced PostgREST embedded join with two separate queries
+- Middleware: removed `onboarded && /onboarding → /dashboard` redirect that caused infinite loops with stale JWTs
+- Sentry edge auto-instrumentation disabled in `next.config.ts` — was crashing middleware on Vercel previews
+- Single `auth.protect()` call in middleware (was calling `auth()` twice)
+- `session.reload()` before navigating to /dashboard after completion
+
+**Picture-perfect polish** (current branch `claude/picture-perfect`):
+- ✅ Dead code removed: `src/features/onboarding/components/onboarding-wizard.tsx`, `src/features/reviews/data/mock-reviews.ts`
+- ✅ Real dashboard metrics: `ratingTrend`, `reviewsWeekDelta`, `avgRatingDelta` computed from DB. Hardcoded `+18%` / `+0.31` / fake sparkline data removed
+- ✅ `appCategory` captured in onboarding Step 2 → wired to `/api/onboarding/complete` → `brand_voice` pre-fill now actually fires
+- ✅ `next.config.ts` `ignoreBuildErrors` + `ignoreDuringBuilds` removed (CI catches them)
+- ✅ Sentry on `(app)/error.tsx` boundary
+- ✅ Loading skeletons added for 7 routes: sentiment, aso, reports, settings, billing, releases, reply-kit, competitors
+- ✅ 404 page: `#5B5BD6` → `#0A84FF`, two CTAs (home + open app)
+- ✅ Test suite: 70 tests across rules-engine, reply-composer, workspace-persona, prompt-utils, templates, slack, api-response, plans, store-search
+- ✅ `docs/LAUNCH_CHECKLIST.md` — comprehensive 80+ item pre-launch checklist
+- ✅ Sign-in/sign-up pages: server-side redirect to /dashboard if already signed in (was rendering empty form)
+- ✅ **Onboarding refactor — AppFollow-style app search**:
+  - `src/services/store-search.ts` — `searchAppStore()` via iTunes Search API, `searchGooglePlay()` via HTML scrape
+  - `/api/onboarding/search-app` route — rate-limited 30/min, returns `{ results, searchFailed? }`
+  - Onboarding Step 2 redesigned: platform → search box → live results → click to pick. Manual entry fallback toggle.
+  - Selected app shown as confirmation pill on Step 3
+  - Back buttons on Steps 2 + 3
+- ✅ **Onboarding loop fix (2026-05-22)** — see "Known Issues" below
+  - `/api/onboarding/complete` now sets `rb_onboarded=1` cookie (5min TTL)
+  - Middleware honors the cookie even if Clerk JWT still says `onboarded=false`
+  - `/api/onboarding/state` now returns `onboarded=true` if DB has workspace+app (DB is source of truth, not stale JWT)
+
+### Next milestones (S1.3 — Help Center, then M2)
+
+- [ ] Merge `claude/picture-perfect` PR
+- [ ] Enable GitHub branch protection on `master` requiring CI to pass
+- [ ] Run `docs/LAUNCH_CHECKLIST.md` end-to-end
 - [ ] Create 4 help pages: Getting Started · Connect Google Play · AI Replies · FAQ
 - [ ] Configure `help.tryreviewbox.com` CNAME (Mintlify or Notion public)
+- [ ] M2: Stripe live (set `STRIPE_SECRET_KEY` + price IDs), test checkout end-to-end
+
+---
+
+## Known Issues (read before debugging)
+
+### ⚠️ Vercel Hobby plan: cron jobs MUST be daily-or-less-frequent
+
+`vercel.json` cron schedules cannot fire more than once per day on the Hobby plan. Schedules like `0 */4 * * *` or `*/30 * * * *` will be rejected at deploy time with:
+
+> This cron expression would run more than once per day. Upgrade to the Pro plan to unlock all Cron Jobs features on Vercel.
+
+Current schedules are all daily-or-less-frequent:
+- `/api/sync/reviews` → `0 8 * * *` (daily 8am UTC)
+- `/api/reports/weekly-digest` → `0 9 * * 1` (Mondays 9am)
+- `/api/reports/unreplied-alert` → `0 10 * * *` (daily 10am)
+
+**Do NOT change these to higher frequencies without upgrading the Vercel project to Pro first**, or the deploy fails entirely (taking the whole app offline).
+
+For fresher data without upgrading Vercel:
+1. New workspaces get an immediate one-off sync via `/api/onboarding/complete` (fire-and-forget)
+2. Settings → Apps "Sync now" button hits the per-workspace worker
+3. Future option: Supabase `pg_cron` + `pg_net` can call the sync endpoint on any schedule for free
+
+**Also: `vercel.json` schema rejects `_comment` and other unknown top-level keys.** Use `$schema` for IDE hints but don't add custom comment fields — keep the rationale here in CLAUDE.md instead.
+
+### ⚠️ Onboarding loop after completing setup (FIXED on `claude/picture-perfect`)
+
+**Symptom:** User completes step 2 (app details) → step 3 (Connect) → clicks "Launch my workspace" → instead of reaching step 4 / dashboard, they bounce back to step 3.
+
+**Root cause:** Clerk's JWT sessionClaims cache for up to 60s. When `/api/onboarding/complete` sets `onboarded: true` in Clerk metadata, the user's browser-side JWT still says `onboarded: false`. Middleware then redirects them away from `/dashboard` back to `/onboarding`. The onboarding page sees an existing workspace+app, sets step to 3, and the loop begins.
+
+**Fix (on `claude/picture-perfect`):**
+1. `/api/onboarding/complete` sets `Set-Cookie: rb_onboarded=1` (5min TTL, httpOnly, lax)
+2. Middleware checks the cookie as a fallback when sessionClaims.onboarded is false
+3. `/api/onboarding/state` returns `onboarded: true` whenever the user has a workspace + app row (DB is authoritative)
+
+**If you see this again after the PR is merged:**
+- Check browser DevTools → Application → Cookies → look for `rb_onboarded=1` on `app.tryreviewbox.com`
+- Check middleware logs to confirm it reads the cookie
+- The cookie expires after 5 min — by then Clerk JWT should have caught up. If not, user will need to clear site data (Application → Storage → Clear site data) and sign in again
+
+### ⚠️ Sign-in page renders empty when user already has a session (FIXED)
+
+**Symptom:** `/sign-in` loads but Clerk's `<SignIn>` component is invisible — only heading and footer show.
+
+**Root cause:** Clerk's `<SignIn>` silently renders nothing when it detects an existing session, leaving the user confused. The `tokens` and `touch` API calls succeed in DevTools, but the UI is blank.
+
+**Fix:** `/sign-in/[[...sign-in]]/page.tsx` and `/sign-up/[[...sign-up]]/page.tsx` now check `auth()` server-side and `redirect("/dashboard")` if the user is already signed in. User-side workaround: DevTools → Application → Clear site data.
+
+### ⚠️ Schema drift between migrations and code
+
+**History:** The codebase had multiple instances where code referenced columns that didn't exist in the DB. The audit (2026-05-21) fixed all known cases, but going forward:
+
+- Every new column referenced in a route handler must have a migration
+- Migration filenames must be sequential (`NNN_description.sql`) — we briefly had TWO `007_*` files in this repo
+- After applying a migration in Supabase, update `CLAUDE.md` to track which are applied vs pending
+
+### ⚠️ Don't use `SUPABASE_DB_POOLER_URL` with supabase-js
+
+`supabase-js` requires the HTTPS REST URL (`https://xxx.supabase.co`), not the Postgres connection string (`postgresql://...:6543/postgres`). The pooler URL is for direct libraries like `pg`. Passing it to `createClient()` will crash every query. `src/lib/supabase-server.ts` now only reads `NEXT_PUBLIC_SUPABASE_URL`.
 
 ---
 
 ## Key Commands
 
 ```bash
-npm run dev     # start dev server (localhost:3000)
-npm run build   # production build
-npm run lint    # ESLint check
+npm run dev           # start dev server (localhost:3000)
+npm run build         # production build
+npm run lint          # ESLint check
+npm run test          # Vitest unit tests (alias for test:unit)
+npm run test:unit     # Vitest unit tests, single run
+npm run test:e2e      # Playwright e2e — spins up dev server, runs in chromium
+npm run test:coverage # Vitest with coverage report
 ```
 
-Windows: use `npm.cmd` if `npm` not found in PowerShell.
+Windows: use `npm.cmd` if `npm` not found in PowerShell. PowerShell 5.1 doesn't
+support `&&` — use `;` or run commands on separate lines.
+
+If `next build` runs out of memory on Windows:
+```
+$env:NODE_OPTIONS="--max-old-space-size=6144"
+npm.cmd run build
+```
+
+After switching branches, clear the Next.js build cache if you see odd
+MODULE_NOT_FOUND errors: `rm -rf .next` (or `Remove-Item -Recurse -Force .next`).
 
 ---
 
 ## What NOT To Do
 
+Code patterns:
 - Don't edit `src/components/ui/*` — shadcn-managed, re-add via CLI
-- Don't put Supabase queries in components — use service layer
+- Don't put Supabase queries in components — use service layer or API route
 - Don't create new type files — extend `src/types/review.ts`
 - Don't add CSS modules or styled-components
 - Don't use React context for global state — Zustand for UI, React Query for server
 - Don't import mock data outside of service files
-- Don't use raw hex values for colors — use CSS design tokens (`--rb-*`, `bg-surface`, `text-fg-*`)
+- Don't use raw hex values for colors — only `#0A84FF` is allowed; rest go via `--rb-*` tokens
+- Don't return raw `NextResponse.json({ error: "..." })` — use `apiError()` from `@/lib/api-response`
+- Don't forget `audit()` after a mutation, or `rateLimit()` on a paid-service or enumeration-prone route
 - Don't add a paid service without a paying customer first
+
+Workflow (autopilot guardrails — `docs/decisions.md` D009):
+- Don't push to `main` directly. PRs only.
+- Don't merge a PR — that's the founder's job.
+- Don't deploy to production. Vercel auto-deploys on merge.
+- Don't run a migration against production Supabase. Founder runs the SQL.
+- Don't send a real email to a real customer. Drafts only.
+- Don't change pricing or billing logic without an ADR + founder approval.
+- Don't modify legal pages (Terms, Privacy, DPA) without founder approval.
+- Don't add a new paid SaaS dependency — founder signs up and adds keys.
+- Don't `git commit --no-verify` or skip pre-commit hooks.
+- Don't disable or weaken CI checks.

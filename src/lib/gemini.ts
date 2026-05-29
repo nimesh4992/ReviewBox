@@ -140,6 +140,32 @@ function isValidSentiment(s: unknown): s is ReviewSentiment {
   );
 }
 
+// ── estimateKeywordVolume ─────────────────────────────────────────────────────
+
+/**
+ * Returns a rough monthly search volume estimate for a keyword on the Play Store.
+ * Gemini produces a single integer — caller should treat it as order-of-magnitude.
+ * Returns null on failure (caller falls back to showing no volume).
+ */
+export async function estimateKeywordVolume(keyword: string): Promise<number | null> {
+  try {
+    const client = getGeminiClient();
+    const model  = client.getGenerativeModel({ model: GEMINI_MODEL });
+
+    const prompt =
+      `You are an App Store Optimisation expert.\n` +
+      `Estimate the approximate monthly Google Play search volume for the keyword: "${keyword}"\n` +
+      `Return ONLY a single integer (no units, no text). Examples: 500, 2000, 15000, 80000`;
+
+    const result = await model.generateContent(prompt);
+    const raw    = result.response.text().trim().replace(/[^0-9]/g, "");
+    const num    = parseInt(raw, 10);
+    return isNaN(num) ? null : num;
+  } catch {
+    return null;
+  }
+}
+
 // ── suggestAsoKeywords ────────────────────────────────────────────────────────
 
 interface AsoSuggestParams {
@@ -193,5 +219,149 @@ export async function suggestAsoKeywords(
 
   return Array.isArray(parsed)
     ? parsed.filter((k) => typeof k === "string").slice(0, 15)
+    : [];
+}
+
+// ── generateKbEntriesFromReviews ──────────────────────────────────────────────
+
+export interface KbEntryDraft {
+  title: string;
+  content: string;
+  category: string;
+}
+
+/**
+ * Analyse a batch of app store reviews and generate Knowledge Base entries.
+ *
+ * Called once per workspace on first bootstrap sync — gives users an instant
+ * KB without any manual setup.
+ *
+ * Returns 6-10 entries. Throws on API failure — callers should catch and skip.
+ */
+export async function generateKbEntriesFromReviews(
+  reviews: Array<{ text: string; rating: number }>,
+  appName: string,
+): Promise<KbEntryDraft[]> {
+  if (reviews.length === 0) return [];
+
+  const client = getGeminiClient();
+  const model  = client.getGenerativeModel({ model: GEMINI_MODEL });
+
+  // Compress each review to a single line: rating + first 120 chars of text
+  const lines = reviews
+    .slice(0, 40)
+    .map((r, i) =>
+      `${i + 1}. [${r.rating}★] ${compressReviewText(r.text ?? "", 120)}`,
+    )
+    .join("\n");
+
+  const prompt =
+    `App: "${appName}"\n\n` +
+    `You are an app support expert. Analyse these ${Math.min(reviews.length, 40)} app store reviews ` +
+    `and create 8 knowledge base entries for the support team.\n\n` +
+    `Each entry should:\n` +
+    `- Cover a distinct theme that appears in multiple reviews\n` +
+    `- Include concrete guidance on how to respond to it\n` +
+    `- Be 2-4 sentences, practical and specific to this app\n\n` +
+    `Return ONLY a JSON array, no markdown, no prose.\n` +
+    `Schema: [{ "title": "...", "content": "...", "category": "bug|feature|praise|billing|general" }]\n\n` +
+    `Reviews:\n${lines}`;
+
+  const result = await model.generateContent(prompt);
+  const raw    = result.response.text().trim();
+  const json   = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+
+  let parsed: KbEntryDraft[];
+  try {
+    parsed = JSON.parse(json) as KbEntryDraft[];
+  } catch {
+    throw new Error(`Gemini KB: unparseable JSON — ${json.slice(0, 200)}`);
+  }
+
+  return Array.isArray(parsed)
+    ? parsed
+        .filter((e) => typeof e.title === "string" && typeof e.content === "string")
+        .slice(0, 10)
+    : [];
+}
+
+// ── generateTemplatesFromReviews ──────────────────────────────────────────────
+
+export interface TemplateDraft {
+  name: string;
+  content: string;
+  tags: string[];
+  ratingMin: number;
+  ratingMax: number;
+}
+
+/**
+ * Generate reply templates from a sample of app store reviews.
+ *
+ * Called once per workspace on first bootstrap sync. Produces 5 app-specific
+ * templates that complement the generic starter templates seeded at signup.
+ *
+ * Throws on API failure — callers should catch and skip.
+ */
+export async function generateTemplatesFromReviews(
+  reviews: Array<{ text: string; rating: number }>,
+  appName: string,
+): Promise<TemplateDraft[]> {
+  if (reviews.length === 0) return [];
+
+  const client = getGeminiClient();
+  const model  = client.getGenerativeModel({ model: GEMINI_MODEL });
+
+  // Group reviews into low (1-2★), mid (3★), high (4-5★) buckets for context
+  const low  = reviews.filter((r) => r.rating <= 2).slice(0, 5);
+  const mid  = reviews.filter((r) => r.rating === 3).slice(0, 3);
+  const high = reviews.filter((r) => r.rating >= 4).slice(0, 5);
+
+  const bucket = (label: string, items: typeof low) =>
+    items.length
+      ? `${label}:\n` + items.map((r) => `  - "${compressReviewText(r.text ?? "", 100)}"`).join("\n")
+      : "";
+
+  const grouped =
+    [bucket("Critical reviews (1-2★)", low), bucket("Neutral (3★)", mid), bucket("Positive (4-5★)", high)]
+      .filter(Boolean)
+      .join("\n\n");
+
+  const prompt =
+    `App: "${appName}"\n\n` +
+    `You are an app reply expert. Based on these reviews, generate 5 reply templates ` +
+    `for the most common patterns you see.\n\n` +
+    `Rules:\n` +
+    `- Use {{appName}} where you reference the app by name\n` +
+    `- Keep each reply 50-100 words\n` +
+    `- Be warm and genuine, not robotic\n` +
+    `- Match tone to the rating bracket (more empathetic for low ratings)\n` +
+    `- Do NOT copy review text verbatim\n\n` +
+    `Return ONLY a JSON array. No markdown, no prose.\n` +
+    `Schema: [{ "name": "...", "content": "...", "tags": ["..."], "ratingMin": 1, "ratingMax": 5 }]\n\n` +
+    `Reviews:\n${grouped}`;
+
+  const result = await model.generateContent(prompt);
+  const raw    = result.response.text().trim();
+  const json   = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
+
+  let parsed: TemplateDraft[];
+  try {
+    parsed = JSON.parse(json) as TemplateDraft[];
+  } catch {
+    throw new Error(`Gemini templates: unparseable JSON — ${json.slice(0, 200)}`);
+  }
+
+  return Array.isArray(parsed)
+    ? parsed
+        .filter((t) => typeof t.name === "string" && typeof t.content === "string")
+        .map((t) => ({
+          name:      t.name,
+          content:   t.content,
+          tags:      Array.isArray(t.tags) ? t.tags.filter((x) => typeof x === "string") : [],
+          ratingMin: typeof t.ratingMin === "number" ? Math.max(1, Math.min(5, t.ratingMin)) : 1,
+          ratingMax: typeof t.ratingMax === "number" ? Math.max(1, Math.min(5, t.ratingMax)) : 5,
+        }))
+        .slice(0, 5)
     : [];
 }
