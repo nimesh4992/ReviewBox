@@ -1,6 +1,6 @@
 # ReviewBox — Bug Tracker
 
-Last updated: 2026-05-24
+Last updated: 2026-05-29
 
 Legend: 🔴 CRITICAL · 🟠 HIGH · 🟡 MEDIUM · 🟢 LOW · ✅ Fixed
 
@@ -10,13 +10,31 @@ Legend: 🔴 CRITICAL · 🟠 HIGH · 🟡 MEDIUM · 🟢 LOW · ✅ Fixed
 
 | ID | Severity | Summary | File(s) | Status |
 |----|----------|---------|---------|--------|
-| BUG-001 | 🔴 CRITICAL | No billing/payment path — Stripe keys unset, no plan gates on gated features | `src/app/api/stripe/*` | Open — needs Stripe keys + dashboard config |
-| BUG-002 | 🔴 CRITICAL | Competitors screen shows hardcoded Finance mock data, not real competitor info | `src/features/competitors/components/competitors-screen.tsx` | Open — M4 scope |
+| BUG-001 | 🔴 CRITICAL | No billing/payment path — Stripe keys unset, no plan gates on gated features | `src/app/api/stripe/*` | Open — HUMAN-REQUIRED: founder pastes Stripe keys |
+| BUG-002 | 🔴 CRITICAL | Competitors screen shows illustrative placeholder data, not real competitor apps | `src/features/competitors/components/competitors-screen.tsx` | Open — M4 scope (X6) |
 | BUG-006 | 🟡 MEDIUM | 2 of 4 report types are placeholder stubs (crash report, retention report) | `src/features/reports/components/reports-screen.tsx` | Open — M3 scope |
+| DS-001 | 🟡 MEDIUM | `#5B5BD6` indigo used across Reply Kit + Automations (10 files, ~40 usages) with no `--rb-*` token defined | `src/features/reply-kit/*`, `src/features/automations/*` | Open — fix: add `--rb-indigo-500/600` to `globals.css` (10 min) |
+| DS-002 | 🟡 MEDIUM | 86 raw `<button>` elements in place of `<Button>` component — missing focus rings, disabled states, accessibility | `src/features/reviews/components/review-queue.tsx` (22), `src/features/aso/components/aso-screen.tsx` (17), 30 other files | Open — see backlog DS4 |
+| DS-003 | 🟢 LOW | 1,095 raw `gray-*` Tailwind classes bypass `--rb-*` token system — dark mode unreliable in affected components | 69 files | Open — see backlog DS3, fix top offenders first |
+| DS-004 | 🟢 LOW | Marketing pages use `dark:text-[#F5F5F7]` / `dark:bg-[#161618]` hardcoding token values instead of `text-fg-*` / `bg-surface` | 20+ marketing pages | Open — refactor when touching those pages |
 
 ---
 
 ## Fixed Bugs
+
+### Fixed in `fix/reply-ux-and-onboarding-skip` (2026-05-29)
+
+| ID | Severity | Summary | Fix |
+|----|----------|---------|-----|
+| BUG-016 | 🟠 HIGH | Draft save was fire-and-forget — no loading state, no success feedback, no cache update, no error handling | Added `isSavingDraft`/`draftSaved` state, proper try/catch, cache update to `draft_ready` via new `useMarkDraft()` hook |
+| BUG-017 | 🟠 HIGH | Reply credential errors auto-cleared after 4s with no actionable CTA — user had no idea how to fix | Credential errors now stay visible + show "Set up in Settings →" link. Other errors extended to 5s. `REPLY_TOO_LONG` + network errors added as explicit cases |
+| BUG-018 | 🟡 MEDIUM | Onboarding step 3 heading "One thing before reviews can sync" implied connection was required before proceeding — users with no service account knowledge dropped here | Heading reframed to "Connect X to sync reviews". Primary CTA changed to "I've done this — launch workspace". Added "I'll connect later" skip link |
+
+### Fixed in `fix/metadata-scrape-cache` (2026-05-29)
+
+| ID | Severity | Summary | Fix |
+|----|----------|---------|-----|
+| BUG-019 | 🟡 MEDIUM | `fetchGooglePlayMetadata()` and `fetchAppStoreMetadata()` scraped the store on every call — onboarding search, onboarding/complete, and daily sync each triggered independent scrapes for the same app | Added Redis 6h TTL cache (keys `meta:gplay:{id}` / `meta:appstore:{id}`). Best-effort: Redis errors fall through to live scrape |
 
 ### Fixed in `fix/bugs-batchfix-001` (2026-05-24)
 
