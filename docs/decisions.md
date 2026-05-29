@@ -189,3 +189,15 @@ Why they'd buy ReviewBox:
 - Agents work top-down.
 - New ideas go to backlog; they don't bypass it.
 - Founder reorders weekly. I never reorder without instruction.
+
+---
+
+## D013 — Stripe deferred until founder requests (2026-05-29)
+
+Do NOT build, wire, test, or reference Stripe billing in any session
+until the founder explicitly asks. N6 is removed from active NOW
+items. Treat BUG-001 (no billing path) as out of scope.
+
+This applies to: checkout flow, webhook wiring, plan gates on features,
+upgrade prompts, and any billing-related UI changes.
+
