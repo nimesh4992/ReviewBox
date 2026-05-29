@@ -2,8 +2,7 @@
 
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { AlertOctagon, Bot, Download, Loader2 } from "lucide-react";
-import { AlertOctagon, Download, Loader2, Sparkles } from "lucide-react";
+import { AlertOctagon, Bot, Download, Loader2, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
