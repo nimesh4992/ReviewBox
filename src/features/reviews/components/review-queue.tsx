@@ -409,7 +409,7 @@ function ReplyComposer({
   }
 
   return (
-    <div className="flex w-[420px] shrink-0 flex-col border-l border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)]">
+    <div className="flex w-[420px] shrink-0 flex-col border-l border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)]">
       {/* Header */}
       <div className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-[18px] py-[14px]">
         <AppIconAvatar source={review.source} size="xs" />
@@ -597,7 +597,7 @@ function ReplyComposer({
                 onClick={handleSend}
                 disabled={isSending || !text.trim() || overLimit}
                 className={cn(
-                  "h-[30px] rounded-[7px] px-3 text-[12px] font-semibold text-white transition-colors disabled:opacity-50",
+                  "h-9 rounded-[7px] px-4 text-[12px] font-semibold text-white transition-colors disabled:opacity-50",
                   sendFeedback === "error"
                     ? "bg-[var(--rb-red-500)] hover:bg-[var(--rb-red-600)]"
                     : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
@@ -608,7 +608,7 @@ function ReplyComposer({
               <button
                 onClick={handleSaveDraft}
                 disabled={!text.trim() || overLimit || isSavingDraft}
-                className="h-[30px] rounded-[7px] border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] px-3 text-[12px] font-semibold text-[var(--rb-fg-1)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40"
+                className="h-8 rounded-[7px] px-3 text-[12px] font-medium text-[var(--rb-fg-3)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40"
               >
                 {isSavingDraft ? "Saving…" : draftSaved ? "✓ Saved" : "Save draft"}
               </button>

@@ -157,20 +157,6 @@ export default function DashboardPage() {
 
   const kpis = [
     {
-      label: "Reviews today",
-      value: String(reviewsToday),
-      delta: formatDelta(reviewsWeekDelta, "%"),
-      kind: reviewsDeltaKind,
-      sub: reviewsWeekDelta !== null ? "vs last week" : "no prior week",
-    },
-    {
-      label: "AI drafts this week",
-      value: String(aiDrafts),
-      delta: aiDrafts > 0 ? "generated" : "none yet",
-      kind: "neutral" as const,
-      sub: "draft replies",
-    },
-    {
       label: "Unreplied",
       value: String(unreplied),
       delta: `${urgent} urgent`,
@@ -183,6 +169,20 @@ export default function DashboardPage() {
       delta: formatDelta(avgRatingDelta),
       kind: avgRatingDeltaKind,
       sub: ratingIsLifetime ? "all-time (store)" : `last ${range}`,
+    },
+    {
+      label: "Reviews today",
+      value: String(reviewsToday),
+      delta: formatDelta(reviewsWeekDelta, "%"),
+      kind: reviewsDeltaKind,
+      sub: reviewsWeekDelta !== null ? "vs last week" : "no prior week",
+    },
+    {
+      label: "AI drafts this week",
+      value: String(aiDrafts),
+      delta: aiDrafts > 0 ? "generated" : "none yet",
+      kind: "neutral" as const,
+      sub: "draft replies",
     },
   ];
 
@@ -207,6 +207,123 @@ export default function DashboardPage() {
         <UpgradeToast />
       </Suspense>
       <TrialBanner />
+
+      {/* Page header */}
+      <header className="flex items-end justify-between gap-6">
+        <div>
+          <div className="text-xs font-medium text-[#86868B]">{dateStr}</div>
+          <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.022em] text-[#1D1D1F]">
+            {greeting}
+          </h1>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* Segmented time range */}
+          <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5">
+            {(["7d", "30d", "90d"] as const).map((o) => (
+              <button
+                key={o}
+                onClick={() => setRange(o)}
+                className={cn(
+                  "h-[26px] rounded-md px-3 text-[12px] font-semibold transition-colors",
+                  range === o
+                    ? "bg-white text-[#1D1D1F] shadow-sm"
+                    : "text-[#86868B] hover:text-[#48484D]",
+                )}
+              >
+                {o}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={handleExport}
+            disabled={exporting}
+            className="flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3.5 text-[13px] font-medium text-[#48484D] transition-colors hover:bg-gray-50 disabled:opacity-50"
+          >
+            <Download className="size-3.5" strokeWidth={2} />
+            {exporting ? "Exporting…" : "Export"}
+          </button>
+        </div>
+      </header>
+
+      {/* Hero — portfolio rating */}
+      <section className="grid items-center gap-10 rounded-2xl border border-[var(--rb-border-1)] bg-white px-8 py-7 shadow-sm" style={{ gridTemplateColumns: "minmax(0,280px) 1fr" }}>
+        <div>
+          <div className="text-xs font-medium text-[#86868B]">
+            {ratingIsLifetime ? "Portfolio rating · all-time" : `Portfolio rating · ${range}`}
+          </div>
+          <div className="mt-3 flex items-baseline gap-3">
+            <span className="text-[64px] font-semibold leading-none tracking-[-0.04em] tabular-nums text-[#1D1D1F]">
+              {displayRating !== null ? displayRating.toFixed(2) : "—"}
+            </span>
+            {displayRating !== null && (
+              <div className="mb-1 flex gap-0.5">
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <svg
+                    key={i}
+                    className={cn("size-4", i < Math.round(displayRating) ? "text-amber-400" : "text-gray-200")}
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                  >
+                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                  </svg>
+                ))}
+              </div>
+            )}
+          </div>
+          {avgRatingDelta !== null ? (
+            <div className="mt-3.5 flex items-center gap-2">
+              <span
+                className={cn(
+                  "rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums",
+                  avgRatingDelta >= 0
+                    ? "bg-green-50 text-green-700"
+                    : "bg-red-50 text-red-700",
+                )}
+              >
+                {formatDelta(avgRatingDelta)}
+              </span>
+              <span className="text-xs text-[#86868B]">vs previous 30 days</span>
+            </div>
+          ) : (
+            <div className="mt-3.5 text-xs text-[#86868B]">
+              {avgRating !== null ? "No prior data to compare" : "Sync reviews to see your rating"}
+            </div>
+          )}
+          <p className="mt-4 max-w-[260px] text-[13px] leading-relaxed text-[#86868B]">
+            {unreplied > 0
+              ? `${unreplied} reviews awaiting reply.${urgent > 0 ? ` ${urgent} marked urgent.` : ""}`
+              : "All reviews replied to. Great work!"}
+          </p>
+        </div>
+        <div className="min-w-0">
+          <PortfolioSparkline data={ratingTrend} />
+        </div>
+      </section>
+
+      {/* KPI strip */}
+      <section className="grid grid-cols-4 gap-3">
+        {kpis.map((s) => (
+          <div key={s.label} className="rounded-xl border border-[var(--rb-border-1)] bg-white px-[18px] py-4 shadow-sm">
+            <div className="text-xs font-medium text-[#86868B]">{s.label}</div>
+            <div className="mt-1.5 flex items-baseline gap-2.5">
+              <span className="text-[28px] font-semibold leading-tight tracking-[-0.025em] tabular-nums text-[#1D1D1F]">
+                {s.value}
+              </span>
+              <span
+                className={cn(
+                  "text-xs font-medium tabular-nums",
+                  s.kind === "positive" ? "text-[#1F8A5B]" :
+                  s.kind === "warning"  ? "text-amber-600" :
+                  "text-[#86868B]",
+                )}
+              >
+                {s.delta}
+              </span>
+            </div>
+            <div className="mt-1.5 text-[11px] text-[#86868B]">{s.sub}</div>
+          </div>
+        ))}
+      </section>
 
       {/* Sync status banner per app — shows real attempts, errors, action */}
       {apps.map((app) => {
@@ -339,123 +456,6 @@ export default function DashboardPage() {
         );
       })}
 
-      {/* Page header */}
-      <header className="flex items-end justify-between gap-6">
-        <div>
-          <div className="text-xs font-medium text-[#86868B]">{dateStr}</div>
-          <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.022em] text-[#1D1D1F]">
-            {greeting}
-          </h1>
-        </div>
-        <div className="flex items-center gap-2">
-          {/* Segmented time range */}
-          <div className="flex items-center rounded-lg border border-gray-200 bg-gray-50 p-0.5">
-            {(["7d", "30d", "90d"] as const).map((o) => (
-              <button
-                key={o}
-                onClick={() => setRange(o)}
-                className={cn(
-                  "h-[26px] rounded-md px-3 text-[12px] font-semibold transition-colors",
-                  range === o
-                    ? "bg-white text-[#1D1D1F] shadow-sm"
-                    : "text-[#86868B] hover:text-[#48484D]",
-                )}
-              >
-                {o}
-              </button>
-            ))}
-          </div>
-          <button
-            onClick={handleExport}
-            disabled={exporting}
-            className="flex h-8 items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3.5 text-[13px] font-medium text-[#48484D] transition-colors hover:bg-gray-50 disabled:opacity-50"
-          >
-            <Download className="size-3.5" strokeWidth={2} />
-            {exporting ? "Exporting…" : "Export"}
-          </button>
-        </div>
-      </header>
-
-      {/* Hero — portfolio rating */}
-      <section className="grid items-center gap-10 rounded-2xl border border-gray-100 bg-white px-8 py-7 shadow-sm" style={{ gridTemplateColumns: "minmax(0,280px) 1fr" }}>
-        <div>
-          <div className="text-xs font-medium text-[#86868B]">
-            {ratingIsLifetime ? "Portfolio rating · all-time" : `Portfolio rating · ${range}`}
-          </div>
-          <div className="mt-3 flex items-baseline gap-3">
-            <span className="text-[64px] font-semibold leading-none tracking-[-0.04em] tabular-nums text-[#1D1D1F]">
-              {displayRating !== null ? displayRating.toFixed(2) : "—"}
-            </span>
-            {displayRating !== null && (
-              <div className="mb-1 flex gap-0.5">
-                {Array.from({ length: 5 }).map((_, i) => (
-                  <svg
-                    key={i}
-                    className={cn("size-4", i < Math.round(displayRating) ? "text-amber-400" : "text-gray-200")}
-                    viewBox="0 0 20 20"
-                    fill="currentColor"
-                  >
-                    <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                  </svg>
-                ))}
-              </div>
-            )}
-          </div>
-          {avgRatingDelta !== null ? (
-            <div className="mt-3.5 flex items-center gap-2">
-              <span
-                className={cn(
-                  "rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums",
-                  avgRatingDelta >= 0
-                    ? "bg-green-50 text-green-700"
-                    : "bg-red-50 text-red-700",
-                )}
-              >
-                {formatDelta(avgRatingDelta)}
-              </span>
-              <span className="text-xs text-[#86868B]">vs previous 30 days</span>
-            </div>
-          ) : (
-            <div className="mt-3.5 text-xs text-[#86868B]">
-              {avgRating !== null ? "No prior data to compare" : "Sync reviews to see your rating"}
-            </div>
-          )}
-          <p className="mt-4 max-w-[260px] text-[13px] leading-relaxed text-[#86868B]">
-            {unreplied > 0
-              ? `${unreplied} reviews awaiting reply.${urgent > 0 ? ` ${urgent} marked urgent.` : ""}`
-              : "All reviews replied to. Great work!"}
-          </p>
-        </div>
-        <div className="min-w-0">
-          <PortfolioSparkline data={ratingTrend} />
-        </div>
-      </section>
-
-      {/* KPI strip */}
-      <section className="grid grid-cols-4 gap-3">
-        {kpis.map((s) => (
-          <div key={s.label} className="rounded-xl border border-gray-100 bg-white px-[18px] py-4 shadow-sm">
-            <div className="text-xs font-medium text-[#86868B]">{s.label}</div>
-            <div className="mt-1.5 flex items-baseline gap-2.5">
-              <span className="text-[28px] font-semibold leading-tight tracking-[-0.025em] tabular-nums text-[#1D1D1F]">
-                {s.value}
-              </span>
-              <span
-                className={cn(
-                  "text-xs font-medium tabular-nums",
-                  s.kind === "positive" ? "text-[#1F8A5B]" :
-                  s.kind === "warning"  ? "text-amber-600" :
-                  "text-[#86868B]",
-                )}
-              >
-                {s.delta}
-              </span>
-            </div>
-            <div className="mt-1.5 text-[11px] text-[#86868B]">{s.sub}</div>
-          </div>
-        ))}
-      </section>
-
       {/* Vitals strip */}
       <section className="rounded-xl border border-[var(--rb-border-1)] bg-surface px-5 py-4 shadow-[var(--rb-shadow-xs)]">
         <div className="flex items-center gap-1.5 mb-3">
@@ -517,10 +517,10 @@ export default function DashboardPage() {
       <section className="grid gap-4" style={{ gridTemplateColumns: "1.4fr 1fr" }}>
 
         {/* Needs your eyes — live incidents */}
-        <div className="overflow-hidden rounded-[14px] border border-gray-100 bg-white shadow-sm">
-          <div className="flex items-center border-b border-gray-100 px-5 py-4">
+        <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-white shadow-sm">
+          <div className="flex items-center border-b border-[var(--rb-border-1)] px-5 py-4">
             <div>
-              <div className="text-sm font-semibold text-[#1D1D1F]">Active incidents</div>
+              <div className="text-[15px] font-semibold text-[#1D1D1F]">Active incidents</div>
               <div className="mt-0.5 text-xs text-[#86868B]">
                 {incidents
                   ? `${incidents.filter((i) => i.status !== "resolved").length} open`
@@ -576,10 +576,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Apps overview */}
-        <div className="overflow-hidden rounded-[14px] border border-gray-100 bg-white shadow-sm">
-          <div className="flex items-center border-b border-gray-100 px-5 py-4">
+        <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-white shadow-sm">
+          <div className="flex items-center border-b border-[var(--rb-border-1)] px-5 py-4">
             <div>
-              <div className="text-sm font-semibold text-[#1D1D1F]">Apps</div>
+              <div className="text-[15px] font-semibold text-[#1D1D1F]">Apps</div>
               <div className="mt-0.5 text-xs text-[#86868B]">Portfolio overview</div>
             </div>
             <Link href="/settings" className="ml-auto text-xs font-semibold text-[#0A84FF] hover:underline">
