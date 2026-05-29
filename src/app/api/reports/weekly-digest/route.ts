@@ -18,7 +18,8 @@ import { notifySlack } from "@/lib/slack";
 
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  if (!secret) return true;
+  // Require the secret — open access would let anyone trigger mass emails for all workspaces
+  if (!secret) return false;
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 

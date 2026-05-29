@@ -27,9 +27,16 @@ export type AuditAction =
   | "app.delete"
   // Workspace lifecycle
   | "workspace.create"
+  | "workspace.restore"
   | "workspace.delete"
   | "member.invite"
+  | "member.accept_invite"
   | "member.remove"
+  // Incidents
+  | "incident.create"
+  | "incident.update"
+  // Reviews
+  | "review.bulk_update"
   // Billing
   | "billing.upgrade"
   | "billing.cancel"
@@ -37,6 +44,8 @@ export type AuditAction =
   // GDPR
   | "gdpr.export"
   | "gdpr.delete"
+  // Alerts
+  | "alerts.update"
   // Slack
   | "slack.connect"
   | "slack.disconnect";

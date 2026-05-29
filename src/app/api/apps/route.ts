@@ -2,22 +2,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { canAddApp } from "@/lib/plan-enforcement";
+import { apiError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
 
 export async function GET() {
   const { userId } = await auth();
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!userId) return apiError("UNAUTHORIZED", 401);
 
   const workspaceId = await getWorkspaceId(userId);
   if (!workspaceId) return NextResponse.json({ apps: [] });
 
   const sb = getServiceClient();
-  // Try the full select first. If migrations 012/013 aren't applied yet, fall
-  // back to the original columns so /api/apps doesn't break in that state.
+  // Try the full select first. If migrations 012/013/015 aren't applied yet,
+  // fall back through progressively simpler queries so /api/apps never breaks.
+  // NOTE: .is("deleted_at", null) requires migration 015. Both branches omit
+  // deleted_at filter as fallback if the column doesn't exist yet.
   const full = await sb
     .from("apps")
     .select(
-      "id, name, platform, store_id, last_synced_at, access_token, refresh_token, icon_url, developer, lifetime_rating, lifetime_review_count, last_sync_attempted_at, last_sync_status, last_sync_error, last_sync_review_count",
+      "id, name, platform, store_id, last_synced_at, access_token, refresh_token, icon_url, developer, lifetime_rating, lifetime_review_count, last_sync_attempted_at, last_sync_status, last_sync_error, last_sync_review_count, deleted_at",
     )
     .eq("workspace_id", workspaceId)
     .is("deleted_at", null)
@@ -26,11 +29,13 @@ export async function GET() {
   let apps: Record<string, unknown>[] = (full.data as Record<string, unknown>[] | null) ?? [];
 
   if (full.error?.code === "42703") {
+    // One or more columns missing (pre-migration state). Try without the newer
+    // metadata columns. Also drop deleted_at filter — if 015 isn't applied yet
+    // no apps have been soft-deleted so returning all is equivalent and safe.
     const minimal = await sb
       .from("apps")
       .select("id, name, platform, store_id, last_synced_at, access_token, refresh_token")
       .eq("workspace_id", workspaceId)
-      .is("deleted_at", null)
       .order("created_at");
     apps = (minimal.data as Record<string, unknown>[] | null) ?? [];
   }
@@ -65,15 +70,11 @@ interface CreateAppBody {
 export async function POST(request: NextRequest) {
   // 1. Auth
   const { userId, sessionClaims } = await auth();
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  if (!userId) return apiError("UNAUTHORIZED", 401);
 
   // 2. Workspace lookup
   const workspaceId = await getWorkspaceId(userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "No workspace found" }, { status: 404 });
-  }
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
   // 3. Get plan from session claims (set via Clerk metadata)
   const plan = (sessionClaims?.metadata as { plan?: string } | undefined)?.plan ?? "free";
@@ -81,10 +82,7 @@ export async function POST(request: NextRequest) {
   // 4. Plan gate — check if workspace can add another app
   const allowed = await canAddApp(workspaceId, plan);
   if (!allowed) {
-    return NextResponse.json(
-      { error: "PLAN_LIMIT", message: "Upgrade to add more apps" },
-      { status: 403 },
-    );
+    return apiError("PLAN_REQUIRED", 403, "Upgrade to add more apps");
   }
 
   // 5. Parse body
@@ -92,14 +90,11 @@ export async function POST(request: NextRequest) {
   try {
     body = (await request.json()) as CreateAppBody;
   } catch {
-    return NextResponse.json({ error: "Invalid JSON body" }, { status: 400 });
+    return apiError("INVALID_INPUT", 400, "Invalid JSON body");
   }
 
   if (!body.name || !body.platform) {
-    return NextResponse.json(
-      { error: "Missing required fields: name, platform" },
-      { status: 400 },
-    );
+    return apiError("INVALID_INPUT", 400, "Missing required fields: name, platform");
   }
 
   // 6. Insert into apps table
@@ -107,10 +102,7 @@ export async function POST(request: NextRequest) {
   const storeId = body.platform === "google_play" ? body.packageName : body.bundleId;
 
   if (!storeId) {
-    return NextResponse.json(
-      { error: "Missing store identifier (packageName or bundleId)" },
-      { status: 400 }
-    );
+    return apiError("INVALID_INPUT", 400, "Missing store identifier (packageName or bundleId)");
   }
 
   const { data: app, error } = await sb
@@ -125,7 +117,7 @@ export async function POST(request: NextRequest) {
     .single();
 
   if (error) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return apiError("INTERNAL_SERVER_ERROR", 500);
   }
 
   // 7. Audit

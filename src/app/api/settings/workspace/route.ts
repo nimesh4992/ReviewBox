@@ -10,7 +10,15 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { Redis } from "@upstash/redis";
 import { getBrandVoiceStub } from "@/lib/brand-voice-stubs";
+import { apiError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
+
+const VALID_APP_CATEGORIES = [
+  "productivity", "finance", "health_fitness", "social_networking",
+  "entertainment", "education", "shopping", "travel", "food_drink",
+  "games", "utilities", "music", "news", "sports", "lifestyle",
+  "business", "photo_video", "navigation", "medical", "other",
+] as const;
 
 const SLACK_URL_PREFIX = "https://hooks.slack.com/";
 const SLACK_URL_MAX    = 500;
@@ -28,14 +36,10 @@ async function bustPersonaCache(workspaceId: string) {
 
 export async function GET(): Promise<NextResponse> {
   const session = await auth();
-  if (!session?.userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  if (!session?.userId) return apiError("UNAUTHORIZED", 401);
 
   const workspaceId = await getWorkspaceId(session.userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "WORKSPACE_NOT_FOUND" }, { status: 404 });
-  }
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
   const sb = getServiceClient();
   const { data, error } = await sb
@@ -44,9 +48,7 @@ export async function GET(): Promise<NextResponse> {
     .eq("id", workspaceId)
     .single();
 
-  if (error || !data) {
-    return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
-  }
+  if (error || !data) return apiError("NOT_FOUND", 404);
 
   return NextResponse.json({
     name:            data.name              ?? "",
@@ -59,14 +61,10 @@ export async function GET(): Promise<NextResponse> {
 
 export async function PATCH(req: NextRequest): Promise<NextResponse> {
   const session = await auth();
-  if (!session?.userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  if (!session?.userId) return apiError("UNAUTHORIZED", 401);
 
   const workspaceId = await getWorkspaceId(session.userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "WORKSPACE_NOT_FOUND" }, { status: 404 });
-  }
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
   const body = (await req.json()) as {
     supportEmail?:    string;
@@ -86,10 +84,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
       const trimmed = raw.trim();
       if (trimmed !== "") {
         if (!trimmed.startsWith(SLACK_URL_PREFIX) || trimmed.length > SLACK_URL_MAX) {
-          return NextResponse.json(
-            { error: "INVALID_INPUT", message: `slackWebhookUrl must start with ${SLACK_URL_PREFIX} and be ≤${SLACK_URL_MAX} chars` },
-            { status: 400 },
-          );
+          return apiError("INVALID_INPUT", 400, `slackWebhookUrl must start with ${SLACK_URL_PREFIX} and be ≤${SLACK_URL_MAX} chars`);
         }
         updates.slack_webhook_url = trimmed;
       } else {
@@ -101,6 +96,9 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   }
 
   if (typeof body.appCategory === "string") {
+    if (!VALID_APP_CATEGORIES.includes(body.appCategory as typeof VALID_APP_CATEGORIES[number])) {
+      return apiError("INVALID_INPUT", 400, "invalid appCategory value");
+    }
     updates.app_category = body.appCategory;
     // Pre-fill brand_voice from category stub if not explicitly being set and currently empty
     if (typeof body.brandVoice !== "string") {
@@ -114,7 +112,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
   }
 
   if (Object.keys(updates).length === 0) {
-    return NextResponse.json({ error: "NO_FIELDS" }, { status: 400 });
+    return apiError("INVALID_INPUT", 400, "no valid fields to update");
   }
 
   const sb = getServiceClient();
@@ -125,7 +123,7 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
 
   if (error) {
     console.error("workspace update failed:", error);
-    return NextResponse.json({ error: "UPDATE_FAILED" }, { status: 500 });
+    return apiError("INTERNAL_SERVER_ERROR", 500);
   }
 
   await bustPersonaCache(workspaceId);

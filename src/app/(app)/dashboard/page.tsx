@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { AlertOctagon, Bot, Download, Loader2 } from "lucide-react";
+import { AlertOctagon, Download, Loader2, Sparkles } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
@@ -11,7 +12,7 @@ import { useIncidents } from "@/hooks/use-incidents";
 import { TrialBanner } from "@/components/dashboard/trial-banner";
 import { UpgradeToast } from "@/components/dashboard/upgrade-toast";
 import { EmptyWorkspaceWelcome } from "@/components/dashboard/empty-workspace-welcome";
-import { GooglePlayInviteModal } from "@/components/dashboard/google-play-invite-modal";
+import { GooglePlaySetupModal } from "@/components/dashboard/google-play-setup-modal";
 import { AiSummaryPanel } from "@/features/dashboard/components/ai-summary-panel";
 
 const SEVERITY_COLOR: Record<string, string> = {
@@ -145,7 +146,12 @@ export default function DashboardPage() {
   const greeting = hour < 12 ? "Good morning" : hour < 17 ? "Good afternoon" : "Good evening";
   const dateStr = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
-  const avgRating = metrics?.avgRating ?? null;
+  const avgRating      = metrics?.avgRating ?? null;
+  // Prefer lifetime rating scraped from the store (matches Play Store / App Store display)
+  // over the 30d average we compute from our synced window of ~50–100 reviews.
+  const displayRating  = metrics?.lifetimeRating ?? avgRating;
+  // Prefer lifetime review count from the store; fall back to count of synced rows.
+  const displayReviews = metrics?.lifetimeReviewCount ?? metrics?.totalReviews ?? 0;
   const unreplied = isLoading ? 0 : (metrics?.unrepliedCount ?? 0);
   const urgent    = isLoading ? 0 : (metrics?.urgentCount ?? 0);
   const reviewsToday = isLoading ? 0 : (metrics?.reviewsToday ?? 0);
@@ -153,6 +159,8 @@ export default function DashboardPage() {
   const reviewsWeekDelta = metrics?.reviewsWeekDelta ?? null;
   const avgRatingDelta   = metrics?.avgRatingDelta ?? null;
   const ratingTrend      = metrics?.ratingTrend ?? [];
+  // Whether the rating is lifetime (from store) or 30d (from synced reviews)
+  const ratingIsLifetime = metrics?.lifetimeRating != null;
 
   const reviewsDeltaKind: "positive" | "warning" | "neutral" =
     reviewsWeekDelta === null ? "neutral"
@@ -163,7 +171,39 @@ export default function DashboardPage() {
       : avgRatingDelta < 0 ? "warning"
         : "positive";
 
+  const hasGooglePlayApp = apps.some((a) => a.platform === "google_play");
+  const firstGooglePlayApp = apps.find((a) => a.platform === "google_play");
+
+  // Auto-show setup modal on first visit if GP app isn't synced yet.
+  // Hooks must be declared unconditionally — before any early return.
+  const DISMISSED_KEY = "rb_gplay_invite_dismissed";
+  const [setupModalOpen, setSetupModalOpen] = useState(false);
+  useEffect(() => {
+    if (!hasGooglePlayApp) return;
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem(DISMISSED_KEY)) return;
+    const hasUnsynced = apps.some(
+      (a) => a.platform === "google_play" && a.last_sync_status !== "success",
+    );
+    if (hasUnsynced) setSetupModalOpen(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasGooglePlayApp]);
+
   const kpis = [
+    {
+      label: "Unreplied",
+      value: String(unreplied),
+      delta: `${urgent} urgent`,
+      kind: urgent > 5 ? ("warning" as const) : ("positive" as const),
+      sub: "across apps",
+    },
+    {
+      label: "Avg. rating",
+      value: displayRating !== null ? displayRating.toFixed(2) : "—",
+      delta: formatDelta(avgRatingDelta),
+      kind: avgRatingDeltaKind,
+      sub: ratingIsLifetime ? "all-time (store)" : `last ${range}`,
+    },
     {
       label: "Reviews today",
       value: String(reviewsToday),
@@ -178,33 +218,25 @@ export default function DashboardPage() {
       kind: "neutral" as const,
       sub: "draft replies",
     },
-    {
-      label: "Unreplied",
-      value: String(unreplied),
-      delta: `${urgent} urgent`,
-      kind: urgent > 5 ? ("warning" as const) : ("positive" as const),
-      sub: "across apps",
-    },
-    {
-      label: "Avg. rating",
-      value: avgRating !== null ? avgRating.toFixed(2) : "—",
-      delta: formatDelta(avgRatingDelta),
-      kind: avgRatingDeltaKind,
-      sub: `last ${range}`,
-    },
   ];
 
   // No apps yet → show the welcome / "connect your first app" empty state
-  // instead of an empty dashboard. Skips the loop-prone middleware redirect.
   if (!appsLoading && apps.length === 0) {
     return <EmptyWorkspaceWelcome />;
   }
 
-  const hasGooglePlayApp = apps.some((a) => a.platform === "google_play");
-
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8" style={{ maxWidth: 1240, margin: "0 auto" }}>
-      <GooglePlayInviteModal hasGooglePlayApp={hasGooglePlayApp} />
+      <GooglePlaySetupModal
+        open={setupModalOpen}
+        onClose={() => {
+          localStorage.setItem(DISMISSED_KEY, "1");
+          setSetupModalOpen(false);
+        }}
+        app={firstGooglePlayApp
+          ? { id: firstGooglePlayApp.id, store_id: firstGooglePlayApp.store_id, name: firstGooglePlayApp.name }
+          : undefined}
+      />
       <Suspense fallback={null}>
         <UpgradeToast />
       </Suspense>
@@ -333,19 +365,21 @@ export default function DashboardPage() {
       </header>
 
       {/* Hero — portfolio rating */}
-      <section className="grid items-center gap-10 rounded-2xl border border-gray-100 bg-white px-8 py-7 shadow-sm" style={{ gridTemplateColumns: "minmax(0,280px) 1fr" }}>
+      <section className="grid items-center gap-10 rounded-2xl border border-[var(--rb-border-1)] bg-white px-8 py-7 shadow-sm" style={{ gridTemplateColumns: "minmax(0,280px) 1fr" }}>
         <div>
-          <div className="text-xs font-medium text-[#86868B]">Portfolio rating · {range}</div>
+          <div className="text-xs font-medium text-[#86868B]">
+            {ratingIsLifetime ? "Portfolio rating · all-time" : `Portfolio rating · ${range}`}
+          </div>
           <div className="mt-3 flex items-baseline gap-3">
             <span className="text-[64px] font-semibold leading-none tracking-[-0.04em] tabular-nums text-[#1D1D1F]">
-              {avgRating !== null ? avgRating.toFixed(2) : "—"}
+              {displayRating !== null ? displayRating.toFixed(2) : "—"}
             </span>
-            {avgRating !== null && (
+            {displayRating !== null && (
               <div className="mb-1 flex gap-0.5">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <svg
                     key={i}
-                    className={cn("size-4", i < Math.round(avgRating) ? "text-amber-400" : "text-gray-200")}
+                    className={cn("size-4", i < Math.round(displayRating) ? "text-amber-400" : "text-gray-200")}
                     viewBox="0 0 20 20"
                     fill="currentColor"
                   >
@@ -388,7 +422,7 @@ export default function DashboardPage() {
       {/* KPI strip */}
       <section className="grid grid-cols-4 gap-3">
         {kpis.map((s) => (
-          <div key={s.label} className="rounded-xl border border-gray-100 bg-white px-[18px] py-4 shadow-sm">
+          <div key={s.label} className="rounded-xl border border-[var(--rb-border-1)] bg-white px-[18px] py-4 shadow-sm">
             <div className="text-xs font-medium text-[#86868B]">{s.label}</div>
             <div className="mt-1.5 flex items-baseline gap-2.5">
               <span className="text-[28px] font-semibold leading-tight tracking-[-0.025em] tabular-nums text-[#1D1D1F]">
@@ -410,6 +444,137 @@ export default function DashboardPage() {
         ))}
       </section>
 
+      {/* Sync status banner per app — shows real attempts, errors, action */}
+      {apps.map((app) => {
+        const succeeded = app.last_sync_status === "success";
+        const emptySuccess = succeeded && (app.last_sync_review_count ?? 0) === 0;
+        // Already-synced WITH reviews → no banner
+        if (succeeded && !emptySuccess) return null;
+
+        const hasError = app.last_sync_status && app.last_sync_status !== "success";
+        const isPending = !app.last_synced_at && !hasError && !emptySuccess;
+
+        if (isPending) {
+          return (
+            <div
+              key={app.id}
+              className="flex items-start gap-3 rounded-xl border border-[#0A84FF]/20 bg-[#0A84FF]/[0.04] px-4 py-3"
+            >
+              <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-[#0A84FF]" strokeWidth={2} />
+              <div className="flex-1">
+                <div className="text-[13px] font-semibold text-[#1D1D1F]">
+                  Syncing {app.name} from {app.platform === "google_play" ? "Google Play" : "App Store"}…
+                </div>
+                <div className="mt-0.5 text-[11px] text-[#86868B]">
+                  First sync usually takes 10–30 seconds. Reviews will appear automatically.
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    onClick={async () => {
+                      await fetch("/api/sync/reviews");
+                      setTimeout(() => { refetchApps(); refetchMetrics(); }, 3000);
+                    }}
+                    className="rounded-md border border-[#0A84FF]/30 bg-white px-3 py-1 text-[11px] font-semibold text-[#0A84FF] hover:bg-[#0A84FF]/[0.06]"
+                  >
+                    Sync now
+                  </button>
+                  <Link
+                    href={app.platform === "google_play" ? "/help/connect-google-play" : "/help/connect-app-store"}
+                    className="text-[11px] font-medium text-[#86868B] hover:text-[#48484D]"
+                  >
+                    Troubleshooting →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Sync succeeded but returned 0 reviews. This is the most common
+        // confusion: Google Play Publisher API only returns reviews from the
+        // LAST 7 DAYS. An app with no recent reviews gets a successful sync
+        // with an empty array — and the user sees an empty dashboard with
+        // no explanation. This banner explains it.
+        if (emptySuccess) {
+          return (
+            <div
+              key={app.id}
+              className="flex items-start gap-3 rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)] px-4 py-3 shadow-[var(--rb-shadow-xs)]"
+            >
+              <Sparkles className="mt-0.5 size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
+              <div className="flex-1">
+                <div className="text-[13px] font-semibold text-[#1D1D1F]">
+                  {app.name} is connected — no recent reviews yet
+                </div>
+                <div className="mt-0.5 text-[11px] leading-relaxed text-[#86868B]">
+                  {app.platform === "google_play"
+                    ? "Google Play only exposes reviews from the last 7 days. New reviews will appear here as customers leave them."
+                    : "App Store reviews appear once customers leave them. We'll keep checking daily."}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    onClick={async () => {
+                      await fetch("/api/sync/reviews");
+                      setTimeout(() => { refetchApps(); refetchMetrics(); }, 3000);
+                    }}
+                    className="rounded-md border border-[var(--rb-border-2)] bg-white px-3 py-1 text-[11px] font-semibold text-[#48484D] hover:bg-[var(--rb-bg-hover)]"
+                  >
+                    Check again
+                  </button>
+                  <Link
+                    href={app.platform === "google_play" ? "/help/connect-google-play" : "/help/connect-app-store"}
+                    className="text-[11px] font-medium text-[#86868B] hover:text-[#48484D]"
+                  >
+                    Why no reviews? →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        return (
+          <div
+            key={app.id}
+            className="flex items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3"
+          >
+            <AlertOctagon className="mt-0.5 size-4 shrink-0 text-amber-600" strokeWidth={2} />
+            <div className="flex-1">
+              <div className="text-[13px] font-semibold text-[#1D1D1F]">
+                {app.name} hasn&apos;t synced yet — action needed
+              </div>
+              <div className="mt-1 text-[12px] leading-relaxed text-[#48484D]">
+                {app.last_sync_error ?? "Unknown sync error. Try Settings → Apps → Sync now."}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <Link
+                  href={app.platform === "google_play" ? "/help/connect-google-play" : "/help/connect-app-store"}
+                  target="_blank"
+                  className="rounded-md bg-amber-600 px-3 py-1 text-[11px] font-semibold text-white hover:bg-amber-700"
+                >
+                  Step-by-step guide
+                </Link>
+                <Link
+                  href="/settings"
+                  className="rounded-md border border-amber-300 bg-white px-3 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100"
+                >
+                  Open Settings
+                </Link>
+                <button
+                  onClick={async () => {
+                    await fetch("/api/sync/reviews");
+                    setTimeout(() => { refetchApps(); refetchMetrics(); }, 3000);
+                  }}
+                  className="rounded-md border border-amber-300 bg-white px-3 py-1 text-[11px] font-semibold text-amber-700 hover:bg-amber-100"
+                >
+                  Retry sync
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+
       {/* Vitals strip */}
       <section className="rounded-xl border border-[var(--rb-border-1)] bg-surface px-5 py-4 shadow-[var(--rb-shadow-xs)]">
         <div className="flex items-center gap-1.5 mb-3">
@@ -419,7 +584,7 @@ export default function DashboardPage() {
           {[
             {
               label: "Avg rating",
-              value: metrics.avgRating != null ? metrics.avgRating.toFixed(2) + " ★" : "—",
+              value: displayRating != null ? displayRating.toFixed(2) + " ★" : "—",
               delta: metrics.avgRatingDelta != null
                 ? (metrics.avgRatingDelta >= 0 ? "+" : "") + metrics.avgRatingDelta.toFixed(2)
                 : null,
@@ -441,7 +606,7 @@ export default function DashboardPage() {
             },
             {
               label: "Total reviews",
-              value: metrics.totalReviews.toLocaleString(),
+              value: displayReviews.toLocaleString(),
               delta: null,
               positive: true,
             },
@@ -471,10 +636,10 @@ export default function DashboardPage() {
       <section className="grid gap-4" style={{ gridTemplateColumns: "1.4fr 1fr" }}>
 
         {/* Needs your eyes — live incidents */}
-        <div className="overflow-hidden rounded-[14px] border border-gray-100 bg-white shadow-sm">
-          <div className="flex items-center border-b border-gray-100 px-5 py-4">
+        <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-white shadow-sm">
+          <div className="flex items-center border-b border-[var(--rb-border-1)] px-5 py-4">
             <div>
-              <div className="text-sm font-semibold text-[#1D1D1F]">Active incidents</div>
+              <div className="text-[15px] font-semibold text-[#1D1D1F]">Active incidents</div>
               <div className="mt-0.5 text-xs text-[#86868B]">
                 {incidents
                   ? `${incidents.filter((i) => i.status !== "resolved").length} open`
@@ -530,10 +695,10 @@ export default function DashboardPage() {
         </div>
 
         {/* Apps overview */}
-        <div className="overflow-hidden rounded-[14px] border border-gray-100 bg-white shadow-sm">
-          <div className="flex items-center border-b border-gray-100 px-5 py-4">
+        <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-white shadow-sm">
+          <div className="flex items-center border-b border-[var(--rb-border-1)] px-5 py-4">
             <div>
-              <div className="text-sm font-semibold text-[#1D1D1F]">Apps</div>
+              <div className="text-[15px] font-semibold text-[#1D1D1F]">Apps</div>
               <div className="mt-0.5 text-xs text-[#86868B]">Portfolio overview</div>
             </div>
             <Link href="/settings" className="ml-auto text-xs font-semibold text-[#0A84FF] hover:underline">
@@ -614,7 +779,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-[36px] font-semibold tabular-nums leading-none text-fg-1">
-              {metrics.avgRating != null ? metrics.avgRating.toFixed(1) : "—"}
+              {displayRating != null ? displayRating.toFixed(1) : "—"}
             </span>
             <span className="text-[14px] text-fg-3">★</span>
             {metrics.avgRatingDelta != null && (
@@ -623,7 +788,9 @@ export default function DashboardPage() {
               </span>
             )}
           </div>
-          <div className="text-[11px] text-fg-3">vs previous period</div>
+          <div className="text-[11px] text-fg-3">
+            {ratingIsLifetime ? "all-time (store)" : "vs previous period"}
+          </div>
         </div>
 
         {/* Reviews card */}
@@ -634,7 +801,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-[36px] font-semibold tabular-nums leading-none text-fg-1">
-              {metrics.totalReviews.toLocaleString()}
+              {displayReviews.toLocaleString()}
             </span>
           </div>
           <div className="flex gap-3 text-[11px] text-fg-3">

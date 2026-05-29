@@ -65,6 +65,14 @@ export async function POST(
       return apiError("MISSING_FIELDS", 400);
     }
 
+    // Store-side character limits enforced server-side to prevent silent failures:
+    // Google Play rejects replies > 350 chars; App Store Connect rejects > 5950 chars.
+    // Without this check the DB gets reply_status='replied' but nothing appears in the store.
+    const REPLY_CHAR_LIMITS: Record<string, number> = {
+      google_play: 350,
+      app_store:   5950,
+    };
+
     const sb = getServiceClient();
 
     // Fetch review + app info in one query
@@ -84,6 +92,18 @@ export async function POST(
     if (status === "sent") {
       type AppInfo = { store_id: string; platform: string; access_token: string | null; refresh_token: string | null };
       const app = (Array.isArray(review.apps) ? review.apps[0] : review.apps) as AppInfo | null;
+
+      // Validate length against the store's hard limit before attempting submit.
+      if (app?.platform && REPLY_CHAR_LIMITS[app.platform]) {
+        const limit = REPLY_CHAR_LIMITS[app.platform];
+        if (replyText.trim().length > limit) {
+          return apiError(
+            "REPLY_TOO_LONG",
+            400,
+            `Reply exceeds the ${limit}-character limit for ${app.platform === "google_play" ? "Google Play" : "App Store"}.`,
+          );
+        }
+      }
 
       try {
         if (app?.platform === "google_play") {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { keepPreviousData, useQuery, useQueryClient } from "@tanstack/react-query";
 
 export interface WorkspaceApp {
   id: string;
@@ -32,9 +32,14 @@ export function useApps() {
     queryKey: ["apps"],
     queryFn: fetchApps,
     staleTime: 5 * 60 * 1000,
+    placeholderData: keepPreviousData,
   });
 
-  return { apps: data ?? [], isLoading, refetch };
+  // Guard: if the cache was populated with a non-array (e.g. an `{ apps: [] }`
+  // object from a stale CredentialsBanner queryFn), fall back to empty array
+  // rather than propagating a non-array to callers who do `.some()` / `.map()`.
+  const apps = Array.isArray(data) ? data : [];
+  return { apps, isLoading, refetch };
 }
 
 export function useInvalidateApps() {

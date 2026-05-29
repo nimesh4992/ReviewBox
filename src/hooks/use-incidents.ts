@@ -11,8 +11,8 @@ export function useIncidents() {
     queryFn: async () => {
       const res = await fetch("/api/incidents");
       if (!res.ok) throw new Error("Failed to fetch incidents");
-      const json = (await res.json()) as { incidents: ApiIncident[] };
-      return json.incidents.map(mapRow);
+      const json = (await res.json()) as { incidents?: ApiIncident[] };
+      return (json.incidents ?? []).map(mapRow);
     },
     staleTime: 30_000,
   });

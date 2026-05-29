@@ -18,6 +18,8 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { apiError } from "@/lib/api-response";
+import { rateLimit } from "@/lib/api-rate-limit";
 
 function escapeCsv(value: unknown): string {
   if (value === null || value === undefined) return "";
@@ -51,18 +53,22 @@ const CSV_HEADERS = [
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const session = await auth();
-  if (!session?.userId) {
-    return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
-  }
+  if (!session?.userId) return apiError("UNAUTHORIZED", 401);
 
   const workspaceId = await getWorkspaceId(session.userId);
-  if (!workspaceId) {
-    return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
-  }
+  if (!workspaceId) return apiError("NO_WORKSPACE", 404);
+
+  const rl = await rateLimit(req, session.userId, { bucket: "reports-export", limit: 10, window: "1 h" });
+  if (!rl.allowed) return apiError("RATE_LIMITED", 429);
 
   const params = req.nextUrl.searchParams;
   const format   = params.get("format")   ?? "csv";
-  const days     = params.get("days")     ?? "30";
+  const rawDays  = params.get("days");
+  // Validate days: "all" passthrough; numeric values clamped to 1-365.
+  // Number("abc") = NaN and negative values both produced invalid date ranges.
+  const days: string = rawDays === "all"
+    ? "all"
+    : String(Math.max(1, Math.min(365, parseInt(rawDays ?? "30", 10) || 30)));
   const appId    = params.get("appId")    ?? null;
   const priority = params.get("priority") ?? null;
   const rating   = params.get("rating")   ?? null;
@@ -108,7 +114,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (error) {
     console.error("[export]", error);
-    return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
+    return apiError("INTERNAL_SERVER_ERROR", 500);
   }
 
   const rows = data ?? [];

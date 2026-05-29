@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { apiError } from "@/lib/api-response";
 import { estimateKeywordVolume } from "@/lib/gemini";
 import type { AsoKeyword } from "@/types/review";
 
@@ -21,7 +22,7 @@ export async function GET(req: Request): Promise<NextResponse> {
   try {
     const session = await auth();
     const userId = session?.userId;
-    if (!userId) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    if (!userId) return apiError("UNAUTHORIZED", 401);
 
     const workspaceId = await getWorkspaceId(userId);
     if (!workspaceId) return NextResponse.json({ keywords: [], metrics: { total: 0, avgRank: null, top10Count: 0 } });
@@ -39,7 +40,7 @@ export async function GET(req: Request): Promise<NextResponse> {
     if (appId) q = q.eq("app_id", appId);
 
     const { data, error } = await q;
-    if (error) throw error;
+    if (error) return apiError("INTERNAL_SERVER_ERROR", 500);
 
     const keywords = (data ?? []).map(mapRow);
     const ranked = keywords.filter((k) => k.currentRank !== null);
@@ -60,7 +61,7 @@ export async function GET(req: Request): Promise<NextResponse> {
     });
   } catch (err) {
     console.error("[GET /api/aso/keywords]", err);
-    return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
+    return apiError("INTERNAL_SERVER_ERROR", 500);
   }
 }
 
@@ -68,10 +69,10 @@ export async function POST(req: Request): Promise<NextResponse> {
   try {
     const session = await auth();
     const userId = session?.userId;
-    if (!userId) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    if (!userId) return apiError("UNAUTHORIZED", 401);
 
     const workspaceId = await getWorkspaceId(userId);
-    if (!workspaceId) return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 403 });
+    if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
     const body = await req.json() as {
       keyword?: string;
@@ -79,7 +80,7 @@ export async function POST(req: Request): Promise<NextResponse> {
       volumeEstimate?: number;
     };
     const keyword = body.keyword?.trim();
-    if (!keyword) return NextResponse.json({ error: "MISSING_KEYWORD" }, { status: 400 });
+    if (!keyword) return apiError("INVALID_INPUT", 400, "keyword is required");
 
     const sb = getServiceClient();
 
@@ -108,10 +109,10 @@ export async function POST(req: Request): Promise<NextResponse> {
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) return apiError("INTERNAL_SERVER_ERROR", 500);
     return NextResponse.json(mapRow(data as Record<string, unknown>), { status: 201 });
   } catch (err) {
     console.error("[POST /api/aso/keywords]", err);
-    return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
+    return apiError("INTERNAL_SERVER_ERROR", 500);
   }
 }

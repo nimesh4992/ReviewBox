@@ -1,7 +1,7 @@
 # Today — Handoff for next agent
 
-**Last updated:** 2026-05-25
-**Branch agent left on:** `fix/sync-and-competitors` (pushed, PR open — do NOT push more commits to it)
+**Last updated:** 2026-05-26
+**Branch agent left on:** `fix/audit-round-3` (pushed, PR at https://github.com/nimesh4992/ReviewBox/pull/new/fix/audit-round-3)
 
 You are the next Claude agent. Read this top-to-bottom before doing anything.
 
@@ -16,44 +16,48 @@ You are the next Claude agent. Read this top-to-bottom before doing anything.
 
 ---
 
-## What shipped this session (2026-05-25)
+## What shipped this session (2026-05-26)
 
-### PR #33 — `milestone/m1-product-polish` (already merged to master)
-A large milestone branch. Highlights:
-- Real dashboard metrics (ratingTrend, reviewsWeekDelta, avgRatingDelta from DB)
-- Dead code removed (old onboarding wizard, mock-reviews.ts)
-- Loading skeletons on 7 routes
-- AppFollow-style app search in onboarding
-- Onboarding loop fix (rb_onboarded cookie)
-- 70 unit tests across 9 files
-- LAUNCH_CHECKLIST.md (80+ items)
+### `fix/audit-round-3` — **awaiting founder merge** (9 fixes)
 
-### `hotfix/settings-crash-and-404` — **awaiting founder merge**
-Two production bugs fixed:
-1. **Settings page crash** (`e.map is not a function`) — `alert_preferences` rows returned with `channels: null` from DB + snake_case/camelCase mismatch. Fixed with defensive mapping in `useEffect` and a render-side `ch` guard.
-2. **"Link account" banner 404** — `credentials-banner.tsx` was linking to `/settings/connections` (route does not exist). Fixed to `/settings`.
+Cross-verification audit by a third-party review agent found bugs missed in the prior two passes. All 9 fixed in one commit (`e59d0cf`).
 
-**Files changed:** `src/features/settings/components/alert-preferences.tsx`, `src/components/layout/credentials-banner.tsx`
+| ID | File | Fix |
+|----|------|-----|
+| C-02 | `cron/trial-nudge/route.ts` | `isAuthorized()` now fail-closed — was `return true` when `CRON_SECRET` unset, allowing anyone to fire mass trial emails |
+| H-01 | `onboarding/complete` + `onboarding/slug-check` | Slug regex fixed — `(?:...)?` optional group allowed 1-char slugs; now requires min 3 chars |
+| H-02 | `cron/trial-nudge/route.ts` | Dedup Redis key now written BEFORE sending email (both day5 + day12 loops) |
+| H-03 | `account/accept-invite/route.ts` | Invite email check iterates all `emailAddresses`, not just `[0]` |
+| H-05 | `reviews/[id]/reply/route.ts` | Server-side char limit before store submit (Google Play: 350, App Store: 5950) |
+| H-06 | `gdpr/export/route.ts` | Removed `export const GET = handler` — CSRF vector |
+| M-01 | `reports/export/route.ts` | `days` param clamped 1-365; NaN/negative now default to 30 |
+| C-03 | `reviews/route.ts` | PostgREST `.or()` search param strips `,().'"\` before interpolation |
+| M-03 | `sync/reviews/route.ts` | `notifyWorkspaceOwner` `.single()` → `.maybeSingle()` |
+| L-01 | `google-play/service-account/route.ts` | Uses `apiError("UNAUTHORIZED", 401)` not raw `NextResponse.json` |
 
-### `fix/sync-and-competitors` — **awaiting founder merge**
-Two product-level issues fixed:
+Also added `REPLY_TOO_LONG` to `ApiErrorCode` union in `src/lib/api-response.ts`.
 
-1. **First-login sync blocked → empty dashboard** — `isAuthorized()` in `/api/sync/reviews` returned `false` when `CRON_SECRET` env var is not set. The fire-and-forget sync fired from `onboarding/complete` is a server-to-server HTTP call with no Clerk session — so it silently got 401 every time. Reviews never imported. Dashboard stayed empty forever. Fix: `isAuthorized()` returns `true` when no `CRON_SECRET` is configured. Once the founder sets `CRON_SECRET` in Vercel, the check enforces it automatically.
-
-2. **Competitors screen hardcoded mock data** — New `GET /api/competitors` endpoint queries real DB metrics for the user's primary app (lifetime rating, reviews per week, reply rate, 6-week rating trend). "You" row is live data. Competitor rows are illustrative placeholders with amber **sample** badges at 60% opacity — competitor tracking is a future feature and stated clearly in the UI. KPI strip (rank, gap to #1, reply-rate delta) now derives from real data.
-
-**Files changed:** `src/app/api/sync/reviews/route.ts`, `src/app/api/competitors/route.ts` (new), `src/features/competitors/components/competitors-screen.tsx`
+**TypeScript:** 0 errors.
 
 ---
 
-## PRs awaiting founder merge (both must merge before next agent starts)
+## PRs awaiting founder merge (priority order)
 
 | # | Branch | What it does | Priority |
 |---|--------|-------------|----------|
-| 1 | `hotfix/settings-crash-and-404` | Fixes settings crash + link-account 404 | 🔴 URGENT |
-| 2 | `fix/sync-and-competitors` | Fixes empty dashboard + competitors real data | 🔴 URGENT |
+| 1 | `fix/audit-round-3` | 9 security + correctness fixes | 🔴 HIGH |
 
-Open: https://github.com/nimesh4992/ReviewBox/pulls
+Check all open PRs: https://github.com/nimesh4992/ReviewBox/pulls
+
+---
+
+## Untracked artifacts — do NOT commit
+
+Two files in repo root from cross-verification agent:
+- `gen_report.js` — session-specific path, unusable outside original env
+- `ReviewBox_Code_Review_Report.docx` — generated artifact
+
+Leave unstaged.
 
 ---
 
@@ -62,37 +66,27 @@ Open: https://github.com/nimesh4992/ReviewBox/pulls
 **Set `CRON_SECRET` in Vercel environment variables.**
 
 - Vercel dashboard → your project → Settings → Environment Variables
-- Add: `CRON_SECRET` = any random string (run `openssl rand -hex 32` or just type a long random string)
+- Add: `CRON_SECRET` = `e61b2c02c385535daa15e71d533dde895b8dcdf396c825841fa59ac1dbeb4480`
 - Apply to: Production + Preview + Development
 - Redeploy after setting it
 
-Why: Without this, any caller can trigger the sync-all-workspaces coordinator endpoint. It's not catastrophic (syncing just reads data) but it's sloppy. Set it now while we're thinking about it.
+Why: `weekly-digest`, `unreplied-alert`, AND `trial-nudge` all fail closed without this. None of the email crons fire until this is set.
 
 ---
 
 ## What you should pick up next
 
-**Merge both PRs first (founder job). Then:**
+**Merge all PRs first (founder job). Then:**
 
 **Top non-blocked NOW item: N3 — Detail pages · ICE 64**
 
-`/incidents/[id]` and `/releases/[version]` are dynamic routes that exist in the router but show stubs or blank content. Users click incidents from the incident list and releases from the release health table. A blank page kills trust.
+`/incidents/[id]` and `/releases/[version]` show stubs or blank content. Users click from lists and hit nothing — trust killer.
 
 ### N3 scope — Done when:
-1. `/incidents/[id]` — shows: incident title, severity badge (critical/high/medium), description, owner, detected-at timestamp, status chip (open/investigating/resolved), timeline of 3–5 dummy status changes.
-2. `/releases/[version]` — shows: version number, rollout % bar, rating delta, complaint delta, status badge, list of reviews tagged for that version (query from DB by `app_version` field).
-3. Both pages have a back link (`← Incidents` / `← Releases`).
-4. Both pages use `AppShell` (authenticated shell — NOT MarketingShell).
-5. Mobile usable (AppShell handles it).
-
-### N3 implementation notes
-- **Files:** `src/app/(app)/incidents/[id]/page.tsx`, `src/app/(app)/releases/[version]/page.tsx`
-- Check what's already there — they were in the build output so stubs exist
-- Incident detail page is already built per CLAUDE.md ("Incident detail — status actions, timeline ✅ Done (real data)") — verify it actually works or just needs wiring
-- Release detail is also listed as ✅ Done — same check
-- If both truly work, skip N3 and move to N4
-- **No ADR required** — layout only, no new patterns
-- **No new types** — use existing `IncidentAlert`, `ReleaseHealth` from `src/types/review.ts`
+1. `/incidents/[id]` — shows: title, severity badge, description, owner, detected-at, status chip, timeline.
+2. `/releases/[version]` — shows: version, rollout % bar, rating delta, complaint delta, status badge, reviews tagged for that version.
+3. Both have a back link and use `AppShell`.
+4. Mobile usable.
 
 ### Start
 ```powershell
@@ -106,44 +100,41 @@ git checkout -b claude/n3-detail-pages
 
 ## After N3: N4 — Remove or wire dead buttons · ICE 56
 
-Dead buttons across the app. Now that competitors is wired (this session), the remaining ones are:
-- `aso-screen.tsx` — "Export" and "Suggest keywords" buttons
-- `reports-screen.tsx` — "Run report" and "Configure" buttons  
-- Settings sections — any "Save" buttons that don't actually save
-
-For each dead button: either wire it to real behavior, or hide it behind a `disabled` state with a tooltip "Coming soon", or remove it entirely. Don't leave silent no-ops.
+Remaining dead buttons:
+- `aso-screen.tsx` — "Export" and "Suggest keywords"
+- `reports-screen.tsx` — "Run report" and "Configure"
+  (note: dead "+ New report" already removed on branch `claude/n3-n4-detail-pages-and-dead-buttons` — cherry-pick or re-apply that one change)
 
 ---
 
 ## What requires the founder (D009 — never do these yourself)
 
-- **Merge the 2 open PRs** above
+- **Merge the open PR** above
 - **Set `CRON_SECRET`** in Vercel (see above)
-- **N6** — Add Stripe test keys to `.env.local`. Until done, billing flow can't be tested end-to-end.
-- **Migrations** — Check if migrations 007–011 are applied in production. If not, founder needs to run them in Supabase SQL editor. They were generated in prior sessions but may not have been applied. Check `supabase/migrations/` for filenames starting at 007.
+- **N6** — Add Stripe test keys to `.env.local`
 
 ---
 
 ## Lessons learned this session
 
-1. **`CRON_SECRET` unset = silent 401 on server-to-server sync.** The sync route's `isAuthorized()` previously returned `false` when `CRON_SECRET` was not configured — this blocked every first-login sync without any visible error. Now fixed. Always test first-login sync after any auth/middleware change.
+1. **Cross-verification catches bugs after two audit passes.** A fresh agent found 9 more real bugs. Run a secondary audit after major security work — it always pays.
 
-2. **Supabase JSONB `null` vs missing key.** `alert_preferences.channels` column was nullable and rows pre-dating the migration had `channels: null`. Any component that does `pref.channels.email` crashes. Pattern: always guard JSONB columns with `(value && typeof value === "object") ? value : defaultValue` before accessing nested keys.
+2. **Dedup-before-send is the correct order.** Write the idempotency key BEFORE firing the side effect. Safer failure: missed email (retryable) > double-send (trust damage).
 
-3. **Snake_case from Supabase ≠ camelCase in TypeScript.** DB returns `schedule_time`, `schedule_day_of_week`; TypeScript types expect `scheduleTime`, `scheduleDayOfWeek`. Either use a mapping layer or check both in the same expression: `r.scheduleTime ?? r.schedule_time`.
+3. **All email crons must fail closed.** Sync route stays open intentionally (onboarding sync). Email crons (weekly-digest, unreplied-alert, trial-nudge) must all return 401 when CRON_SECRET unset.
 
-4. **PR #33 already merged when session started.** Don't assume a PR is pending — check `git log --oneline origin/master` at the start of each session to see what's actually merged.
+4. **`(?:...)?` ≠ required group.** The trailing `?` makes the whole group optional, silently allowing 1-char slugs despite "3-40 chars" in the error message.
 
-5. All prior lessons still apply — PowerShell `&&` broken (use `;`), stale `.next/` cache after branch switches, no `gh` CLI on this machine (use GitHub web URLs), `@clerk/types` not a separate package.
+5. All prior lessons still apply — PowerShell `&&` broken (use `;`), no `gh` CLI on this machine.
 
 ---
 
 ## Active state of the repo
 
-- **Local branch:** `fix/sync-and-competitors` (committed, pushed — don't add to it)
-- **Master:** all prior session PRs merged; `hotfix/settings-crash-and-404` and `fix/sync-and-competitors` pending
-- **Build:** clean (exit 0, 0 type errors before pushing)
-- **Tests:** 70 unit tests passing
+- **Local branch:** `fix/audit-round-3` (committed and pushed)
+- **Master:** clean
+- **Build:** TypeScript clean (0 errors)
+- **Tests:** 70 unit tests (unchanged this session)
 
 ---
 
@@ -151,7 +142,7 @@ For each dead button: either wire it to real behavior, or hide it behind a `disa
 
 - Solo founder, marketing-strong, non-coder
 - Autopilot loop: Claude ships PRs on branches → founder verifies on Vercel preview → founder merges
-- Goal: take on AppFollow on price ($49 vs $399) + AI-first + modern UX
+- Goal: take on AppFollow ($49 vs $399) + AI-first + modern UX
 - Works in pockets around a full-time job
 - No `gh` CLI installed — give GitHub web PR URLs
 

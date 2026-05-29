@@ -8,6 +8,7 @@ import {
   fetchAppStoreId,
   fetchReviews as fetchAppStoreReviews,
 } from "@/services/app-store/connect-api";
+import { fetchGooglePlayMetadata, fetchAppStoreMetadata } from "@/services/store-search";
 import { buildEnrichedRow } from "@/lib/review-mapper";
 import { bootstrapReviews } from "@/services/bootstrap-reviews";
 import { sendRatingSpikeAlert } from "@/lib/email/send-rating-spike-alert";
@@ -48,10 +49,43 @@ interface SyncSummary {
   errors: string[];
 }
 
+// ── Metadata refresh (lifetime rating + review count) ────────────────────────
+//
+// Runs best-effort before each review fetch. Keeps apps.lifetime_rating and
+// apps.lifetime_review_count in sync with what users actually see on the
+// store, regardless of how many reviews the API returns per call.
+
+async function refreshAppMetadata(app: DbApp): Promise<void> {
+  const sb = getServiceClient();
+  try {
+    const meta =
+      app.platform === "google_play"
+        ? await fetchGooglePlayMetadata(app.store_id)
+        : await fetchAppStoreMetadata(app.store_id);
+    if (!meta) return;
+
+    const update: Record<string, unknown> = {};
+    if (meta.rating      !== null) update.lifetime_rating       = meta.rating;
+    if (meta.reviewCount !== null) update.lifetime_review_count = meta.reviewCount;
+    if (meta.icon)                 update.icon_url              = meta.icon;
+    if (meta.developer)            update.developer             = meta.developer;
+    if (Object.keys(update).length === 0) return;
+
+    await sb.from("apps").update(update).eq("id", app.id);
+  } catch (err) {
+    // Non-fatal — review sync still proceeds if the scrape fails
+    console.warn(`[sync] metadata refresh failed for app ${app.id}:`, err);
+  }
+}
+
 // ── Google Play sync ───────────────────────────────────────────────────────────
 
 async function syncGooglePlayApp(app: DbApp, summary: SyncSummary) {
-  const playReviews = await fetchGooglePlayReviews(app.store_id);
+  // Metadata scrape + review fetch run in parallel — saves ~1-2s per app
+  const [, playReviews] = await Promise.all([
+    refreshAppMetadata(app),
+    fetchGooglePlayReviews(app.store_id),
+  ]);
   if (!playReviews.length) return;
 
   const rows = playReviews.map((r) => {
@@ -83,6 +117,9 @@ async function syncGooglePlayApp(app: DbApp, summary: SyncSummary) {
 // ── App Store sync ────────────────────────────────────────────────────────────
 
 async function syncAppStoreApp(app: DbApp, summary: SyncSummary) {
+  // Metadata scrape runs in parallel with credential checks / JWT build
+  void refreshAppMetadata(app); // fire-and-forget for App Store too
+
   if (!app.access_token || !app.refresh_token) {
     summary.errors.push(`App Store app ${app.id}: missing credentials`);
     return;
@@ -172,7 +209,7 @@ async function upsertAndFinalize(
     }));
 
   if (unrepliedReviews.length) {
-    runAutomationRules(app.workspace_id, unrepliedReviews).catch(
+    runAutomationRules(app.workspace_id, unrepliedReviews, app.id).catch(
       (e) => console.error("[sync] automation rules:", e),
     );
   }
@@ -365,40 +402,46 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
             ).catch((err) =>
               console.warn("[sync] enrich:", err instanceof Error ? err.message : err),
             );
+  // Process all apps in parallel — each app's sync is independent.
+  // Promise.allSettled so one failing app never blocks the others.
+  await Promise.allSettled(
+    (apps as DbApp[]).map(async (app) => {
+      const reviewsBefore = summary.reviewsUpserted;
+      try {
+        // First sync only: bootstrap public reviews before hitting the Publisher API.
+        if (!app.last_sync_attempted_at) {
+          try {
+            const bootstrapRows = await bootstrapReviews(app.platform, app.id, app.workspace_id, app.store_id);
+            if (bootstrapRows.length) {
+              await getServiceClient()
+                .from("reviews")
+                .upsert(bootstrapRows, { onConflict: "app_id,external_id" });
+              summary.reviewsUpserted += bootstrapRows.length;
+              console.log(`[sync] bootstrap ${app.store_id}: ${bootstrapRows.length} reviews`);
+            }
+          } catch (err) {
+            console.warn(`[sync] bootstrap failed for ${app.store_id}:`, err instanceof Error ? err.message : err);
           }
-        } catch (err) {
-          // Bootstrap is best-effort — don't fail the whole sync if scraping breaks.
-          console.warn(`[sync] bootstrap failed for ${app.store_id}:`, err instanceof Error ? err.message : err);
         }
-      }
 
-      if (app.platform === "google_play")     await syncGooglePlayApp(app, summary);
-      else if (app.platform === "app_store")  await syncAppStoreApp(app, summary);
+        if (app.platform === "google_play")    await syncGooglePlayApp(app, summary);
+        else if (app.platform === "app_store") await syncAppStoreApp(app, summary);
 
-      const platformErr = summary.errors.find((e) => e.includes(app.id));
-      if (platformErr) {
-        // syncAppStoreApp pushes errors to summary instead of throwing for
-        // some cases (missing credentials). Catch those here.
-        await recordSyncResult(app.id, {
-          ok: false,
-          platform: app.platform,
-          errMsg: platformErr,
-        });
-      } else {
-        const fetched = summary.reviewsUpserted - reviewsBefore;
-        await recordSyncResult(app.id, { ok: true, reviewCount: fetched });
+        const platformErr = summary.errors.find((e) => e.includes(app.id));
+        if (platformErr) {
+          await recordSyncResult(app.id, { ok: false, platform: app.platform, errMsg: platformErr });
+        } else {
+          const fetched = summary.reviewsUpserted - reviewsBefore;
+          await recordSyncResult(app.id, { ok: true, reviewCount: fetched });
+        }
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        summary.errors.push(`${app.platform} app ${app.store_id}: ${msg}`);
+        await recordSyncResult(app.id, { ok: false, platform: app.platform, errMsg: msg });
+        console.error(`[sync] ${app.platform} ${app.store_id} failed:`, msg);
       }
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      summary.errors.push(`${app.platform} app ${app.store_id}: ${msg}`);
-      await recordSyncResult(app.id, {
-        ok: false,
-        platform: app.platform,
-        errMsg: msg,
-      });
-      console.error(`[sync] ${app.platform} ${app.store_id} failed:`, msg);
-    }
-  }
+    }),
+  );
 
   return summary;
 }
@@ -580,7 +623,7 @@ async function notifyWorkspaceOwner(
     .eq("workspace_id", workspaceId)
     .eq("role", "owner")
     .limit(1)
-    .single();
+    .maybeSingle();  // .single() throws PGRST116 when no owner row exists → noisy 500 logs
 
   if (!member) return;
 

@@ -412,7 +412,7 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 | PostHog analytics | ✅ Done |
 | Sentry error monitoring | ✅ Done |
 | Admin panel wired to real customer data | 🔲 Pending |
-| Security audit + RLS verification | ✅ Done (2026-05-21 audit) |
+| Security audit + RLS verification | ✅ Done (3 passes: 2026-05-21 + 2026-05-25 round-1/2 + 2026-05-26 cross-verify — 44+ fixes) |
 | Next.js 15 → 16 upgrade | 🔲 When stable |
 | Unit test suite (Vitest) | ✅ Done — 70 tests across 9 files, CI-gated |
 | CI pipeline (tsc, lint, vitest, e2e, audit) | ✅ Done — `.github/workflows/ci.yml` |
@@ -579,52 +579,61 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 
 ## Current Sprint
 
-**Active: Autopilot bootstrap → marketing-site responsive sweep**
-Last updated: 2026-05-18
+**Active: UX polish + design system audit**
+Last updated: 2026-05-29
 
-### What just shipped (recent commits)
+### PRs awaiting founder merge
 
-Foundation hardening (EXTREME tier 1–5):
-- ✅ `supabase/migrations/` — versioned, forward-only migrations (002 plan vocab, 003 audit log, 004 webhook events, 005 soft-delete, 006 invites)
-- ✅ `src/lib/audit.ts` — `audit()` helper writes to audit_log table on every mutation
-- ✅ `src/lib/api-response.ts` — canonical `{ error: { code, message } }` envelope + `apiError()` + `captureAndError()`
-- ✅ `src/lib/api-rate-limit.ts` — generic per-route Upstash rate limiter; applied to slug-check, onboarding/complete, sentiment, aso, stripe checkout/portal, reply publish, GDPR export
-- ✅ Sentry user identity wired (`src/components/providers/sentry-identify.tsx`)
-- ✅ PostHog funnel events typed in `src/lib/analytics.ts`
+| Branch | What | Priority |
+|---|---|---|
+| `fix/sync-openssl-metadata` | OpenSSL 3 private key fix + sync parallelisation + metadata refresh | 🔴 HIGH — merge first |
+| `fix/dashboard-lifetime-rating` | Lifetime rating/review count from store (fixes 2.46★ vs 3.3★ discrepancy) | 🔴 HIGH — merge second |
+| `feat/google-play-setup-modal` | AppFollow-style GP connection modal with verify flow | 🟡 MEDIUM |
+| `fix/query-cache-retention` | React Query `gcTime` 30 min + `keepPreviousData` — fixes data vanishing on return | 🟡 MEDIUM |
+| `fix/metadata-scrape-cache` | Redis 6h TTL for Play Store / App Store metadata scrapes | 🟡 MEDIUM |
+| `fix/reply-ux-and-onboarding-skip` | Draft save feedback, credential error CTAs, onboarding step 3 skip path | 🟡 MEDIUM |
 
-HIGH tier 6–10:
-- ✅ Stripe webhook idempotency via `webhook_events` table dedup
-- ✅ Workspace soft-delete + 30-day grace + `/account-deleted` restore page + DangerZone in /settings
-- ✅ GDPR export rewritten (audit_log + members + webhook_events), GDPR delete uses envelope + Stripe customer cleanup
-- ✅ Team invites: `/api/team/invites`, `/api/account/accept-invite`, `/invite/[token]` landing
-- ✅ Sync route now coordinator+worker pattern — one Vercel invocation per workspace
+Check: https://github.com/nimesh4992/ReviewBox/pulls
 
-Autopilot bootstrap:
-- ✅ `docs/decisions.md` — 13 immutable decisions + non-coder contract
-- ✅ `docs/backlog.md` — every pending item ICE-scored
-- ✅ `docs/today.md` — daily handoff template
-- ✅ `.github/PULL_REQUEST_TEMPLATE.md` — marketer-friendly format
-- ✅ `.github/workflows/ci.yml` — build, type-check, lint, unit, e2e, security
-- ✅ `vitest.config.ts` + first 14 unit tests on `src/lib/rules-engine.ts`
-- ✅ `playwright.config.ts` + first 5 smoke e2e tests
-- ✅ Five agent definitions in `.claude/agents/`
+**After `fix/sync-openssl-metadata` + `fix/dashboard-lifetime-rating` merge:** trigger a manual sync via Settings → Apps → Sync now to populate `apps.lifetime_rating` with real store values.
 
-### PRs in flight (awaiting founder merge)
+### What shipped 2026-05-29
 
-- `claude/fix-onboarding-stuck-checking` — slug-check timeout safety, can't trap user on step 1
-- `claude/hotfix-viewport-meta` — adds `<meta viewport>` so mobile stops rendering desktop-scaled-down
-- `claude/n2-notification-panel-empty-state` — removes fake "Crash spike" bell items
-- `claude/n8-auth-pages-redesign` — split-screen sign-up/sign-in with brand-side panel + AuthShell
+**`fix/metadata-scrape-cache`** — Redis caching for store metadata scrapes.
+- `fetchGooglePlayMetadata()` and `fetchAppStoreMetadata()` now check Redis first (keys `meta:gplay:{id}` / `meta:appstore:{id}`, 6h TTL) before hitting the store.
+- Eliminates redundant scrapes across onboarding search → onboarding/complete → daily sync.
+- Best-effort: Redis errors fall through to live scrape transparently.
+
+**`fix/reply-ux-and-onboarding-skip`** — 3 user-facing friction fixes:
+- Draft save was fire-and-forget (no feedback). Now shows "Saving…" → "✓ Saved", updates cache to `draft_ready`, handles errors silently.
+- Credential errors (`APP_STORE_NOT_CONNECTED`, `GOOGLE_PLAY_NOT_CONFIGURED`) now stay visible with "Set up in Settings →" link instead of auto-clearing in 4s.
+- Onboarding step 3 heading reframed from "One thing before reviews can sync" (implied blocking) to "Connect X to sync reviews". Primary CTA changed to "I've done this — launch workspace". Added "I'll connect later" text link so non-technical users aren't blocked.
+
+**`docs/DESIGN_SYSTEM_AUDIT.md`** — Comprehensive design system audit:
+- 4 critical issues, 3 medium, 2 low. See `docs/DESIGN_SYSTEM_AUDIT.md` for full findings.
+- Biggest gap: 1,095 raw `gray-*` usages across 69 files instead of `--rb-*` tokens. 47 tokens defined but rarely used.
+- Quick win: add `--rb-indigo-*` tokens (10 min) — unblocks 40 hardcoded `#5B5BD6` values in Reply Kit + Automations.
+
+### What shipped 2026-05-26 (branch `fix/audit-round-3`)
+
+**Cross-verification audit — 9 fixes:**
+- `trial-nudge` `isAuthorized()` fail-closed (C-02)
+- Slug regex minimum 3 chars (H-01)
+- Dedup key before email send in trial-nudge (H-02)
+- Invite email checks all addresses not just `[0]` (H-03)
+- Server-side reply char limit → `REPLY_TOO_LONG` (H-05)
+- GDPR export `GET` removed — CSRF vector (H-06)
+- Export `days` param clamped 1-365 (M-01)
+- PostgREST `.or()` search sanitized (C-03)
+- `notifyWorkspaceOwner` `.single()` → `.maybeSingle()` (M-03)
 
 ### Up next (per backlog NOW)
 
-After PRs merge:
-- **N7a** — Landing page mobile responsive (`src/app/page.tsx`, 284 inline styles → media-query wrapped). ICE 90.
-- **N5** — `/compare/appfollow` rewrite with real teeth (feature table + ROI calc + CTAs). ICE 81.
-- **N3** — `/incidents/[id]` and `/releases/[version]` detail pages. ICE 64.
-- **N4** — Remove or wire dead buttons across competitors/aso/reports/settings. ICE 56.
-**Active branch:** `claude/picture-perfect` (PR open, awaiting merge)
-Last updated: 2026-05-22
+1. Merge 6 open PRs (founder action, in order listed above)
+2. Trigger manual sync after first two merges
+3. **N6** — Stripe test keys + upgrade flow (HUMAN-REQUIRED). ICE 80.
+4. **DS1** — Add `--rb-indigo-500/600` tokens to `globals.css` (10 min, unblocks Reply Kit design debt)
+5. **DS4** — Replace 86 raw `<button>` in review-queue + aso-screen with `<Button>` (accessibility)
 
 ### Completed (2026-05-19 → 2026-05-22)
 

@@ -9,7 +9,7 @@ export function DataPrivacySection() {
 
   async function handleExport() {
     try {
-      const response = await fetch("/api/gdpr/export");
+      const response = await fetch("/api/gdpr/export", { method: "POST" });
       if (!response.ok) {
         alert("Export failed. Please try again.");
         return;
@@ -18,7 +18,7 @@ export function DataPrivacySection() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = "revi-data-export.json";
+      a.download = `reviewbox-export-${new Date().toISOString().slice(0, 10)}.json`;
       a.click();
       URL.revokeObjectURL(url);
     } catch {

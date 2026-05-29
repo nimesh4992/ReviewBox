@@ -65,7 +65,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     await audit({
       workspaceId: workspace.id,
       actorUserId: userId,
-      action: "workspace.create", // closest available; we treat restore as re-activation
+      action: "workspace.restore",
       targetType: "workspace",
       targetId: workspace.id,
       payload: { event: "restore" },

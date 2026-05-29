@@ -30,6 +30,7 @@ const isPublicRoute = createRouteMatcher([
   "/api/reports/unreplied-alert",
   "/api/health/(.*)",
   "/api/demo/(.*)",
+  "/api/auth/clear-onboarded-cookie",
   "/monitoring(.*)",
 ]);
 

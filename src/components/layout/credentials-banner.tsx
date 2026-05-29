@@ -1,26 +1,22 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { useRouter } from "next/navigation";
 import { X } from "lucide-react";
 
+import { useApps } from "@/hooks/use-apps";
+
 const DISMISS_KEY = "rb_cred_banner_dismissed";
 
-interface AppEntry {
-  id: string;
-  has_credentials: boolean;
-}
-
-interface AppsResponse {
-  apps: AppEntry[];
-}
-
-async function fetchApps(): Promise<AppsResponse> {
-  const res = await fetch("/api/apps");
-  if (!res.ok) throw new Error("Failed to fetch apps");
-  return res.json();
-}
+// CredentialsBanner deliberately uses the shared `useApps()` hook instead of
+// its own `useQuery`. The reason: both this component and `useApps()` used to
+// register the same React Query key `["apps"]` but with DIFFERENT queryFns —
+// one returning `{ apps: [...] }` (object) and the other returning `WorkspaceApp[]`
+// (plain array). React Query deduplicates requests by key, so whichever hook
+// mounted first (the layout banner, always) would poison the cache with an object
+// shape. Page components then received an object where they expected an array,
+// causing `D.some is not a function` (dashboard) and `e.map is not a function`
+// (settings) production crashes.
 
 export function CredentialsBanner() {
   const router = useRouter();
@@ -33,13 +29,8 @@ export function CredentialsBanner() {
     setDismissed(wasDismissed);
   }, []);
 
-  const { data } = useQuery<AppsResponse>({
-    queryKey: ["apps"],
-    queryFn: fetchApps,
-    staleTime: 30_000,
-  });
+  const { apps } = useApps();
 
-  const apps = data?.apps ?? [];
   const hasAtLeastOneApp = apps.length > 0;
   const anyMissingCredentials = apps.some((a) => !a.has_credentials);
   const shouldShow = hasAtLeastOneApp && anyMissingCredentials && !dismissed;

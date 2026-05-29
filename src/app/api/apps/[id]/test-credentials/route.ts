@@ -17,6 +17,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { buildJWT, fetchAppStoreId } from "@/services/app-store/connect-api";
+import { fetchReviews as fetchGooglePlayReviews } from "@/services/google-play/publisher-api";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -70,16 +71,69 @@ export async function POST(
 
   const verifiedAt = new Date().toISOString();
 
-  if (app.platform !== "app_store") {
-    return NextResponse.json(
-      {
-        ok: true,
-        message:
-          "Google Play apps use a shared service account — no per-app credentials to test.",
-        verifiedAt,
-      },
-      { status: 200 },
-    );
+  // ── Google Play: call the Publisher API with the app's package name ───────────
+  if (app.platform === "google_play") {
+    try {
+      await fetchGooglePlayReviews(app.store_id as string);
+      // If we reach here, the service account has access.
+      await sb
+        .from("apps")
+        .update({ last_sync_status: "credentials_verified", last_sync_error: null })
+        .eq("id", appId);
+      return NextResponse.json(
+        {
+          ok: true,
+          message:
+            `Service account verified — ReviewBox can read reviews for ${app.store_id}. You're ready to sync.`,
+          verifiedAt,
+        },
+        { status: 200 },
+      );
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      const lower = msg.toLowerCase();
+
+      if (lower.includes("403") || lower.includes("forbidden") || lower.includes("permission")) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message:
+              "Service account doesn't have access yet. Complete the invite steps below, then wait up to 5 minutes for Google to propagate permissions.",
+            verifiedAt,
+          },
+          { status: 200 },
+        );
+      }
+      if (lower.includes("404") || lower.includes("not found")) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message: `App '${app.store_id}' not found in Google Play. Check the package name is correct.`,
+            verifiedAt,
+          },
+          { status: 200 },
+        );
+      }
+      if (lower.includes("timeout")) {
+        return NextResponse.json(
+          {
+            ok: false,
+            message:
+              "Google Play API timed out. This is usually a transient issue — try again in a few seconds.",
+            verifiedAt,
+          },
+          { status: 200 },
+        );
+      }
+      return NextResponse.json(
+        {
+          ok: false,
+          message: `Google Play API error: ${msg.slice(0, 200)}`,
+          verifiedAt,
+        },
+        { status: 200 },
+      );
+    }
   }
 
   // ── App Store: actually call Apple's API ────────────────────────────────────

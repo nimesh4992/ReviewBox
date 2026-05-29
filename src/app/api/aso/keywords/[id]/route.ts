@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { apiError, captureAndError } from "@/lib/api-response";
 import type { AsoKeyword } from "@/types/review";
 
 function mapRow(row: Record<string, unknown>): AsoKeyword {
@@ -19,16 +20,16 @@ function mapRow(row: Record<string, unknown>): AsoKeyword {
 // ── PATCH — update rank or volume, building trend history ─────────────────────
 
 export async function PATCH(
-  req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   try {
     const session = await auth();
     const userId = session?.userId;
-    if (!userId) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    if (!userId) return apiError("UNAUTHORIZED", 401);
 
     const workspaceId = await getWorkspaceId(userId);
-    if (!workspaceId) return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 403 });
+    if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
     const { id } = await params;
     const body = await req.json() as {
@@ -38,14 +39,15 @@ export async function PATCH(
 
     const sb = getServiceClient();
 
+    // Use maybeSingle() — .single() throws if the row doesn't exist
     const { data: existing } = await sb
       .from("aso_keywords")
       .select("*")
       .eq("id", id)
       .eq("workspace_id", workspaceId)
-      .single();
+      .maybeSingle();
 
-    if (!existing) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+    if (!existing) return apiError("NOT_FOUND", 404);
 
     const updates: Record<string, unknown> = { updated_at: new Date().toISOString() };
 
@@ -74,40 +76,39 @@ export async function PATCH(
       .select()
       .single();
 
-    if (error) throw error;
+    if (error) return apiError("INTERNAL_SERVER_ERROR", 500);
     return NextResponse.json(mapRow(updated as Record<string, unknown>));
   } catch (err) {
-    console.error("[PATCH /api/aso/keywords/[id]]", err);
-    return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
+    return captureAndError(err, "PATCH /api/aso/keywords/[id]");
   }
 }
 
 // ── DELETE ────────────────────────────────────────────────────────────────────
 
 export async function DELETE(
-  _req: Request,
+  _req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ): Promise<NextResponse> {
   try {
     const session = await auth();
     const userId = session?.userId;
-    if (!userId) return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
+    if (!userId) return apiError("UNAUTHORIZED", 401);
 
     const workspaceId = await getWorkspaceId(userId);
-    if (!workspaceId) return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 403 });
+    if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
     const { id } = await params;
     const sb = getServiceClient();
 
-    // Verify ownership before deleting
+    // Verify ownership before deleting — use maybeSingle() for safe no-row handling
     const { data: existing } = await sb
       .from("aso_keywords")
       .select("id")
       .eq("id", id)
       .eq("workspace_id", workspaceId)
-      .single();
+      .maybeSingle();
 
-    if (!existing) return NextResponse.json({ error: "NOT_FOUND" }, { status: 404 });
+    if (!existing) return apiError("NOT_FOUND", 404);
 
     const { error } = await sb
       .from("aso_keywords")
@@ -115,10 +116,9 @@ export async function DELETE(
       .eq("id", id)
       .eq("workspace_id", workspaceId);
 
-    if (error) throw error;
+    if (error) return apiError("INTERNAL_SERVER_ERROR", 500);
     return NextResponse.json({ success: true });
   } catch (err) {
-    console.error("[DELETE /api/aso/keywords/[id]]", err);
-    return NextResponse.json({ error: "INTERNAL_ERROR" }, { status: 500 });
+    return captureAndError(err, "DELETE /api/aso/keywords/[id]");
   }
 }

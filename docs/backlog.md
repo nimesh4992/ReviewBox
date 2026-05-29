@@ -41,19 +41,11 @@ customers, etc).*
 Dropped the custom terms gate in favor of inline legal line below
 the form.*
 
-### [ ] N3 · Detail pages exist · ICE 64 (8×8÷1)
-**Effort:** 2h.
-**Done when:** Clicking an incident or release in the lists goes to a real detail page (not 404 or blank).
-**Files:** `src/app/(app)/incidents/[id]/page.tsx`, `src/app/(app)/releases/[version]/page.tsx`
-**Why now:** Users will click these. 404 = trust killer.
-*Note: CLAUDE.md lists incident detail and release detail as ✅ Done — verify they actually render before building new work. If wired correctly, mark this [x] and skip to N4.*
+### [x] N3 · Detail pages exist · ICE 64 (8×8÷1) — VERIFIED 2026-05-26
+*Both `/incidents/[id]` and `/releases/[version]` already fully implemented with real DB queries — title, severity/status badges, timeline, rating distribution, reviews list. Verified on branch `claude/n3-detail-pages`. Brand color fix applied (not-found state was using old `#5B5BD6` purple).*
 
-### [~] N4 · Remove or wire dead buttons · ICE 56 (7×8÷1)
-**Effort:** 3h (partially done — competitors wired 2026-05-25).
-**Done when:** Every visible button does something. If we can't ship the feature, the button is hidden behind a feature flag or removed.
-**Remaining files:** `aso-screen.tsx` (Export + Suggest keywords), `reports-screen.tsx` (Run report + Configure), settings sections
-**Competitors-screen.tsx:** ✅ wired to real `/api/competitors` data (2026-05-25)
-**Why now:** "Save defaults" that does nothing trains users to mistrust us.
+### [x] N4 · Remove or wire dead buttons · ICE 56 (7×8÷1) — DONE 2026-05-26
+*Verified all visible buttons: competitors wired (2026-05-25), ASO buttons all wired (AI Suggestions, Add keyword, Update ranks), report cards properly gate with "Coming soon" label when endpoint is null, dead "+ New report" header button removed. No remaining dead buttons. PR `claude/n3-detail-pages` awaiting merge.*
 
 ### [x] N5 · /compare/appfollow with real teeth · ICE 81 (9×9÷1)
 *Shipped 2026-05-19 on branch `claude/n5-compare-appfollow-rewrite` — awaiting founder merge.*
@@ -69,11 +61,17 @@ the form.*
 ### [x] N-COMP · Competitors screen real data · ICE 60 (8×7÷1) — SHIPPED 2026-05-25
 *New `GET /api/competitors` endpoint. "You" row shows real DB metrics (rating, reviews/week, reply rate, 6-week trend). Competitors are illustrative placeholders with amber "sample" badge — competitor tracking is a future feature. PR `fix/sync-and-competitors` awaiting merge.*
 
-### [!] N-CRON · Set CRON_SECRET in Vercel · ICE 72 (9×8÷1)
-**Effort:** 5 min.
-**Done when:** `CRON_SECRET` env var is set in Vercel → Production + Preview + Development scopes. Any long random string works (`openssl rand -hex 32`).
-**HUMAN-REQUIRED** (founder sets in Vercel dashboard → Settings → Environment Variables).
-**Why now:** Without it, the sync-all-workspaces coordinator endpoint is open to any caller. Now that sync is unblocked, lock it down.
+### [x] N-CRON · Set CRON_SECRET in Vercel · ICE 72 (9×8÷1) — DONE 2026-05-26
+*Founder set env var in Vercel. weekly-digest, unreplied-alert, trial-nudge crons now secured and firing.*
+
+### [x] N-SEC2 · Cross-verification audit — 9 fixes · ICE 88 (10×9÷1) — MERGED 2026-05-26
+*Third-party code review found 9 real bugs missed by audit-round-1/2: trial-nudge cron fail-open, slug regex 1-char, dedup race, invite primary-only email, no reply char limit, GDPR export CSRF, days param NaN, PostgREST injection, .single() log noise. Merged to master.*
+
+### [x] N-META · Cache store metadata scrapes in Redis · ICE 63 (9×7÷1) — SHIPPED 2026-05-29
+*`fetchGooglePlayMetadata()` + `fetchAppStoreMetadata()` now check Redis before scraping (keys `meta:gplay:{id}` / `meta:appstore:{id}`, 6h TTL). Eliminates redundant scrapes across onboarding search → onboarding/complete → daily sync. Branch `fix/metadata-scrape-cache` awaiting merge.*
+
+### [x] N-UX · Reply UX + onboarding skip path · ICE 72 (9×8÷1) — SHIPPED 2026-05-29
+*Draft save: loading state, "✓ Saved" feedback, cache update to `draft_ready`. Credential errors: stay visible with "Set up in Settings →" link. Onboarding step 3: reframed as optional step with "I'll connect later" skip. Branch `fix/reply-ux-and-onboarding-skip` awaiting merge.*
 
 ### [ ] N6 · Stripe test keys + verify upgrade flow · ICE 80 (10×8÷1)
 **Effort:** 1h.
@@ -85,6 +83,28 @@ the form.*
 ## 🟠 NEXT — next 2-4 weeks
 
 Critical-edge features for AppFollow competition.
+
+### [ ] DS1 · Add `--rb-indigo-*` tokens to globals.css · ICE 48 (6×8÷1)
+**Effort:** 10 min.
+**Done when:** `--rb-indigo-500: #5B5BD6` and `--rb-indigo-600: #4a4ac4` defined in `globals.css` with dark mode overrides; all 40 hardcoded `#5B5BD6` usages in Reply Kit + Automations replaced with `var(--rb-indigo-500)`.
+**Files:** `src/app/globals.css`, `src/features/reply-kit/components/*`, `src/features/automations/components/*`
+**Why now:** Quickest design system win. Unblocks theming Reply Kit + Automations. See `docs/DESIGN_SYSTEM_AUDIT.md` C3.
+
+### [ ] DS2 · Define type scale tokens (`--rb-text-*`) · ICE 35 (7×5÷1)
+**Effort:** 30 min.
+**Done when:** 7 type tokens defined in `globals.css` (`caption` 11px → `lg` 16px), wired as Tailwind utilities via `@theme inline`. 538 arbitrary `text-[Npx]` usages replaced in top-5 files (review-queue, dashboard, aso-screen).
+**Files:** `src/app/globals.css`, top-5 offending components.
+**Why:** 538 arbitrary font sizes means one type change = grep across 63 files. See `docs/DESIGN_SYSTEM_AUDIT.md` M1.
+
+### [ ] DS3 · Token migration pass: Settings + Reply Kit `gray-*` → `--rb-*` · ICE 30 (6×5÷1)
+**Effort:** 2h.
+**Done when:** `app-connections.tsx` (52 hits), `templates-tab.tsx` (28), `automation-hub.tsx` (30), `google-play-setup-modal.tsx` (41) all use `text-fg-*` / `bg-surface` instead of `gray-*`. Zero new `gray-*` usages introduced.
+**Why:** Top 4 files = 151 violations. Dark mode broken in all of them. See `docs/DESIGN_SYSTEM_AUDIT.md` C1.
+
+### [ ] DS4 · Replace raw `<button>` with `<Button>` in review-queue + aso-screen · ICE 35 (7×5÷1)
+**Effort:** 1.5h.
+**Done when:** `review-queue.tsx` (22) and `aso-screen.tsx` (17) use `<Button variant="ghost" size="sm">` throughout. Consistent focus rings, keyboard nav, disabled states.
+**Why:** 39 of the 86 raw buttons are in these two files. Accessibility fix — `<button>` has no focus ring in the current stylesheet. See `docs/DESIGN_SYSTEM_AUDIT.md` C4.
 
 ### [ ] X1 · Slack integration · ICE 72 (9×8÷1)
 **Effort:** 1d.

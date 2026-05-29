@@ -44,6 +44,33 @@ function useMarkReplied() {
   };
 }
 
+// Helper — stamp a review as draft_ready in the infinite query cache
+function useMarkDraft() {
+  const qc = useQueryClient();
+  return (reviewId: string, replyText: string) => {
+    qc.setQueriesData<{
+      pages: Array<{ reviews: AppReview[]; nextCursor: string | null; hasMore: boolean }>;
+      pageParams: unknown[];
+    }>(
+      { queryKey: ["reviews"] },
+      (old) => {
+        if (!old) return old;
+        return {
+          ...old,
+          pages: old.pages.map((page) => ({
+            ...page,
+            reviews: page.reviews.map((r) =>
+              r.id === reviewId
+                ? { ...r, replyStatus: "draft_ready" as const, replyText }
+                : r,
+            ),
+          })),
+        };
+      },
+    );
+  };
+}
+
 // ── Store char limits ─────────────────────────────────────────────────────────
 
 const CHAR_LIMIT: Record<AppReview["source"], number> = {
@@ -227,7 +254,10 @@ function ReplyComposer({
   const [isSending, setIsSending]         = useState(false);
   const [sendFeedback, setSendFeedback]   = useState<"success" | "error" | null>(null);
   const [sendError, setSendError]         = useState<string | null>(null);
+  const [sendErrorLink, setSendErrorLink] = useState<{ label: string; href: string } | null>(null);
   const [replyDone, setReplyDone]         = useState(alreadyReplied);
+  const [isSavingDraft, setIsSavingDraft] = useState(false);
+  const [draftSaved, setDraftSaved]       = useState(false);
   // Learning loop: track draft source + whether user edited before sending
   const [draftSource, setDraftSource]     = useState<string | null>(null);
   const [originalDraft, setOriginalDraft] = useState<string | null>(null);
@@ -236,6 +266,7 @@ function ReplyComposer({
   const overLimit   = text.length > limit;
   const badge       = SENTIMENT_BADGE[review.sentiment];
   const markReplied = useMarkReplied();
+  const markDraft   = useMarkDraft();
 
   // Translation state
   const [isTranslating, setIsTranslating] = useState(false);
@@ -307,6 +338,8 @@ function ReplyComposer({
     if (!text.trim() || overLimit) return;
     setIsSending(true);
     setSendFeedback(null);
+    setSendError(null);
+    setSendErrorLink(null);
     try {
       const res = await fetch(`/api/reviews/${review.id}/reply`, {
         method: "POST",
@@ -315,46 +348,68 @@ function ReplyComposer({
           replyText:   text,
           status:      "sent",
           draftSource: draftSource ?? "manual",
-          // Edited = had a draft AND user changed it before sending
           draftEdited: originalDraft !== null && text.trim() !== originalDraft.trim(),
         }),
       });
       if (!res.ok) {
         const data = await res.json().catch(() => ({})) as { error?: string };
+        const isCredentialError =
+          data.error === "APP_STORE_NOT_CONNECTED" ||
+          data.error === "GOOGLE_PLAY_NOT_CONFIGURED";
         const msg =
-          data.error === "APP_STORE_NOT_CONNECTED"   ? "Connect App Store credentials in Settings first." :
-          data.error === "STORE_RATE_LIMITED"        ? "Store rate limit — try again in a few minutes."   :
-          data.error === "REVIEW_NOT_FOUND_ON_STORE" ? "Review no longer available on the store."         :
-          data.error === "STORE_SUBMIT_FAILED"       ? "Store rejected the reply — check console."         :
+          data.error === "APP_STORE_NOT_CONNECTED"   ? "App Store credentials not connected."      :
+          data.error === "GOOGLE_PLAY_NOT_CONFIGURED"? "Google Play service account not configured." :
+          data.error === "STORE_RATE_LIMITED"        ? "Store rate limit — try again in a few minutes." :
+          data.error === "REVIEW_NOT_FOUND_ON_STORE" ? "Review no longer available on the store."   :
+          data.error === "STORE_SUBMIT_FAILED"       ? "Store rejected the reply — check credentials." :
+          data.error === "REPLY_TOO_LONG"            ? "Reply exceeds the store's character limit."  :
           "Something went wrong.";
         setSendFeedback("error");
         setSendError(msg);
-        setTimeout(() => { setSendFeedback(null); setSendError(null); }, 4000);
+        if (isCredentialError) {
+          setSendErrorLink({ label: "Set up in Settings →", href: "/settings" });
+          // Credential errors stay visible — user needs to act
+        } else {
+          setTimeout(() => { setSendFeedback(null); setSendError(null); }, 5000);
+        }
         return;
       }
-      // Update cache — blue dot disappears, row shows as replied instantly
       markReplied(review.id, text.trim());
       setReplyDone(true);
       setTimeout(() => onAdvance(review.id), 1200);
     } catch {
       setSendFeedback("error");
-      setTimeout(() => setSendFeedback(null), 2500);
+      setSendError("Network error — check your connection.");
+      setTimeout(() => { setSendFeedback(null); setSendError(null); }, 5000);
     } finally {
       setIsSending(false);
     }
   }
 
   async function handleSaveDraft() {
-    if (!text.trim()) return;
-    await fetch(`/api/reviews/${review.id}/reply`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ replyText: text, status: "draft" }),
-    });
+    if (!text.trim() || isSavingDraft) return;
+    setIsSavingDraft(true);
+    setDraftSaved(false);
+    try {
+      const res = await fetch(`/api/reviews/${review.id}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ replyText: text, status: "draft" }),
+      });
+      if (res.ok) {
+        markDraft(review.id, text.trim());
+        setDraftSaved(true);
+        setTimeout(() => setDraftSaved(false), 3000);
+      }
+    } catch {
+      // best-effort — silent fail on draft save
+    } finally {
+      setIsSavingDraft(false);
+    }
   }
 
   return (
-    <div className="flex w-[420px] shrink-0 flex-col border-l border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)]">
+    <div className="flex w-[420px] shrink-0 flex-col border-l border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)]">
       {/* Header */}
       <div className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-[18px] py-[14px]">
         <AppIconAvatar source={review.source} size="xs" />
@@ -523,32 +578,44 @@ function ReplyComposer({
         {replyDone && !alreadyReplied ? (
           <p className="text-[12px] font-semibold text-[var(--rb-green-500)]">✓ Reply sent — moving to next…</p>
         ) : (
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col gap-1.5">
             {sendFeedback === "error" && sendError && (
-              <p className="text-[11px] text-[var(--rb-red-500)]">{sendError}</p>
+              <div className="flex items-center gap-1.5">
+                <p className="text-[11px] text-[var(--rb-red-500)]">{sendError}</p>
+                {sendErrorLink && (
+                  <Link
+                    href={sendErrorLink.href}
+                    className="shrink-0 text-[11px] font-semibold text-[var(--rb-blue-500)] hover:underline"
+                  >
+                    {sendErrorLink.label}
+                  </Link>
+                )}
+              </div>
             )}
-            <button
-              onClick={handleSend}
-              disabled={isSending || !text.trim() || overLimit}
-              className={cn(
-                "h-[30px] rounded-[7px] px-3 text-[12px] font-semibold text-white transition-colors disabled:opacity-50",
-                sendFeedback === "error"
-                  ? "bg-[var(--rb-red-500)] hover:bg-[var(--rb-red-600)]"
-                  : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
-              )}
-            >
-              {isSending ? "Posting…" : sendFeedback === "error" ? "Retry" : alreadyReplied ? "Update reply" : "Post reply"}
-            </button>
-            <button
-              onClick={handleSaveDraft}
-              disabled={!text.trim() || overLimit}
-              className="h-[30px] rounded-[7px] border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] px-3 text-[12px] font-semibold text-[var(--rb-fg-1)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40"
-            >
-              Save draft
-            </button>
-            <span className="ml-auto shrink-0 text-[11px] text-[var(--rb-fg-3)]">
-              {review.source === "App Store" ? "Posts to App Store" : "Posts to Google Play"} · ~5 min
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleSend}
+                disabled={isSending || !text.trim() || overLimit}
+                className={cn(
+                  "h-9 rounded-[7px] px-4 text-[12px] font-semibold text-white transition-colors disabled:opacity-50",
+                  sendFeedback === "error"
+                    ? "bg-[var(--rb-red-500)] hover:bg-[var(--rb-red-600)]"
+                    : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
+                )}
+              >
+                {isSending ? "Posting…" : sendFeedback === "error" ? "Retry" : alreadyReplied ? "Update reply" : "Post reply"}
+              </button>
+              <button
+                onClick={handleSaveDraft}
+                disabled={!text.trim() || overLimit || isSavingDraft}
+                className="h-8 rounded-[7px] px-3 text-[12px] font-medium text-[var(--rb-fg-3)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40"
+              >
+                {isSavingDraft ? "Saving…" : draftSaved ? "✓ Saved" : "Save draft"}
+              </button>
+              <span className="ml-auto shrink-0 text-[11px] text-[var(--rb-fg-3)]">
+                {review.source === "App Store" ? "Posts to App Store" : "Posts to Google Play"} · ~5 min
+              </span>
+            </div>
           </div>
         )}
       </div>

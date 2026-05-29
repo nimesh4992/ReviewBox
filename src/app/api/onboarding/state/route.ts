@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { getServiceClient } from "@/lib/supabase-server";
@@ -72,13 +72,54 @@ export async function GET(): Promise<NextResponse<OnboardingState | { error: str
   // DB is authoritative. If user has a workspace + app, they're onboarded —
   // regardless of what the stale JWT says. Prevents the post-completion
   // loop where Clerk metadata hasn't propagated yet.
-  const onboarded = claimOnboarded || (!!workspace && !!app);
+  const dbOnboarded = !!workspace && !!app;
+  const onboarded = claimOnboarded || dbOnboarded;
 
-  return NextResponse.json({
+  const body: OnboardingState = {
     onboarded,
     hasWorkspace: !!workspace,
     hasApp: !!app,
     workspace,
     app,
-  });
+  };
+
+  const res = NextResponse.json(body);
+
+  // SIGNIN LOOP FIX: when DB confirms onboarded but the JWT claim doesn't
+  // (returning user whose Clerk metadata is stale or missing), do two things:
+  //
+  // 1. Set the rb_onboarded cookie so the NEXT request middleware sees it
+  //    and lets the user through to /dashboard immediately. Without this,
+  //    the user bounces: /dashboard → /onboarding → /dashboard → /onboarding…
+  //
+  // 2. Repair the Clerk metadata in the background. Even if our cookie
+  //    expires (5 min), Clerk's JWT will then have the right claim and
+  //    no future requests will hit this loop.
+  if (dbOnboarded && !claimOnboarded) {
+    res.cookies.set("rb_onboarded", "1", {
+      maxAge: 60 * 5,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    });
+
+    // Fire-and-forget Clerk repair so we don't block the response on it.
+    void (async () => {
+      try {
+        const clerk = await clerkClient();
+        const clerkUser = await clerk.users.getUser(userId);
+        await clerk.users.updateUserMetadata(userId, {
+          publicMetadata: {
+            ...clerkUser.publicMetadata,
+            onboarded: true,
+          },
+        });
+      } catch (err) {
+        console.error("[onboarding/state] Clerk metadata repair failed:", err);
+      }
+    })();
+  }
+
+  return res;
 }
