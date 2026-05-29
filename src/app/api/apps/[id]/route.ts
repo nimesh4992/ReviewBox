@@ -117,5 +117,15 @@ export async function DELETE(
     request: req,
   });
 
-  return NextResponse.json({ success: true });
+  // Clear the onboarding cookie so the user can reach /onboarding to add
+  // a new app without looping dashboard ↔ onboarding.
+  const res = NextResponse.json({ success: true });
+  res.cookies.set("rb_onboarded", "", {
+    maxAge: 0,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+  });
+  return res;
 }

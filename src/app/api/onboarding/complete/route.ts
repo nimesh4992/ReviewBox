@@ -153,11 +153,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
   }
 
-  // Idempotency: only insert app if none exists for this workspace
+  // Idempotency: only insert app if no LIVE (non-deleted) app exists.
+  // Soft-deleted apps don't count — user may be re-adding after a delete.
   const { data: existingApp } = await sb
     .from("apps")
     .select("id")
     .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
     .limit(1)
     .maybeSingle();
 

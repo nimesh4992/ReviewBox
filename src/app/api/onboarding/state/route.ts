@@ -56,6 +56,7 @@ export async function GET(): Promise<NextResponse<OnboardingState | { error: str
       .from("apps")
       .select("id, name, platform, store_id")
       .eq("workspace_id", workspace.id)
+      .is("deleted_at", null)   // exclude soft-deleted apps — user may be re-onboarding
       .limit(1)
       .maybeSingle();
 
@@ -69,11 +70,14 @@ export async function GET(): Promise<NextResponse<OnboardingState | { error: str
     }
   }
 
-  // DB is authoritative. If user has a workspace + app, they're onboarded —
-  // regardless of what the stale JWT says. Prevents the post-completion
-  // loop where Clerk metadata hasn't propagated yet.
+  // DB is authoritative. If user has a workspace + live (non-deleted) app,
+  // they're onboarded. Excludes soft-deleted apps so a user who deleted their
+  // only app can reach /onboarding to add a new one without looping.
   const dbOnboarded = !!workspace && !!app;
-  const onboarded = claimOnboarded || dbOnboarded;
+  // When Clerk JWT says onboarded=true but DB has no live app (e.g. after
+  // the user deleted their app), treat them as NOT onboarded so they land
+  // on /onboarding to reconnect.
+  const onboarded = dbOnboarded;
 
   const body: OnboardingState = {
     onboarded,
@@ -95,6 +99,18 @@ export async function GET(): Promise<NextResponse<OnboardingState | { error: str
   // 2. Repair the Clerk metadata in the background. Even if our cookie
   //    expires (5 min), Clerk's JWT will then have the right claim and
   //    no future requests will hit this loop.
+  // If user has no live app (deleted or never added), clear the rb_onboarded
+  // cookie so middleware doesn't trap them away from /onboarding.
+  if (!dbOnboarded) {
+    res.cookies.set("rb_onboarded", "", {
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    });
+  }
+
   if (dbOnboarded && !claimOnboarded) {
     res.cookies.set("rb_onboarded", "1", {
       maxAge: 60 * 5,
