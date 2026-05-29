@@ -802,12 +802,12 @@ function StepConnect({
     <div className="flex flex-col gap-6">
       <div>
         <h2 className="text-lg font-semibold text-white">
-          One thing before reviews can sync
+          {isPlay ? "Connect Google Play to sync reviews" : "Connect App Store to sync reviews"}
         </h2>
         <p className="mt-1 text-sm text-white/40">
           {isPlay
-            ? "Google Play needs you to invite us as a teammate so we can fetch reviews. Takes 3 minutes."
-            : "App Store needs an API key from your Apple developer account. Takes 5 minutes."}
+            ? "Invite us as a teammate in Play Console so we can fetch your reviews. You can also do this later from Settings → Apps."
+            : "Add an App Store Connect API key so we can pull your reviews. You can also do this later from Settings → Apps."}
         </p>
       </div>
 
@@ -890,10 +890,18 @@ function StepConnect({
           {saving ? (
             <><Loader2 className="mr-2 size-4 animate-spin" strokeWidth={2} />Creating workspace…</>
           ) : (
-            <>{isPlay ? "Launch my workspace" : "Got it — continue"}<ChevronRight className="ml-1 size-4" strokeWidth={1.5} /></>
+            <>{isPlay ? "I've done this — launch workspace" : "I've done this — continue"}<ChevronRight className="ml-1 size-4" strokeWidth={1.5} /></>
           )}
         </Button>
       </div>
+      <button
+        type="button"
+        onClick={onNext}
+        disabled={saving}
+        className="w-full text-center text-[12px] text-white/30 transition-colors hover:text-white/60 disabled:opacity-0"
+      >
+        I&apos;ll connect later — take me to the dashboard
+      </button>
     </div>
   );
 }

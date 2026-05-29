@@ -579,43 +579,61 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 
 ## Current Sprint
 
-**Active: Security hardening complete → feature work next**
-Last updated: 2026-05-26
+**Active: UX polish + design system audit**
+Last updated: 2026-05-29
 
 ### PRs awaiting founder merge
 
 | Branch | What | Priority |
 |---|---|---|
-| `fix/audit-round-3` | 9 security + correctness fixes (cross-verification) | 🔴 HIGH |
+| `fix/sync-openssl-metadata` | OpenSSL 3 private key fix + sync parallelisation + metadata refresh | 🔴 HIGH — merge first |
+| `fix/dashboard-lifetime-rating` | Lifetime rating/review count from store (fixes 2.46★ vs 3.3★ discrepancy) | 🔴 HIGH — merge second |
+| `feat/google-play-setup-modal` | AppFollow-style GP connection modal with verify flow | 🟡 MEDIUM |
+| `fix/query-cache-retention` | React Query `gcTime` 30 min + `keepPreviousData` — fixes data vanishing on return | 🟡 MEDIUM |
+| `fix/metadata-scrape-cache` | Redis 6h TTL for Play Store / App Store metadata scrapes | 🟡 MEDIUM |
+| `fix/reply-ux-and-onboarding-skip` | Draft save feedback, credential error CTAs, onboarding step 3 skip path | 🟡 MEDIUM |
 
 Check: https://github.com/nimesh4992/ReviewBox/pulls
+
+**After `fix/sync-openssl-metadata` + `fix/dashboard-lifetime-rating` merge:** trigger a manual sync via Settings → Apps → Sync now to populate `apps.lifetime_rating` with real store values.
+
+### What shipped 2026-05-29
+
+**`fix/metadata-scrape-cache`** — Redis caching for store metadata scrapes.
+- `fetchGooglePlayMetadata()` and `fetchAppStoreMetadata()` now check Redis first (keys `meta:gplay:{id}` / `meta:appstore:{id}`, 6h TTL) before hitting the store.
+- Eliminates redundant scrapes across onboarding search → onboarding/complete → daily sync.
+- Best-effort: Redis errors fall through to live scrape transparently.
+
+**`fix/reply-ux-and-onboarding-skip`** — 3 user-facing friction fixes:
+- Draft save was fire-and-forget (no feedback). Now shows "Saving…" → "✓ Saved", updates cache to `draft_ready`, handles errors silently.
+- Credential errors (`APP_STORE_NOT_CONNECTED`, `GOOGLE_PLAY_NOT_CONFIGURED`) now stay visible with "Set up in Settings →" link instead of auto-clearing in 4s.
+- Onboarding step 3 heading reframed from "One thing before reviews can sync" (implied blocking) to "Connect X to sync reviews". Primary CTA changed to "I've done this — launch workspace". Added "I'll connect later" text link so non-technical users aren't blocked.
+
+**`docs/DESIGN_SYSTEM_AUDIT.md`** — Comprehensive design system audit:
+- 4 critical issues, 3 medium, 2 low. See `docs/DESIGN_SYSTEM_AUDIT.md` for full findings.
+- Biggest gap: 1,095 raw `gray-*` usages across 69 files instead of `--rb-*` tokens. 47 tokens defined but rarely used.
+- Quick win: add `--rb-indigo-*` tokens (10 min) — unblocks 40 hardcoded `#5B5BD6` values in Reply Kit + Automations.
 
 ### What shipped 2026-05-26 (branch `fix/audit-round-3`)
 
 **Cross-verification audit — 9 fixes:**
-- `trial-nudge` `isAuthorized()` fail-closed (C-02 — was open without CRON_SECRET, mass email risk)
-- Slug regex minimum 3 chars enforced in both `onboarding/complete` + `slug-check` (H-01)
-- Dedup key written BEFORE email send in trial-nudge day5+day12 loops (H-02)
-- Invite email match checks all registered addresses not just `[0]` (H-03)
-- Server-side reply char limit (350 GP / 5950 AS) before store submit → `REPLY_TOO_LONG` error (H-05)
-- GDPR export `GET` handler removed — CSRF vector (H-06)
-- Export `days` param validated + clamped 1-365 (M-01)
-- PostgREST `.or()` search input sanitized before interpolation (C-03)
-- `notifyWorkspaceOwner` `.single()` → `.maybeSingle()` in sync route (M-03)
-- `google-play/service-account` uses `apiError()` not raw `NextResponse.json` (L-01)
-
-### What shipped 2026-05-25 (merged)
-
-**`fix/audit-round-1`** — Two-pass audit, 35+ fixes across all API routes.
-**`fix/sync-and-competitors`** — First-login sync unblocked, competitors real data.
-**`claude/sync-resilience-milestone`** — Dashboard empty-state on first login.
+- `trial-nudge` `isAuthorized()` fail-closed (C-02)
+- Slug regex minimum 3 chars (H-01)
+- Dedup key before email send in trial-nudge (H-02)
+- Invite email checks all addresses not just `[0]` (H-03)
+- Server-side reply char limit → `REPLY_TOO_LONG` (H-05)
+- GDPR export `GET` removed — CSRF vector (H-06)
+- Export `days` param clamped 1-365 (M-01)
+- PostgREST `.or()` search sanitized (C-03)
+- `notifyWorkspaceOwner` `.single()` → `.maybeSingle()` (M-03)
 
 ### Up next (per backlog NOW)
 
-After PR merges:
-- **N3** — `/incidents/[id]` and `/releases/[version]` detail pages. ICE 64.
-- **N4** — Wire or remove dead buttons (aso-screen, reports-screen). ICE 56.
-- **N6** — Stripe test keys + upgrade flow (HUMAN-REQUIRED). ICE 80.
+1. Merge 6 open PRs (founder action, in order listed above)
+2. Trigger manual sync after first two merges
+3. **N6** — Stripe test keys + upgrade flow (HUMAN-REQUIRED). ICE 80.
+4. **DS1** — Add `--rb-indigo-500/600` tokens to `globals.css` (10 min, unblocks Reply Kit design debt)
+5. **DS4** — Replace 86 raw `<button>` in review-queue + aso-screen with `<Button>` (accessibility)
 
 ### Completed (2026-05-19 → 2026-05-22)
 

@@ -168,7 +168,7 @@ function SidebarNavGroup({
       <button
         onClick={() => setOpen((v) => !v)}
         className={cn(
-          "flex w-full items-center justify-between rounded-md px-2.5 py-1.5 text-left transition-colors",
+          "flex w-full items-center justify-between rounded-md px-2.5 pt-3 pb-1 text-left transition-colors",
           hasActive
             ? "text-[#48484D] dark:text-[#C7C7CC]"
             : "text-[#86868B] hover:text-[#48484D] dark:hover:text-[#C7C7CC]",
