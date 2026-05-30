@@ -40,6 +40,7 @@ interface DbApp {
   access_token: string | null;        // App Store: JSON { keyId, issuerId }
   refresh_token: string | null;       // App Store: .p8 private key
   last_sync_attempted_at: string | null;
+  last_synced_at: string | null;      // timestamp of last SUCCESSFUL sync
 }
 
 interface SyncSummary {
@@ -184,8 +185,7 @@ async function upsertAndFinalize(
 
   summary.appsProcessed++;
   summary.reviewsUpserted += rows.length;
-
-  await sb.from("apps").update({ last_synced_at: new Date().toISOString() }).eq("id", app.id);
+  // last_synced_at is written by recordSyncResult() after all processing completes
 
   // Run automation rules on newly synced reviews (only unreplied ones are candidates)
   const unrepliedReviews: AppReview[] = rows
@@ -334,11 +334,11 @@ async function recordSyncResult(
     await sb
       .from("apps")
       .update({
-        last_synced_at:           now,
-        last_sync_attempted_at:   now,
-        last_sync_status:         "success",
-        last_sync_error:          null,
-        last_sync_review_count:   result.reviewCount,
+        last_synced_at:         now,
+        // last_sync_attempted_at already written at sync start — don't overwrite
+        last_sync_status:       "success",
+        last_sync_error:        null,
+        last_sync_review_count: result.reviewCount,
       })
       .eq("id", appId);
     return;
@@ -348,9 +348,9 @@ async function recordSyncResult(
   await sb
     .from("apps")
     .update({
-      last_sync_attempted_at: now,
-      last_sync_status:       classified.status,
-      last_sync_error:        classified.message,
+      // last_sync_attempted_at already written at sync start — don't overwrite
+      last_sync_status: classified.status,
+      last_sync_error:  classified.message,
     })
     .eq("id", appId);
 }
@@ -361,8 +361,9 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
 
   const { data: apps } = await sb
     .from("apps")
-    .select("id, workspace_id, name, platform, store_id, access_token, refresh_token, last_sync_attempted_at")
+    .select("id, workspace_id, name, platform, store_id, access_token, refresh_token, last_sync_attempted_at, last_synced_at")
     .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
     .not("store_id", "is", null)
     .not("store_id", "eq", "");
 
@@ -374,8 +375,29 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
     (apps as DbApp[]).map(async (app) => {
       const reviewsBefore = summary.reviewsUpserted;
       try {
-        // First sync only: bootstrap public reviews before hitting the Publisher API.
-        if (!app.last_sync_attempted_at) {
+        // ── FIRST: stamp attempted_at immediately ─────────────────────────────
+        // This is the fix for "sync banner on every login". The banner checks
+        // last_sync_attempted_at === null to decide whether to show. By writing
+        // this BEFORE any API calls, the banner disappears even if bootstrap or
+        // the Publisher API times out or throws — the user never sees a stuck
+        // "Syncing…" on their next login.
+        await sb
+          .from("apps")
+          .update({ last_sync_attempted_at: new Date().toISOString() })
+          .eq("id", app.id);
+
+        // ── Bootstrap: seed public reviews on first connect ───────────────────
+        // Runs when the app has ZERO reviews in the DB (not just when
+        // last_sync_attempted_at was null). This means a retry after a failed
+        // first sync won't re-scrape if we already partially populated the table.
+        const { count: existingReviewCount } = await sb
+          .from("reviews")
+          .select("id", { count: "exact", head: true })
+          .eq("app_id", app.id);
+
+        const isFirstSync = (existingReviewCount ?? 0) === 0;
+
+        if (isFirstSync) {
           try {
             const bootstrapRows = await bootstrapReviews(app.platform, app.id, app.workspace_id, app.store_id);
             if (bootstrapRows.length) {
@@ -396,6 +418,7 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
             }
           } catch (err) {
             console.warn(`[sync] bootstrap failed for ${app.store_id}:`, err instanceof Error ? err.message : err);
+            // Bootstrap failure is non-fatal — Publisher API sync still runs below.
           }
         }
 
