@@ -139,19 +139,22 @@ function shortTitle(text: string): string {
 
 // ── ReviewRow ─────────────────────────────────────────────────────────────────
 
-function ReviewRow({ review, selected, onClick, selectMode, isChecked, onCheck }: {
+function ReviewRow({ review, selected, onClick, selectMode, isChecked, onCheck, onQuickDraft }: {
   review: AppReview;
   selected: boolean;
   onClick: () => void;
   selectMode?: boolean;
   isChecked?: boolean;
   onCheck?: (id: string) => void;
+  onQuickDraft?: (review: AppReview) => void;
 }) {
+  const [isDrafting, setIsDrafting] = useState(false);
+
   return (
     <div
       onClick={selectMode ? () => onCheck?.(review.id) : onClick}
       className={cn(
-        "flex cursor-pointer gap-3 border-b border-[var(--rb-border-1)] px-4 py-3.5 transition-colors",
+        "group relative flex cursor-pointer gap-3 border-b border-[var(--rb-border-1)] px-4 py-3.5 transition-colors",
         selected && !selectMode ? "bg-[var(--rb-bg-selected)]" : "hover:bg-[var(--rb-bg-hover)]",
         isChecked && "bg-[var(--rb-blue-50)]",
       )}
@@ -196,6 +199,29 @@ function ReviewRow({ review, selected, onClick, selectMode, isChecked, onCheck }
           <span className="ml-auto shrink-0 tabular-nums">{formatReviewDate(review.createdAt)}</span>
         </div>
       </div>
+
+      {/* Hover quick actions — visible on group-hover, hidden in select mode */}
+      {!selectMode && review.replyStatus === "needs_reply" && onQuickDraft && (
+        <div className="absolute right-3 top-1/2 -translate-y-1/2 hidden group-hover:flex items-center gap-1">
+          <button
+            onClick={async (e) => {
+              e.stopPropagation();
+              setIsDrafting(true);
+              try { await onQuickDraft(review); } finally { setIsDrafting(false); }
+            }}
+            disabled={isDrafting}
+            title="AI draft — generates reply and saves for review"
+            className="flex items-center gap-1 rounded-md border border-[var(--rb-border-2)] bg-surface px-2.5 py-1 text-[11px] font-semibold text-[var(--rb-purple-500)] shadow-[var(--rb-shadow-xs)] transition-colors hover:bg-[var(--rb-purple-100)] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rb-purple-500)]"
+          >
+            {isDrafting ? (
+              <Loader2 className="size-3 animate-spin" strokeWidth={1.5} />
+            ) : (
+              <Sparkles className="size-3" strokeWidth={2} />
+            )}
+            {isDrafting ? "Drafting…" : "Draft"}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -312,6 +338,8 @@ function ReplyComposer({
       if (!res.ok)            { setGenerateError("Something went wrong."); return; }
       const data = (await res.json()) as { reply: string; source?: string };
       setAiSuggestion(data.reply);
+      // Auto-populate the textarea so user can post immediately — no "Use this" click
+      setText(data.reply);
       // Store for learning loop — track source + original text before any edit
       setDraftSource(data.source ?? null);
       setOriginalDraft(data.reply);
@@ -494,53 +522,35 @@ function ReplyComposer({
       )}
 
       {/* Composer */}
-      <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-[18px] py-[14px]">
-        {/* AI suggestion */}
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-[18px] py-[14px]">
+
+        {/* AI tone bar — shows while generating or after AI text is ready */}
         {!alreadyReplied && (
-          <div className="rounded-[10px] border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-3">
-            <div className="mb-2 flex items-center justify-between gap-2">
-              <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--rb-purple-500)]">
-                <Sparkles className="size-2.5" strokeWidth={2} />
-                AI suggestion
-              </div>
-              <ToneSelector tone={tone} onChange={setTone} />
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5">
+              {isGenerating ? (
+                <Loader2 className="size-3 animate-spin text-[var(--rb-purple-500)]" strokeWidth={1.5} />
+              ) : (
+                <Sparkles className="size-3 text-[var(--rb-purple-500)]" strokeWidth={2} />
+              )}
+              <span className="text-[11px] font-semibold text-[var(--rb-purple-500)]">
+                {isGenerating ? "Generating…" : aiSuggestion ? "AI draft — edit or post" : "AI reply"}
+              </span>
             </div>
-            {isGenerating ? (
-              <div className="flex items-center gap-2 text-[12px] text-[var(--rb-fg-3)]">
-                <Loader2 className="size-3 animate-spin" strokeWidth={1.5} />
-                Generating…
-              </div>
-            ) : aiSuggestion ? (
-              <>
-                <p className="text-[13px] leading-relaxed text-[var(--rb-fg-2)]">{aiSuggestion}</p>
-                <div className="mt-2 flex gap-1.5">
-                  <button
-                    onClick={() => setText(aiSuggestion)}
-                    className="h-[26px] rounded-md bg-[var(--rb-bg-surface)] px-2.5 text-[11px] font-semibold text-[var(--rb-fg-1)] shadow-[var(--rb-shadow-xs)] transition-colors hover:bg-[var(--rb-bg-hover)]"
-                  >
-                    Use this
-                  </button>
-                  <button
-                    onClick={() => handleGenerate(tone)}
-                    className="h-[26px] rounded-md px-2.5 text-[11px] font-semibold text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-fg-2)]"
-                  >
-                    Regenerate
-                  </button>
-                </div>
-              </>
-            ) : (
-              <div>
-                {generateError && (
-                  <p className="mb-1.5 text-[12px] text-[var(--rb-red-500)]">{generateError}</p>
-                )}
-                <button
-                  onClick={() => handleGenerate(tone)}
-                  className="inline-flex h-[26px] items-center gap-1.5 rounded-md bg-[var(--rb-bg-surface)] px-2.5 text-[11px] font-semibold text-[var(--rb-fg-1)] shadow-[var(--rb-shadow-xs)] transition-colors hover:bg-[var(--rb-bg-hover)]"
-                >
-                  Retry
-                </button>
-              </div>
-            )}
+            <ToneSelector tone={tone} onChange={setTone} />
+          </div>
+        )}
+
+        {/* Generate error */}
+        {generateError && !isGenerating && (
+          <div className="flex items-center gap-2">
+            <p className="text-[12px] text-[var(--rb-red-500)]">{generateError}</p>
+            <button
+              onClick={() => handleGenerate(tone)}
+              className="text-[11px] font-semibold text-[var(--rb-blue-500)] hover:underline"
+            >
+              Retry
+            </button>
           </div>
         )}
 
@@ -594,12 +604,13 @@ function ReplyComposer({
                 )}
               </div>
             )}
-            <div className="flex items-center gap-2">
+            <div className="flex flex-col gap-2">
+              {/* Primary CTA — full width, dominant */}
               <button
                 onClick={handleSend}
                 disabled={isSending || !text.trim() || overLimit}
                 className={cn(
-                  "h-9 rounded-[7px] px-4 text-[12px] font-semibold text-white transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF] focus-visible:ring-offset-1",
+                  "h-10 w-full rounded-[8px] text-[13px] font-semibold text-white transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF] focus-visible:ring-offset-1",
                   sendFeedback === "error"
                     ? "bg-[var(--rb-red-500)] hover:bg-[var(--rb-red-600)]"
                     : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
@@ -607,16 +618,28 @@ function ReplyComposer({
               >
                 {isSending ? "Posting…" : sendFeedback === "error" ? "Retry" : alreadyReplied ? "Update reply" : "Post reply"}
               </button>
-              <button
-                onClick={handleSaveDraft}
-                disabled={!text.trim() || overLimit || isSavingDraft}
-                className="h-8 rounded-[7px] px-3 text-[12px] font-medium text-[var(--rb-fg-3)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
-              >
-                {isSavingDraft ? "Saving…" : draftSaved ? "✓ Saved" : "Save draft"}
-              </button>
-              <span className="ml-auto shrink-0 text-[11px] text-[var(--rb-fg-3)]">
-                {review.source === "App Store" ? "Posts to App Store" : "Posts to Google Play"} · ~5 min
-              </span>
+              {/* Secondary row */}
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={handleSaveDraft}
+                  disabled={!text.trim() || overLimit || isSavingDraft}
+                  className="text-[11px] font-medium text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-fg-2)] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#0A84FF]"
+                >
+                  {isSavingDraft ? "Saving…" : draftSaved ? "✓ Saved" : "Save draft"}
+                </button>
+                {!alreadyReplied && aiSuggestion && (
+                  <button
+                    onClick={() => handleGenerate(tone)}
+                    disabled={isGenerating}
+                    className="text-[11px] font-medium text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-fg-2)] disabled:opacity-40"
+                  >
+                    Regenerate
+                  </button>
+                )}
+                <span className="ml-auto text-[10px] text-[var(--rb-fg-3)]">
+                  {review.source === "App Store" ? "App Store" : "Google Play"} · ~5 min
+                </span>
+              </div>
             </div>
           </div>
         )}
@@ -1037,6 +1060,32 @@ export function InboxScreen({
   const [bulkWorking, setBulkWorking]         = useState(false);
   const [groupReviewsOverride, setGroupReviewsOverride] = useState<AppReview[] | null>(null);
   const markRepliedBulk                       = useMarkReplied();
+  const markDraftQuick                        = useMarkDraft();
+
+  // Quick draft — generate AI reply and save as draft_ready without opening composer
+  const handleQuickDraft = useCallback(async (review: AppReview) => {
+    const draftRes = await fetch("/api/reply/draft", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        reviewId:   review.id,
+        reviewBody: review.text,
+        rating:     review.rating,
+        tags:       review.issueTags,
+        tone:       "professional",
+      }),
+    });
+    if (!draftRes.ok) return;
+    const { reply } = (await draftRes.json()) as { reply: string };
+
+    const saveRes = await fetch(`/api/reviews/${review.id}/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ replyText: reply, status: "draft" }),
+    });
+    if (!saveRes.ok) return;
+    markDraftQuick(review.id, reply);
+  }, [markDraftQuick]);
 
   // ── Server-side full-text search (fires when search ≥ 3 chars) ──────────────
   const deferredSearch = useDeferredValue(search);
@@ -1373,6 +1422,7 @@ export function InboxScreen({
                   selectMode={selectMode}
                   isChecked={manuallySelected.has(r.id)}
                   onCheck={toggleSelect}
+                  onQuickDraft={handleQuickDraft}
                 />
               ))}
               {hasNextPage && (
