@@ -220,7 +220,7 @@ function ToneSelector({ tone, onChange }: {
           key={t.value}
           onClick={() => onChange(t.value)}
           className={cn(
-            "h-[22px] rounded-md px-2 text-[11px] font-semibold transition-colors",
+            "h-8 rounded-md px-3 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]",
             tone === t.value
               ? "bg-[var(--rb-purple-100)] text-[var(--rb-purple-600)]"
               : "text-[var(--rb-fg-3)] hover:bg-[var(--rb-bg-hover)] hover:text-[var(--rb-fg-2)]",
@@ -599,7 +599,7 @@ function ReplyComposer({
                 onClick={handleSend}
                 disabled={isSending || !text.trim() || overLimit}
                 className={cn(
-                  "h-9 rounded-[7px] px-4 text-[12px] font-semibold text-white transition-colors disabled:opacity-50",
+                  "h-9 rounded-[7px] px-4 text-[12px] font-semibold text-white transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF] focus-visible:ring-offset-1",
                   sendFeedback === "error"
                     ? "bg-[var(--rb-red-500)] hover:bg-[var(--rb-red-600)]"
                     : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
@@ -610,7 +610,7 @@ function ReplyComposer({
               <button
                 onClick={handleSaveDraft}
                 disabled={!text.trim() || overLimit || isSavingDraft}
-                className="h-8 rounded-[7px] px-3 text-[12px] font-medium text-[var(--rb-fg-3)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40"
+                className="h-8 rounded-[7px] px-3 text-[12px] font-medium text-[var(--rb-fg-3)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
               >
                 {isSavingDraft ? "Saving…" : draftSaved ? "✓ Saved" : "Save draft"}
               </button>

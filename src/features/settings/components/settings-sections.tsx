@@ -8,6 +8,7 @@ import { AppConnections } from "./app-connections";
 import { DataPrivacySection } from "./data-privacy-section";
 import { SlackIntegration } from "./slack-integration";
 import { TeamMembers } from "./team-members";
+import { AppFollowImport } from "./appfollow-import";
 
 export function SettingsSections() {
   return (
@@ -16,6 +17,7 @@ export function SettingsSections() {
       <SlackIntegration />
       <TeamMembers />
       <AppConnections />
+      <AppFollowImport />
       <DataPrivacySection />
     </div>
   );
