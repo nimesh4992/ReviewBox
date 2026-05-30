@@ -38,7 +38,9 @@ interface GPlayReview {
   version: string | null;
 }
 
-const BOOTSTRAP_LIMIT = 50;
+// 200 reviews covers ~14 days for most apps (D016).
+// Public scrapers only — no credentials required.
+const BOOTSTRAP_LIMIT = 200;
 
 // ── Google Play ───────────────────────────────────────────────────────────────
 
@@ -82,7 +84,7 @@ export async function bootstrapGooglePlayReviews(
       lang: "en",
       country: "us",
       sort: gplay.sort.NEWEST,
-      num: BOOTSTRAP_LIMIT,
+      num: BOOTSTRAP_LIMIT, // 200 — covers ~14 days
     }),
   );
 
@@ -146,8 +148,8 @@ export async function bootstrapAppStoreReviews(
 
   const rows: ReturnType<typeof buildEnrichedRow>[] = [];
 
-  // iTunes RSS returns 10 reviews per page, up to page 5 = 50 reviews.
-  for (let page = 1; page <= 5 && rows.length < BOOTSTRAP_LIMIT; page++) {
+  // iTunes RSS returns 10 reviews per page, up to page 15 = 150 reviews (~14 days).
+  for (let page = 1; page <= 15 && rows.length < BOOTSTRAP_LIMIT; page++) {
     const url = `https://itunes.apple.com/rss/customerreviews/page=${page}/id=${trackId}/sortBy=mostRecent/json`;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
