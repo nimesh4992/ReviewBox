@@ -239,10 +239,12 @@ function ReplyComposer({
   review,
   onClose,
   onAdvance,
+  className,
 }: {
   review: AppReview;
   onClose: () => void;
   onAdvance: (id: string) => void;
+  className?: string;
 }) {
   const limit                             = CHAR_LIMIT[review.source];
   const alreadyReplied                    = review.replyStatus === "replied";
@@ -409,7 +411,7 @@ function ReplyComposer({
   }
 
   return (
-    <div className="flex w-[420px] shrink-0 flex-col border-l border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)]">
+    <div className={cn("flex w-full sm:w-[420px] shrink-0 flex-col border-l border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)]", className)}>
       {/* Header */}
       <div className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-[18px] py-[14px]">
         <AppIconAvatar source={review.source} size="xs" />
@@ -989,9 +991,9 @@ function GroupReplyPanel({
 
 // ── Empty state ───────────────────────────────────────────────────────────────
 
-function EmptyDetail() {
+function EmptyDetail({ className }: { className?: string }) {
   return (
-    <div className="flex w-[420px] shrink-0 flex-col items-center justify-center gap-3 border-l border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)] text-center">
+    <div className={cn("flex w-full sm:w-[420px] shrink-0 flex-col items-center justify-center gap-3 border-l border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)] text-center", className)}>
       <div className="flex size-12 items-center justify-center rounded-2xl bg-[var(--rb-bg-sunken)]">
         <Inbox className="size-5 text-[var(--rb-fg-4)]" strokeWidth={1.5} />
       </div>
@@ -1024,6 +1026,7 @@ export function InboxScreen({
   fetchNextPage,
 }: InboxScreenProps) {
   const [selectedId, setSelectedId]         = useState<string | null>(reviews[0]?.id ?? null);
+  const [mobilePane, setMobilePane]         = useState<"list" | "detail">("list");
   const [activeFilter, setActiveFilter]     = useState<InboxFilter>("all");
   const [sort, setSort]                     = useState<InboxSort>("newest");
   const [search, setSearch]                 = useState("");
@@ -1158,7 +1161,7 @@ export function InboxScreen({
     <div className="flex flex-1 min-h-0 overflow-hidden">
 
       {/* ── Left — review list ─────────────────────────────────────────────── */}
-      <div className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
+      <div className={cn("relative min-w-0 flex-1 flex-col overflow-hidden", mobilePane === "detail" ? "hidden sm:flex" : "flex")}>
 
         {/* Header */}
         <div className="shrink-0 border-b border-[var(--rb-border-1)] px-7 pb-3.5 pt-5">
@@ -1366,7 +1369,7 @@ export function InboxScreen({
                   key={r.id}
                   review={r}
                   selected={!groupMode && r.id === selectedId}
-                  onClick={() => { setGroupMode(false); setSelectedId(r.id); }}
+                  onClick={() => { setGroupMode(false); setSelectedId(r.id); setMobilePane("detail"); }}
                   selectMode={selectMode}
                   isChecked={manuallySelected.has(r.id)}
                   onCheck={toggleSelect}
@@ -1431,6 +1434,15 @@ export function InboxScreen({
       </div>
 
       {/* ── Right — composer or group panel ───────────────────────────────── */}
+      {/* Mobile back button — only visible on small screens when detail pane is active */}
+      {mobilePane === "detail" && (
+        <button
+          onClick={() => setMobilePane("list")}
+          className="absolute left-4 top-4 z-10 flex items-center gap-1 text-[12px] text-[var(--rb-fg-3)] hover:text-[var(--rb-fg-1)] sm:hidden"
+        >
+          ← Back to inbox
+        </button>
+      )}
       {groupMode ? (
         <GroupReplyPanel
           key={(groupReviewsOverride ?? sorted).map((r) => r.id).join(",")}
@@ -1444,9 +1456,10 @@ export function InboxScreen({
           review={selected}
           onClose={() => setSelectedId(null)}
           onAdvance={handleAdvance}
+          className={mobilePane === "list" ? "hidden sm:flex" : undefined}
         />
       ) : (
-        <EmptyDetail />
+        <EmptyDetail className={mobilePane === "list" ? "hidden sm:flex" : undefined} />
       )}
     </div>
   );
