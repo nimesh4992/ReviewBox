@@ -13,6 +13,37 @@ Status legend: `[ ]` queued · `[~]` in progress · `[x]` shipped · `[!]` block
 
 These are the next items to ship. Don't skip; don't reorder without thinking.
 
+### [ ] SX1 · Fix sync reliability · ICE 100 (10×10÷1)
+**Effort:** 1 day. **Branch:** `fix/sync-reliability`
+**Done when:**
+1. `last_sync_attempted_at` stamped as first line of `/api/sync/reviews` — before any API call
+2. Initial sync (`last_synced_at IS NULL`): fetch last 90 days only — bounded, completes in seconds
+3. Incremental sync (`last_synced_at IS NOT NULL`): fetch only since `last_synced_at`
+4. Sync banner disappears once `last_sync_attempted_at` is set — not waiting for success
+5. Reloading dashboard after sync attempt never re-shows the banner unless a NEW app was added
+**Why now:** Users see the sync banner on every login. Core trust issue. Nothing else matters until this works.
+**See:** D016
+
+### [ ] UX1 · Smart inbox routing · ICE 63 (9×7÷1)
+**Effort:** 2 hours. **Branch:** `feat/inbox-experience`
+**Done when:** App layout redirects to `/reviews` when `unreplied > 0 AND apps connected`. Falls back to `/dashboard` when all caught up or no apps connected. Decided once on layout mount.
+**Why:** Inbox is where the work is. Dashboard is for awareness, not action.
+
+### [ ] UX2 · AI as primary CTA in composer · ICE 72 (9×8÷1)
+**Effort:** 4 hours. **Branch:** `feat/inbox-experience`
+**Done when:** "Generate reply" is the dominant full-width button (brand blue). Tone chips (Professional / Empathetic / Casual / Direct) appear inline after generation — one click to regenerate in a different tone. Manual textarea secondary. Old small "Generate" button removed.
+**Why:** AI is the core differentiator. Currently buried. Must be the hero interaction.
+
+### [ ] UX3 · Hover quick actions on review rows · ICE 56 (8×7÷1)
+**Effort:** 3 hours. **Branch:** `feat/inbox-experience`
+**Done when:** Hovering a review row shows: `✓ Mark replied` · `🤖 Draft` · `↑ Escalate`. Draft generates AI reply and marks `draft_ready` without opening composer. Keyboard: `j/k` navigate, `d` draft, `r` open reply.
+**Why:** Current flow is 5 steps to reply. This reduces to 1.
+
+### [ ] DS2 · Type scale tokens · ICE 35 (7×5÷1)
+**Effort:** 30 min tokens + 1h replacement. **Branch:** `feat/inbox-experience`
+**Done when:** 6 tokens in `globals.css` (`--rb-text-xs` 11px → `--rb-text-display` 28px) wired as Tailwind utilities. Arbitrary `text-[Npx]` replaced in top 5 files.
+**Why:** 7 arbitrary font sizes = no visual rhythm. Highest polish ROI.
+
 ### [x] N1 · Apply Supabase migrations to prod · ICE 90 (10×9÷1)
 *Applied 2026-05-19. Migrations 002–006 live in production. Note: 002 required normalizing existing rows before adding check constraint.*
 **Effort:** 5 min (founder pastes SQL).
@@ -79,6 +110,18 @@ the form.*
 ---
 
 ## 🟠 NEXT — next 2-4 weeks
+
+Phase 3 ops tooling + remaining polish. For managing first 5-10 paying customers.
+
+### [ ] X12 · Admin panel real data · ICE 45 (5×9÷1)
+**Effort:** 1 day.
+**Done when:** `/admin/customers` shows real workspaces + Clerk users + app count + last sync status + plan. Founder can see at a glance: who signed up, are their syncs working, what plan are they on.
+**Why now:** At 5-10 customers, founder needs visibility into customer health without asking them.
+
+### [ ] X9 · AppFollow CSV import wizard · ICE 50 (10×5÷1)
+**Effort:** 2 days.
+**Done when:** `/settings → "Import from AppFollow"` → upload CSV → map columns → reviews appear. Killer migration tool for converting AppFollow customers.
+**Why now:** If the ICP is "using AppFollow" (D017), they need a pain-free migration path.
 
 Critical-edge features for AppFollow competition.
 

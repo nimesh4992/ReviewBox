@@ -579,8 +579,8 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 
 ## Current Sprint
 
-**Active: UX polish + design system audit**
-Last updated: 2026-05-29
+**Active: Sync reliability → Inbox experience → Ops tooling**
+Last updated: 2026-05-30
 
 ### PRs awaiting founder merge
 
@@ -588,14 +588,32 @@ Last updated: 2026-05-29
 |---|---|---|
 | `fix/sync-openssl-metadata` | OpenSSL 3 private key fix + sync parallelisation + metadata refresh | 🔴 HIGH — merge first |
 | `fix/dashboard-lifetime-rating` | Lifetime rating/review count from store (fixes 2.46★ vs 3.3★ discrepancy) | 🔴 HIGH — merge second |
+| `fix/app-delete-onboarding-loop` | App delete → re-onboard loop fix (4 root causes) | 🔴 HIGH — merge third |
 | `feat/google-play-setup-modal` | AppFollow-style GP connection modal with verify flow | 🟡 MEDIUM |
 | `fix/query-cache-retention` | React Query `gcTime` 30 min + `keepPreviousData` — fixes data vanishing on return | 🟡 MEDIUM |
 | `fix/metadata-scrape-cache` | Redis 6h TTL for Play Store / App Store metadata scrapes | 🟡 MEDIUM |
 | `fix/reply-ux-and-onboarding-skip` | Draft save feedback, credential error CTAs, onboarding step 3 skip path | 🟡 MEDIUM |
+| `feat/x1-slack-integration` | X5 mobile responsive + X13 Playwright e2e + DS1 indigo tokens + DS3 gray-* migration | 🟡 MEDIUM |
 
 Check: https://github.com/nimesh4992/ReviewBox/pulls
 
 **After `fix/sync-openssl-metadata` + `fix/dashboard-lifetime-rating` merge:** trigger a manual sync via Settings → Apps → Sync now to populate `apps.lifetime_rating` with real store values.
+
+### What shipped 2026-05-30
+
+**`fix/app-delete-onboarding-loop`** — 4-bug fix for app delete → re-onboard loop:
+- `onboarding/state` + `onboarding/complete`: added `is("deleted_at", null)` filter so soft-deleted apps aren't treated as live.
+- `onboarding/state`: DB is now authoritative for `onboarded` state (not Clerk JWT). Clears `rb_onboarded` cookie when no live app found.
+- `apps/[id]` DELETE handler: clears `rb_onboarded` cookie on delete so middleware doesn't keep letting user through.
+
+**`hotfix/sync-route-broken-braces`** — SWC parse error fix in `sync/reviews/route.ts`:
+- Bad sentiment-v2 merge left duplicate for-loop with unclosed braces. Removed dead code, kept `Promise.allSettled` impl, restored `enrichOnboarding()` call.
+
+**`feat/x1-slack-integration`** — contains 4 items:
+- **DS1**: `--rb-indigo-100/500/600` tokens added to `globals.css`; all `#5B5BD6` hardcoded values in Reply Kit + Automations replaced with `var(--rb-indigo-500)`.
+- **DS3**: gray-* → `--rb-*` token migration in `app-connections.tsx`, `templates-tab.tsx`, `automation-hub.tsx`, `google-play-setup-modal.tsx` (~126 replacements).
+- **X5**: Dashboard mobile responsive (2-col KPIs, stacked sections). Inbox single-pane on mobile with back button, `mobilePane` state toggle.
+- **X13**: `tests/e2e/auth-flow.spec.ts` — 11 unauthenticated redirect tests, auth page structure tests, mocked inbox tests (gated behind `NEXT_PUBLIC_BYPASS_E2E=1`).
 
 ### What shipped 2026-05-29
 
@@ -627,13 +645,36 @@ Check: https://github.com/nimesh4992/ReviewBox/pulls
 - PostgREST `.or()` search sanitized (C-03)
 - `notifyWorkspaceOwner` `.single()` → `.maybeSingle()` (M-03)
 
+### Build plan (3 phases, ~2 weeks)
+
+**Phase 1 — Sync reliability** `fix/sync-reliability` — 1 day
+Root cause of "banner on every login" and "sync takes forever":
+1. Stamp `last_sync_attempted_at` as first line of sync (before any API call)
+2. Initial sync: 90-day cap when `last_synced_at IS NULL`
+3. Incremental sync: only since `last_synced_at` when set
+4. Banner: disappears once `last_sync_attempted_at` is set — not on success
+See D016 for full rationale.
+
+**Phase 2 — Inbox experience** `feat/inbox-experience` — 3 days
+1. Smart routing: `unreplied > 0` → land on `/reviews`, else `/dashboard`
+2. AI as primary CTA: "Generate reply" dominant button, tone chips inline
+3. Hover quick actions: `✓ Replied · 🤖 Draft · ↑ Escalate` on row hover
+4. DS2 type scale tokens: 6 tokens, kills 7 arbitrary font sizes
+
+**Phase 3 — Ops tooling** — 3 days
+1. X12: Admin panel real data — customer health dashboard for founder
+2. X9: AppFollow CSV import — migration path for ICP (D017)
+
+**After all phases:** merge open PRs, then N6/Stripe when founder asks (D013).
+
 ### Up next (per backlog NOW)
 
-1. Merge 6 open PRs (founder action, in order listed above)
-2. Trigger manual sync after first two merges
-3. **N6** — Stripe test keys + upgrade flow (HUMAN-REQUIRED). ICE 80.
-4. **DS1** — Add `--rb-indigo-500/600` tokens to `globals.css` (10 min, unblocks Reply Kit design debt)
-5. **DS4** — Replace 86 raw `<button>` in review-queue + aso-screen with `<Button>` (accessibility)
+1. Merge 8 open PRs (founder action, in order listed above)
+2. **SX1** — Fix sync reliability. Branch: `fix/sync-reliability`. See Phase 1 above.
+3. **UX1/UX2/UX3/DS2** — Inbox experience. Branch: `feat/inbox-experience`. See Phase 2 above.
+4. **X12** — Admin panel real data (ICE 45). `/admin/customers`.
+5. **X9** — AppFollow CSV import (ICE 50). `/settings → Import from AppFollow`.
+6. **N6** — Stripe (DEFERRED per D013 — do not touch until founder asks).
 
 ### Completed (2026-05-19 → 2026-05-22)
 

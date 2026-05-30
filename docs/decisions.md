@@ -201,3 +201,96 @@ items. Treat BUG-001 (no billing path) as out of scope.
 This applies to: checkout flow, webhook wiring, plan gates on features,
 upgrade prompts, and any billing-related UI changes.
 
+---
+
+## D014 — Business model: boutique, not mass market (2026-05-30)
+
+Target ceiling: **40–50 paying customers, 2–4 apps each = 80–200 apps total.**
+
+This is a focused, high-margin niche product — not AppFollow. Implications:
+
+- Do NOT over-engineer for scale that won't be reached.
+- Optimize for **reliability and quality**, not throughput.
+- Infrastructure decisions are made for 200 apps, not 200,000.
+- Support model is high-touch: founder knows each customer by name at launch.
+- Pricing reflects this: $200–500/month per customer, not $29/month self-serve.
+
+Any architectural decision that adds complexity "for scale" must be questioned
+against this ceiling. At 200 apps, simple and reliable beats clever and scalable.
+
+---
+
+## D015 — Data retention: store everything indefinitely (2026-05-30)
+
+**Never delete review data on a time-based schedule.**
+
+At max scale (200 apps, 5K reviews avg) = ~500 MB — well within Supabase free
+tier (500 MB) and trivially under Pro (8 GB). Storage cost at this scale is
+effectively zero.
+
+Historical data is product value:
+- Sentiment trend charts require months of history
+- Year-over-year comparisons require full history
+- "This user complained about this 6 months ago" context requires full history
+- Incident detection across versions requires full history
+
+Rolling deletion (e.g. 90-day window) trades real product value for ~$0 cost
+savings. It is never worth it at this scale.
+
+**The only valid deletion paths:**
+- User-initiated account deletion → soft delete then hard delete after 30 days (D008)
+- GDPR right-to-erasure request → hard delete via `/api/gdpr/delete`
+- Individual app disconnect → soft delete, 30-day restore window
+
+90 days is the scope of the **initial sync** (bounded, fast first connect).
+After that, incremental sync adds new reviews forever and nothing is deleted.
+
+---
+
+## D016 — Sync architecture: reliability first, complexity never (2026-05-30)
+
+At current scale (5–50 customers, 15–200 apps), the sync architecture must be:
+
+**Rules:**
+1. `last_sync_attempted_at` is stamped **before any API calls** — the moment sync begins.
+   This is what the banner checks. If this is NULL, we've never tried. If set, we tried.
+2. Initial sync (when `last_synced_at IS NULL`): fetch last **90 days** only. Bounded,
+   fast, completes in seconds. Data kept forever per D015.
+3. Incremental sync (when `last_synced_at IS NOT NULL`): fetch only reviews since
+   `last_synced_at`. Tiny payload, always fast.
+4. Write reviews to Supabase after the full response — no streaming required at this scale.
+   Sequential is fine. 200 apps × 7 reviews/day = 1,400 rows/day. Trivial.
+
+**Do NOT build (premature at this scale):**
+- Supabase Edge Functions for sync (Vercel cron is sufficient)
+- Real-time Supabase subscriptions for live review streaming
+- Incremental batch writes during sync
+- Queue-based sync architecture
+
+Revisit if we exceed 200 apps or if Vercel cron consistently times out.
+The timeout budget on Vercel Hobby (10s) is sufficient for incremental syncs.
+Only the initial sync of a large app (50K+ reviews) risks timeout — handled by
+the 90-day cap on first connect.
+
+---
+
+## D017 — ICP revision: boutique SaaS (2026-05-30)
+
+Replaces the working hypothesis in D011.
+
+**Target customer:**
+- Indie developer or small studio (1–5 people)
+- 1–4 apps on Google Play and/or App Store
+- 500–50,000 lifetime reviews per app
+- Currently using AppFollow, spreadsheets, or nothing
+- Wants AI-assisted replies without hiring a community manager
+- English-speaking primary market
+- Pays $200–500/month — values reliability and quality over feature breadth
+
+**What we are NOT building for:**
+- Enterprise (100+ app portfolios)
+- Agencies managing reviews for multiple clients
+- Mass-market self-serve at $29/month
+- Users who need SOC 2, SSO, or SLA contracts
+
+
