@@ -78,7 +78,8 @@ export default function OnboardingPage() {
   const [slugError, setSlugError]       = useState<string | null>(null);
   const [saving, setSaving]             = useState(false);
   const [saveError, setSaveError]       = useState<string | null>(null);
-  const [workspaceId, setWorkspaceId]   = useState<string | null>(null);
+  // workspaceId stored for future use (e.g. passing to sub-steps)
+  const workspaceIdRef = useRef<string | null>(null);
   const [hydrating, setHydrating]       = useState(true);
   const slugTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hydratedRef = useRef(false);
@@ -120,7 +121,7 @@ export default function OnboardingPage() {
             rating:    null,
           } : p.selectedApp,
         }));
-        if (data.workspace?.id) setWorkspaceId(data.workspace.id);
+        if (data.workspace?.id) workspaceIdRef.current = data.workspace.id;
         if (data.hasWorkspace && data.hasApp) setStep(4);
         else if (data.hasWorkspace) setStep(2);
       } catch { /* fall through */ }
@@ -194,7 +195,7 @@ export default function OnboardingPage() {
       }
       if (!res.ok) { setSaveError("Something went wrong. Please try again."); return; }
       const d = (await res.json()) as { workspaceId: string; appId: string };
-      setWorkspaceId(d.workspaceId);
+      workspaceIdRef.current = d.workspaceId;
       track({ name: "onboarding_setup", properties: { platform: form.platform } });
       setStep(4);
     } catch { setSaveError("Network error. Please try again."); }
@@ -336,7 +337,6 @@ export default function OnboardingPage() {
         {/* ── Step 5: Ready ── */}
         {step === 5 && (
           <Step5Ready
-            workspaceId={workspaceId}
             appName={form.selectedApp?.name ?? ""}
             saving={saving}
             saveError={saveError}
@@ -788,13 +788,13 @@ function Step4Connect({
           onClick={onDone}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white hover:opacity-90"
         >
-          I've done this — continue <ChevronRight className="size-4" strokeWidth={2} />
+          I&apos;ve done this — continue <ChevronRight className="size-4" strokeWidth={2} />
         </button>
         <button
           onClick={onSkip}
           className="w-full py-2 text-sm text-white/30 hover:text-white/60"
         >
-          I'll connect later
+          I&apos;ll connect later
         </button>
       </div>
     </div>
@@ -804,9 +804,8 @@ function Step4Connect({
 // ── Step 5: Ready ──────────────────────────────────────────────────────────────
 
 function Step5Ready({
-  workspaceId, appName, saving, saveError, onLaunch,
+  appName, saving, saveError, onLaunch,
 }: {
-  workspaceId: string | null;
   appName:     string;
   saving:      boolean;
   saveError:   string | null;

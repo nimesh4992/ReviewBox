@@ -45,7 +45,6 @@ export function useReviewQueue(filters: ReviewFiltersQuery = {}) {
     isFetchingNextPage,
     isLoading,
     isFetching,
-    isError,
   } = useInfiniteQuery({
     queryKey: ["reviews", filters] as [string, ReviewFiltersQuery],
     queryFn: ({ pageParam }: { pageParam: string | undefined }) =>
