@@ -32,6 +32,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
+import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
 
 // ── Navigation structure ──────────────────────────────────────────────────────
 
@@ -214,6 +215,8 @@ export function Sidebar({ className }: { className?: string }) {
   const { user, isLoaded } = useUser();
   const { selectedApp, setSelectedApp } = useWorkspaceStore();
   const [apps, setApps] = useState<App[]>([]);
+  const { data: metrics } = useDashboardMetrics();
+  const unrepliedCount = metrics?.unrepliedCount ?? 0;
 
   useEffect(() => {
     fetch("/api/apps")
@@ -331,7 +334,11 @@ export function Sidebar({ className }: { className?: string }) {
           <SidebarNavGroup
             key={i}
             label={group.label}
-            items={group.items}
+            items={group.items.map((item) =>
+              item.href === "/reviews" && unrepliedCount > 0
+                ? { ...item, signal: String(unrepliedCount) }
+                : item
+            )}
             pathname={pathname}
           />
         ))}
