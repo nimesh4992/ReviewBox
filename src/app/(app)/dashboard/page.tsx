@@ -225,7 +225,7 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="flex w-full flex-col gap-6 overflow-auto p-8" style={{ maxWidth: 1240, margin: "0 auto" }}>
+    <div className="flex w-full flex-col gap-6 overflow-auto p-4 sm:p-8" style={{ maxWidth: 1240, margin: "0 auto" }}>
       <GooglePlaySetupModal
         open={setupModalOpen}
         onClose={() => {
@@ -327,7 +327,7 @@ export default function DashboardPage() {
       )}
 
       {/* Page header */}
-      <header className="flex items-end justify-between gap-6">
+      <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <div className="text-xs font-medium text-[#86868B]">{dateStr}</div>
           <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.022em] text-[#1D1D1F]">
@@ -364,7 +364,7 @@ export default function DashboardPage() {
       </header>
 
       {/* Hero — portfolio rating */}
-      <section className="grid items-center gap-10 rounded-2xl border border-[var(--rb-border-1)] bg-white px-8 py-7 shadow-sm" style={{ gridTemplateColumns: "minmax(0,280px) 1fr" }}>
+      <section className="flex flex-col gap-6 rounded-2xl border border-[var(--rb-border-1)] bg-white px-4 py-5 shadow-sm sm:grid sm:items-center sm:gap-10 sm:px-8 sm:py-7" style={{ gridTemplateColumns: "minmax(0,280px) 1fr" }}>
         <div>
           <div className="text-xs font-medium text-[#86868B]">
             {ratingIsLifetime ? "Portfolio rating · all-time" : `Portfolio rating · ${range}`}
@@ -419,7 +419,7 @@ export default function DashboardPage() {
       </section>
 
       {/* KPI strip */}
-      <section className="grid grid-cols-4 gap-3">
+      <section className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {kpis.map((s) => (
           <div key={s.label} className="rounded-xl border border-[var(--rb-border-1)] bg-white px-[18px] py-4 shadow-sm">
             <div className="text-xs font-medium text-[#86868B]">{s.label}</div>
@@ -632,7 +632,7 @@ export default function DashboardPage() {
       </section>
 
       {/* Two-column lower */}
-      <section className="grid gap-4" style={{ gridTemplateColumns: "1.4fr 1fr" }}>
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-[1.4fr_1fr]">
 
         {/* Needs your eyes — live incidents */}
         <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-white shadow-sm">
@@ -768,7 +768,7 @@ export default function DashboardPage() {
       <AiSummaryPanel />
 
       {/* 3-column bottom cards */}
-      <section className="grid grid-cols-3 gap-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
 
         {/* Rating card */}
         <div className="rounded-xl border border-[var(--rb-border-1)] bg-surface p-5 shadow-[var(--rb-shadow-xs)] flex flex-col gap-3">
