@@ -5,6 +5,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 export type AuditAction =
   // Reviews
   | "reply.publish"
+  | "reply.mark_replied"
   | "reply.draft.generate"
   // Automations
   | "rule.create"

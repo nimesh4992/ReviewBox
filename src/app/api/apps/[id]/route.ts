@@ -117,5 +117,26 @@ export async function DELETE(
     request: req,
   });
 
-  return NextResponse.json({ success: true });
+  // Onboarding-loop fix: if this was the workspace's LAST live app, clear the
+  // `rb_onboarded` cookie. Otherwise the cookie keeps middleware treating the
+  // user as onboarded while the DB has zero live apps — the dashboard shows the
+  // empty state, but a stale cookie can bounce them into the onboarding loop.
+  // If other apps remain, the user is still onboarded — leave the cookie alone.
+  const { count: liveApps } = await sb
+    .from("apps")
+    .select("id", { count: "exact", head: true })
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null);
+
+  const res = NextResponse.json({ success: true });
+  if ((liveApps ?? 0) === 0) {
+    res.cookies.set("rb_onboarded", "", {
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    });
+  }
+  return res;
 }
