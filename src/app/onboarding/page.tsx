@@ -788,13 +788,13 @@ function Step4Connect({
           onClick={onDone}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white hover:opacity-90"
         >
-          I've done this — continue <ChevronRight className="size-4" strokeWidth={2} />
+          I&apos;ve done this — continue <ChevronRight className="size-4" strokeWidth={2} />
         </button>
         <button
           onClick={onSkip}
           className="w-full py-2 text-sm text-white/30 hover:text-white/60"
         >
-          I'll connect later
+          I&apos;ll connect later
         </button>
       </div>
     </div>
