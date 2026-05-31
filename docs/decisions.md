@@ -201,3 +201,85 @@ items. Treat BUG-001 (no billing path) as out of scope.
 This applies to: checkout flow, webhook wiring, plan gates on features,
 upgrade prompts, and any billing-related UI changes.
 
+---
+
+## D014 — Business model: boutique, not mass market (2026-05-30)
+
+Target ceiling: **40–50 paying customers, 2–4 apps each = 80–200 apps total.**
+Focused, high-margin niche — not AppFollow. Optimize for reliability and
+quality, not throughput. Any decision that adds complexity "for scale" must
+be questioned against this ceiling. At 200 apps, simple and reliable beats
+clever and scalable.
+
+---
+
+## D015 — Data retention: store everything indefinitely (2026-05-30)
+
+Never delete review data on a time-based schedule. At max scale (~200 apps,
+5K reviews avg) ≈ 500 MB — within Supabase free tier. Historical data is
+product value (trends, YoY, repeat-user context). Only valid deletion:
+account deletion (D008), GDPR erasure, app disconnect. 90 days is the
+**initial-sync scope**, not a retention window.
+
+---
+
+## D016 — Sync architecture: reliability first, complexity never (2026-05-30)
+
+1. `last_sync_attempted_at` stamped BEFORE any API call — the banner checks this.
+2. Initial sync (`last_synced_at IS NULL`): fetch last 90 days only.
+3. Incremental sync (`last_synced_at` set): fetch only since that timestamp.
+4. Sequential is fine at this scale. Do NOT build Edge Functions, realtime
+   subscriptions, or queue-based sync until >200 apps or repeated cron timeouts.
+
+---
+
+## D017 — ICP: boutique SaaS (2026-05-30)
+
+Indie dev / small studio (1–5 people), 1–4 mobile apps, 500–50K lifetime
+reviews/app, currently on AppFollow / spreadsheets / nothing, English-first,
+pays $200–500/mo for reliability + AI quality. NOT building for: enterprise
+portfolios, agencies, $29/mo self-serve, SOC 2 / SSO / SLA buyers.
+
+---
+
+## D018 — Launch tier is Draft Mode; API reply write-back is sequenced (2026-05-31)
+
+**Founder has user-level (not admin/API) access to a real app on both stores.**
+The official Publisher API / App Store Connect reply-posting path therefore
+cannot be verified by us before launch — it needs store admin to grant API
+permissions.
+
+**Decision — the launch product is "Draft Mode":**
+- Pull public reviews via the bootstrap scraper. **Zero store credentials
+  required from the customer.**
+- AI drafts replies in the workspace brand voice.
+- User posts the reply themselves: **copy the draft → paste into Play Console /
+  App Store Connect.** Then marks the review "replied" in ReviewBox.
+- The onboarding "I'll connect later" path IS the launch path.
+
+**Sequenced (NOT launch-blocking):**
+- One-click reply posting via Publisher API / App Store Connect API → **Pro
+  feature.** Verified only when a customer (or we) hold store admin/API access.
+- Official-API ongoing sync (vs scrape) → same gate.
+
+**Why:** removes the highest-risk, least-testable step (API write-back) from the
+launch-critical path. We never ship a step we cannot verify against a real app.
+Everything in `docs/SPINE.md` is verifiable today with user-level access alone.
+
+---
+
+## D019 — Branch hygiene: cut from current master, prune aggressively (2026-05-31)
+
+Branch sprawl caused real lost work (D014–D017 sat unmerged on a side branch;
+the app-delete-loop fix never reached master). New rules:
+
+1. **Always branch from the latest `origin/master`.** A branch cut from a stale
+   base accumulates phantom "reverts" — merging it deletes live work. Audit
+   2026-05-31 found 6 branches that would have reverted thousands of lines.
+2. **Verify before merge:** `git diff origin/master..origin/<branch> --stat`.
+   If it shows deletions of files you know are live, the branch is stale — do
+   not merge; re-apply the valuable change on a fresh branch instead.
+3. **Prune merged + stale branches** the same week. Don't let them pile up.
+4. **One concern per branch.** Don't let a feature branch also carry doc/decision
+   changes that then get lost if the feature is reworked.
+

@@ -79,17 +79,18 @@ the form.*
 ### [x] SX1 · Fix sync reliability · ICE 100 (10×10÷1) — MERGED 2026-05-30
 *`last_sync_attempted_at` now stamped before any API call — kills "banner on every login". Bootstrap uses review-count check not attempted_at — no more re-running scraper on retry. Soft-deleted apps excluded. `last_synced_at` added to SELECT.*
 
-### [ ] UX1 · Smart inbox routing · ICE 63 (9×7÷1)
-**Effort:** 2h. **Branch:** `feat/inbox-experience`
-**Done when:** App layout redirects to `/reviews` when `unreplied > 0 AND apps connected`. Falls back to `/dashboard` when caught up or no apps. Decided once on layout mount — not on every render.
+### [x] UX1 · Smart inbox routing · ICE 63 (9×7÷1) — MERGED 2026-05-30 (#58)
+*InboxRouter redirects to /reviews when unreplied > 0 AND apps connected, once per session.*
 
-### [ ] UX2 · AI as primary CTA in composer · ICE 72 (9×8÷1)
-**Effort:** 4h. **Branch:** `feat/inbox-experience`
-**Done when:** "Generate reply" is the dominant full-width button (brand blue). Tone chips (Professional / Empathetic / Casual / Direct) appear inline after generation — one click to regenerate in a different tone. Manual textarea secondary. Old small "Generate" button removed.
+### [x] UX2 · AI as primary CTA in composer · ICE 72 (9×8÷1) — MERGED 2026-05-30 (#58)
+*AI text auto-populates textarea on open. Post reply is full-width primary. Regenerate is secondary link.*
 
-### [ ] UX3 · Hover quick actions on review rows · ICE 56 (8×7÷1)
-**Effort:** 3h. **Branch:** `feat/inbox-experience`
-**Done when:** Hovering a review row reveals: `✓ Replied` · `🤖 Draft` · `↑ Escalate` buttons. Draft generates AI reply and marks `draft_ready` without opening composer. Keyboard: `j/k` navigate, `d` draft, `r` open reply.
+### [x] UX3 · Hover quick actions on review rows · ICE 56 (8×7÷1) — MERGED 2026-05-30 (#58)
+*Hover reveals "Draft" — generates AI reply + saves draft_ready without opening composer.*
+
+### [ ] SPINE · Make the 8-step launch path 100% · ICE 100 — ACTIVE
+**The launch gate. See `docs/SPINE.md`.** Features frozen until 8/8 verified against a real app.
+Next build tasks: (1) Draft Mode composer — copy-to-store + mark-replied (step 7); (2) re-apply app-delete cookie-clear fix (missing from master, D019).
 
 ---
 
