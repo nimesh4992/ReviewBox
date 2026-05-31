@@ -286,6 +286,9 @@ function ReplyComposer({
   const [replyDone, setReplyDone]         = useState(alreadyReplied);
   const [isSavingDraft, setIsSavingDraft] = useState(false);
   const [draftSaved, setDraftSaved]       = useState(false);
+  // Draft Mode (D018): copy reply → user pastes into store → mark replied
+  const [copied, setCopied]               = useState(false);
+  const [isMarking, setIsMarking]         = useState(false);
   // Learning loop: track draft source + whether user edited before sending
   const [draftSource, setDraftSource]     = useState<string | null>(null);
   const [originalDraft, setOriginalDraft] = useState<string | null>(null);
@@ -413,6 +416,48 @@ function ReplyComposer({
       setTimeout(() => { setSendFeedback(null); setSendError(null); }, 5000);
     } finally {
       setIsSending(false);
+    }
+  }
+
+  // Draft Mode: copy the reply to clipboard so the user can paste it into the
+  // store console (Play Console / App Store Connect). No store API call.
+  async function handleCopy() {
+    if (!text.trim()) return;
+    try {
+      await navigator.clipboard.writeText(text.trim());
+      setCopied(true);
+      setTimeout(() => setCopied(false), 4000);
+    } catch {
+      // Clipboard API can fail on insecure origins / old browsers — select fallback
+      setCopied(false);
+    }
+  }
+
+  // Draft Mode: user posted the reply themselves → record it as replied in our
+  // DB WITHOUT calling the store API (status: manual_replied, D018).
+  async function handleMarkReplied() {
+    if (!text.trim() || isMarking) return;
+    setIsMarking(true);
+    try {
+      const res = await fetch(`/api/reviews/${review.id}/reply`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          replyText:   text,
+          status:      "manual_replied",
+          draftSource: draftSource ?? "manual",
+          draftEdited: originalDraft !== null && text.trim() !== originalDraft.trim(),
+        }),
+      });
+      if (res.ok) {
+        markReplied(review.id, text.trim());
+        setReplyDone(true);
+        setTimeout(() => onAdvance(review.id), 1000);
+      }
+    } catch {
+      // best-effort — leave the composer open so the user can retry
+    } finally {
+      setIsMarking(false);
     }
   }
 
@@ -588,7 +633,7 @@ function ReplyComposer({
 
         {/* Actions */}
         {replyDone && !alreadyReplied ? (
-          <p className="text-[12px] font-semibold text-[var(--rb-green-500)]">✓ Reply sent — moving to next…</p>
+          <p className="text-[12px] font-semibold text-[var(--rb-green-500)]">✓ Marked as replied — moving to next…</p>
         ) : (
           <div className="flex flex-col gap-1.5">
             {sendFeedback === "error" && sendError && (
@@ -605,24 +650,39 @@ function ReplyComposer({
               </div>
             )}
             <div className="flex flex-col gap-2">
-              {/* Primary CTA — full width, dominant */}
+              {/* Draft Mode (D018): Copy → user pastes into store → Mark replied.
+                  Copy is the hero action — works for every user, no credentials. */}
               <button
-                onClick={handleSend}
-                disabled={isSending || !text.trim() || overLimit}
+                onClick={handleCopy}
+                disabled={!text.trim()}
                 className={cn(
                   "h-10 w-full rounded-[8px] text-[13px] font-semibold text-white transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF] focus-visible:ring-offset-1",
-                  sendFeedback === "error"
-                    ? "bg-[var(--rb-red-500)] hover:bg-[var(--rb-red-600)]"
-                    : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
+                  copied ? "bg-[var(--rb-green-500)]" : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
                 )}
               >
-                {isSending ? "Posting…" : sendFeedback === "error" ? "Retry" : alreadyReplied ? "Update reply" : "Post reply"}
+                {copied ? "✓ Copied — now paste it on the store" : "Copy reply"}
               </button>
+
+              {/* Confirm step — record it as replied in our DB (no store API call) */}
+              <button
+                onClick={handleMarkReplied}
+                disabled={!text.trim() || overLimit || isMarking}
+                className="h-9 w-full rounded-[8px] border border-[var(--rb-border-2)] bg-surface text-[12px] font-semibold text-[var(--rb-fg-1)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
+              >
+                {isMarking ? "Saving…" : alreadyReplied ? "Update reply" : "Mark as replied"}
+              </button>
+
+              {/* Where to paste + char warning */}
+              <p className="text-[10px] leading-relaxed text-[var(--rb-fg-3)]">
+                Paste into {review.source === "App Store" ? "App Store Connect" : "Google Play Console"}, then mark it replied here.
+                {overLimit && <span className="ml-1 text-[var(--rb-red-500)]">Reply is over the {limit}-char store limit.</span>}
+              </p>
+
               {/* Secondary row */}
               <div className="flex items-center gap-3">
                 <button
                   onClick={handleSaveDraft}
-                  disabled={!text.trim() || overLimit || isSavingDraft}
+                  disabled={!text.trim() || isSavingDraft}
                   className="text-[11px] font-medium text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-fg-2)] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#0A84FF]"
                 >
                   {isSavingDraft ? "Saving…" : draftSaved ? "✓ Saved" : "Save draft"}
@@ -636,9 +696,15 @@ function ReplyComposer({
                     Regenerate
                   </button>
                 )}
-                <span className="ml-auto text-[10px] text-[var(--rb-fg-3)]">
-                  {review.source === "App Store" ? "App Store" : "Google Play"} · ~5 min
-                </span>
+                {/* Pro / connected accounts: post via store API directly (D018 — sequenced). */}
+                <button
+                  onClick={handleSend}
+                  disabled={isSending || !text.trim() || overLimit}
+                  className="ml-auto text-[10px] font-medium text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-blue-500)] disabled:opacity-40"
+                  title="Post directly via the store API (requires a connected store account)"
+                >
+                  {isSending ? "Posting…" : "Post via API"}
+                </button>
               </div>
             </div>
           </div>
