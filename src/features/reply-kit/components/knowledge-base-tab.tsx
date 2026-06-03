@@ -227,8 +227,12 @@ export function KnowledgeBaseTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: form.title, content: form.content, category: form.category }),
       });
-      const data = (await res.json()) as { entry: ApiKbEntry };
-      setEntries((prev) => [data.entry, ...prev]);
+      // Guard: on a failed POST, data.entry is undefined — pushing it would
+      // crash EntryCard on entry.category/entry.title. Throw to the catch.
+      if (!res.ok) throw new Error(`create failed: ${res.status}`);
+      const data = (await res.json()) as { entry?: ApiKbEntry };
+      if (!data.entry) throw new Error("create returned no entry");
+      setEntries((prev) => [data.entry as ApiKbEntry, ...prev]);
       setShowAdd(false);
     } catch (err) {
       console.error(err);

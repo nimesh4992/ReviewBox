@@ -459,7 +459,7 @@ function Step2App({
     searchTimer.current = setTimeout(async () => {
       try {
         const res = await fetch(
-          `/api/onboarding/search-app?q=${encodeURIComponent(query.trim())}&platform=${form.platform}`
+          `/api/onboarding/search-app?query=${encodeURIComponent(query.trim())}&platform=${form.platform}`
         );
         if (!res.ok) { setSearchFailed(true); setSearching(false); return; }
         const d = (await res.json()) as { results: SearchResult[]; searchFailed?: boolean };

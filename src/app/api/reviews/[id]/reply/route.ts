@@ -116,7 +116,13 @@ export async function POST(
           if (!app.access_token || !app.refresh_token) {
             return apiError("APP_STORE_NOT_CONNECTED", 422);
           }
-          const creds = JSON.parse(app.access_token) as { keyId: string; issuerId: string };
+          let creds: { keyId: string; issuerId: string };
+          try {
+            creds = JSON.parse(app.access_token) as { keyId: string; issuerId: string };
+          } catch {
+            // Corrupt stored creds — clear 4xx instead of a generic 500.
+            return apiError("APP_STORE_NOT_CONNECTED", 422, "App Store credentials are corrupt — re-enter them in Settings.");
+          }
           const jwt = await buildJWT(creds.keyId, creds.issuerId, app.refresh_token);
           await submitAppStoreReply(review.external_id, replyText.trim(), jwt);
         }

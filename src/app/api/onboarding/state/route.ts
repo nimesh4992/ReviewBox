@@ -56,6 +56,7 @@ export async function GET(): Promise<NextResponse<OnboardingState | { error: str
       .from("apps")
       .select("id, name, platform, store_id")
       .eq("workspace_id", workspace.id)
+      .is("deleted_at", null)
       .limit(1)
       .maybeSingle();
 
@@ -85,25 +86,15 @@ export async function GET(): Promise<NextResponse<OnboardingState | { error: str
 
   const res = NextResponse.json(body);
 
-  // SIGNIN LOOP FIX: when DB confirms onboarded but the JWT claim doesn't
-  // (returning user whose Clerk metadata is stale or missing), do two things:
+  // When the DB confirms onboarded but the JWT claim doesn't (returning user
+  // whose Clerk metadata is stale or missing), repair the Clerk metadata in the
+  // background so future requests carry the correct claim.
   //
-  // 1. Set the rb_onboarded cookie so the NEXT request middleware sees it
-  //    and lets the user through to /dashboard immediately. Without this,
-  //    the user bounces: /dashboard → /onboarding → /dashboard → /onboarding…
-  //
-  // 2. Repair the Clerk metadata in the background. Even if our cookie
-  //    expires (5 min), Clerk's JWT will then have the right claim and
-  //    no future requests will hit this loop.
+  // NOTE: we deliberately do NOT set an `rb_onboarded` cookie here. Middleware
+  // has no onboarding gate and never reads such a cookie (see middleware.ts —
+  // the gate was removed because reading a stale JWT/cookie caused redirect
+  // loops). Onboarding routing is page-level off this DB-authoritative endpoint.
   if (dbOnboarded && !claimOnboarded) {
-    res.cookies.set("rb_onboarded", "1", {
-      maxAge: 60 * 5,
-      httpOnly: true,
-      sameSite: "lax",
-      secure: process.env.NODE_ENV === "production",
-      path: "/",
-    });
-
     // Fire-and-forget Clerk repair so we don't block the response on it.
     void (async () => {
       try {

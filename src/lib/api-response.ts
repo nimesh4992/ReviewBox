@@ -30,6 +30,7 @@ export type ApiErrorCode =
   | "REPLY_TOO_LONG"
   | "REVIEW_NOT_FOUND_ON_STORE"
   | "APP_STORE_NOT_CONNECTED"
+  | "GOOGLE_PLAY_NOT_CONFIGURED"
   | "STRIPE_NOT_CONFIGURED"
   // Fallbacks
   | "INTERNAL_SERVER_ERROR"
@@ -86,6 +87,7 @@ function defaultMessage(code: ApiErrorCode): string {
     case "REPLY_TOO_LONG":        return "Reply exceeds the store's character limit.";
     case "REVIEW_NOT_FOUND_ON_STORE": return "This review no longer exists on the store.";
     case "APP_STORE_NOT_CONNECTED":   return "App Store credentials are missing. Add them in Settings.";
+    case "GOOGLE_PLAY_NOT_CONFIGURED": return "Google Play isn't connected yet. Set it up in Settings.";
     case "STRIPE_NOT_CONFIGURED": return "Billing isn't set up yet.";
     case "INTERNAL_SERVER_ERROR": return "Something went wrong on our end. We've been notified.";
     case "SERVICE_UNAVAILABLE":   return "Service temporarily unavailable. Try again shortly.";

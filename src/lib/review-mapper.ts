@@ -20,7 +20,15 @@ export function buildEnrichedRow(
   hasDevReply: boolean,
   devReplyText: string | null,
 ) {
-  const clampedRating = Math.min(5, Math.max(1, rating)) as 1 | 2 | 3 | 4 | 5;
+  // Guard against NaN/undefined/0: Math.max(1, NaN) === NaN, which would write
+  // a NaN rating into the DB. A non-finite or out-of-range rating falls back to
+  // 3 (neutral) rather than 1, so a missing rating isn't mis-scored as critical.
+  const numericRating = Number(rating);
+  const clampedRating = (
+    Number.isFinite(numericRating)
+      ? Math.min(5, Math.max(1, Math.round(numericRating)))
+      : 3
+  ) as 1 | 2 | 3 | 4 | 5;
   const partial = {
     rating: clampedRating,
     text: body,

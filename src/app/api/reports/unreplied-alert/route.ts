@@ -42,81 +42,96 @@ async function handler(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ message: "No workspaces", notified: 0 });
   }
 
-  let notified = 0;
   const errors: string[] = [];
+  // Hoist the Clerk client out of the loop — one instance for the whole run.
+  const clerk = await clerkClient();
 
-  for (const ws of workspaces) {
-    try {
-      // Count unreplied reviews > 48h old
-      const { data: reviews } = await sb
-        .from("reviews")
-        .select("priority, app_id")
-        .eq("workspace_id", ws.id)
-        .eq("reply_status", "needs_reply")
-        .lte("store_created_at", cutoff);
+  async function processWorkspace(ws: { id: string; name: string }): Promise<boolean> {
+    // Count unreplied reviews > 48h old
+    const { data: reviews } = await sb
+      .from("reviews")
+      .select("priority, app_id")
+      .eq("workspace_id", ws.id)
+      .eq("reply_status", "needs_reply")
+      .lte("store_created_at", cutoff);
 
-      if (!reviews?.length) continue;
+    if (!reviews?.length) return false;
 
-      const count       = reviews.length;
-      const urgentCount = reviews.filter((r) => r.priority === "urgent").length;
+    const count       = reviews.length;
+    const urgentCount = reviews.filter((r) => r.priority === "urgent").length;
 
-      // Primary app name
-      const { data: apps } = await sb
-        .from("apps")
-        .select("name")
-        .eq("workspace_id", ws.id)
-        .limit(1);
-      const appName = apps?.[0]?.name ?? ws.name ?? "your app";
+    // Primary app name
+    const { data: apps } = await sb
+      .from("apps")
+      .select("name")
+      .eq("workspace_id", ws.id)
+      .is("deleted_at", null)
+      .limit(1);
+    const appName = apps?.[0]?.name ?? ws.name ?? "your app";
 
-      // Owner email
-      const { data: member } = await sb
-        .from("workspace_members")
-        .select("clerk_user_id")
-        .eq("workspace_id", ws.id)
-        .eq("role", "owner")
-        .limit(1)
-        .maybeSingle();
+    // Owner email
+    const { data: member } = await sb
+      .from("workspace_members")
+      .select("clerk_user_id")
+      .eq("workspace_id", ws.id)
+      .eq("role", "owner")
+      .limit(1)
+      .maybeSingle();
 
-      if (!member) continue;
+    if (!member) return false;
 
-      const clerk    = await clerkClient();
-      const clerkUser = await clerk.users.getUser(member.clerk_user_id);
-      const email    = clerkUser.emailAddresses[0]?.emailAddress;
+    const clerkUser = await clerk.users.getUser(member.clerk_user_id);
+    const email    = clerkUser.emailAddresses[0]?.emailAddress;
 
-      // Fire email + Slack in parallel (both best-effort)
-      await Promise.allSettled([
-        email ? sendUnrepliedAlert(email, appName, count, urgentCount) : Promise.resolve(),
-        notifySlack(ws.id, {
-          text: `⏰ ${count} review${count === 1 ? "" : "s"} waiting 48h+ for a reply`,
-          blocks: [
-            {
-              type: "section",
-              text: {
-                type: "mrkdwn",
-                text: [
-                  `⏰ *${count} review${count === 1 ? "" : "s"} waiting 48h+* — ${appName}`,
-                  urgentCount > 0 ? `🔴 ${urgentCount} urgent` : null,
-                  `Replying promptly improves your store rating.`,
-                ].filter(Boolean).join("\n"),
-              },
+    // Fire email + Slack in parallel (both best-effort)
+    await Promise.allSettled([
+      email ? sendUnrepliedAlert(email, appName, count, urgentCount) : Promise.resolve(),
+      notifySlack(ws.id, {
+        text: `⏰ ${count} review${count === 1 ? "" : "s"} waiting 48h+ for a reply`,
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: [
+                `⏰ *${count} review${count === 1 ? "" : "s"} waiting 48h+* — ${appName}`,
+                urgentCount > 0 ? `🔴 ${urgentCount} urgent` : null,
+                `Replying promptly improves your store rating.`,
+              ].filter(Boolean).join("\n"),
             },
-            {
-              type: "section",
-              text: {
-                type: "mrkdwn",
-                text: `<${APP_URL}/reviews?filter=needs_reply|Reply now →>`,
-              },
+          },
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `<${APP_URL}/reviews?filter=needs_reply|Reply now →>`,
             },
-          ],
-        }),
-      ]);
+          },
+        ],
+      }),
+    ]);
 
-      notified++;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      errors.push(`workspace ${ws.id}: ${msg}`);
-      console.error("[unreplied-alert]", ws.id, err);
-    }
+    return true;
+  }
+
+  // Process in batches of 10 to stay under Vercel's 60s function budget —
+  // a sequential loop over many workspaces would time out and silently send
+  // only a prefix. Mirrors the weekly-digest batching.
+  const BATCH_SIZE = 10;
+  let notified = 0;
+  for (let i = 0; i < workspaces.length; i += BATCH_SIZE) {
+    const batch = workspaces.slice(i, i + BATCH_SIZE) as { id: string; name: string }[];
+    const results = await Promise.allSettled(batch.map(processWorkspace));
+    results.forEach((r, idx) => {
+      if (r.status === "fulfilled") {
+        if (r.value) notified++;
+      } else {
+        const ws = batch[idx];
+        const msg = r.reason instanceof Error ? r.reason.message : String(r.reason);
+        errors.push(`workspace ${ws.id}: ${msg}`);
+        console.error("[unreplied-alert]", ws.id, r.reason);
+      }
+    });
   }
 
   return NextResponse.json({ notified, total: workspaces.length, errors });

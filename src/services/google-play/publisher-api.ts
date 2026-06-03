@@ -1,4 +1,4 @@
-import { google } from "googleapis";
+import { google, androidpublisher_v3 } from "googleapis";
 import { createPrivateKey } from "crypto";
 
 // Ensure the environment variables are loaded
@@ -74,15 +74,35 @@ function getPlayClient() {
 export async function fetchReviews(packageName: string) {
   const play = getPlayClient();
 
-  try {
-    const response = await Promise.race([
-      play.reviews.list({ packageName, maxResults: 100 }),
-      new Promise<never>((_, reject) =>
-        setTimeout(() => reject(new Error("Google Play fetchReviews timeout")), 15_000),
-      ),
-    ]);
+  // Google Play's reviews.list returns only ~100 reviews per page and only the
+  // last ~7 days regardless. Page through tokenPagination so a busy app with
+  // >100 recent reviews isn't silently truncated. Cap pages defensively so a
+  // malformed token can't loop forever or blow the serverless time budget.
+  const MAX_PAGES = 10;
+  const allReviews: androidpublisher_v3.Schema$Review[] = [];
 
-    return response.data.reviews || [];
+  try {
+    let token: string | undefined;
+    for (let page = 0; page < MAX_PAGES; page++) {
+      const response = await Promise.race([
+        play.reviews.list({
+          packageName,
+          maxResults: 100,
+          ...(token ? { token } : {}),
+        }),
+        new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error("Google Play fetchReviews timeout")), 15_000),
+        ),
+      ]);
+
+      const batch = response.data.reviews ?? [];
+      allReviews.push(...batch);
+
+      token = response.data.tokenPagination?.nextPageToken ?? undefined;
+      if (!token || batch.length === 0) break;
+    }
+
+    return allReviews;
   } catch (error) {
     console.error("Failed to fetch Google Play reviews:", error instanceof Error ? error.message : String(error));
     throw error;

@@ -42,6 +42,17 @@ interface GPlayReview {
 // Public scrapers only — no credentials required.
 const BOOTSTRAP_LIMIT = 200;
 
+/**
+ * Coerce an arbitrary date value to an ISO string without throwing.
+ * `new Date(bad).toISOString()` throws `RangeError: Invalid time value` on an
+ * unparseable input, which would abort the whole .map() and fail bootstrap for
+ * the app. Falls back to "now" on any invalid date.
+ */
+function safeIso(value: Date | string | null | undefined): string {
+  const d = value instanceof Date ? value : new Date(value ?? "");
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+}
+
 // ── Google Play ───────────────────────────────────────────────────────────────
 
 /**
@@ -100,7 +111,7 @@ export async function bootstrapGooglePlayReviews(
       r.version ?? null,
       null,
       null,
-      r.date instanceof Date ? r.date.toISOString() : new Date(r.date).toISOString(),
+      safeIso(r.date),
       !!r.replyText,
       r.replyText ?? null,
     ),
@@ -164,9 +175,11 @@ export async function bootstrapAppStoreReviews(
         const externalId = e.id?.label;
         if (!externalId) continue; // no stable ID — skip rather than generate a random one
 
-        const rating = parseInt(e["im:rating"]?.label ?? "3", 10);
+        // Missing/blank rating → NaN; buildEnrichedRow validates and falls back
+        // to neutral (3) rather than fabricating it here or writing NaN.
+        const rating = parseInt(e["im:rating"]?.label ?? "", 10);
         const text = [e.title?.label, e.content?.label].filter(Boolean).join("\n\n");
-        const createdAt = e.updated?.label ? new Date(e.updated.label).toISOString() : new Date().toISOString();
+        const createdAt = safeIso(e.updated?.label);
 
         rows.push(
           buildEnrichedRow(

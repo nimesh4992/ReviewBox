@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useAsoSuggestions } from "@/hooks/use-aso-suggestions";
 import { useAsoKeywords, useAddKeyword, useDeleteKeyword, useUpdateKeyword } from "@/hooks/use-aso-keywords";
 import { useMinedKeywords } from "@/hooks/use-mined-keywords";
+import { useApps } from "@/hooks/use-apps";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
 import type { AsoKeyword } from "@/types/review";
 import type { MinedPhrase } from "@/app/api/aso/mine/route";
@@ -473,19 +474,16 @@ export function ASOScreen() {
   const [bulkMode, setBulkMode] = useState(false);
   const [bulkDrafts, setBulkDrafts] = useState<Record<string, string>>({});
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
+  const { apps } = useApps();
   const { mutate: getSuggestions, isPending: suggestLoading, data: asoData } =
     useAsoSuggestions();
 
-  const appId =
-    selectedApp && typeof selectedApp === "object" && "id" in selectedApp
-      ? (selectedApp as { id: string }).id
-      : undefined;
-  const appName =
-    selectedApp && typeof selectedApp === "object" && "name" in selectedApp
-      ? (selectedApp as { name: string }).name
-      : typeof selectedApp === "string"
-        ? selectedApp
-        : "All apps";
+  // `selectedApp` is the app NAME (string) from the sidebar selector — resolve
+  // it to the app's id so keyword/suggestion queries actually scope to the app.
+  // (Previously a `typeof selectedApp === "object"` check that was always false,
+  // leaving appId permanently undefined.)
+  const appId = apps.find((a) => a.name === selectedApp)?.id;
+  const appName = selectedApp || "All apps";
 
   const { data: kwData, isLoading } = useAsoKeywords(appId);
   const { mutate: deleteKw } = useDeleteKeyword();
@@ -610,8 +608,8 @@ export function ASOScreen() {
             ) : (
               <>
                 <button
-                  onClick={() => getSuggestions(selectedApp)}
-                  disabled={suggestLoading}
+                  onClick={() => { if (appId) getSuggestions(appId); }}
+                  disabled={suggestLoading || !appId}
                   className="flex h-7 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50"
                 >
                   {suggestLoading ? <Loader2 className="size-3 animate-spin" /> : <Sparkles className="size-3 text-[#0A84FF]" />}

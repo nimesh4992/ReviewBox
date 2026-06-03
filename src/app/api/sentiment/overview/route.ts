@@ -252,7 +252,7 @@ export async function GET(req: Request): Promise<NextResponse> {
 
     // ── 5. Topics ────────────────────────────────────────────────────────────
     const topicRows = await base()
-      .select("id, author, rating, text, sentiment, store_created_at, reply_status, issue_tags")
+      .select("id, author, rating, text:body, sentiment, store_created_at, reply_status, issue_tags")
       .gte("store_created_at", windowStart.toISOString())
       .not("issue_tags", "is", null)
       .order("store_created_at", { ascending: false });
@@ -344,7 +344,7 @@ export async function GET(req: Request): Promise<NextResponse> {
 
     // ── 5. Critical reviews quick-list ───────────────────────────────────────
     const criticalRows = await base()
-      .select("id, author, rating, text, sentiment, store_created_at, reply_status")
+      .select("id, author, rating, text:body, sentiment, store_created_at, reply_status")
       .in("sentiment", ["critical", "negative"])
       .order("store_created_at", { ascending: false })
       .limit(5);

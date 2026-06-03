@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { getServiceClient, getWorkspaceId, isWorkspaceAdmin } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
 
@@ -24,6 +24,11 @@ export async function PATCH(
 
   const workspaceId = await getWorkspaceId(userId);
   if (!workspaceId) return apiError("NO_WORKSPACE", 404);
+
+  // PATCH can overwrite App Store .p8 credentials — owner/admin only.
+  if (!(await isWorkspaceAdmin(userId, workspaceId))) {
+    return apiError("FORBIDDEN", 403, "Only the workspace owner or an admin can modify apps.");
+  }
 
   const { id: appId } = await params;
 
@@ -93,6 +98,11 @@ export async function DELETE(
 
   const workspaceId = await getWorkspaceId(userId);
   if (!workspaceId) return apiError("NO_WORKSPACE", 404);
+
+  // Deleting an app removes a connected store — owner/admin only.
+  if (!(await isWorkspaceAdmin(userId, workspaceId))) {
+    return apiError("FORBIDDEN", 403, "Only the workspace owner or an admin can delete apps.");
+  }
 
   const { id: appId } = await params;
   const sb = getServiceClient();

@@ -18,6 +18,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { buildJWT, fetchAppStoreId } from "@/services/app-store/connect-api";
 import { fetchReviews as fetchGooglePlayReviews } from "@/services/google-play/publisher-api";
+import { rateLimit } from "@/lib/api-rate-limit";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -33,7 +34,7 @@ interface TestResult {
 }
 
 export async function POST(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: RouteParams,
 ): Promise<NextResponse<TestResult>> {
   const session = await auth();
@@ -41,6 +42,16 @@ export async function POST(
     return NextResponse.json(
       { ok: false, message: "Sign in first.", verifiedAt: new Date().toISOString() },
       { status: 401 },
+    );
+  }
+
+  // This route makes outbound Apple/Google API calls on every POST — rate-limit
+  // so a member can't hammer it to burn store-API quota or probe Apple's API.
+  const rl = await rateLimit(req, session.userId, { bucket: "test-credentials", limit: 10, window: "10 m" });
+  if (!rl.allowed) {
+    return NextResponse.json(
+      { ok: false, message: "Too many attempts. Wait a few minutes and try again.", verifiedAt: new Date().toISOString() },
+      { status: 429 },
     );
   }
 

@@ -110,7 +110,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .maybeSingle();
 
     if (!app) {
-      return NextResponse.json({ error: "App not found" }, { status: 404 });
+      return apiError("NOT_FOUND", 404, "App not found");
     }
 
     // Fetch 20 recent reviews and compress to a ~300-char summary
