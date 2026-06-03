@@ -87,7 +87,10 @@ export default clerkMiddleware(async (auth, request) => {
   const { nextUrl } = request;
   const hostname = request.headers.get("host") ?? "";
   const isProd = hostname.includes("tryreviewbox.com");
-  const isAppHost = isProd && (hostname === APP_HOST || hostname.startsWith("app."));
+  // Exact host match only. `startsWith("app.")` would also match a spoofed host
+  // like `app.tryreviewbox.com.attacker.com` (which also passes the loose
+  // isProd .includes check); redirect targets here are hardcoded so match tight.
+  const isAppHost = hostname === APP_HOST;
 
   // ── Subdomain routing (production only) ────────────────────────────────────
   if (isProd) {

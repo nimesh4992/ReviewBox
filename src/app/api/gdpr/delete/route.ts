@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 
-import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { getServiceClient, getWorkspaceId, getWorkspaceRole } from "@/lib/supabase-server";
 import { audit } from "@/lib/audit";
 import { apiError, captureAndError } from "@/lib/api-response";
 import { rateLimit } from "@/lib/api-rate-limit";
@@ -56,6 +56,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const workspaceId = await getWorkspaceId(userId);
     if (!workspaceId) {
       return apiError("NO_WORKSPACE", 404);
+    }
+
+    // Only the owner may hard-delete the workspace. Without this, ANY member
+    // (e.g. an invited teammate) could erase all tenant data + every member's
+    // Clerk record. Mirrors the owner gate in /api/account/cancel.
+    const role = await getWorkspaceRole(userId, workspaceId);
+    if (role !== "owner") {
+      return apiError("FORBIDDEN", 403, "Only the workspace owner can delete the account.");
     }
 
     // Audit BEFORE delete so the record outlives the workspace cascade.

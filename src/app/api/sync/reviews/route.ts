@@ -18,16 +18,28 @@ import {
   generateKbEntriesFromReviews,
   generateTemplatesFromReviews,
 } from "@/lib/gemini";
+import { Redis } from "@upstash/redis";
 import type { AppReview } from "@/types/review";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
 
+function getRedis(): Redis | null {
+  const url   = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
+  if (!url || !token) return null;
+  return new Redis({ url, token });
+}
+
 function isAuthorized(req: NextRequest): boolean {
   const secret = process.env.CRON_SECRET;
-  // If CRON_SECRET is not configured (e.g. dev / first deploy), allow all
-  // calls through so onboarding-triggered syncs aren't silently blocked.
-  // Set CRON_SECRET in Vercel env vars to lock down coordinator mode in prod.
-  if (!secret) return true;
+  // If CRON_SECRET is not configured:
+  //   - In production: FAIL CLOSED. A missing secret must never grant
+  //     coordinator mode (sync ALL workspaces) or arbitrary ?workspaceId=
+  //     syncs to an unauthenticated caller. Callers fall back to the Clerk
+  //     session path, which pins them to their own workspace.
+  //   - In dev / preview: allow through so local onboarding-triggered syncs
+  //     aren't blocked before the env var is set.
+  if (!secret) return process.env.NODE_ENV !== "production";
   return req.headers.get("authorization") === `Bearer ${secret}`;
 }
 
@@ -48,6 +60,14 @@ interface SyncSummary {
   reviewsUpserted: number;
   spikesDetected: number;
   errors: string[];
+}
+
+// Per-app outcome returned by each sync function. Used to record per-app status
+// locally rather than diffing the shared mutable `summary` (which races under
+// the concurrent Promise.allSettled fanout — wrong counts/status attribution).
+interface AppSyncResult {
+  reviewCount: number;
+  error?: string;
 }
 
 // ── Metadata refresh (lifetime rating + review count) ────────────────────────
@@ -81,88 +101,96 @@ async function refreshAppMetadata(app: DbApp): Promise<void> {
 
 // ── Google Play sync ───────────────────────────────────────────────────────────
 
-async function syncGooglePlayApp(app: DbApp, summary: SyncSummary) {
+async function syncGooglePlayApp(app: DbApp, summary: SyncSummary): Promise<AppSyncResult> {
   // Metadata scrape + review fetch run in parallel — saves ~1-2s per app
   const [, playReviews] = await Promise.all([
     refreshAppMetadata(app),
     fetchGooglePlayReviews(app.store_id),
   ]);
-  if (!playReviews.length) return;
+  if (!playReviews.length) return { reviewCount: 0 };
 
-  const rows = playReviews.map((r) => {
-    const uc  = r.comments?.[0]?.userComment;
-    const dc  = r.comments?.[0]?.developerComment;
-    const at  = uc?.lastModified?.seconds
-      ? new Date(Number(uc.lastModified.seconds) * 1000).toISOString()
-      : new Date().toISOString();
+  const rows = playReviews
+    // Skip rows with no reviewId — an empty external_id collapses every such
+    // review onto a single row under onConflict "app_id,external_id" (data loss).
+    .filter((r) => !!r.reviewId)
+    .map((r) => {
+      const uc  = r.comments?.[0]?.userComment;
+      const dc  = r.comments?.[0]?.developerComment;
+      const at  = uc?.lastModified?.seconds
+        ? new Date(Number(uc.lastModified.seconds) * 1000).toISOString()
+        : new Date().toISOString();
 
-    return buildEnrichedRow(
-      app.id, app.workspace_id,
-      r.reviewId ?? "",
-      "google_play",
-      r.authorName ?? "Anonymous",
-      uc?.starRating ?? 3,
-      uc?.text ?? "",
-      uc?.appVersionName ?? null,
-      uc?.device ?? null,
-      null,
-      at,
-      !!dc,
-      dc?.text ?? null,
-    );
-  });
+      return buildEnrichedRow(
+        app.id, app.workspace_id,
+        r.reviewId as string,
+        "google_play",
+        r.authorName ?? "Anonymous",
+        uc?.starRating ?? 3,
+        uc?.text ?? "",
+        uc?.appVersionName ?? null,
+        uc?.device ?? null,
+        null,
+        at,
+        !!dc,
+        dc?.text ?? null,
+      );
+    });
 
-  await upsertAndFinalize(app, rows, summary);
+  return upsertAndFinalize(app, rows, summary);
 }
 
 // ── App Store sync ────────────────────────────────────────────────────────────
 
-async function syncAppStoreApp(app: DbApp, summary: SyncSummary) {
-  // Metadata scrape runs in parallel with credential checks / JWT build
-  void refreshAppMetadata(app); // fire-and-forget for App Store too
+async function syncAppStoreApp(app: DbApp, summary: SyncSummary): Promise<AppSyncResult> {
+  // Metadata scrape runs in parallel; await its settled result (it swallows its
+  // own errors internally) so the promise isn't left floating off the try/catch.
+  const metadataPromise = refreshAppMetadata(app);
 
   if (!app.access_token || !app.refresh_token) {
-    summary.errors.push(`App Store app ${app.id}: missing credentials`);
-    return;
+    await metadataPromise;
+    return { reviewCount: 0, error: `App Store app ${app.id}: missing credentials` };
   }
 
   let creds: { keyId: string; issuerId: string };
   try {
     creds = JSON.parse(app.access_token) as { keyId: string; issuerId: string };
   } catch {
-    summary.errors.push(`App Store app ${app.id}: invalid access_token JSON`);
-    return;
+    await metadataPromise;
+    return { reviewCount: 0, error: `App Store app ${app.id}: invalid access_token JSON` };
   }
 
   const jwt = await buildJWT(creds.keyId, creds.issuerId, app.refresh_token);
   const appStoreId = await fetchAppStoreId(app.store_id, jwt);
   if (!appStoreId) {
-    summary.errors.push(`App Store app ${app.id}: could not resolve app ID for ${app.store_id}`);
-    return;
+    await metadataPromise;
+    return { reviewCount: 0, error: `App Store app ${app.id}: could not resolve app ID for ${app.store_id}` };
   }
 
   const ascReviews = await fetchAppStoreReviews(appStoreId, jwt);
-  if (!ascReviews.length) return;
+  await metadataPromise;
+  if (!ascReviews.length) return { reviewCount: 0 };
 
-  const rows = ascReviews.map((r) => {
-    const hasReply = !!r.relationships?.response?.data;
-    return buildEnrichedRow(
-      app.id, app.workspace_id,
-      r.id,
-      "app_store",
-      r.attributes.reviewerNickname ?? "Anonymous",
-      r.attributes.rating,
-      [r.attributes.title, r.attributes.body].filter(Boolean).join("\n\n"),
-      null,
-      null,
-      r.attributes.territory ?? null,
-      r.attributes.createdDate,
-      hasReply,
-      null,
-    );
-  });
+  const rows = ascReviews
+    .filter((r) => !!r.id)
+    .map((r) => {
+      const hasReply = !!r.relationships?.response?.data;
+      return buildEnrichedRow(
+        app.id, app.workspace_id,
+        r.id,
+        "app_store",
+        r.attributes.reviewerNickname ?? "Anonymous",
+        r.attributes.rating,
+        [r.attributes.title, r.attributes.body].filter(Boolean).join("\n\n"),
+        null,
+        null,
+        r.attributes.territory ?? null,
+        r.attributes.createdDate,
+        hasReply,
+        null,
+      );
+    });
 
-  await upsertAndFinalize(app, rows, summary);
+  return upsertAndFinalize(app, rows, summary);
 }
 
 // ── Upsert + spike detection (shared) ─────────────────────────────────────────
@@ -171,16 +199,19 @@ async function upsertAndFinalize(
   app: DbApp,
   rows: ReturnType<typeof buildEnrichedRow>[],
   summary: SyncSummary,
-) {
+): Promise<AppSyncResult> {
   const sb = getServiceClient();
+
+  if (!rows.length) return { reviewCount: 0 };
 
   const { error } = await sb
     .from("reviews")
     .upsert(rows, { onConflict: "app_id,external_id" });
 
   if (error) {
-    summary.errors.push(`app ${app.id}: ${error.message}`);
-    return;
+    const msg = `app ${app.id}: ${error.message}`;
+    summary.errors.push(msg);
+    return { reviewCount: 0, error: msg };
   }
 
   summary.appsProcessed++;
@@ -252,6 +283,8 @@ async function upsertAndFinalize(
       }
     }
   }
+
+  return { reviewCount: rows.length };
 }
 
 // ── Worker: sync one workspace's apps ──────────────────────────────────────────
@@ -373,7 +406,6 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
   // Promise.allSettled so one failing app never blocks the others.
   await Promise.allSettled(
     (apps as DbApp[]).map(async (app) => {
-      const reviewsBefore = summary.reviewsUpserted;
       try {
         // ── FIRST: stamp attempted_at immediately ─────────────────────────────
         // This is the fix for "sync banner on every login". The banner checks
@@ -422,15 +454,16 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
           }
         }
 
-        if (app.platform === "google_play")    await syncGooglePlayApp(app, summary);
-        else if (app.platform === "app_store") await syncAppStoreApp(app, summary);
+        // Per-app result tracked locally — no cross-app race via shared summary.
+        const result: AppSyncResult =
+          app.platform === "google_play" ? await syncGooglePlayApp(app, summary)
+          : app.platform === "app_store" ? await syncAppStoreApp(app, summary)
+          : { reviewCount: 0 };
 
-        const platformErr = summary.errors.find((e) => e.includes(app.id));
-        if (platformErr) {
-          await recordSyncResult(app.id, { ok: false, platform: app.platform, errMsg: platformErr });
+        if (result.error) {
+          await recordSyncResult(app.id, { ok: false, platform: app.platform, errMsg: result.error });
         } else {
-          const fetched = summary.reviewsUpserted - reviewsBefore;
-          await recordSyncResult(app.id, { ok: true, reviewCount: fetched });
+          await recordSyncResult(app.id, { ok: true, reviewCount: result.reviewCount });
         }
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
@@ -614,6 +647,17 @@ async function notifyWorkspaceOwner(
   version: string,
   count: number,
 ): Promise<void> {
+  // Dedup the email: this runs on EVERY sync and the spike query re-counts the
+  // same ≤2★ reviews for 24h, so without a guard the owner gets the same alert
+  // on each sync. Redis SET NX with a 24h TTL ⇒ at most one email per
+  // app+version per day. (Slack has its own 23h dedup in notifyRatingSpike.)
+  const redis = getRedis();
+  if (redis) {
+    const key = `spike:email:${appId}:${version}`;
+    const fresh = await redis.set(key, "1", { nx: true, ex: 24 * 60 * 60 });
+    if (fresh === null) return; // already alerted within the last 24h
+  }
+
   const sb = getServiceClient();
   const { data: member } = await sb
     .from("workspace_members")
