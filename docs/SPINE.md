@@ -68,6 +68,12 @@ These can be imperfect at launch. Do not let them block:
 - Official-API ongoing sync (Pro, sequenced — D018)
 - Stripe / billing (deferred — D013)
 
+## Open dependency
+
+Reply posting (step 7) in Draft Mode = **copy-to-clipboard + manual paste +
+"mark replied"**. The current composer has an API "Post reply" button that we
+cannot verify. First build task: add the Draft Mode copy/mark-replied path so
+step 7 becomes verifiable. Then walk the spine.
 ## Open build tasks before the first spine walk
 
 1. **Draft Mode in the composer (step 7):** add "Copy reply" (clipboard) +

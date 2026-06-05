@@ -245,6 +245,9 @@ portfolios, agencies, $29/mo self-serve, SOC 2 / SSO / SLA buyers.
 ## D018 — Launch tier is Draft Mode; API reply write-back is sequenced (2026-05-31)
 
 **Founder has user-level (not admin/API) access to a real app on both stores.**
+Therefore the official Publisher API / App Store Connect reply-posting path
+cannot be verified by us before launch — it requires store admin to grant
+API permissions.
 The official Publisher API / App Store Connect reply-posting path therefore
 cannot be verified by us before launch — it needs store admin to grant API
 permissions.
