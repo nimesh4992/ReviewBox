@@ -1,7 +1,7 @@
 # Today — Handoff for next agent
 
-**Last updated:** 2026-05-26
-**Branch agent left on:** `fix/audit-round-3` (pushed, PR at https://github.com/nimesh4992/ReviewBox/pull/new/fix/audit-round-3)
+**Last updated:** 2026-06-05
+**Branch agent left on:** `master` (clean — all recent PRs merged)
 
 You are the next Claude agent. Read this top-to-bottom before doing anything.
 
@@ -16,125 +16,77 @@ You are the next Claude agent. Read this top-to-bottom before doing anything.
 
 ---
 
-## What shipped this session (2026-05-26)
+## Recent merges (all now on master)
 
-### `fix/audit-round-3` — **awaiting founder merge** (9 fixes)
+| PR | Branch | What it did |
+|----|--------|-------------|
+| #64 | `fix/launch-bugs` | Launch-blocking sweep: sync data loss, auth bypass, blank screens, onboarding search param fix, GP pagination |
+| #63 | `feat/draft-mode` | Draft mode features |
+| #62 | `docs/launch-spine` | Launch spine documentation |
+| #61 | `hotfix/onboarding-build` | Onboarding build fix |
+| #60 | `docs/spine-launch-plan` | Spine launch plan docs |
 
-Cross-verification audit by a third-party review agent found bugs missed in the prior two passes. All 9 fixed in one commit (`e59d0cf`).
-
-| ID | File | Fix |
-|----|------|-----|
-| C-02 | `cron/trial-nudge/route.ts` | `isAuthorized()` now fail-closed — was `return true` when `CRON_SECRET` unset, allowing anyone to fire mass trial emails |
-| H-01 | `onboarding/complete` + `onboarding/slug-check` | Slug regex fixed — `(?:...)?` optional group allowed 1-char slugs; now requires min 3 chars |
-| H-02 | `cron/trial-nudge/route.ts` | Dedup Redis key now written BEFORE sending email (both day5 + day12 loops) |
-| H-03 | `account/accept-invite/route.ts` | Invite email check iterates all `emailAddresses`, not just `[0]` |
-| H-05 | `reviews/[id]/reply/route.ts` | Server-side char limit before store submit (Google Play: 350, App Store: 5950) |
-| H-06 | `gdpr/export/route.ts` | Removed `export const GET = handler` — CSRF vector |
-| M-01 | `reports/export/route.ts` | `days` param clamped 1-365; NaN/negative now default to 30 |
-| C-03 | `reviews/route.ts` | PostgREST `.or()` search param strips `,().'"\` before interpolation |
-| M-03 | `sync/reviews/route.ts` | `notifyWorkspaceOwner` `.single()` → `.maybeSingle()` |
-| L-01 | `google-play/service-account/route.ts` | Uses `apiError("UNAUTHORIZED", 401)` not raw `NextResponse.json` |
-
-Also added `REPLY_TOO_LONG` to `ApiErrorCode` union in `src/lib/api-response.ts`.
-
-**TypeScript:** 0 errors.
+Master is clean. Vercel deploys automatically on merge.
 
 ---
 
-## PRs awaiting founder merge (priority order)
+## What requires the founder before code work can resume
 
-| # | Branch | What it does | Priority |
-|---|--------|-------------|----------|
-| 1 | `fix/audit-round-3` | 9 security + correctness fixes | 🔴 HIGH |
-
-Check all open PRs: https://github.com/nimesh4992/ReviewBox/pulls
-
----
-
-## Untracked artifacts — do NOT commit
-
-Two files in repo root from cross-verification agent:
-- `gen_report.js` — session-specific path, unusable outside original env
-- `ReviewBox_Code_Review_Report.docx` — generated artifact
-
-Leave unstaged.
-
----
-
-## One HUMAN action needed right now
-
-**Set `CRON_SECRET` in Vercel environment variables.**
-
-- Vercel dashboard → your project → Settings → Environment Variables
-- Add: `CRON_SECRET` = `e61b2c02c385535daa15e71d533dde895b8dcdf396c825841fa59ac1dbeb4480`
-- Apply to: Production + Preview + Development
-- Redeploy after setting it
-
-Why: `weekly-digest`, `unreplied-alert`, AND `trial-nudge` all fail closed without this. None of the email crons fire until this is set.
+| Action | Why |
+|--------|-----|
+| **Set `CRON_SECRET` in Vercel** (if not already done) | All email crons (`weekly-digest`, `unreplied-alert`, `trial-nudge`) fail closed without it |
+| **N6 — Add Stripe test keys** to `.env.local` | Required before billing work can proceed |
+| **X1 — Create Slack app** at api.slack.com, add `SLACK_CLIENT_ID` / `SLACK_CLIENT_SECRET` / `NEXT_PUBLIC_SLACK_CLIENT_ID` to Vercel | Slack integration is fully built, just needs credentials |
 
 ---
 
 ## What you should pick up next
 
-**Merge all PRs first (founder job). Then:**
+No new branch was started this session — founder was asked to pick from these options:
 
-**Top non-blocked NOW item: N3 — Detail pages · ICE 64**
+### Option A: DS4 · Replace raw `<button>` with `<Button>` · ICE 35
 
-`/incidents/[id]` and `/releases/[version]` show stubs or blank content. Users click from lists and hit nothing — trust killer.
+Accessibility fix. 39 raw `<button>` elements in `review-queue.tsx` (22) and `aso-screen.tsx` (17) need to become `<Button variant="ghost" size="sm">`. These have no focus rings or keyboard-nav semantics.
 
-### N3 scope — Done when:
-1. `/incidents/[id]` — shows: title, severity badge, description, owner, detected-at, status chip, timeline.
-2. `/releases/[version]` — shows: version, rollout % bar, rating delta, complaint delta, status badge, reviews tagged for that version.
-3. Both have a back link and use `AppShell`.
-4. Mobile usable.
-
-### Start
 ```powershell
-cd D:\Projects\Reviews
-git checkout master
-git pull origin master
-git checkout -b claude/n3-detail-pages
+git checkout master; git pull origin master
+git checkout -b claude/ds4-button-accessibility
 ```
 
----
+**Done when:** Both files use `<Button>` throughout. All 80 tests still pass.
 
-## After N3: N4 — Remove or wire dead buttons · ICE 56
+### Option B: X6 · Real competitor tracking · ICE 48
 
-Remaining dead buttons:
-- `aso-screen.tsx` — "Export" and "Suggest keywords"
-- `reports-screen.tsx` — "Run report" and "Configure"
-  (note: dead "+ New report" already removed on branch `claude/n3-n4-detail-pages-and-dead-buttons` — cherry-pick or re-apply that one change)
+Competitors screen shows placeholder data. Wire to real store data: let users manually add competitor app IDs, fetch public store ratings via the existing scraper, store in `competitor_apps` table.
 
----
+```powershell
+git checkout master; git pull origin master
+git checkout -b claude/x6-competitor-tracking
+```
 
-## What requires the founder (D009 — never do these yourself)
+**Done when:** Competitors screen shows real public ratings for user-added competitor apps.
 
-- **Merge the open PR** above
-- **Set `CRON_SECRET`** in Vercel (see above)
-- **N6** — Add Stripe test keys to `.env.local`
+### Option C: DS2 · Type scale tokens · ICE 35
 
----
-
-## Lessons learned this session
-
-1. **Cross-verification catches bugs after two audit passes.** A fresh agent found 9 more real bugs. Run a secondary audit after major security work — it always pays.
-
-2. **Dedup-before-send is the correct order.** Write the idempotency key BEFORE firing the side effect. Safer failure: missed email (retryable) > double-send (trust damage).
-
-3. **All email crons must fail closed.** Sync route stays open intentionally (onboarding sync). Email crons (weekly-digest, unreplied-alert, trial-nudge) must all return 401 when CRON_SECRET unset.
-
-4. **`(?:...)?` ≠ required group.** The trailing `?` makes the whole group optional, silently allowing 1-char slugs despite "3-40 chars" in the error message.
-
-5. All prior lessons still apply — PowerShell `&&` broken (use `;`), no `gh` CLI on this machine.
+Define `--rb-text-*` tokens in `globals.css`, wire as Tailwind utilities, replace arbitrary `text-[Npx]` in top 5 files.
 
 ---
 
-## Active state of the repo
+## Current test status
 
-- **Local branch:** `fix/audit-round-3` (committed and pushed)
-- **Master:** clean
-- **Build:** TypeScript clean (0 errors)
-- **Tests:** 70 unit tests (unchanged this session)
+- **Unit tests:** 80/80 passing (verified 2026-06-05)
+- **Master:** clean, all recent PRs merged
+- **No open PRs** as of 2026-06-05
+
+---
+
+## Untracked artifacts — do NOT commit
+
+Two files left in repo root from cross-verification agent:
+- `gen_report.js` — session-specific, unusable outside original env
+- `ReviewBox_Code_Review_Report.docx` — generated artifact
+
+Leave unstaged.
 
 ---
 
