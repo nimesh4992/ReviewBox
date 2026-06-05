@@ -130,6 +130,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     if (memberError) {
       console.error("[onboarding] member insert:", memberError);
+      // Roll back the orphan workspace. Otherwise the slug is permanently
+      // consumed (unique constraint) and getWorkspaceId returns null forever —
+      // the user can never re-onboard with that slug.
+      await sb.from("workspaces").delete().eq("id", workspaceId);
       return apiError("INTERNAL_SERVER_ERROR", 500);
     }
   }
@@ -153,11 +157,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
   }
 
-  // Idempotency: only insert app if none exists for this workspace
+  // Idempotency: only insert app if a LIVE one exists for this workspace.
+  // Must exclude soft-deleted apps — otherwise a returning user who deleted
+  // their only app reuses the dead row and finishes onboarding with zero
+  // active apps.
   const { data: existingApp } = await sb
     .from("apps")
     .select("id")
     .eq("workspace_id", workspaceId)
+    .is("deleted_at", null)
     .limit(1)
     .maybeSingle();
 

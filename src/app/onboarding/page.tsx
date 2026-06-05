@@ -2,91 +2,93 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useClerk } from "@clerk/nextjs";
-
 import {
-  Check, ChevronRight, Plug, X, Loader2, Zap, MessageSquare, Bell,
-  Search, ArrowLeft,
+  ArrowLeft, Check, ChevronRight, Loader2, Plug, Search, Sparkles,
 } from "lucide-react";
 import { track } from "@/lib/analytics";
-
-import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { APP_CATEGORIES, type AppCategory } from "@/lib/brand-voice-stubs";
+import type { BrandVoiceConfig } from "@/app/api/onboarding/setup/route";
+import type { OnboardingProgress } from "@/app/api/onboarding/progress/route";
+
+// ── Types ──────────────────────────────────────────────────────────────────────
 
 type Platform = "google-play" | "app-store";
 
 interface SelectedApp {
-  storeId: string;
-  name: string;
+  storeId:   string;
+  name:      string;
   developer: string;
-  icon: string | null;
+  icon:      string | null;
+  rating:    number | null;
 }
 
 interface FormState {
   workspaceName: string;
   workspaceSlug: string;
-  platform: Platform;
-  /** Selected app from search OR manual entry. null = nothing picked yet. */
-  selectedApp: SelectedApp | null;
-  appCategory: AppCategory | null;
+  platform:      Platform;
+  selectedApp:   SelectedApp | null;
+  appCategory:   AppCategory | null;
+  brandVoice:    BrandVoiceConfig;
 }
 
-interface OnboardingResult {
-  workspaceId: string;
-  appId: string;
+function slugify(v: string) {
+  return v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
 }
 
-function slugify(value: string) {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "");
-}
+const DEFAULT_BRAND_VOICE: BrandVoiceConfig = {
+  tone:         "professional",
+  wordsToUse:   [],
+  wordsToAvoid: [],
+  signOff:      "",
+  replyLength:  "standard",
+};
 
 const STEPS = [
   { label: "Workspace" },
-  { label: "Your App" },
-  { label: "Connect" },
-  { label: "Done" },
+  { label: "Your App"  },
+  { label: "Brand Voice" },
+  { label: "Connect"   },
+  { label: "Ready"     },
 ];
 
+// ── Slug check state ───────────────────────────────────────────────────────────
 type SlugStatus =
   | { state: "idle" }
   | { state: "checking" }
   | { state: "available" }
   | { state: "invalid" }
   | { state: "reserved"; suggestions: string[] }
-  | { state: "taken"; suggestions: string[] };
+  | { state: "taken";    suggestions: string[] };
 
+// ── Main page ──────────────────────────────────────────────────────────────────
 export default function OnboardingPage() {
   const { session } = useClerk();
-  const [step, setStep] = useState(1);
-  const [form, setForm] = useState<FormState>({
+  const [step, setStep]         = useState(1);
+  const [form, setForm]         = useState<FormState>({
     workspaceName: "",
     workspaceSlug: "",
-    platform: "google-play",
-    selectedApp: null,
-    appCategory: null,
+    platform:      "google-play",
+    selectedApp:   null,
+    appCategory:   null,
+    brandVoice:    DEFAULT_BRAND_VOICE,
   });
-  const [slugError, setSlugError] = useState<string | null>(null);
-  const [slugStatus, setSlugStatus] = useState<SlugStatus>({ state: "idle" });
-  const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState<string | null>(null);
-  const [hydrating, setHydrating] = useState(true);
-  const slugCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [slugStatus, setSlugStatus]     = useState<SlugStatus>({ state: "idle" });
+  const [slugError, setSlugError]       = useState<string | null>(null);
+  const [saving, setSaving]             = useState(false);
+  const [saveError, setSaveError]       = useState<string | null>(null);
+  const [workspaceId, setWorkspaceId]   = useState<string | null>(null);
+  const [hydrating, setHydrating]       = useState(true);
+  const slugTimer   = useRef<ReturnType<typeof setTimeout> | null>(null);
   const hydratedRef = useRef(false);
-  // Capture session in a ref so the hydration effect doesn't re-fire every
-  // render when Clerk's session object reference changes. Effect runs once.
-  const sessionRef = useRef(session);
+  const sessionRef  = useRef(session);
   sessionRef.current = session;
 
-  // Resume: hydrate from server state on mount — RUN EXACTLY ONCE
+  // ── Hydrate from server on mount ────────────────────────────────────────────
   useEffect(() => {
     if (hydratedRef.current) return;
     hydratedRef.current = true;
-
     let cancelled = false;
     (async () => {
       try {
@@ -96,110 +98,114 @@ export default function OnboardingPage() {
           onboarded: boolean;
           hasWorkspace: boolean;
           hasApp: boolean;
-          workspace: { name: string; slug: string } | null;
+          workspace: { id: string; name: string; slug: string } | null;
           app: { name: string; platform: string; storeId: string } | null;
         };
         if (cancelled) return;
-
         if (data.onboarded) {
           try { await sessionRef.current?.reload(); } catch { /* non-fatal */ }
           window.location.href = "/dashboard";
           return;
         }
-
-        setForm((prev) => ({
-          ...prev,
-          workspaceName: data.workspace?.name ?? prev.workspaceName,
-          workspaceSlug: data.workspace?.slug ?? prev.workspaceSlug,
-          platform: data.app?.platform === "app_store" ? "app-store" : prev.platform,
-          selectedApp: data.app
-            ? {
-                storeId: data.app.storeId ?? "",
-                name: data.app.name ?? "",
-                developer: "",
-                icon: null,
-              }
-            : prev.selectedApp,
+        setForm((p) => ({
+          ...p,
+          workspaceName: data.workspace?.name ?? p.workspaceName,
+          workspaceSlug: data.workspace?.slug ?? p.workspaceSlug,
+          platform: data.app?.platform === "app_store" ? "app-store" : p.platform,
+          selectedApp: data.app ? {
+            storeId:   data.app.storeId ?? "",
+            name:      data.app.name ?? "",
+            developer: "",
+            icon:      null,
+            rating:    null,
+          } : p.selectedApp,
         }));
-
-        if (data.hasWorkspace && data.hasApp) setStep(3);
+        if (data.workspace?.id) setWorkspaceId(data.workspace.id);
+        if (data.hasWorkspace && data.hasApp) setStep(4);
         else if (data.hasWorkspace) setStep(2);
-      } catch {
-        /* fall through to step 1 */
-      } finally {
-        if (!cancelled) setHydrating(false);
-      }
+      } catch { /* fall through */ }
+      finally { if (!cancelled) setHydrating(false); }
     })();
     return () => { cancelled = true; };
-    // Intentionally empty — hydration runs once. sessionRef stays current.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Debounced slug availability check
+  // ── Slug availability check ──────────────────────────────────────────────────
   useEffect(() => {
-    if (slugCheckTimer.current) clearTimeout(slugCheckTimer.current);
+    if (slugTimer.current) clearTimeout(slugTimer.current);
     const slug = form.workspaceSlug.trim();
-    if (!slug) {
-      setSlugStatus({ state: "idle" });
-      return;
-    }
+    if (!slug) { setSlugStatus({ state: "idle" }); return; }
     setSlugStatus({ state: "checking" });
-
-    const fallback = setTimeout(() => setSlugStatus({ state: "idle" }), 4000);
-
-    slugCheckTimer.current = setTimeout(async () => {
+    slugTimer.current = setTimeout(async () => {
       try {
         const res = await fetch(`/api/onboarding/slug-check?slug=${encodeURIComponent(slug)}`);
-        clearTimeout(fallback);
         if (!res.ok) { setSlugStatus({ state: "idle" }); return; }
-        const data = (await res.json()) as {
-          available: boolean;
-          reason?: "INVALID" | "RESERVED" | "TAKEN";
-          suggestions: string[];
-        };
-        if (data.available)            setSlugStatus({ state: "available" });
-        else if (data.reason === "INVALID")  setSlugStatus({ state: "invalid" });
-        else if (data.reason === "RESERVED") setSlugStatus({ state: "reserved", suggestions: data.suggestions });
-        else                                 setSlugStatus({ state: "taken",    suggestions: data.suggestions });
-      } catch {
-        clearTimeout(fallback);
-        setSlugStatus({ state: "idle" });
-      }
+        const d = (await res.json()) as { available: boolean; reason?: string; suggestions: string[] };
+        if (d.available)                 setSlugStatus({ state: "available" });
+        else if (d.reason === "INVALID") setSlugStatus({ state: "invalid" });
+        else if (d.reason === "RESERVED")setSlugStatus({ state: "reserved", suggestions: d.suggestions });
+        else                             setSlugStatus({ state: "taken",    suggestions: d.suggestions });
+      } catch { setSlugStatus({ state: "idle" }); }
     }, 400);
-    return () => {
-      if (slugCheckTimer.current) clearTimeout(slugCheckTimer.current);
-      clearTimeout(fallback);
-    };
+    return () => { if (slugTimer.current) clearTimeout(slugTimer.current); };
   }, [form.workspaceSlug]);
 
-  const updateField = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    if (key === "workspaceName" || key === "workspaceSlug") setSlugError(null);
-    setForm((prev) => {
-      const next = { ...prev, [key]: value };
-      if (key === "workspaceName" && typeof value === "string") {
-        next.workspaceSlug = slugify(value);
-      }
-      // Changing platform invalidates the selected app
-      if (key === "platform") {
-        next.selectedApp = null;
-      }
-      return next;
+  const set = <K extends keyof FormState>(k: K, v: FormState[K]) =>
+    setForm((p) => {
+      const n = { ...p, [k]: v };
+      if (k === "workspaceName" && typeof v === "string") n.workspaceSlug = slugify(v);
+      if (k === "platform") n.selectedApp = null;
+      if (k === "workspaceName" || k === "workspaceSlug") setSlugError(null);
+      return n;
     });
-  };
 
-  const next = () => setStep((s) => Math.min(s + 1, 4));
+  const setBv = (patch: Partial<BrandVoiceConfig>) =>
+    setForm((p) => ({ ...p, brandVoice: { ...p.brandVoice, ...patch } }));
 
-  const saveAndAdvance = async () => {
-    if (!form.selectedApp) {
-      setSaveError("Please pick your app first.");
-      setStep(2);
-      return;
-    }
-
+  // ── Step 3 → calls /api/onboarding/setup → fires bootstrap ──────────────────
+  const handleSetup = async () => {
+    if (!form.selectedApp) { setSaveError("Please select your app first."); return; }
     setSaving(true);
     setSaveError(null);
-    setSlugError(null);
+    try {
+      const res = await fetch("/api/onboarding/setup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspaceName: form.workspaceName,
+          workspaceSlug: form.workspaceSlug,
+          appName:       form.selectedApp.name,
+          platform:      form.platform,
+          storeId:       form.selectedApp.storeId,
+          appCategory:   form.appCategory,
+          icon:          form.selectedApp.icon,
+          developer:     form.selectedApp.developer,
+          rating:        form.selectedApp.rating,
+          brandVoice:    form.brandVoice,
+        }),
+      });
+      if (res.status === 409) {
+        const d = (await res.json()) as { error?: { code: string } };
+        if (d.error?.code === "SLUG_TAKEN") {
+          setSlugError("Workspace URL already taken — try a different one.");
+          setStep(1);
+          return;
+        }
+      }
+      if (!res.ok) { setSaveError("Something went wrong. Please try again."); return; }
+      const d = (await res.json()) as { workspaceId: string; appId: string };
+      setWorkspaceId(d.workspaceId);
+      track({ name: "onboarding_setup", properties: { platform: form.platform } });
+      setStep(4);
+    } catch { setSaveError("Network error. Please try again."); }
+    finally { setSaving(false); }
+  };
 
+  // ── Step 5 → calls /api/onboarding/complete → marks onboarded ────────────────
+  const handleComplete = async () => {
+    if (!form.selectedApp) return;
+    setSaving(true);
+    setSaveError(null);
     try {
       const res = await fetch("/api/onboarding/complete", {
         method: "POST",
@@ -211,735 +217,712 @@ export default function OnboardingPage() {
           platform:      form.platform,
           storeId:       form.selectedApp.storeId,
           appCategory:   form.appCategory,
-          // App metadata captured at search time. Server refetches from the
-          // store but these are the immediate-display values.
           icon:          form.selectedApp.icon,
           developer:     form.selectedApp.developer,
+          rating:        form.selectedApp.rating,
         }),
       });
-
-      if (res.status === 409) {
-        setSlugError("Workspace URL already taken — try a different one.");
-        setStep(1);
-        return;
-      }
-
-      if (!res.ok) {
+      if (!res.ok && res.status !== 409) {
         setSaveError("Something went wrong. Please try again.");
         return;
       }
-
-      await (res.json() as Promise<OnboardingResult>);
       track({ name: "onboarding_completed", properties: { platform: form.platform } });
-      next();
-    } catch {
-      setSaveError("Network error. Please try again.");
-    } finally {
-      setSaving(false);
-    }
+      try { await sessionRef.current?.reload(); } catch { /* non-fatal */ }
+      window.location.href = "/dashboard";
+    } catch { setSaveError("Network error. Please try again."); }
+    finally { setSaving(false); }
   };
+
+  if (hydrating) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#0d0f14]">
+        <Loader2 className="size-5 animate-spin text-white/30" strokeWidth={1.5} />
+      </div>
+    );
+  }
+
+  const progress = ((step - 1) / (STEPS.length - 1)) * 100;
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center bg-[#0d0f14] px-4 py-12">
+      {/* Logo */}
       <div className="mb-10 flex items-center gap-2.5">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#0A84FF]">
+        <div className="flex size-8 items-center justify-center rounded-lg bg-[#0A84FF]">
           <span className="text-sm font-bold text-white">R</span>
         </div>
         <span className="text-lg font-semibold tracking-tight text-white">ReviewBox</span>
       </div>
 
       <div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#1a1d27] p-8">
-        {/* Step indicator + progress bar */}
+        {/* Step indicator */}
         <div className="mb-8">
           <div className="mb-3 flex items-center justify-between">
             {STEPS.map((s, i) => {
               const n = i + 1;
               const active = n === step;
-              const done = n < step;
+              const done   = n < step;
               return (
                 <div key={s.label} className="flex flex-col items-center gap-1">
                   <div className={cn(
-                    "flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold transition-colors",
-                    done && "bg-[#0A84FF] text-white",
+                    "flex size-6 items-center justify-center rounded-full text-[10px] font-semibold transition-colors",
+                    done   && "bg-[#0A84FF] text-white",
                     active && "bg-[#0A84FF] text-white ring-2 ring-[#0A84FF]/30",
                     !done && !active && "bg-white/[0.06] text-white/30",
                   )}>
                     {done ? "✓" : n}
                   </div>
-                  <span className={cn(
-                    "text-[10px] font-medium",
+                  <span className={cn("text-[9px] font-medium hidden sm:block",
                     active ? "text-white/70" : "text-white/25",
-                  )}>
-                    {s.label}
-                  </span>
+                  )}>{s.label}</span>
                 </div>
               );
             })}
           </div>
-          <div className="h-1 w-full overflow-hidden rounded-full bg-white/[0.06]">
+          <div className="h-1 overflow-hidden rounded-full bg-white/[0.06]">
             <div
               className="h-full rounded-full bg-[#0A84FF] transition-all duration-500"
-              style={{ width: `${((step - 1) / (STEPS.length - 1)) * 100}%` }}
+              style={{ width: `${progress}%` }}
             />
           </div>
         </div>
 
-        {hydrating && (
-          <div className="flex items-center justify-center py-20 text-white/40">
-            <Loader2 className="size-5 animate-spin" strokeWidth={1.5} />
-          </div>
-        )}
-        {!hydrating && step === 1 && (
-          <StepWorkspace
+        {/* ── Step 1: Workspace ── */}
+        {step === 1 && (
+          <Step1Workspace
             form={form}
-            update={updateField}
-            onNext={next}
-            slugError={slugError}
+            set={set}
             slugStatus={slugStatus}
+            slugError={slugError}
+            onNext={() => {
+              if (!form.workspaceName.trim()) return;
+              if (slugStatus.state === "invalid" || slugStatus.state === "taken") return;
+              setStep(2);
+            }}
           />
         )}
-        {!hydrating && step === 2 && (
-          <StepApp form={form} update={updateField} onBack={() => setStep(1)} onNext={next} />
-        )}
-        {!hydrating && step === 3 && (
-          <StepConnect
+
+        {/* ── Step 2: Find app ── */}
+        {step === 2 && (
+          <Step2App
             form={form}
-            onBack={() => setStep(2)}
-            onNext={saveAndAdvance}
-            saving={saving}
-            error={saveError}
+            set={set}
+            onBack={() => setStep(1)}
+            onNext={() => setStep(3)}
           />
         )}
-        {!hydrating && step === 4 && (
-          <StepDone onFinish={async () => {
-            try { await session?.reload(); } catch { /* non-fatal */ }
-            window.location.href = "/dashboard";
-          }} />
+
+        {/* ── Step 3: Brand voice ── */}
+        {step === 3 && (
+          <Step3BrandVoice
+            bv={form.brandVoice}
+            setBv={setBv}
+            saving={saving}
+            saveError={saveError}
+            onBack={() => setStep(2)}
+            onNext={handleSetup}
+          />
+        )}
+
+        {/* ── Step 4: Connect store ── */}
+        {step === 4 && (
+          <Step4Connect
+            platform={form.platform}
+            appName={form.selectedApp?.name ?? ""}
+            onSkip={() => setStep(5)}
+            onDone={() => setStep(5)}
+          />
+        )}
+
+        {/* ── Step 5: Ready ── */}
+        {step === 5 && (
+          <Step5Ready
+            workspaceId={workspaceId}
+            appName={form.selectedApp?.name ?? ""}
+            saving={saving}
+            saveError={saveError}
+            onLaunch={handleComplete}
+          />
         )}
       </div>
-
-      <p className="mt-6 text-xs text-white/20">Step {step} of {STEPS.length}</p>
     </div>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Step 1 — Workspace                                                   */
-/* ------------------------------------------------------------------ */
+// ── Step 1: Workspace ──────────────────────────────────────────────────────────
 
-function StepWorkspace({
-  form,
-  update,
-  onNext,
-  slugError,
-  slugStatus,
+function Step1Workspace({
+  form, set, slugStatus, slugError, onNext,
 }: {
   form: FormState;
-  update: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
-  onNext: () => void;
-  slugError: string | null;
+  set: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
   slugStatus: SlugStatus;
+  slugError: string | null;
+  onNext: () => void;
 }) {
-  const slugBorder =
-    slugError || slugStatus.state === "taken" || slugStatus.state === "reserved" || slugStatus.state === "invalid"
-      ? "border-red-500/60"
-      : slugStatus.state === "available"
-        ? "border-emerald-500/60"
-        : "border-white/[0.08]";
-
   const canContinue =
-    form.workspaceName.trim().length > 0 &&
-    slugStatus.state !== "taken" &&
-    slugStatus.state !== "reserved" &&
-    slugStatus.state !== "invalid";
+    form.workspaceName.trim().length >= 2 &&
+    form.workspaceSlug.trim().length >= 3 &&
+    slugStatus.state !== "invalid" &&
+    slugStatus.state !== "taken";
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-white">Tell us about your workspace</h2>
-        <p className="mt-1 text-sm text-white/40">
-          Your workspace is where your team collaborates on reviews.
-        </p>
+        <h2 className="text-xl font-semibold text-white">Name your workspace</h2>
+        <p className="mt-1 text-sm text-white/50">Usually your company or app name.</p>
       </div>
 
-      <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-white/60 text-xs font-medium uppercase tracking-wide">
-            Workspace name
-          </Label>
+      <div className="space-y-4">
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-white/50">Workspace name</label>
           <Input
             value={form.workspaceName}
-            onChange={(e) => update("workspaceName", e.target.value)}
-            placeholder="Acme Inc."
-            className="border-white/[0.08] bg-[#0d0f14] text-white placeholder:text-white/20 focus-visible:ring-[#0A84FF]/50 focus-visible:border-[#0A84FF]"
+            onChange={(e) => set("workspaceName", e.target.value)}
+            placeholder="Acme Corp"
+            className="border-white/[0.08] bg-white/[0.04] text-white placeholder:text-white/20 focus-visible:ring-[#0A84FF]"
+            autoFocus
           />
         </div>
-
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-white/60 text-xs font-medium uppercase tracking-wide">
-            Workspace URL
-          </Label>
-          <div className={cn("flex items-center overflow-hidden rounded-lg border bg-[#0d0f14] focus-within:border-[#0A84FF]", slugBorder)}>
-            <span className="select-none border-r border-white/[0.08] px-3 py-2 text-sm text-white/30">
-              tryreviewbox.com/
-            </span>
+        <div>
+          <label className="mb-1.5 block text-xs font-medium text-white/50">Workspace URL</label>
+          <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2">
+            <span className="shrink-0 text-xs text-white/30">tryreviewbox.com/</span>
             <input
               value={form.workspaceSlug}
-              onChange={(e) => update("workspaceSlug", slugify(e.target.value))}
-              placeholder="acme-inc"
-              className="flex-1 bg-transparent px-3 py-2 text-sm text-white outline-none placeholder:text-white/20"
+              onChange={(e) => set("workspaceSlug", slugify(e.target.value))}
+              placeholder="acme"
+              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/20"
             />
-            <span className="pr-3">
-              {slugStatus.state === "checking" && <Loader2 className="size-4 animate-spin text-white/30" strokeWidth={1.5} />}
-              {slugStatus.state === "available" && <Check className="size-4 text-emerald-400" strokeWidth={2} />}
-              {(slugStatus.state === "taken" || slugStatus.state === "reserved" || slugStatus.state === "invalid") && (
-                <X className="size-4 text-red-400" strokeWidth={2} />
-              )}
-            </span>
+            {slugStatus.state === "checking" && <Loader2 className="size-3 animate-spin text-white/30" strokeWidth={1.5} />}
+            {slugStatus.state === "available" && <Check className="size-3 text-[#1F8A5B]" strokeWidth={2} />}
           </div>
-
-          {slugStatus.state === "invalid" && (
-            <p className="text-xs text-red-400">Use 3-40 lowercase letters, numbers, or hyphens.</p>
+          {(slugStatus.state === "taken" || slugStatus.state === "reserved" || slugStatus.state === "invalid" || slugError) && (
+            <p className="mt-1 text-xs text-red-400">
+              {slugError ?? (slugStatus.state === "taken" ? "Already taken." : slugStatus.state === "reserved" ? "Reserved URL." : "Invalid — use letters, numbers, hyphens.")}
+            </p>
           )}
-          {slugStatus.state === "reserved" && (
-            <SlugSuggestions label="That URL is reserved." suggestions={slugStatus.suggestions} onPick={(s) => update("workspaceSlug", s)} />
-          )}
-          {slugStatus.state === "taken" && (
-            <SlugSuggestions label="That URL is taken." suggestions={slugStatus.suggestions} onPick={(s) => update("workspaceSlug", s)} />
-          )}
-          {slugError && slugStatus.state !== "taken" && (
-            <p className="text-xs text-red-400">{slugError}</p>
+          {(slugStatus.state === "taken" || slugStatus.state === "reserved") && (slugStatus as { suggestions: string[] }).suggestions?.length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {(slugStatus as { suggestions: string[] }).suggestions.slice(0, 3).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => set("workspaceSlug", s)}
+                  className="rounded border border-white/[0.08] px-2 py-0.5 text-[10px] text-white/50 hover:text-white"
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>
 
-      <Button
+      <button
         onClick={onNext}
         disabled={!canContinue}
-        className="w-full bg-[#0A84FF] text-white hover:bg-[#006EE0] disabled:opacity-40"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-30"
       >
-        Continue
-        <ChevronRight className="ml-1 size-4" strokeWidth={1.5} />
-      </Button>
+        Continue <ChevronRight className="size-4" strokeWidth={2} />
+      </button>
     </div>
   );
 }
 
-function SlugSuggestions({
-  label,
-  suggestions,
-  onPick,
-}: {
-  label: string;
-  suggestions: string[];
-  onPick: (slug: string) => void;
-}) {
-  return (
-    <div className="flex flex-wrap items-center gap-1.5">
-      <span className="text-xs text-red-400">{label}</span>
-      {suggestions.map((s) => (
-        <button
-          key={s}
-          type="button"
-          onClick={() => onPick(s)}
-          className="rounded-md border border-white/[0.08] bg-white/[0.04] px-2 py-0.5 text-[11px] font-medium text-white/70 transition-colors hover:border-[#0A84FF] hover:text-[#0A84FF]"
-        >
-          {s}
-        </button>
-      ))}
-    </div>
-  );
+// ── Step 2: Find app ───────────────────────────────────────────────────────────
+
+interface SearchResult {
+  storeId:   string;
+  name:      string;
+  developer: string;
+  icon:      string | null;
+  rating:    number | null;
 }
 
-/* ------------------------------------------------------------------ */
-/* Step 2 — App (search + select)                                       */
-/* ------------------------------------------------------------------ */
-
-interface SearchResult extends SelectedApp {
-  rating: number | null;
-  url: string;
-}
-
-type SearchState =
-  | { kind: "idle" }
-  | { kind: "searching" }
-  | { kind: "ok"; results: SearchResult[] }
-  | { kind: "no-results" }
-  | { kind: "error" };
-
-function StepApp({
-  form,
-  update,
-  onBack,
-  onNext,
+function Step2App({
+  form, set, onBack, onNext,
 }: {
   form: FormState;
-  update: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
+  set: <K extends keyof FormState>(k: K, v: FormState[K]) => void;
   onBack: () => void;
   onNext: () => void;
 }) {
-  const [query, setQuery] = useState("");
-  const [state, setState] = useState<SearchState>({ kind: "idle" });
-  const [showManual, setShowManual] = useState(false);
-  const [manualName, setManualName] = useState("");
-  const [manualId, setManualId] = useState("");
+  const [query, setQuery]           = useState("");
+  const [results, setResults]       = useState<SearchResult[]>([]);
+  const [searching, setSearching]   = useState(false);
+  const [searchFailed, setSearchFailed] = useState(false);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // Debounced search whenever query or platform changes
   useEffect(() => {
     if (searchTimer.current) clearTimeout(searchTimer.current);
-    if (query.trim().length < 2) {
-      setState({ kind: "idle" });
-      return;
-    }
-    setState({ kind: "searching" });
+    if (query.trim().length < 2) { setResults([]); setSearchFailed(false); return; }
+    setSearching(true);
     searchTimer.current = setTimeout(async () => {
       try {
-        const params = new URLSearchParams({ platform: form.platform, query: query.trim() });
-        const res = await fetch(`/api/onboarding/search-app?${params}`);
-        if (!res.ok) { setState({ kind: "error" }); return; }
-        const data = (await res.json()) as {
-          results: SearchResult[];
-          searchFailed?: boolean;
-        };
-        if (data.searchFailed)         setState({ kind: "error" });
-        else if (data.results.length)  setState({ kind: "ok", results: data.results });
-        else                           setState({ kind: "no-results" });
-      } catch {
-        setState({ kind: "error" });
-      }
-    }, 300);
-    return () => {
-      if (searchTimer.current) clearTimeout(searchTimer.current);
-    };
+        const res = await fetch(
+          `/api/onboarding/search-app?query=${encodeURIComponent(query.trim())}&platform=${form.platform}`
+        );
+        if (!res.ok) { setSearchFailed(true); setSearching(false); return; }
+        const d = (await res.json()) as { results: SearchResult[]; searchFailed?: boolean };
+        setResults(d.results ?? []);
+        setSearchFailed(!!d.searchFailed);
+      } catch { setSearchFailed(true); }
+      finally { setSearching(false); }
+    }, 400);
+    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
   }, [query, form.platform]);
 
-  function pickResult(r: SearchResult) {
-    update("selectedApp", {
-      storeId: r.storeId,
-      name: r.name,
+  const selectApp = (r: SearchResult) => {
+    set("selectedApp", {
+      storeId:   r.storeId,
+      name:      r.name,
       developer: r.developer,
-      icon: r.icon,
+      icon:      r.icon,
+      rating:    r.rating,
     });
-  }
-
-  function clearSelection() {
-    update("selectedApp", null);
-    setShowManual(false);
-    setManualName("");
-    setManualId("");
-  }
-
-  function applyManual() {
-    if (!manualName.trim() || !manualId.trim()) return;
-    update("selectedApp", {
-      storeId: manualId.trim(),
-      name: manualName.trim(),
-      developer: "",
-      icon: null,
-    });
-  }
-
-  const canContinue = !!form.selectedApp;
+  };
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-semibold text-white">Find your app</h2>
-        <p className="mt-1 text-sm text-white/40">
-          Pick your app from the store. You can add more later in Settings.
-        </p>
+        <button onClick={onBack} className="mb-3 flex items-center gap-1 text-xs text-white/40 hover:text-white/70">
+          <ArrowLeft className="size-3" strokeWidth={2} /> Back
+        </button>
+        <h2 className="text-xl font-semibold text-white">Find your app</h2>
+        <p className="mt-1 text-sm text-white/50">Search by name or paste the bundle/package ID.</p>
       </div>
 
-      {/* Platform picker */}
-      <div className="flex flex-col gap-1.5">
-        <Label className="text-white/60 text-xs font-medium uppercase tracking-wide">Platform</Label>
-        <div className="grid grid-cols-2 gap-2">
-          {([
-            { value: "google-play", label: "Google Play" },
-            { value: "app-store",   label: "App Store"   },
-          ] as const).map((opt) => (
+      {/* Platform selector */}
+      <div className="grid grid-cols-2 gap-2">
+        {(["google-play", "app-store"] as Platform[]).map((p) => (
+          <button
+            key={p}
+            onClick={() => set("platform", p)}
+            className={cn(
+              "rounded-xl border px-4 py-3 text-xs font-semibold transition-colors",
+              form.platform === p
+                ? "border-[#0A84FF] bg-[#0A84FF]/10 text-[#4592FF]"
+                : "border-white/[0.08] bg-white/[0.04] text-white/40 hover:border-white/20 hover:text-white/70",
+            )}
+          >
+            {p === "google-play" ? "🤖 Google Play" : "🍎 App Store"}
+          </button>
+        ))}
+      </div>
+
+      {/* Search */}
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/30" strokeWidth={1.5} />
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search your app…"
+          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] py-2.5 pl-9 pr-4 text-sm text-white placeholder:text-white/20 outline-none focus:border-[#0A84FF]/50"
+          autoFocus
+        />
+        {searching && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-white/30" strokeWidth={1.5} />}
+      </div>
+
+      {/* Selected app pill */}
+      {form.selectedApp && (
+        <div className="flex items-center gap-3 rounded-xl border border-[#0A84FF]/30 bg-[#0A84FF]/10 p-3">
+          {form.selectedApp.icon
+            ? <img src={form.selectedApp.icon} alt="" className="size-8 shrink-0 rounded-lg" />
+            : <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-xs font-bold text-white">{form.selectedApp.name[0]}</div>
+          }
+          <div className="min-w-0 flex-1">
+            <div className="truncate text-sm font-semibold text-white">{form.selectedApp.name}</div>
+            <div className="text-xs text-white/50">{form.selectedApp.developer} {form.selectedApp.rating ? `· ${form.selectedApp.rating.toFixed(1)}★` : ""}</div>
+          </div>
+          <Check className="size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
+        </div>
+      )}
+
+      {/* Results */}
+      {results.length > 0 && !form.selectedApp && (
+        <div className="max-h-[200px] overflow-y-auto rounded-xl border border-white/[0.08] bg-white/[0.03]">
+          {results.map((r, i) => (
             <button
-              key={opt.value}
-              type="button"
-              onClick={() => { update("platform", opt.value); setQuery(""); setState({ kind: "idle" }); }}
+              key={r.storeId}
+              onClick={() => { selectApp(r); setQuery(""); setResults([]); }}
               className={cn(
-                "rounded-lg border px-4 py-2.5 text-sm font-medium transition-colors",
-                form.platform === opt.value
-                  ? "border-[#0A84FF] bg-[#0A84FF]/10 text-[#0A84FF]"
-                  : "border-white/[0.08] bg-[#0d0f14] text-white/50 hover:border-white/20 hover:text-white/80",
+                "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-white/[0.06]",
+                i < results.length - 1 && "border-b border-white/[0.04]",
               )}
             >
-              {opt.label}
+              {r.icon
+                ? <img src={r.icon} alt="" className="size-8 shrink-0 rounded-lg" />
+                : <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-xs font-bold text-white">{r.name[0]}</div>
+              }
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium text-white">{r.name}</div>
+                <div className="text-xs text-white/40">{r.developer} {r.rating ? `· ${r.rating.toFixed(1)}★` : ""}</div>
+              </div>
             </button>
           ))}
         </div>
-      </div>
-
-      {/* Selected app pill (if chosen) */}
-      {form.selectedApp ? (
-        <div className="flex items-center gap-3 rounded-xl border border-[#0A84FF]/40 bg-[#0A84FF]/10 p-3">
-          {form.selectedApp.icon ? (
-            <img
-              src={form.selectedApp.icon}
-              alt=""
-              className="size-10 shrink-0 rounded-lg object-cover"
-            />
-          ) : (
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-sm font-bold text-white/40">
-              {form.selectedApp.name[0]?.toUpperCase() ?? "?"}
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-white">{form.selectedApp.name}</p>
-            <p className="truncate text-[11px] text-white/40 font-mono">{form.selectedApp.storeId}</p>
-          </div>
-          <button
-            type="button"
-            onClick={clearSelection}
-            className="flex size-7 shrink-0 items-center justify-center rounded-md text-white/40 hover:bg-white/[0.06] hover:text-white"
-            aria-label="Change app"
-          >
-            <X size={14} />
-          </button>
-        </div>
-      ) : (
-        <>
-          {/* Search box */}
-          <div className="flex flex-col gap-1.5">
-            <Label className="text-white/60 text-xs font-medium uppercase tracking-wide">
-              Search by app name
-            </Label>
-            <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-[#0d0f14] px-3 focus-within:border-[#0A84FF]">
-              <Search size={14} className="shrink-0 text-white/30" />
-              <input
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={form.platform === "google-play" ? "Spotify, Notion, Headspace…" : "Spotify, Notion, Headspace…"}
-                className="flex-1 bg-transparent py-2 text-sm text-white outline-none placeholder:text-white/20"
-                autoFocus
-              />
-              {state.kind === "searching" && <Loader2 size={14} className="shrink-0 animate-spin text-white/30" />}
-            </div>
-          </div>
-
-          {/* Results / states */}
-          {state.kind === "ok" && (
-            <ul className="flex max-h-[280px] flex-col gap-1.5 overflow-y-auto -mt-2">
-              {state.results.map((r) => (
-                <li key={r.storeId}>
-                  <button
-                    type="button"
-                    onClick={() => pickResult(r)}
-                    className="flex w-full items-center gap-3 rounded-xl border border-white/[0.06] bg-[#0d0f14] p-2.5 text-left transition-colors hover:border-[#0A84FF]/40 hover:bg-[#0A84FF]/5"
-                  >
-                    {r.icon ? (
-                      <img src={r.icon} alt="" className="size-10 shrink-0 rounded-lg object-cover" />
-                    ) : (
-                      <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-sm font-bold text-white/40">
-                        {r.name[0]?.toUpperCase() ?? "?"}
-                      </div>
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-white">{r.name}</p>
-                      <p className="truncate text-[11px] text-white/40">
-                        {r.developer || r.storeId}
-                        {r.rating ? ` · ${r.rating.toFixed(1)}★` : ""}
-                      </p>
-                    </div>
-                    <ChevronRight size={14} className="shrink-0 text-white/30" />
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-
-          {state.kind === "no-results" && (
-            <div className="rounded-xl border border-white/[0.06] bg-[#0d0f14] p-4 text-center">
-              <p className="text-sm text-white/60">No matches for &quot;{query}&quot;</p>
-              <p className="mt-1 text-[11px] text-white/30">Try a different name or enter manually below.</p>
-            </div>
-          )}
-
-          {state.kind === "error" && (
-            <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-4 text-center">
-              <p className="text-sm text-amber-300">Couldn&apos;t search the store right now.</p>
-              <p className="mt-1 text-[11px] text-amber-300/70">Enter your app details manually below.</p>
-            </div>
-          )}
-
-          {/* Manual entry toggle */}
-          <button
-            type="button"
-            onClick={() => setShowManual((v) => !v)}
-            className="self-start text-[12px] font-medium text-white/40 transition-colors hover:text-white/70"
-          >
-            {showManual ? "Hide manual entry" : "Can't find your app? Enter manually →"}
-          </button>
-
-          {showManual && (
-            <div className="flex flex-col gap-3 rounded-xl border border-white/[0.06] bg-[#0d0f14] p-4">
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-white/60 text-[11px] font-medium uppercase tracking-wide">
-                  App name
-                </Label>
-                <Input
-                  value={manualName}
-                  onChange={(e) => setManualName(e.target.value)}
-                  placeholder="My Awesome App"
-                  className="border-white/[0.08] bg-[#0d0f14] text-white placeholder:text-white/20 focus-visible:ring-[#0A84FF]/50 focus-visible:border-[#0A84FF]"
-                />
-              </div>
-              <div className="flex flex-col gap-1.5">
-                <Label className="text-white/60 text-[11px] font-medium uppercase tracking-wide">
-                  {form.platform === "google-play" ? "Package name" : "Bundle ID"}
-                </Label>
-                <Input
-                  value={manualId}
-                  onChange={(e) => setManualId(e.target.value)}
-                  placeholder={form.platform === "google-play" ? "com.example.app" : "com.example.app"}
-                  className="border-white/[0.08] bg-[#0d0f14] text-white placeholder:text-white/20 focus-visible:ring-[#0A84FF]/50 focus-visible:border-[#0A84FF] font-mono text-[12px]"
-                />
-              </div>
-              <Button
-                onClick={applyManual}
-                disabled={!manualName.trim() || !manualId.trim()}
-                className="bg-white/[0.06] text-white hover:bg-white/[0.10] disabled:opacity-40"
-              >
-                Use these details
-              </Button>
-            </div>
-          )}
-        </>
       )}
 
-      {/* Category — only shown after app picked */}
+      {searchFailed && (
+        <p className="text-xs text-amber-400">Search unavailable — enter your package/bundle ID manually.</p>
+      )}
+
+      {/* App category */}
       {form.selectedApp && (
-        <div className="flex flex-col gap-1.5">
-          <Label className="text-white/60 text-xs font-medium uppercase tracking-wide">
-            Category <span className="text-white/30 normal-case">(optional)</span>
-          </Label>
-          <p className="text-[11px] text-white/25 -mt-0.5">
-            Pre-tunes AI replies. Change anytime in Settings.
-          </p>
-          <div className="grid grid-cols-3 gap-1.5">
-            {APP_CATEGORIES.map((cat) => (
+        <div>
+          <p className="mb-2 text-xs font-medium text-white/50">App category (helps tailor AI replies)</p>
+          <div className="flex flex-wrap gap-1.5">
+            {APP_CATEGORIES.map((c) => (
               <button
-                key={cat.id}
-                type="button"
-                onClick={() => update("appCategory", form.appCategory === cat.id ? null : cat.id)}
+                key={c.id}
+                onClick={() => set("appCategory", c.id)}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-lg border px-2.5 py-2 text-xs font-medium transition-colors",
-                  form.appCategory === cat.id
-                    ? "border-[#0A84FF] bg-[#0A84FF]/10 text-[#0A84FF]"
-                    : "border-white/[0.08] bg-[#0d0f14] text-white/50 hover:border-white/20 hover:text-white/80",
+                  "rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors",
+                  form.appCategory === c.id
+                    ? "border-[#0A84FF] bg-[#0A84FF]/10 text-[#4592FF]"
+                    : "border-white/[0.08] text-white/40 hover:border-white/20 hover:text-white/70",
                 )}
               >
-                <span>{cat.emoji}</span>
-                <span className="truncate">{cat.label}</span>
+                {c.emoji} {c.label}
               </button>
             ))}
           </div>
         </div>
       )}
 
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          onClick={onBack}
-          variant="ghost"
-          className="h-9 px-3 text-white/50 hover:bg-white/[0.06] hover:text-white"
-        >
-          <ArrowLeft className="size-4" strokeWidth={1.5} />
-          Back
-        </Button>
-        <Button
-          onClick={onNext}
-          disabled={!canContinue}
-          className="flex-1 bg-[#0A84FF] text-white hover:bg-[#006EE0] disabled:opacity-40"
-        >
-          Continue
-          <ChevronRight className="ml-1 size-4" strokeWidth={1.5} />
-        </Button>
-      </div>
-    </div>
-  );
-}
-
-/* ------------------------------------------------------------------ */
-/* Step 3 — Connect                                                     */
-/* ------------------------------------------------------------------ */
-
-function StepConnect({
-  form,
-  onBack,
-  onNext,
-  saving,
-  error,
-}: {
-  form: FormState;
-  onBack: () => void;
-  onNext: () => void;
-  saving: boolean;
-  error: string | null;
-}) {
-  const isPlay = form.platform === "google-play";
-
-  const features = [
-    {
-      icon: <Plug className="size-4 text-[#0A84FF]" strokeWidth={1.5} />,
-      title: isPlay ? "Google Play sync" : "App Store sync",
-      desc: isPlay
-        ? "Reviews pulled automatically every 4 hours."
-        : "Sync after you add App Store Connect credentials.",
-    },
-    { icon: <Zap className="size-4 text-amber-400" strokeWidth={1.5} />,         title: "AI triage",          desc: "Every review gets a sentiment score, priority, and issue tags." },
-    { icon: <MessageSquare className="size-4 text-emerald-400" strokeWidth={1.5} />, title: "Smart reply drafts", desc: "One-click AI drafts grounded in your knowledge base." },
-    { icon: <Bell className="size-4 text-rose-400" strokeWidth={1.5} />,         title: "Spike alerts",       desc: "Email + Slack alert when ratings drop unexpectedly." },
-  ];
-
-  return (
-    <div className="flex flex-col gap-6">
-      <div>
-        <h2 className="text-lg font-semibold text-white">
-          {isPlay ? "Connect Google Play to sync reviews" : "Connect App Store to sync reviews"}
-        </h2>
-        <p className="mt-1 text-sm text-white/40">
-          {isPlay
-            ? "Invite us as a teammate in Play Console so we can fetch your reviews. You can also do this later from Settings → Apps."
-            : "Add an App Store Connect API key so we can pull your reviews. You can also do this later from Settings → Apps."}
-        </p>
-      </div>
-
-      <a
-        href={isPlay ? "/help/connect-google-play" : "/help/connect-app-store"}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center gap-3 rounded-xl border border-[#0A84FF]/30 bg-[#0A84FF]/[0.06] px-4 py-3 transition-colors hover:bg-[#0A84FF]/[0.10]"
-      >
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#0A84FF]/20 text-[14px]">
-          📖
-        </div>
-        <div className="min-w-0 flex-1">
-          <p className="text-[13px] font-semibold text-white">
-            {isPlay ? "Step-by-step Google Play setup guide" : "Step-by-step App Store setup guide"}
-          </p>
-          <p className="mt-0.5 text-[11px] text-white/50">
-            Opens in new tab · we&apos;ll wait for you
-          </p>
-        </div>
-        <ChevronRight className="size-4 shrink-0 text-[#0A84FF]" strokeWidth={1.5} />
-      </a>
-
-      {/* Show what they picked */}
-      {form.selectedApp && (
-        <div className="flex items-center gap-3 rounded-xl border border-white/[0.06] bg-[#0d0f14] p-3">
-          {form.selectedApp.icon ? (
-            <img src={form.selectedApp.icon} alt="" className="size-10 shrink-0 rounded-lg object-cover" />
-          ) : (
-            <div className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] text-sm font-bold text-white/40">
-              {form.selectedApp.name[0]?.toUpperCase() ?? "?"}
-            </div>
-          )}
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium text-white">{form.selectedApp.name}</p>
-            <p className="truncate text-[11px] text-white/40">
-              {isPlay ? "Google Play" : "App Store"} · {form.selectedApp.storeId}
-            </p>
-          </div>
-        </div>
-      )}
-
-      <ul className="flex flex-col gap-2">
-        {features.map((f) => (
-          <li
-            key={f.title}
-            className="flex items-start gap-3 rounded-xl border border-white/[0.06] bg-[#0d0f14] px-4 py-3"
-          >
-            <div className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-white/[0.05]">
-              {f.icon}
-            </div>
-            <div>
-              <p className="text-[13px] font-medium text-white/90">{f.title}</p>
-              <p className="mt-0.5 text-[11px] leading-relaxed text-white/35">{f.desc}</p>
-            </div>
-          </li>
-        ))}
-      </ul>
-
-      {error && (
-        <p className="text-xs text-red-400">{error}</p>
-      )}
-
-      <div className="flex items-center gap-2">
-        <Button
-          type="button"
-          onClick={onBack}
-          disabled={saving}
-          variant="ghost"
-          className="h-9 px-3 text-white/50 hover:bg-white/[0.06] hover:text-white disabled:opacity-30"
-        >
-          <ArrowLeft className="size-4" strokeWidth={1.5} />
-          Back
-        </Button>
-        <Button
-          onClick={onNext}
-          disabled={saving}
-          className="flex-1 bg-[#0A84FF] text-white hover:bg-[#006EE0] disabled:opacity-40"
-        >
-          {saving ? (
-            <><Loader2 className="mr-2 size-4 animate-spin" strokeWidth={2} />Creating workspace…</>
-          ) : (
-            <>{isPlay ? "I've done this — launch workspace" : "I've done this — continue"}<ChevronRight className="ml-1 size-4" strokeWidth={1.5} /></>
-          )}
-        </Button>
-      </div>
       <button
-        type="button"
         onClick={onNext}
-        disabled={saving}
-        className="w-full text-center text-[12px] text-white/30 transition-colors hover:text-white/60 disabled:opacity-0"
+        disabled={!form.selectedApp}
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-30"
       >
-        I&apos;ll connect later — take me to the dashboard
+        Continue <ChevronRight className="size-4" strokeWidth={2} />
       </button>
     </div>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/* Step 4 — Done                                                        */
-/* ------------------------------------------------------------------ */
+// ── Step 3: Brand voice ────────────────────────────────────────────────────────
 
-function StepDone({ onFinish }: { onFinish: () => void | Promise<void> }) {
-  const [going, setGoing] = useState(false);
+const TONES: { id: BrandVoiceConfig["tone"]; label: string; desc: string }[] = [
+  { id: "professional", label: "Professional", desc: "Polished, formal, trust-building" },
+  { id: "friendly",     label: "Friendly",     desc: "Warm, approachable, personable" },
+  { id: "empathetic",   label: "Empathetic",   desc: "Caring, understanding, patient" },
+  { id: "direct",       label: "Direct",       desc: "Concise, clear, no fluff" },
+];
+const LENGTHS: { id: BrandVoiceConfig["replyLength"]; label: string; desc: string }[] = [
+  { id: "short",    label: "Short",    desc: "1–2 sentences" },
+  { id: "standard", label: "Standard", desc: "2–3 sentences" },
+  { id: "detailed", label: "Detailed", desc: "3–5 sentences" },
+];
 
-  async function handleFinish() {
-    setGoing(true);
-    await onFinish();
-  }
-
+function Step3BrandVoice({
+  bv, setBv, saving, saveError, onBack, onNext,
+}: {
+  bv:       BrandVoiceConfig;
+  setBv:    (p: Partial<BrandVoiceConfig>) => void;
+  saving:   boolean;
+  saveError: string | null;
+  onBack:   () => void;
+  onNext:   () => void;
+}) {
   return (
-    <div className="flex flex-col items-center gap-6 py-4 text-center">
-      <div className="flex h-20 w-20 items-center justify-center rounded-full bg-[#0A84FF]/10">
-        <Check className="size-9 text-[#0A84FF]" strokeWidth={2.5} />
-      </div>
+    <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-white">You&apos;re all set!</h2>
-        <p className="mt-2 text-sm leading-relaxed text-white/40">
-          Your workspace is ready. Start exploring your reviews.
+        <button onClick={onBack} className="mb-3 flex items-center gap-1 text-xs text-white/40 hover:text-white/70">
+          <ArrowLeft className="size-3" strokeWidth={2} /> Back
+        </button>
+        <div className="flex items-center gap-2">
+          <Sparkles className="size-4 text-[#0A84FF]" strokeWidth={1.5} />
+          <h2 className="text-xl font-semibold text-white">Your brand voice</h2>
+        </div>
+        <p className="mt-1 text-sm text-white/50">AI uses this to write replies that sound like you.</p>
+      </div>
+
+      {/* Tone */}
+      <div>
+        <p className="mb-2 text-xs font-medium text-white/50">Reply tone</p>
+        <div className="grid grid-cols-2 gap-2">
+          {TONES.map((t) => (
+            <button
+              key={t.id}
+              onClick={() => setBv({ tone: t.id })}
+              className={cn(
+                "rounded-xl border p-3 text-left transition-colors",
+                bv.tone === t.id
+                  ? "border-[#0A84FF] bg-[#0A84FF]/10"
+                  : "border-white/[0.08] bg-white/[0.04] hover:border-white/20",
+              )}
+            >
+              <div className={cn("text-sm font-semibold", bv.tone === t.id ? "text-[#4592FF]" : "text-white/80")}>
+                {t.label}
+              </div>
+              <div className="mt-0.5 text-[10px] text-white/30">{t.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Words to use */}
+      <div>
+        <label className="mb-1.5 block text-xs font-medium text-white/50">
+          Words we love to use <span className="text-white/25">(optional)</span>
+        </label>
+        <input
+          value={bv.wordsToUse.join(", ")}
+          onChange={(e) => setBv({ wordsToUse: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
+          placeholder="thank you, we appreciate, our team…"
+          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder:text-white/20 outline-none focus:border-[#0A84FF]/50"
+        />
+      </div>
+
+      {/* Words to avoid */}
+      <div>
+        <label className="mb-1.5 block text-xs font-medium text-white/50">
+          Words we never use <span className="text-white/25">(optional)</span>
+        </label>
+        <input
+          value={bv.wordsToAvoid.join(", ")}
+          onChange={(e) => setBv({ wordsToAvoid: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
+          placeholder="unfortunately, can't, won't…"
+          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder:text-white/20 outline-none focus:border-[#0A84FF]/50"
+        />
+      </div>
+
+      {/* Sign-off */}
+      <div>
+        <label className="mb-1.5 block text-xs font-medium text-white/50">
+          Sign off as <span className="text-white/25">(optional)</span>
+        </label>
+        <input
+          value={bv.signOff}
+          onChange={(e) => setBv({ signOff: e.target.value })}
+          placeholder="The Acme Team"
+          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder:text-white/20 outline-none focus:border-[#0A84FF]/50"
+        />
+      </div>
+
+      {/* Reply length */}
+      <div>
+        <p className="mb-2 text-xs font-medium text-white/50">Reply length</p>
+        <div className="grid grid-cols-3 gap-2">
+          {LENGTHS.map((l) => (
+            <button
+              key={l.id}
+              onClick={() => setBv({ replyLength: l.id })}
+              className={cn(
+                "rounded-xl border p-2.5 text-left transition-colors",
+                bv.replyLength === l.id
+                  ? "border-[#0A84FF] bg-[#0A84FF]/10"
+                  : "border-white/[0.08] bg-white/[0.04] hover:border-white/20",
+              )}
+            >
+              <div className={cn("text-xs font-semibold", bv.replyLength === l.id ? "text-[#4592FF]" : "text-white/70")}>
+                {l.label}
+              </div>
+              <div className="mt-0.5 text-[9px] text-white/30">{l.desc}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {saveError && <p className="text-xs text-red-400">{saveError}</p>}
+
+      <button
+        onClick={onNext}
+        disabled={saving}
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+      >
+        {saving ? <><Loader2 className="size-4 animate-spin" strokeWidth={2} /> Setting up…</> : <>Set up my workspace <ChevronRight className="size-4" strokeWidth={2} /></>}
+      </button>
+      <p className="text-center text-[11px] text-white/25">
+        You can edit this later in Settings → Brand Voice
+      </p>
+    </div>
+  );
+}
+
+// ── Step 4: Connect store ──────────────────────────────────────────────────────
+
+function Step4Connect({
+  platform, appName, onSkip, onDone,
+}: {
+  platform: Platform;
+  appName:  string;
+  onSkip:   () => void;
+  onDone:   () => void;
+}) {
+  const isGP = platform === "google-play";
+  return (
+    <div className="space-y-6">
+      <div>
+        <div className="flex items-center gap-2">
+          <Plug className="size-4 text-[#0A84FF]" strokeWidth={1.5} />
+          <h2 className="text-xl font-semibold text-white">
+            Connect {isGP ? "Google Play" : "App Store"}
+          </h2>
+        </div>
+        <p className="mt-1 text-sm text-white/50">
+          Unlock ongoing sync, rating changes, and reply publishing.
+          <span className="ml-1 text-white/30">Optional — you already have 14 days of reviews.</span>
         </p>
       </div>
-      <Button
-        onClick={handleFinish}
-        disabled={going}
-        className="mt-2 w-full bg-[#0A84FF] text-white hover:bg-[#006EE0] disabled:opacity-50"
+
+      {isGP ? (
+        <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 space-y-3">
+          <p className="text-xs font-semibold text-white/60 uppercase tracking-widest">Google Play setup</p>
+          <ol className="space-y-2 text-sm text-white/60">
+            <li className="flex gap-2"><span className="shrink-0 font-mono text-[#0A84FF]">1.</span>Open <span className="font-medium text-white/80">Google Play Console</span> → Users & Permissions</li>
+            <li className="flex gap-2"><span className="shrink-0 font-mono text-[#0A84FF]">2.</span>Invite <span className="font-mono text-xs text-[#4592FF] bg-[#0A84FF]/10 px-1 rounded">{process.env.NEXT_PUBLIC_GOOGLE_CLIENT_EMAIL ?? "reviews@reviewbox.iam.gserviceaccount.com"}</span></li>
+            <li className="flex gap-2"><span className="shrink-0 font-mono text-[#0A84FF]">3.</span>Set role to <span className="font-medium text-white/80">Release Manager</span> with View+Reply permissions</li>
+            <li className="flex gap-2"><span className="shrink-0 font-mono text-[#0A84FF]">4.</span>Wait ~10 minutes for permissions to propagate, then click Done</li>
+          </ol>
+        </div>
+      ) : (
+        <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 space-y-3">
+          <p className="text-xs font-semibold text-white/60 uppercase tracking-widest">App Store Connect setup</p>
+          <p className="text-sm text-white/60">Generate an API key in App Store Connect and paste it in <span className="font-medium text-white/80">Settings → Apps</span> after launching.</p>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        <button
+          onClick={onDone}
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white hover:opacity-90"
+        >
+          I&apos;ve done this — continue <ChevronRight className="size-4" strokeWidth={2} />
+        </button>
+        <button
+          onClick={onSkip}
+          className="w-full py-2 text-sm text-white/30 hover:text-white/60"
+        >
+          I&apos;ll connect later
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// ── Step 5: Ready ──────────────────────────────────────────────────────────────
+
+function Step5Ready({
+  workspaceId, appName, saving, saveError, onLaunch,
+}: {
+  workspaceId: string | null;
+  appName:     string;
+  saving:      boolean;
+  saveError:   string | null;
+  onLaunch:    () => void;
+}) {
+  const [progress, setProgress] = useState<OnboardingProgress | null>(null);
+  const [elapsed, setElapsed]   = useState(0);
+  const pollRef  = useRef<ReturnType<typeof setInterval> | null>(null);
+  const clockRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  useEffect(() => {
+    clockRef.current = setInterval(() => setElapsed((e) => e + 1), 1000);
+    return () => { if (clockRef.current) clearInterval(clockRef.current); };
+  }, []);
+
+  useEffect(() => {
+    pollRef.current = setInterval(async () => {
+      try {
+        const res = await fetch("/api/onboarding/progress");
+        if (!res.ok) return;
+        const d = (await res.json()) as OnboardingProgress;
+        setProgress(d);
+      } catch { /* non-fatal */ }
+    }, 3000);
+    // Immediate first poll
+    void fetch("/api/onboarding/progress")
+      .then((r) => r.json() as Promise<OnboardingProgress>)
+      .then(setProgress)
+      .catch(() => null);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
+
+  // Allow launching after 10s minimum OR when sync is done
+  const canLaunch = elapsed >= 10 || progress?.syncDone || (progress?.reviewCount ?? 0) > 0;
+
+  const checks = [
+    { label: "App connected",         done: true },
+    { label: "Brand voice saved",     done: true },
+    { label: `Reviews loading${progress?.reviewCount ? ` (${progress.reviewCount})` : "…"}`, done: (progress?.reviewCount ?? 0) > 0 },
+    { label: "AI templates ready",    done: (progress?.templateCount ?? 0) > 0 },
+  ];
+
+  return (
+    <div className="space-y-6">
+      <div className="text-center">
+        <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-[#0A84FF]/10">
+          <Sparkles className="size-6 text-[#0A84FF]" strokeWidth={1.5} />
+        </div>
+        <h2 className="text-xl font-semibold text-white">
+          {canLaunch ? "Your workspace is ready" : "Preparing your workspace…"}
+        </h2>
+        <p className="mt-1 text-sm text-white/50">
+          {canLaunch
+            ? `${appName} is set up with${progress?.reviewCount ? ` ${progress.reviewCount} reviews,` : ""} AI drafts${progress?.templateCount ? ` and ${progress.templateCount} templates` : ""}.`
+            : "Fetching your reviews and generating AI content. Takes about 15-20 seconds."}
+        </p>
+      </div>
+
+      {/* Stats row */}
+      {progress && (progress.rating !== null || progress.reviewTotal !== null || progress.reviewCount > 0) && (
+        <div className="grid grid-cols-3 gap-3">
+          {progress.rating !== null && (
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-center">
+              <div className="text-2xl font-semibold text-white">{progress.rating.toFixed(1)}</div>
+              <div className="text-[10px] text-white/40">Store rating</div>
+            </div>
+          )}
+          {progress.reviewTotal !== null && (
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-center">
+              <div className="text-2xl font-semibold text-white">{progress.reviewTotal.toLocaleString()}</div>
+              <div className="text-[10px] text-white/40">Total reviews</div>
+            </div>
+          )}
+          {progress.reviewCount > 0 && (
+            <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-center">
+              <div className="text-2xl font-semibold text-white">{progress.reviewCount}</div>
+              <div className="text-[10px] text-white/40">In inbox</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Progress checklist */}
+      <div className="space-y-2.5">
+        {checks.map((c) => (
+          <div key={c.label} className="flex items-center gap-3">
+            <div className={cn(
+              "flex size-5 shrink-0 items-center justify-center rounded-full",
+              c.done ? "bg-[#0A84FF]" : "bg-white/[0.06]",
+            )}>
+              {c.done
+                ? <Check className="size-3 text-white" strokeWidth={2.5} />
+                : <Loader2 className="size-3 animate-spin text-white/30" strokeWidth={1.5} />
+              }
+            </div>
+            <span className={cn("text-sm", c.done ? "text-white/80" : "text-white/30")}>
+              {c.label}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {saveError && <p className="text-xs text-red-400">{saveError}</p>}
+
+      <button
+        onClick={onLaunch}
+        disabled={!canLaunch || saving}
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-30"
       >
-        {going ? (
-          <><Loader2 className="mr-2 size-4 animate-spin" />Taking you in…</>
-        ) : (
-          <>Go to Dashboard<ChevronRight className="ml-1 size-4" strokeWidth={1.5} /></>
-        )}
-      </Button>
+        {saving
+          ? <><Loader2 className="size-4 animate-spin" strokeWidth={2} /> Launching…</>
+          : canLaunch
+            ? <>Launch my workspace <ChevronRight className="size-4" strokeWidth={2} /></>
+            : <><Loader2 className="size-4 animate-spin" strokeWidth={1.5} /> Preparing… ({elapsed}s)</>
+        }
+      </button>
     </div>
   );
 }

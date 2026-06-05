@@ -378,8 +378,11 @@ export function TemplatesTab() {
           language: form.language,
         }),
       });
-      const data = (await res.json()) as { template: ApiTemplate };
-      setTemplates((prev) => [data.template, ...prev]);
+      // Guard: failed POST → data.template undefined would crash TemplateCard.
+      if (!res.ok) throw new Error(`create failed: ${res.status}`);
+      const data = (await res.json()) as { template?: ApiTemplate };
+      if (!data.template) throw new Error("create returned no template");
+      setTemplates((prev) => [data.template as ApiTemplate, ...prev]);
       setShowCreate(false);
     } catch (err) {
       console.error(err);

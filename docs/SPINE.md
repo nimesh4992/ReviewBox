@@ -74,3 +74,11 @@ Reply posting (step 7) in Draft Mode = **copy-to-clipboard + manual paste +
 "mark replied"**. The current composer has an API "Post reply" button that we
 cannot verify. First build task: add the Draft Mode copy/mark-replied path so
 step 7 becomes verifiable. Then walk the spine.
+## Open build tasks before the first spine walk
+
+1. **Draft Mode in the composer (step 7):** add "Copy reply" (clipboard) +
+   "Mark as replied" toggle that persists. The current composer's API
+   "Post reply" button cannot be verified with user-level access.
+2. **Re-apply the app-delete fix (missing from master):** clear `rb_onboarded`
+   cookie in `apps/[id]/route.ts` DELETE so deleting an app doesn't trigger the
+   re-onboard loop. (Original branch was too stale to merge — D019.)

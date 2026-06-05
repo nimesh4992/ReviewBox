@@ -4,6 +4,7 @@ import { ReactNode, useState } from "react";
 
 import { Sidebar } from "@/components/layout/sidebar";
 import { TopNavigation } from "@/components/layout/top-navigation";
+import { InboxRouter } from "@/components/layout/inbox-router";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -28,6 +29,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       {/* Main content — scrolls independently */}
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto">
         <TopNavigation onOpenSidebar={() => setSidebarOpen(true)} />
+        <InboxRouter />
         <main className="min-w-0 flex-1">{children}</main>
       </div>
     </div>

@@ -35,6 +35,37 @@ async function updateUserPlan(
   });
 }
 
+// Resolve the workspace + owner for a Stripe customer id. Used for
+// subscription events (portal plan changes, dunning) that Stripe originates
+// itself — those carry NO clerkUserId in subscription.metadata (only the
+// checkout-created subscription does), so without this fallback past_due /
+// canceled status never syncs. Relies on stripe_customer_id cached at checkout.
+async function resolveByCustomer(
+  customerId: string,
+): Promise<{ clerkUserId: string; currentPlan: string } | null> {
+  const sb = getServiceClient();
+  const { data: ws } = await sb
+    .from("workspaces")
+    .select("id, plan")
+    .eq("stripe_customer_id", customerId)
+    .maybeSingle();
+  if (!ws?.id) return null;
+
+  const { data: owner } = await sb
+    .from("workspace_members")
+    .select("clerk_user_id")
+    .eq("workspace_id", ws.id as string)
+    .eq("role", "owner")
+    .limit(1)
+    .maybeSingle();
+  if (!owner?.clerk_user_id) return null;
+
+  return {
+    clerkUserId: owner.clerk_user_id as string,
+    currentPlan: (ws.plan as string | null) ?? "starter",
+  };
+}
+
 export async function POST(request: NextRequest) {
   const rawBody = await request.arrayBuffer();
   const sig = request.headers.get("stripe-signature");
@@ -43,13 +74,22 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ received: false }, { status: 400 });
   }
 
+  const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET;
+  if (!webhookSecret) {
+    // Fail loudly + visibly rather than passing `undefined` to constructEvent
+    // (which yields an opaque signature error). A misconfigured deploy must not
+    // silently 400 every webhook → subscriptions would never sync.
+    console.error("[stripe/webhook] STRIPE_WEBHOOK_SECRET is not set");
+    return NextResponse.json({ received: false, error: "WEBHOOK_NOT_CONFIGURED" }, { status: 503 });
+  }
+
   let event: Stripe.Event;
 
   try {
     event = stripe.webhooks.constructEvent(
       Buffer.from(rawBody),
       sig,
-      process.env.STRIPE_WEBHOOK_SECRET!,
+      webhookSecret,
     );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Signature verification failed";
@@ -104,19 +144,30 @@ export async function POST(request: NextRequest) {
 
     case "customer.subscription.updated": {
       const subscription = event.data.object as Stripe.Subscription;
-      const clerkUserId = subscription.metadata?.clerkUserId;
-      const plan = subscription.metadata?.plan;
 
-      if (clerkUserId && plan) {
+      // Prefer metadata (set at checkout); fall back to customer lookup for
+      // Stripe-originated changes (portal plan change, dunning) that carry none.
+      let clerkUserId: string | null = subscription.metadata?.clerkUserId ?? null;
+      let basePlan: string | null = subscription.metadata?.plan ?? null;
+      if (!clerkUserId && subscription.customer) {
+        const resolved = await resolveByCustomer(subscription.customer as string);
+        if (resolved) {
+          clerkUserId = resolved.clerkUserId;
+          basePlan = basePlan ?? resolved.currentPlan;
+        }
+      }
+
+      if (clerkUserId) {
         const status = subscription.status;
+        const activePlan = basePlan ?? "starter";
         const mappedPlan =
           status === "active" || status === "trialing"
-            ? plan
+            ? activePlan
             : status === "past_due"
               ? "past_due"
               : status === "canceled"
                 ? "canceled"
-                : plan;
+                : activePlan;
         await updateUserPlan(clerkUserId, { plan: mappedPlan });
         await syncPlanToSupabase(clerkUserId, mappedPlan);
       }
@@ -125,7 +176,11 @@ export async function POST(request: NextRequest) {
 
     case "customer.subscription.deleted": {
       const subscription = event.data.object as Stripe.Subscription;
-      const clerkUserId = subscription.metadata?.clerkUserId;
+      let clerkUserId: string | null = subscription.metadata?.clerkUserId ?? null;
+      if (!clerkUserId && subscription.customer) {
+        const resolved = await resolveByCustomer(subscription.customer as string);
+        clerkUserId = resolved?.clerkUserId ?? null;
+      }
 
       if (clerkUserId) {
         await updateUserPlan(clerkUserId, { plan: "canceled" });

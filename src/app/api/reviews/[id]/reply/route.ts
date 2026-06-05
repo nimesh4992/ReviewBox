@@ -13,7 +13,11 @@ import {
 
 interface ReplyRequestBody {
   replyText:    string;
-  status:       "sent" | "draft";
+  // "sent"          → post to the store via API, then mark replied (Pro / connected accounts)
+  // "manual_replied"→ user posted the reply themselves (copy-paste into the store console);
+  //                   mark replied in our DB WITHOUT calling the store API (Draft Mode, D018)
+  // "draft"         → save as draft_ready, no store call
+  status:       "sent" | "manual_replied" | "draft";
   /** Which tier generated the draft (reply-kit|template|cache|groq|gemini|composer|manual) */
   draftSource?: string;
   /** True if the user edited the AI draft before sending */
@@ -112,7 +116,13 @@ export async function POST(
           if (!app.access_token || !app.refresh_token) {
             return apiError("APP_STORE_NOT_CONNECTED", 422);
           }
-          const creds = JSON.parse(app.access_token) as { keyId: string; issuerId: string };
+          let creds: { keyId: string; issuerId: string };
+          try {
+            creds = JSON.parse(app.access_token) as { keyId: string; issuerId: string };
+          } catch {
+            // Corrupt stored creds — clear 4xx instead of a generic 500.
+            return apiError("APP_STORE_NOT_CONNECTED", 422, "App Store credentials are corrupt — re-enter them in Settings.");
+          }
           const jwt = await buildJWT(creds.keyId, creds.issuerId, app.refresh_token);
           await submitAppStoreReply(review.external_id, replyText.trim(), jwt);
         }
@@ -132,12 +142,16 @@ export async function POST(
 
     // ── Persist to Supabase ───────────────────────────────────────────────────
 
+    // Both "sent" (API post) and "manual_replied" (user pasted it themselves)
+    // mean the reply is live on the store → reply_status = "replied".
+    const isReplied = status === "sent" || status === "manual_replied";
+
     const { error: updateError } = await sb
       .from("reviews")
       .update({
         reply_text:   replyText.trim(),
-        reply_status: status === "sent" ? "replied" : "draft_ready",
-        replied_at:   status === "sent" ? new Date().toISOString() : null,
+        reply_status: isReplied ? "replied" : "draft_ready",
+        replied_at:   isReplied ? new Date().toISOString() : null,
         ...(draftSource !== undefined && { draft_source: draftSource }),
         ...(draftEdited !== undefined && { draft_edited: draftEdited }),
       })
@@ -152,7 +166,9 @@ export async function POST(
     await audit({
       workspaceId,
       actorUserId: userId,
-      action: status === "sent" ? "reply.publish" : "reply.draft.generate",
+      action: status === "sent" ? "reply.publish"
+            : status === "manual_replied" ? "reply.mark_replied"
+            : "reply.draft.generate",
       targetType: "review",
       targetId: reviewId,
       payload: {

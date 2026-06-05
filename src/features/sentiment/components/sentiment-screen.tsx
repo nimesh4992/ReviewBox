@@ -1,12 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { ChevronDown, ChevronRight, Loader2, MessageSquare, Sparkles, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useSentimentAnalysis } from "@/hooks/use-sentiment-analysis";
 import { useSentimentOverview } from "@/hooks/use-sentiment-overview";
 import { useReviewQueue } from "@/hooks/use-review-queue";
+import { useApps } from "@/hooks/use-apps";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
 import type { AnalysisResult } from "@/app/api/sentiment/analyze/route";
 import type { SentimentTopic, CriticalReview, TopicReview } from "@/app/api/sentiment/overview/route";
@@ -461,16 +462,12 @@ export function SentimentScreen() {
   const { mutate: analyze, isPending } = useSentimentAnalysis();
 
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
-  const appId =
-    selectedApp && typeof selectedApp === "object" && "id" in selectedApp
-      ? (selectedApp as { id: string }).id
-      : undefined;
-  const appName =
-    selectedApp && typeof selectedApp === "object" && "name" in selectedApp
-      ? (selectedApp as { name: string }).name
-      : typeof selectedApp === "string"
-        ? selectedApp
-        : "All apps";
+  const { apps } = useApps();
+  // `selectedApp` is the app NAME (string) — resolve to id so the overview
+  // query scopes to the selected app. (Was a `typeof === "object"` check that
+  // never matched, leaving appId permanently undefined.)
+  const appId = apps.find((a) => a.name === selectedApp)?.id;
+  const appName = selectedApp || "All apps";
 
   const { data: overview, isLoading } = useSentimentOverview(appId, range);
   // Pull recent real reviews for the "Re-cluster with AI" button.
@@ -718,9 +715,8 @@ export function SentimentScreen() {
                 const isExpanded = expandedTopic === t.tag;
                 const isLast = i === arr.length - 1;
                 return (
-                  <>
+                  <Fragment key={t.tag}>
                     <tr
-                      key={t.tag}
                       onClick={() => !isLoading && setExpandedTopic(isExpanded ? null : t.tag)}
                       className={cn(
                         "transition-colors",
@@ -781,7 +777,7 @@ export function SentimentScreen() {
                         </td>
                       </tr>
                     )}
-                  </>
+                  </Fragment>
                 );
               })}
             </tbody>

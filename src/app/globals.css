@@ -39,6 +39,16 @@
   --rb-indigo-500:#5B5BD6;
   --rb-indigo-600:#4a4ac4;
 
+  /* ── Type scale (DS2) ── */
+  /* Use these instead of arbitrary text-[Npx] values */
+  --rb-text-xs:      11px;   /* timestamps, meta labels, chips */
+  --rb-text-sm:      12px;   /* secondary body, captions       */
+  --rb-text-base:    13px;   /* primary body, list items        */
+  --rb-text-md:      14px;   /* composer, larger body           */
+  --rb-text-lg:      15px;   /* section headers, card titles    */
+  --rb-text-xl:      17px;   /* page sub-headings               */
+  --rb-text-display: 28px;   /* KPI values, hero numbers        */
+
   /* ── Font families ── */
   --rb-font-display: -apple-system, "SF Pro Display", var(--font-inter), "Inter", BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
   --rb-font-text:    -apple-system, "SF Pro Text",    var(--font-inter), "Inter", BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
@@ -232,6 +242,16 @@
   --color-fg-2:      var(--rb-fg-2);
   --color-fg-3:      var(--rb-fg-3);
   --color-fg-4:      var(--rb-fg-4);
+
+  /* DS2 — type scale as Tailwind text-* utilities */
+  /* Usage: text-rb-xs, text-rb-sm, text-rb-base, text-rb-md, text-rb-lg, text-rb-xl, text-rb-display */
+  --text-rb-xs:      var(--rb-text-xs);
+  --text-rb-sm:      var(--rb-text-sm);
+  --text-rb-base:    var(--rb-text-base);
+  --text-rb-md:      var(--rb-text-md);
+  --text-rb-lg:      var(--rb-text-lg);
+  --text-rb-xl:      var(--rb-text-xl);
+  --text-rb-display: var(--rb-text-display);
 }
 
 * { border-color: var(--border); }

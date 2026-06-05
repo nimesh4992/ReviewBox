@@ -191,7 +191,9 @@ function PlatformCard({ data }: { data: PlatformHealth }) {
         <div className="mb-1.5 flex items-center justify-between">
           <span className="text-[11px] text-gray-400">7-day rating trend</span>
           <span className="text-[11px] text-gray-400">
-            {data.sparkline[0].toFixed(1)} → {data.sparkline[data.sparkline.length - 1].toFixed(1)}
+            {data.sparkline.length > 0
+              ? `${data.sparkline[0].toFixed(1)} → ${data.sparkline[data.sparkline.length - 1].toFixed(1)}`
+              : "—"}
           </span>
         </div>
         <svg

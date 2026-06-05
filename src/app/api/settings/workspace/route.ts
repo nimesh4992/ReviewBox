@@ -7,7 +7,7 @@
 
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { getServiceClient, getWorkspaceId, isWorkspaceAdmin } from "@/lib/supabase-server";
 import { Redis } from "@upstash/redis";
 import { getBrandVoiceStub } from "@/lib/brand-voice-stubs";
 import { apiError } from "@/lib/api-response";
@@ -65,6 +65,13 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
 
   const workspaceId = await getWorkspaceId(session.userId);
   if (!workspaceId) return apiError("NO_WORKSPACE", 404);
+
+  // Owner/admin only — this writes the Slack webhook URL (alert redirect) and
+  // brand/support settings. A plain member must not be able to point alerts at
+  // an attacker-controlled webhook.
+  if (!(await isWorkspaceAdmin(session.userId, workspaceId))) {
+    return apiError("FORBIDDEN", 403, "Only the workspace owner or an admin can change workspace settings.");
+  }
 
   const body = (await req.json()) as {
     supportEmail?:    string;

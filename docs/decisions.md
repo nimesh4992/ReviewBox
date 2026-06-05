@@ -248,6 +248,9 @@ portfolios, agencies, $29/mo self-serve, SOC 2 / SSO / SLA buyers.
 Therefore the official Publisher API / App Store Connect reply-posting path
 cannot be verified by us before launch — it requires store admin to grant
 API permissions.
+The official Publisher API / App Store Connect reply-posting path therefore
+cannot be verified by us before launch — it needs store admin to grant API
+permissions.
 
 **Decision — the launch product is "Draft Mode":**
 - Pull public reviews via the bootstrap scraper. **Zero store credentials
@@ -265,4 +268,21 @@ API permissions.
 **Why:** removes the highest-risk, least-testable step (API write-back) from the
 launch-critical path. We never ship a step we cannot verify against a real app.
 Everything in `docs/SPINE.md` is verifiable today with user-level access alone.
+
+---
+
+## D019 — Branch hygiene: cut from current master, prune aggressively (2026-05-31)
+
+Branch sprawl caused real lost work (D014–D017 sat unmerged on a side branch;
+the app-delete-loop fix never reached master). New rules:
+
+1. **Always branch from the latest `origin/master`.** A branch cut from a stale
+   base accumulates phantom "reverts" — merging it deletes live work. Audit
+   2026-05-31 found 6 branches that would have reverted thousands of lines.
+2. **Verify before merge:** `git diff origin/master..origin/<branch> --stat`.
+   If it shows deletions of files you know are live, the branch is stale — do
+   not merge; re-apply the valuable change on a fresh branch instead.
+3. **Prune merged + stale branches** the same week. Don't let them pile up.
+4. **One concern per branch.** Don't let a feature branch also carry doc/decision
+   changes that then get lost if the feature is reworked.
 

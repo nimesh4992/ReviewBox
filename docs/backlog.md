@@ -76,28 +76,37 @@ the form.*
 ### [-] N6 · Stripe test keys + verify upgrade flow · ICE 80 (10×8÷1)
 *Deferred per D013 — do not work on until founder asks.*
 
+### [x] SX1 · Fix sync reliability · ICE 100 (10×10÷1) — MERGED 2026-05-30
+*`last_sync_attempted_at` now stamped before any API call — kills "banner on every login". Bootstrap uses review-count check not attempted_at — no more re-running scraper on retry. Soft-deleted apps excluded. `last_synced_at` added to SELECT.*
+
+### [x] UX1 · Smart inbox routing · ICE 63 (9×7÷1) — MERGED 2026-05-30 (#58)
+*InboxRouter redirects to /reviews when unreplied > 0 AND apps connected, once per session.*
+
+### [x] UX2 · AI as primary CTA in composer · ICE 72 (9×8÷1) — MERGED 2026-05-30 (#58)
+*AI text auto-populates textarea on open. Post reply is full-width primary. Regenerate is secondary link.*
+
+### [x] UX3 · Hover quick actions on review rows · ICE 56 (8×7÷1) — MERGED 2026-05-30 (#58)
+*Hover reveals "Draft" — generates AI reply + saves draft_ready without opening composer.*
+
+### [ ] SPINE · Make the 8-step launch path 100% · ICE 100 — ACTIVE
+**The launch gate. See `docs/SPINE.md`.** Features frozen until 8/8 verified against a real app.
+Next build tasks: (1) Draft Mode composer — copy-to-store + mark-replied (step 7); (2) re-apply app-delete cookie-clear fix (missing from master, D019).
+
 ---
 
 ## 🟠 NEXT — next 2-4 weeks
 
 Critical-edge features for AppFollow competition.
 
-### [ ] DS1 · Add `--rb-indigo-*` tokens to globals.css · ICE 48 (6×8÷1)
-**Effort:** 10 min.
-**Done when:** `--rb-indigo-500: #5B5BD6` and `--rb-indigo-600: #4a4ac4` defined in `globals.css` with dark mode overrides; all 40 hardcoded `#5B5BD6` usages in Reply Kit + Automations replaced with `var(--rb-indigo-500)`.
-**Files:** `src/app/globals.css`, `src/features/reply-kit/components/*`, `src/features/automations/components/*`
-**Why now:** Quickest design system win. Unblocks theming Reply Kit + Automations. See `docs/DESIGN_SYSTEM_AUDIT.md` C3.
+### [x] DS1 · Add `--rb-indigo-*` tokens to globals.css · ICE 48 (6×8÷1) — SHIPPED 2026-05-30
+*`--rb-indigo-100/500/600` added to globals.css. All hardcoded `#5B5BD6` in Reply Kit + Automations replaced with `var(--rb-indigo-500)`. Merged in `feat/x1-slack-integration`.*
 
-### [ ] DS2 · Define type scale tokens (`--rb-text-*`) · ICE 35 (7×5÷1)
-**Effort:** 30 min.
-**Done when:** 7 type tokens defined in `globals.css` (`caption` 11px → `lg` 16px), wired as Tailwind utilities via `@theme inline`. 538 arbitrary `text-[Npx]` usages replaced in top-5 files (review-queue, dashboard, aso-screen).
-**Files:** `src/app/globals.css`, top-5 offending components.
-**Why:** 538 arbitrary font sizes means one type change = grep across 63 files. See `docs/DESIGN_SYSTEM_AUDIT.md` M1.
+### [ ] DS2 · Define type scale tokens (`--rb-text-*`) · ICE 35 (7×5÷1) — IN PHASE 2
+**Effort:** 30min + 1h replacement. **Branch:** `feat/inbox-experience`
+**Done when:** 6 tokens in `globals.css`, wired as Tailwind utilities. Arbitrary `text-[Npx]` replaced in top 5 files.
 
-### [ ] DS3 · Token migration pass: Settings + Reply Kit `gray-*` → `--rb-*` · ICE 30 (6×5÷1)
-**Effort:** 2h.
-**Done when:** `app-connections.tsx` (52 hits), `templates-tab.tsx` (28), `automation-hub.tsx` (30), `google-play-setup-modal.tsx` (41) all use `text-fg-*` / `bg-surface` instead of `gray-*`. Zero new `gray-*` usages introduced.
-**Why:** Top 4 files = 151 violations. Dark mode broken in all of them. See `docs/DESIGN_SYSTEM_AUDIT.md` C1.
+### [x] DS3 · Token migration: gray-* → --rb-* in 4 files · ICE 30 (6×5÷1) — SHIPPED 2026-05-30
+*`app-connections.tsx`, `templates-tab.tsx`, `automation-hub.tsx`, `google-play-setup-modal.tsx` migrated (~126 replacements). Merged in `feat/x1-slack-integration`.*
 
 ### [ ] DS4 · Replace raw `<button>` with `<Button>` in review-queue + aso-screen · ICE 35 (7×5÷1)
 **Effort:** 1.5h.
@@ -116,9 +125,8 @@ Critical-edge features for AppFollow competition.
 ### [x] X4 · Bulk operations in inbox · ICE 56 (8×7÷1) — SHIPPED
 *Multi-select, bulk mark-replied, bulk archive. `/api/reviews/bulk-action`.*
 
-### [ ] X5 · Mobile responsive pass (dashboard + inbox) · ICE 56 (7×8÷1)
-**Effort:** 1d.
-**Done when:** Both screens usable on a phone. Inbox collapses to single column; dashboard cards stack.
+### [x] X5 · Mobile responsive pass (dashboard + inbox) · ICE 56 (7×8÷1) — SHIPPED 2026-05-30
+*Dashboard stacks on mobile (2-col KPIs, single-col sections). Inbox shows list OR composer — tap to open, back button to return. Merged in `feat/x1-slack-integration`.*
 
 ### [ ] X6 · Real competitor tracking · ICE 48 (8×6÷1)
 **Effort:** 1d.
@@ -131,9 +139,8 @@ Critical-edge features for AppFollow competition.
 ### [x] X8 · Trial day-5 + day-12 emails · ICE 49 (7×7÷1) — SHIPPED
 *`/api/cron/trial-nudge` — day 5 engagement + day 12 conversion. Redis dedup. Wired to vercel.json.*
 
-### [ ] X9 · AppFollow CSV import wizard · ICE 50 (10×5÷1)
-**Effort:** 2d.
-**Done when:** /settings → "Import from AppFollow" → upload CSV → map columns → reviews appear. Killer migration tool.
+### [x] X9 · AppFollow CSV import wizard · ICE 50 (10×5÷1) — SHIPPED 2026-05-30
+*3-step flow: drop CSV → auto-detect columns → batch upsert (200-row chunks). POST /api/import/appfollow, rate-limited 10/h, enriched via rules-engine.*
 
 ### [x] X10 · Full-text search on review body · ICE 56 (7×8÷1) — SHIPPED
 *Search box in review queue, `ilike` on body+author, sanitized. Server-side, fires at ≥3 chars.*
@@ -146,9 +153,8 @@ Critical-edge features for AppFollow competition.
 **Effort:** 1d.
 **Done when:** /admin shows real customers (workspaces table joined with Clerk users), AI usage volumes.
 
-### [ ] X13 · Playwright e2e — onboarding + inbox flow · ICE 49 (7×7÷1)
-**Effort:** 0.5d.
-**Done when:** Headless test walks through onboarding to dashboard, verifies review queue loads, runs on every PR. (Upgrade flow excluded per D013.)
+### [x] X13 · Playwright e2e — onboarding + inbox flow · ICE 49 (7×7÷1) — SHIPPED 2026-05-30
+*11 unauthenticated redirect tests, auth page structure, mocked inbox tests (gated behind NEXT_PUBLIC_BYPASS_E2E=1). Merged in `feat/x1-slack-integration`.*
 
 ---
 

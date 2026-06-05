@@ -38,7 +38,20 @@ interface GPlayReview {
   version: string | null;
 }
 
-const BOOTSTRAP_LIMIT = 50;
+// 200 reviews covers ~14 days for most apps (D016).
+// Public scrapers only — no credentials required.
+const BOOTSTRAP_LIMIT = 200;
+
+/**
+ * Coerce an arbitrary date value to an ISO string without throwing.
+ * `new Date(bad).toISOString()` throws `RangeError: Invalid time value` on an
+ * unparseable input, which would abort the whole .map() and fail bootstrap for
+ * the app. Falls back to "now" on any invalid date.
+ */
+function safeIso(value: Date | string | null | undefined): string {
+  const d = value instanceof Date ? value : new Date(value ?? "");
+  return Number.isNaN(d.getTime()) ? new Date().toISOString() : d.toISOString();
+}
 
 // ── Google Play ───────────────────────────────────────────────────────────────
 
@@ -82,7 +95,7 @@ export async function bootstrapGooglePlayReviews(
       lang: "en",
       country: "us",
       sort: gplay.sort.NEWEST,
-      num: BOOTSTRAP_LIMIT,
+      num: BOOTSTRAP_LIMIT, // 200 — covers ~14 days
     }),
   );
 
@@ -98,7 +111,7 @@ export async function bootstrapGooglePlayReviews(
       r.version ?? null,
       null,
       null,
-      r.date instanceof Date ? r.date.toISOString() : new Date(r.date).toISOString(),
+      safeIso(r.date),
       !!r.replyText,
       r.replyText ?? null,
     ),
@@ -146,8 +159,8 @@ export async function bootstrapAppStoreReviews(
 
   const rows: ReturnType<typeof buildEnrichedRow>[] = [];
 
-  // iTunes RSS returns 10 reviews per page, up to page 5 = 50 reviews.
-  for (let page = 1; page <= 5 && rows.length < BOOTSTRAP_LIMIT; page++) {
+  // iTunes RSS returns 10 reviews per page, up to page 15 = 150 reviews (~14 days).
+  for (let page = 1; page <= 15 && rows.length < BOOTSTRAP_LIMIT; page++) {
     const url = `https://itunes.apple.com/rss/customerreviews/page=${page}/id=${trackId}/sortBy=mostRecent/json`;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
@@ -162,9 +175,11 @@ export async function bootstrapAppStoreReviews(
         const externalId = e.id?.label;
         if (!externalId) continue; // no stable ID — skip rather than generate a random one
 
-        const rating = parseInt(e["im:rating"]?.label ?? "3", 10);
+        // Missing/blank rating → NaN; buildEnrichedRow validates and falls back
+        // to neutral (3) rather than fabricating it here or writing NaN.
+        const rating = parseInt(e["im:rating"]?.label ?? "", 10);
         const text = [e.title?.label, e.content?.label].filter(Boolean).join("\n\n");
-        const createdAt = e.updated?.label ? new Date(e.updated.label).toISOString() : new Date().toISOString();
+        const createdAt = safeIso(e.updated?.label);
 
         rows.push(
           buildEnrichedRow(

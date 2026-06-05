@@ -12,8 +12,9 @@ export type AnalyticsEvent =
   // Acquisition
   | { name: "signup_completed"; properties: { method: "email" | "google" | "unknown" } }
   // Onboarding funnel
-  | { name: "onboarding_step_viewed"; properties: { step: 1 | 2 | 3 | 4 } }
-  | { name: "onboarding_completed"; properties: { platform: "google-play" | "app-store" } }
+  | { name: "onboarding_step_viewed"; properties: { step: 1 | 2 | 3 | 4 | 5 } }
+  | { name: "onboarding_setup";      properties: { platform: "google-play" | "app-store" } }
+  | { name: "onboarding_completed";  properties: { platform: "google-play" | "app-store" } }
   // Trial → paid funnel
   | { name: "billing_viewed"; properties: { reason?: "trial-expired" | "required" | "payment-failed" | "direct" } }
   | { name: "upgrade_clicked"; properties: { plan: "starter" | "pro" | "team" } }

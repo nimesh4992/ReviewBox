@@ -126,8 +126,8 @@ export async function GET(req: Request): Promise<NextResponse> {
     };
 
     const { data: rows } = await base()
-      .select("id, text, sentiment")
-      .not("text", "is", null)
+      .select("id, text:body, sentiment")
+      .not("body", "is", null)
       .order("store_created_at", { ascending: false })
       .limit(500);
 

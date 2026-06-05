@@ -1,6 +1,6 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
-import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { getServiceClient, getWorkspaceId, isWorkspaceAdmin } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
 
@@ -24,6 +24,11 @@ export async function PATCH(
 
   const workspaceId = await getWorkspaceId(userId);
   if (!workspaceId) return apiError("NO_WORKSPACE", 404);
+
+  // PATCH can overwrite App Store .p8 credentials — owner/admin only.
+  if (!(await isWorkspaceAdmin(userId, workspaceId))) {
+    return apiError("FORBIDDEN", 403, "Only the workspace owner or an admin can modify apps.");
+  }
 
   const { id: appId } = await params;
 
@@ -94,6 +99,11 @@ export async function DELETE(
   const workspaceId = await getWorkspaceId(userId);
   if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
+  // Deleting an app removes a connected store — owner/admin only.
+  if (!(await isWorkspaceAdmin(userId, workspaceId))) {
+    return apiError("FORBIDDEN", 403, "Only the workspace owner or an admin can delete apps.");
+  }
+
   const { id: appId } = await params;
   const sb = getServiceClient();
 
@@ -117,5 +127,26 @@ export async function DELETE(
     request: req,
   });
 
-  return NextResponse.json({ success: true });
+  // Onboarding-loop fix: if this was the workspace's LAST live app, clear the
+  // `rb_onboarded` cookie. Otherwise the cookie keeps middleware treating the
+  // user as onboarded while the DB has zero live apps — the dashboard shows the
+  // empty state, but a stale cookie can bounce them into the onboarding loop.
+  // If other apps remain, the user is still onboarded — leave the cookie alone.
+  const { count: liveApps } = await sb
+    .from("apps")
+    .select("id", { count: "exact", head: true })
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null);
+
+  const res = NextResponse.json({ success: true });
+  if ((liveApps ?? 0) === 0) {
+    res.cookies.set("rb_onboarded", "", {
+      maxAge: 0,
+      httpOnly: true,
+      sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/",
+    });
+  }
+  return res;
 }
