@@ -272,10 +272,15 @@ async function upsertAndFinalize(
   // reports developer replies at all, so every App Store review was reset
   // daily, including ones replied to through the Connect API.
   //
-  // So: insert genuinely new reviews, and for known ones touch only the
-  // store-owned content columns. Reply state is promoted to "replied" only
-  // when the store now shows a developer reply we did not already have — it is
-  // never downgraded.
+  // So: insert genuinely new reviews, and leave known rows alone apart from
+  // one upgrade — promoting to "replied" when the store now shows a developer
+  // reply we did not already have. Reply state is never downgraded.
+  //
+  // Known rows' content (body, rating, version) is deliberately NOT refreshed.
+  // Store reviews are effectively immutable in practice, and re-writing them
+  // every sync buys nothing while widening the surface for exactly the kind of
+  // overwrite bug this function exists to prevent. If edited reviews ever need
+  // to be tracked, add an explicit content-only update that names its columns.
   const externalIds = rows.map((r) => r.external_id);
   const existing = new Map<string, { id: string; reply_status: string }>();
 

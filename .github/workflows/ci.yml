@@ -91,11 +91,16 @@ jobs:
 
   # NON-BLOCKING until real Clerk test credentials are added as repo secrets.
   #
-  # 11 of the 20 specs assert that a protected route redirects an anonymous
-  # visitor to /sign-in. With an unusable CLERK_SECRET_KEY, `auth.protect()`
-  # returns 404 instead of redirecting, so those specs fail no matter what the
-  # app does. Verified against `master` too — it is the placeholder credentials,
-  # not a regression.
+  # All 20 specs fail, and the first CI run showed exactly why: the dummy key
+  # above is structurally valid (so `next dev` boots) but names a Clerk
+  # instance that does not exist, so Clerk's edge answers every request with
+  #
+  #   {"errors":[{"message":"Invalid host","code":"host_invalid"}]}
+  #
+  # …including the purely public marketing pages. No app change can fix that
+  # from this side; the tests need credentials that resolve to a real Clerk
+  # instance. (Note the product-side implication, tracked as BUG-040: a Clerk
+  # outage currently takes the marketing site and legal pages down with it.)
   #
   # To make this blocking (recommended — it is the only check that exercises
   # the app as a user):

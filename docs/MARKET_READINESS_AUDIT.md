@@ -323,7 +323,42 @@ And one that still can't pass, which is the founder's to fix:
 
 The e2e job is therefore `continue-on-error: true` for now. Build, type-check,
 lint and unit tests **do** block, and all four are verified passing on this
-branch. That is the first real merge gate this repository has ever had.
+branch — confirmed by the first real CI run in this repository's history
+(run #1, all four green).
+
+### What the first CI run then revealed
+
+The e2e job failed all 20 specs, and the log gave a sharper diagnosis than my
+local reproduction had. Every request — **including the purely public marketing
+pages** — came back as:
+
+```json
+{"errors":[{"message":"Invalid host","code":"host_invalid"}]}
+```
+
+That is Clerk refusing a key that doesn't name a real instance, which confirms
+BUG-037 is credentials-only. But it also exposes a **production** problem
+nobody had reason to notice (**BUG-040**):
+
+> `clerkMiddleware` wraps every path in `config.matcher`. When Clerk cannot
+> resolve the instance, **every route returns HTTP 400 with a Clerk error body**
+> — `/`, `/pricing`, `/privacy`, `/terms`, `/help` included.
+
+So a Clerk incident, or one botched key rotation, doesn't just lock users out
+of the app: it takes down the marketing site, the pricing page people sign up
+from, and the legal pages you are obliged to serve. The blast radius of an
+auth-provider outage is currently the entire domain.
+
+The fix is to let public routes short-circuit before Clerk runs, while keeping
+the host-based subdomain redirects that also live in that file. I have **not**
+made that change here. It is a restructure of the security-critical middleware,
+it cannot be verified without real Clerk credentials, and shipping an unverified
+auth change at the tail of an audit whose whole thesis is "verify things" would
+be self-refuting. It deserves its own PR and a real spine walk behind it.
+
+One more, minor: GitHub Actions artifact storage is full, so a failing e2e run
+can't upload its Playwright report (**BUG-041**). Clear old artifacts when you
+next look at CI.
 
 **Turning this on is arguably worth more than any single bug fix in Part 1**,
 because it is what stops Part 1 from happening again.
