@@ -4,6 +4,14 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 interface WorkspaceState {
+  /**
+   * Workspace app the UI is scoped to — the app's UUID, or "" for "all apps".
+   *
+   * This used to hold the app's display NAME, which could not be handed to the
+   * API as a filter and collides between apps sharing a name. A persisted name
+   * from an older session won't match any app id, and the sidebar resets it to
+   * "" (all apps) on load.
+   */
   selectedApp: string;
   environment: "production" | "staging";
   theme: "light" | "dark";
