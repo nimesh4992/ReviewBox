@@ -1,8 +1,10 @@
 # ReviewBox — Bug Tracker
 
-Last updated: 2026-05-29
+Last updated: 2026-07-25
 
 Legend: 🔴 CRITICAL · 🟠 HIGH · 🟡 MEDIUM · 🟢 LOW · ✅ Fixed
+
+> Full context for the 2026-07-25 entries: **`docs/MARKET_READINESS_AUDIT.md`**.
 
 ---
 
@@ -10,6 +12,12 @@ Legend: 🔴 CRITICAL · 🟠 HIGH · 🟡 MEDIUM · 🟢 LOW · ✅ Fixed
 
 | ID | Severity | Summary | File(s) | Status |
 |----|----------|---------|---------|--------|
+| BUG-020 | 🔴 CRITICAL | Reviews are US/English only (`lang:"en", country:"us"` hardcoded) while the dashboard shows the store's **global** lifetime review count — the two numbers cannot reconcile for a non-US app | `src/services/bootstrap-reviews.ts`, `src/services/store-search.ts` | Open — FOUNDER DECISION: disclose US-only in UI (1h) or fan out locales (costs 8× scrape volume) |
+| BUG-021 | 🟠 HIGH | Whole product now depends on scraping Google Play from Vercel datacenter IPs — Google rate-limits these; no proxy, no fallback. A block is a total outage | `src/services/bootstrap-reviews.ts` | Open — accepted risk per D018; Sentry alerting added 2026-07-25, watch it |
+| BUG-022 | 🟠 HIGH | Sync latency is 24h (Vercel Hobby cron cap) — weak for a "respond fast to bad reviews" product at $99/mo | `vercel.json` | Open — fix: Supabase `pg_cron` + `pg_net` (free, extension already enabled) |
+| BUG-023 | 🟡 MEDIUM | No e2e test covers the spine (sync → draft → mark replied → sync again). The one flow that must not break has no automated test | `tests/e2e/` | Open — this single test would have caught BUG-024/025/028 |
+| BUG-026 | 🟢 LOW | `/admin/customers` doesn't filter soft-deleted workspaces — deleted accounts show as live customers in the MRR view | `src/app/admin/customers/page.tsx` | Open |
+| BUG-027 | 🟢 LOW | `tsconfig.tsbuildinfo` (640 KB) committed despite being in `.gitignore` | repo root | Open — `git rm --cached tsconfig.tsbuildinfo` |
 | BUG-001 | 🔴 CRITICAL | No billing/payment path — Stripe keys unset, no plan gates on gated features | `src/app/api/stripe/*` | Open — HUMAN-REQUIRED: founder pastes Stripe keys |
 | BUG-002 | 🔴 CRITICAL | Competitors screen shows illustrative placeholder data, not real competitor apps | `src/features/competitors/components/competitors-screen.tsx` | Open — M4 scope (X6) |
 | BUG-006 | 🟡 MEDIUM | 2 of 4 report types are placeholder stubs (crash report, retention report) | `src/features/reports/components/reports-screen.tsx` | Open — M3 scope |
@@ -21,6 +29,25 @@ Legend: 🔴 CRITICAL · 🟠 HIGH · 🟡 MEDIUM · 🟢 LOW · ✅ Fixed
 ---
 
 ## Fixed Bugs
+
+### Fixed in `claude/product-market-readiness-zcfowh` (2026-07-25)
+
+Market-readiness audit. **Every one of these passed `tsc`, `eslint`, 80 unit
+tests, and the production build.** All were state-over-time bugs — correct on
+first execution, wrong on the second. See `docs/MARKET_READINESS_AUDIT.md`.
+
+| ID | Severity | Summary | Fix |
+|----|----------|---------|-----|
+| BUG-024 | 🔴 CRITICAL | Public scraper ran only when an app had **zero** reviews; every later sync used the Publisher API, which Draft Mode customers have no credentials for. Reviews stopped updating after day one, `last_sync_status` pinned to a failure code, red dashboard banner forever — **and the "hasn't synced in 2 days" nag email every 3 days that the founder had been receiving for a month.** Contradicted D018 | Scraper is now the primary path on **every** sync for both stores. Official APIs are optional enrichment (developer replies + device) whose absence no longer fails the sync |
+| BUG-025 | 🔴 CRITICAL | `upsert onConflict (app_id, external_id)` rewrote every column from store data, so a saved AI draft or a Draft Mode "mark as replied" was reset to `needs_reply` on the next sync. iTunes RSS never reports developer replies → **every App Store review reset on every sync**, including API-posted ones | Sync inserts only unseen reviews; promotes `needs_reply → replied` when the store shows a reply it lacked; never downgrades. Extracted to `src/lib/sync-writes.ts` + 12 regression tests |
+| BUG-028 | 🔴 CRITICAL | `middleware.ts` gated `/api/reply(.*)` to `starter\|pro\|team`, but onboarding stamps every user `plan: "trial"` — so **no trial user could generate an AI draft**, with no way to pay (Stripe deferred, D013). The 307 to an HTML page also broke the caller's `res.json()` | `trial` added to entitled plans (expiry still enforced separately); API billing blocks return `402` JSON |
+| BUG-029 | 🟠 HIGH | `/api/health/user-check` had no `deleted_at` filter on apps and checked workspace liveness for only 1 of 3 signals. A soft-deleted app's `last_sync_attempted_at` freezes → satisfies "failing 48h+" forever → nags the owner every 3 days about an app they deleted | `deleted_at IS NULL` on apps; workspace liveness on all three signals; never-synced email copy no longer contradicts Draft Mode |
+| BUG-030 | 🟠 HIGH | Inbox cursor paginated on `store_created_at` alone with `.lt()` — every review sharing the last row's timestamp was skipped and became unreachable. Common, since store feeds batch to the same second and the scraper falls back to `now()` on unparseable dates | Composite `timestamp\|id` cursor with matching tiebreak order; legacy cursors still accepted |
+| BUG-031 | 🟠 HIGH | `/api/reviews` had no app filter at all — soft-deleted apps' reviews lingered forever, and the sidebar app selector (primary nav for the 2–4 app ICP in D017) was decorative | Scoped to live apps; `appId` filter added and wired to the selector; "All apps" option added; selection moved from app name to app id |
+| BUG-032 | 🟡 MEDIUM | `GOOGLE_PRIVATE_KEY` parsed at module load — a malformed key threw during import, taking down **every route importing `publisher-api.ts`** (sync, reply) with an opaque module-init failure | Parsed lazily inside `getPlayClient()` |
+| BUG-033 | 🟡 MEDIUM | Sync failures were `console.warn` only. Now that the scrape is the primary data path, an outage was invisible until a churn email | `Sentry.captureMessage` on every failed app sync |
+| BUG-034 | 🟢 LOW | Automation rules re-ran against every synced row each day, re-firing auto-draft/auto-reply on months-old reviews | Rules now fire on newly-inserted reviews only |
+| BUG-035 | 🟢 LOW | Leftover `sentry-example-page` scaffold shipped in the build | Removed |
 
 ### Fixed in `fix/reply-ux-and-onboarding-skip` (2026-05-29)
 
