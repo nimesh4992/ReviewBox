@@ -16,10 +16,18 @@ discipline in `docs/decisions.md` is unusually strong for a solo non-coder
 operation.
 
 That is not what was wrong. **Five defects were breaking the product for a real
-paying customer, and every one of them passed CI.** They passed type-checking,
-they passed 80 unit tests, they passed lint, they passed the production build.
-The test suite verified that pure functions compute correct values; nothing
-verified that a review fetched on Monday was still there on Tuesday.
+paying customer, and none of them was caught.** The test suite verified that
+pure functions compute correct values; nothing verified that a review fetched
+on Monday was still there on Tuesday.
+
+And then a worse discovery, mid-audit: **CI has never run. Not once, on any
+branch, in the history of this repository.** `.github/workflows/ci.yml`
+triggers on `main`; the default branch is `master` and no `main` branch has
+ever existed. The GitHub API reports `total_count: 0` workflow runs across all
+45 branches and every merged PR. Every "CI green" claim in `CLAUDE.md`,
+`docs/today.md`, and `docs/backlog.md` describes something that never happened,
+and D000's "the merge button is greyed out until all pass" guardrail has never
+existed. See Part 4.
 
 This is the exact failure mode `docs/SPINE.md` predicted in writing:
 
@@ -28,7 +36,8 @@ This is the exact failure mode `docs/SPINE.md` predicted in writing:
 
 The spine document was right, and then the team kept shipping features against
 a 0/8 verified spine for two months. **The single highest-value process change
-is to stop trusting green CI as a proxy for "it works."**
+is to stop treating a green checkmark in the docs as evidence that anything was
+verified** — and, first, to make the checkmark mean something by turning CI on.
 
 ### The three things standing between here and revenue
 
@@ -45,7 +54,8 @@ is to stop trusting green CI as a proxy for "it works."**
 
 ## Part 1 — Defects found and fixed this session
 
-All five were live on `master`. All five passed CI.
+All five were live on `master`, and all five were merged without any automated
+check running against them (Part 4).
 
 ### B-1 · Reviews stopped updating after day one for every Draft Mode customer
 **Severity: Critical · Fixed**
@@ -270,13 +280,61 @@ Worth recording, because these were checked and are fine:
 
 ---
 
-## Part 4 — The process finding
+## Part 4 — CI has never run
 
-This is the most important section.
+`.github/workflows/ci.yml` opens with:
+
+```yaml
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+```
+
+The default branch is **`master`**. There is no `main`, and there never has
+been. `git ls-remote` lists 45 branches; none is called `main`. The GitHub
+Actions API returns **`total_count: 0`** for this workflow — it has not run a
+single time, on any branch, on any PR, ever.
+
+So the five jobs that `docs/decisions.md` D000 calls "Layer 1 robot checks",
+with the note *"the merge button is greyed out until all pass"* — build,
+type-check, lint, unit tests, e2e, security audit — have gated nothing. Every
+PR in this repo merged with zero automated verification. The green checkmarks
+in the docs came from agents running commands locally and reporting the result,
+which is a different thing entirely.
+
+Fixing the trigger revealed that **two more jobs could never have passed
+anyway**:
+
+| Job | Why it could not pass | Resolution |
+|---|---|---|
+| `security-audit` | `npm audit --audit-level=high` exits 1 on 12 high-severity advisories. `npm audit fix` cleared 15 of 27, but the rest need semver-major jumps (ESLint 9, `eslint-config-next` 16 → which pulls Next 16, explicitly deferred in CLAUDE.md) or have **no published fix** (`next`, `postcss`, `sharp`) | Blocks on `critical` (currently zero). High severity still runs and reports, but advisory. **BUG-036** |
+| `e2e-tests` | `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ci-placeholder` is not a structurally valid Clerk key — Clerk base64-decodes it for the frontend API domain. Every request threw `Publishable key not valid`, `next dev` never became ready, Playwright timed out at 120s. **Reproduced directly.** | Replaced with a decodable dummy key. Verified: dev server now boots and serves 200 on `/`, `/pricing`, `/sign-in`, `/help` |
+
+And one that still can't pass, which is the founder's to fix:
+
+- **11 of 20 e2e specs assert a protected route redirects an anonymous visitor
+  to `/sign-in`.** With an unusable `CLERK_SECRET_KEY`, `auth.protect()`
+  returns **404** rather than redirecting. Confirmed against a clean `master`
+  worktree, so it is the placeholder credentials, not a regression. Real Clerk
+  test credentials must be added as GitHub repo secrets — founder action, since
+  I neither can nor should add credentials (D009). **BUG-037**
+
+The e2e job is therefore `continue-on-error: true` for now. Build, type-check,
+lint and unit tests **do** block, and all four are verified passing on this
+branch. That is the first real merge gate this repository has ever had.
+
+**Turning this on is arguably worth more than any single bug fix in Part 1**,
+because it is what stops Part 1 from happening again.
+
+---
+
+## Part 5 — The process finding
 
 Every bug in Part 1 was **invisible to the entire quality apparatus**: strict
-TypeScript, ESLint, 80 unit tests, a production build gate, and three prior
-security audits that found 44+ issues between them.
+TypeScript, ESLint, 80 unit tests, a production build gate that never ran, and
+three prior security audits that found 44+ issues between them.
 
 That apparatus is well-built and it is aimed at the wrong target. It verifies
 that code is *internally consistent*. Every Part 1 bug was a **state-over-time**
@@ -303,6 +361,9 @@ the product needed someone to ask "what happens the second time?"
 
 ## Recommended order of work
 
+0. **Merge the CI fix** so the repo has a working merge gate for the first
+   time, then add Clerk test credentials as repo secrets (BUG-037) so the e2e
+   job can block too.
 1. **Walk the spine** (`docs/SPINE.md`, 8 steps, ~30 min). Nothing else produces
    real information. Do this against a real app on the Vercel preview.
 2. **Decide G-2** (US-only disclosure vs multi-locale). One hour for the honest
@@ -331,6 +392,8 @@ the product needed someone to ask "what happens the second time?"
 | `src/services/google-play/publisher-api.ts` | Lazy private-key parse |
 | `src/app/api/reports/weekly-digest/route.ts` | Soft-deleted app filter |
 | `src/app/sentry-example-page/` | Removed |
+| `.github/workflows/ci.yml` | Trigger fixed (`main` → `master` + unfiltered PRs); Clerk key made decodable; audit blocks on critical, high advisory; e2e advisory pending real Clerk secrets |
+| `package-lock.json` | `npm audit fix` — 27 advisories → 16, all remaining need semver-major or have no fix |
 
 **Verification:** `tsc` 0 errors · 92 unit tests passing (80 → 92) · `eslint`
 0 errors · production build passing.

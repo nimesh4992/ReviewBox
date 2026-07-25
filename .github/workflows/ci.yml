@@ -2,12 +2,20 @@ name: CI
 
 # Layer 1 robot checks (see docs/decisions.md D000).
 # Every PR runs these. The merge button is greyed out until all pass.
-
+#
+# These triggers were filtered to `main`. This repository's default branch is
+# `master`, and no `main` branch has ever existed — so this workflow ran ZERO
+# times across 45 branches and every merged PR. "CI is green" throughout
+# CLAUDE.md, docs/today.md and docs/backlog.md was never an observed fact;
+# nothing was gated on anything.
+#
+# `pull_request` is deliberately left unfiltered so CI runs on every PR
+# regardless of the target branch, and can't be silently disabled again by a
+# branch rename.
 on:
   pull_request:
-    branches: [main]
   push:
-    branches: [main]
+    branches: [master]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -17,8 +25,16 @@ env:
   NODE_VERSION: "20"
   # Build-time fallbacks so build doesn't fail when secrets aren't wired.
   # Real values come from Vercel env at deploy time.
-  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_ci-placeholder
+  #
+  # The publishable key must be STRUCTURALLY valid, not just a placeholder
+  # string. Clerk base64-decodes it to find the frontend API domain; the old
+  # `pk_test_ci-placeholder` threw "Publishable key not valid" on every
+  # request, so `next dev` never became ready and the e2e job would have timed
+  # out after 120s. This value decodes to `ci-placeholder.clerk.accounts.dev$`.
+  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2ktcGxhY2Vob2xkZXIuY2xlcmsuYWNjb3VudHMuZGV2JA==
   CLERK_SECRET_KEY: sk_test_ci-placeholder
+  NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+  NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
   NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
   NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
   SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
@@ -73,10 +89,26 @@ jobs:
       - run: npm ci
       - run: npm run test:unit
 
+  # NON-BLOCKING until real Clerk test credentials are added as repo secrets.
+  #
+  # 11 of the 20 specs assert that a protected route redirects an anonymous
+  # visitor to /sign-in. With an unusable CLERK_SECRET_KEY, `auth.protect()`
+  # returns 404 instead of redirecting, so those specs fail no matter what the
+  # app does. Verified against `master` too — it is the placeholder credentials,
+  # not a regression.
+  #
+  # To make this blocking (recommended — it is the only check that exercises
+  # the app as a user):
+  #   1. Clerk dashboard → a dedicated CI development instance → API keys
+  #   2. GitHub → Settings → Secrets and variables → Actions → add
+  #      CLERK_PUBLISHABLE_KEY_TEST and CLERK_SECRET_KEY_TEST
+  #   3. Reference them in the `env:` block below and drop continue-on-error
+  # Tracked as BUG-037 in docs/BUGS.md.
   e2e-tests:
-    name: E2E tests
+    name: E2E tests (advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -109,6 +141,19 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
-      - name: npm audit (high severity blocks)
+
+      # Blocks the merge. Nothing is currently critical, so a red here is a
+      # genuine new problem rather than pre-existing debt.
+      - name: npm audit (critical blocks the merge)
+        run: npm audit --audit-level=critical
+
+      # Reports but does not block. `--audit-level=high` cannot pass today: the
+      # remaining high advisories are eslint-toolchain and vitest devDeps whose
+      # only fix is a semver-major jump (ESLint 9, eslint-config-next 16 → which
+      # pulls Next 16), plus next/postcss/sharp which have NO fix published yet.
+      # CLAUDE.md defers the Next 16 upgrade until it is stable. Blocking on
+      # this would mean a permanently red pipeline, which is how a pipeline
+      # gets ignored. Tracked as BUG-036 in docs/BUGS.md — revisit with Next 16.
+      - name: npm audit (high severity — advisory)
         run: npm audit --audit-level=high
-        continue-on-error: false
+        continue-on-error: true
