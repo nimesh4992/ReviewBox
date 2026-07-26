@@ -19,9 +19,19 @@ function groupByCategory(tags: TagDefinition[]): Record<TagCategory, TagDefiniti
   };
 }
 
-// Precompute a global index map so row numbers are stable across categories
-const TAG_INDEX_MAP = new Map(mockTags.map((t, i) => [t.id, i + 1]));
-
+/**
+ * Tags list.
+ *
+ * Deliberate removals from the previous version, both redundancy:
+ * - the "#" row-number column — numbers carried no meaning and no ordering
+ *   control, they just made the table look machine-generated;
+ * - the per-row "Category" column — rows are already grouped under category
+ *   headers, so every row restated what the header above it said.
+ *
+ * The solid-indigo "Smarter tags, powered by AI" banner became a one-line
+ * muted hint. A promo panel inside a settings table is noise; the capability
+ * is still discoverable, it just no longer shouts over the content.
+ */
 export function TagsTab() {
   const grouped = groupByCategory(mockTags);
 
@@ -29,85 +39,57 @@ export function TagsTab() {
     <div>
       {/* Header */}
       <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-base font-semibold text-gray-900">Tags</h2>
+        <h2 className="text-rb-lg font-semibold text-fg-1">Tags</h2>
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="text-gray-500">
+          <Button variant="ghost" size="sm" className="text-fg-3">
             <Upload strokeWidth={1.5} className="size-4" />
             Import
           </Button>
-          <Button
-            size="sm"
-            className="bg-[var(--rb-indigo-500)] text-white hover:bg-[#4f4fbf]"
-          >
+          <Button size="sm">
             <Plus strokeWidth={1.5} className="size-4" />
             Add tag
           </Button>
         </div>
       </div>
 
-      {/* AI Banner */}
-      <div className="mb-4 flex items-center justify-between rounded-xl bg-[var(--rb-indigo-500)] p-4 text-white">
-        <div className="flex items-start gap-3">
-          <Sparkles strokeWidth={1.5} className="mt-0.5 size-5 shrink-0" />
-          <div>
-            <p className="text-sm font-semibold">Smarter tags, powered by AI</p>
-            <p className="mt-0.5 text-xs text-white/75">
-              Semantic analysis automatically categorizes and auto-tags user feedback.
-            </p>
-          </div>
-        </div>
-        <Button
-          size="sm"
-          variant="outline"
-          className="ml-4 shrink-0 border-white/40 bg-transparent text-white hover:bg-white/10 hover:text-white"
-        >
-          Try Semantic analysis
-        </Button>
-      </div>
-
       {/* Table */}
-      <div className="w-full overflow-hidden rounded-2xl border border-gray-200 bg-white">
-        {/* Table header */}
-        <div className="grid grid-cols-[2rem_1fr_8rem] gap-3 border-b border-gray-100 px-4 py-2.5">
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">#</span>
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Name</span>
-          <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">Category</span>
-        </div>
-
+      <div className="w-full overflow-hidden rounded-xl border border-[var(--rb-border-1)] bg-surface">
         {CATEGORY_ORDER.map((category) => {
           const tags = grouped[category];
           if (!tags.length) return null;
           return (
             <div key={category}>
-              {/* Category sub-header */}
-              <div className="border-b border-gray-100 bg-gray-50 px-4 py-2">
-                <span className="text-[11px] font-semibold uppercase tracking-wide text-gray-400">
+              <div className="flex items-baseline gap-2 border-b border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-4 py-1.5">
+                <span className="text-rb-xs font-medium uppercase tracking-[0.08em] text-fg-3">
                   {CATEGORY_LABEL[category]}
                 </span>
+                <span className="text-rb-xs tabular-nums text-fg-4">{tags.length}</span>
               </div>
-              {tags.map((tag) => {
-                const rowNum = TAG_INDEX_MAP.get(tag.id) ?? 0;
-                return (
-                  <div
-                    key={tag.id}
-                    className="grid grid-cols-[2rem_1fr_8rem] items-center gap-3 border-b border-gray-100 px-4 py-3 last:border-b-0"
-                  >
-                    <span className="text-xs text-gray-400">{rowNum}</span>
-                    <div className="flex items-center gap-2.5">
-                      <span
-                        className="size-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: tag.color }}
-                      />
-                      <span className="text-sm text-gray-800">{tag.name}</span>
-                    </div>
-                    <span className="text-sm text-gray-500">{CATEGORY_LABEL[tag.category]}</span>
-                  </div>
-                );
-              })}
+              {tags.map((tag) => (
+                <div
+                  key={tag.id}
+                  className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-4 py-2 last:border-b-0 hover:bg-[var(--rb-bg-hover)]"
+                >
+                  <span
+                    className="size-2 shrink-0 rounded-full"
+                    style={{ backgroundColor: tag.color }}
+                  />
+                  <span className="text-rb-base text-fg-1">{tag.name}</span>
+                </div>
+              ))}
             </div>
           );
         })}
       </div>
+
+      {/* AI hint — quiet, not a banner */}
+      <p className="mt-3 flex items-center gap-1.5 text-rb-sm text-fg-3">
+        <Sparkles strokeWidth={1.5} className="size-3.5" />
+        Semantic analysis can auto-tag incoming reviews against this list.
+        <button type="button" className="font-medium text-[var(--rb-blue-500)] hover:underline">
+          Try it
+        </button>
+      </p>
     </div>
   );
 }
