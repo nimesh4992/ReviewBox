@@ -13,6 +13,7 @@ const MAX_LIMIT = 50;
 interface DbReview {
   id: string;
   external_id: string;
+  app_id: string;
   source: "google_play" | "app_store";
   author: string;
   rating: number;
@@ -33,6 +34,9 @@ interface DbReview {
 function mapDbReview(row: DbReview): AppReview {
   return {
     id:              row.id,
+    // Lets the composer look up the app's credential state and pick the right
+    // primary action (post via API vs. copy-and-paste draft mode).
+    appId:           row.app_id,
     author:          row.author,
     rating:          Math.min(5, Math.max(1, row.rating)) as AppReview["rating"],
     text:            row.body,
@@ -106,7 +110,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
     let query = sb
       .from("reviews")
-      .select("id,external_id,source,author,rating,body,app_version,device,country,store_created_at,sentiment,priority,issue_tags,reply_status,escalation_state,has_ai_suggestion,reply_text")
+      .select("id,external_id,app_id,source,author,rating,body,app_version,device,country,store_created_at,sentiment,priority,issue_tags,reply_status,escalation_state,has_ai_suggestion,reply_text")
       .eq("workspace_id", workspaceId)
       .in("app_id", liveAppIds)
       // `id` is the tiebreaker for both ordering and the cursor below. Ordering

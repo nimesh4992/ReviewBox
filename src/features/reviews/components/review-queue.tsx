@@ -14,6 +14,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
+import { useApps } from "@/hooks/use-apps";
 import { AppReview, ReviewSentiment, AIReplyTone } from "@/types/review";
 import { humanizeToken, formatReviewDate } from "@/utils/format";
 
@@ -150,11 +151,26 @@ function ReviewRow({ review, selected, onClick, selectMode, isChecked, onCheck, 
 }) {
   const [isDrafting, setIsDrafting] = useState(false);
 
+  // The row is interactive, so it carries real interactive semantics: option
+  // role (the list is a listbox), keyboard activation, and a focus ring. A
+  // bare onClick div was invisible to keyboard and screen-reader users on the
+  // single most-used surface in the product.
   return (
     <div
+      role="option"
+      aria-selected={selectMode ? isChecked : selected}
+      tabIndex={0}
+      data-review-id={review.id}
       onClick={selectMode ? () => onCheck?.(review.id) : onClick}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          if (selectMode) onCheck?.(review.id);
+          else onClick();
+        }
+      }}
       className={cn(
-        "group relative flex cursor-pointer gap-3 border-b border-[var(--rb-border-1)] px-4 py-3.5 transition-colors",
+        "group relative flex cursor-pointer gap-3 border-b border-[var(--rb-border-1)] px-4 py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--rb-blue-400)]",
         selected && !selectMode ? "bg-[var(--rb-bg-selected)]" : "hover:bg-[var(--rb-bg-hover)]",
         isChecked && "bg-[var(--rb-blue-50)]",
       )}
@@ -182,10 +198,10 @@ function ReviewRow({ review, selected, onClick, selectMode, isChecked, onCheck, 
             <span className="size-[7px] shrink-0 rounded-full bg-[var(--rb-blue-500)]" />
           )}
         </div>
-        <div className="mt-1 line-clamp-1 text-[12px] leading-snug text-[var(--rb-fg-2)]">
+        <div className="mt-0.5 line-clamp-1 text-[12px] leading-snug text-[var(--rb-fg-2)]">
           {review.text}
         </div>
-        <div className="mt-1.5 flex min-w-0 items-center gap-2 text-[11px] text-[var(--rb-fg-3)]">
+        <div className="mt-1 flex min-w-0 items-center gap-2 text-[11px] text-[var(--rb-fg-3)]">
           <span className="flex items-center gap-1">
             <span className={cn("size-1.5 shrink-0 rounded-full", SENTIMENT_DOT[review.sentiment])} />
             <span className="capitalize">{review.sentiment}</span>
@@ -211,7 +227,7 @@ function ReviewRow({ review, selected, onClick, selectMode, isChecked, onCheck, 
             }}
             disabled={isDrafting}
             title="AI draft — generates reply and saves for review"
-            className="flex items-center gap-1 rounded-md border border-[var(--rb-border-2)] bg-surface px-2.5 py-1 text-[11px] font-semibold text-[var(--rb-purple-500)] shadow-[var(--rb-shadow-xs)] transition-colors hover:bg-[var(--rb-purple-100)] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rb-purple-500)]"
+            className="flex items-center gap-1 rounded-md border border-[var(--rb-border-2)] bg-surface px-2.5 py-1 text-[11px] font-semibold text-[var(--rb-blue-500)] shadow-[var(--rb-shadow-xs)] transition-colors hover:bg-[var(--rb-blue-50)] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rb-blue-400)]"
           >
             {isDrafting ? (
               <Loader2 className="size-3 animate-spin" strokeWidth={1.5} />
@@ -239,16 +255,18 @@ function ToneSelector({ tone, onChange }: {
   tone: AIReplyTone;
   onChange: (t: AIReplyTone) => void;
 }) {
+  // Compact enough that all four tones sit on one line in the detail pane —
+  // a wrapped, ragged second line read as broken chrome.
   return (
-    <div className="flex items-center gap-1 flex-wrap">
+    <div className="flex items-center gap-0.5">
       {TONES.map((t) => (
         <button
           key={t.value}
           onClick={() => onChange(t.value)}
           className={cn(
-            "h-8 rounded-md px-3 text-[11px] font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]",
+            "h-7 rounded-md px-2 text-[11px] font-semibold whitespace-nowrap transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]",
             tone === t.value
-              ? "bg-[var(--rb-purple-100)] text-[var(--rb-purple-600)]"
+              ? "bg-[var(--rb-blue-100)] text-[var(--rb-blue-600)]"
               : "text-[var(--rb-fg-3)] hover:bg-[var(--rb-bg-hover)] hover:text-[var(--rb-fg-2)]",
           )}
         >
@@ -298,6 +316,19 @@ function ReplyComposer({
   const badge       = SENTIMENT_BADGE[review.sentiment];
   const markReplied = useMarkReplied();
   const markDraft   = useMarkDraft();
+
+  // Credential-aware action hierarchy. When the review's app has store
+  // credentials, one-click "Post reply" is the hero action — that's the whole
+  // promise of the product. Draft Mode's copy-and-paste flow stays the hero
+  // only where it's genuinely the best available path (no credentials).
+  // Fallback when appId is missing (pre-deploy rows in cache): any credentialed
+  // app on the same platform counts.
+  const { apps } = useApps();
+  const reviewPlatform = review.source === "App Store" ? "app_store" : "google_play";
+  const composerApp = review.appId ? apps.find((a) => a.id === review.appId) : undefined;
+  const canPostViaApi = composerApp
+    ? composerApp.has_credentials
+    : apps.some((a) => a.platform === reviewPlatform && a.has_credentials);
 
   // Translation state
   const [isTranslating, setIsTranslating] = useState(false);
@@ -523,7 +554,7 @@ function ReplyComposer({
           {review.issueTags.slice(0, 3).map((tag) => (
             <span
               key={tag}
-              className="inline-flex items-center gap-1 rounded-full bg-[rgba(142,91,255,0.10)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--rb-purple-500)]"
+              className="inline-flex items-center gap-1 rounded-full bg-[var(--rb-bg-accent-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--rb-blue-500)]"
             >
               <Sparkles className="size-2.5" strokeWidth={2} />
               {humanizeToken(tag)}
@@ -574,11 +605,11 @@ function ReplyComposer({
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5">
               {isGenerating ? (
-                <Loader2 className="size-3 animate-spin text-[var(--rb-purple-500)]" strokeWidth={1.5} />
+                <Loader2 className="size-3 animate-spin text-[var(--rb-blue-500)]" strokeWidth={1.5} />
               ) : (
-                <Sparkles className="size-3 text-[var(--rb-purple-500)]" strokeWidth={2} />
+                <Sparkles className="size-3 text-[var(--rb-blue-500)]" strokeWidth={2} />
               )}
-              <span className="text-[11px] font-semibold text-[var(--rb-purple-500)]">
+              <span className="text-[11px] font-semibold text-[var(--rb-blue-500)]">
                 {isGenerating ? "Generating…" : aiSuggestion ? "AI draft — edit or post" : "AI reply"}
               </span>
             </div>
@@ -602,6 +633,7 @@ function ReplyComposer({
         {/* Textarea + char count */}
         <div>
           <textarea
+            id="rb-composer-input"
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder={alreadyReplied ? "Edit your reply…" : "Write a reply…"}
@@ -650,33 +682,55 @@ function ReplyComposer({
               </div>
             )}
             <div className="flex flex-col gap-2">
-              {/* Draft Mode (D018): Copy → user pastes into store → Mark replied.
-                  Copy is the hero action — works for every user, no credentials. */}
-              <button
-                onClick={handleCopy}
-                disabled={!text.trim()}
-                className={cn(
-                  "h-10 w-full rounded-[8px] text-[13px] font-semibold text-white transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF] focus-visible:ring-offset-1",
-                  copied ? "bg-[var(--rb-green-500)]" : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
-                )}
-              >
-                {copied ? "✓ Copied — now paste it on the store" : "Copy reply"}
-              </button>
+              {canPostViaApi ? (
+                <>
+                  {/* Connected account: one-click post is the hero action —
+                      this is the product's core promise. */}
+                  <button
+                    onClick={handleSend}
+                    disabled={isSending || !text.trim() || overLimit}
+                    className="h-10 w-full rounded-[8px] bg-[var(--rb-blue-500)] text-[13px] font-semibold text-white transition-colors hover:bg-[var(--rb-blue-600)] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF] focus-visible:ring-offset-1"
+                  >
+                    {isSending
+                      ? "Posting…"
+                      : `Post reply to ${review.source === "App Store" ? "App Store" : "Google Play"}`}
+                  </button>
+                  <p className="text-[10px] leading-relaxed text-[var(--rb-fg-3)]">
+                    Posts via the connected store account — the review page updates in minutes.
+                    {overLimit && <span className="ml-1 text-[var(--rb-red-500)]">Reply is over the {limit}-char store limit.</span>}
+                  </p>
+                </>
+              ) : (
+                <>
+                  {/* Draft Mode (D018): Copy → user pastes into store → Mark
+                      replied. Hero only when no store credentials exist. */}
+                  <button
+                    onClick={handleCopy}
+                    disabled={!text.trim()}
+                    className={cn(
+                      "h-10 w-full rounded-[8px] text-[13px] font-semibold text-white transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF] focus-visible:ring-offset-1",
+                      copied ? "bg-[var(--rb-green-500)]" : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
+                    )}
+                  >
+                    {copied ? "✓ Copied — now paste it on the store" : "Copy reply"}
+                  </button>
 
-              {/* Confirm step — record it as replied in our DB (no store API call) */}
-              <button
-                onClick={handleMarkReplied}
-                disabled={!text.trim() || overLimit || isMarking}
-                className="h-9 w-full rounded-[8px] border border-[var(--rb-border-2)] bg-surface text-[12px] font-semibold text-[var(--rb-fg-1)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
-              >
-                {isMarking ? "Saving…" : alreadyReplied ? "Update reply" : "Mark as replied"}
-              </button>
+                  {/* Confirm step — record it as replied in our DB (no store API call) */}
+                  <button
+                    onClick={handleMarkReplied}
+                    disabled={!text.trim() || overLimit || isMarking}
+                    className="h-9 w-full rounded-[8px] border border-[var(--rb-border-2)] bg-surface text-[12px] font-semibold text-[var(--rb-fg-1)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
+                  >
+                    {isMarking ? "Saving…" : alreadyReplied ? "Update reply" : "Mark as replied"}
+                  </button>
 
-              {/* Where to paste + char warning */}
-              <p className="text-[10px] leading-relaxed text-[var(--rb-fg-3)]">
-                Paste into {review.source === "App Store" ? "App Store Connect" : "Google Play Console"}, then mark it replied here.
-                {overLimit && <span className="ml-1 text-[var(--rb-red-500)]">Reply is over the {limit}-char store limit.</span>}
-              </p>
+                  {/* Where to paste + char warning */}
+                  <p className="text-[10px] leading-relaxed text-[var(--rb-fg-3)]">
+                    Paste into {review.source === "App Store" ? "App Store Connect" : "Google Play Console"}, then mark it replied here.
+                    {overLimit && <span className="ml-1 text-[var(--rb-red-500)]">Reply is over the {limit}-char store limit.</span>}
+                  </p>
+                </>
+              )}
 
               {/* Secondary row */}
               <div className="flex items-center gap-3">
@@ -696,15 +750,27 @@ function ReplyComposer({
                     Regenerate
                   </button>
                 )}
-                {/* Pro / connected accounts: post via store API directly (D018 — sequenced). */}
-                <button
-                  onClick={handleSend}
-                  disabled={isSending || !text.trim() || overLimit}
-                  className="ml-auto text-[10px] font-medium text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-blue-500)] disabled:opacity-40"
-                  title="Post directly via the store API (requires a connected store account)"
-                >
-                  {isSending ? "Posting…" : "Post via API"}
-                </button>
+                {canPostViaApi ? (
+                  /* Connected flow: copy stays available as an escape hatch */
+                  <button
+                    onClick={handleCopy}
+                    disabled={!text.trim()}
+                    className="ml-auto text-[11px] font-medium text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-fg-2)] disabled:opacity-40"
+                  >
+                    {copied ? "✓ Copied" : "Copy reply"}
+                  </button>
+                ) : (
+                  /* Draft Mode: API posting stays reachable for the curious —
+                     its error path links to Settings to connect the account */
+                  <button
+                    onClick={handleSend}
+                    disabled={isSending || !text.trim() || overLimit}
+                    className="ml-auto text-[10px] font-medium text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-blue-500)] disabled:opacity-40"
+                    title="Post directly via the store API (requires a connected store account)"
+                  >
+                    {isSending ? "Posting…" : "Post via API"}
+                  </button>
+                )}
               </div>
             </div>
           </div>
@@ -864,8 +930,8 @@ function GroupReplyPanel({
 
       {/* Header */}
       <div className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-[18px] py-[14px]">
-        <div className="flex size-7 shrink-0 items-center justify-center rounded-[7px] bg-[rgba(142,91,255,0.12)]">
-          <MessageSquareDiff className="size-3.5 text-[var(--rb-purple-500)]" strokeWidth={2} />
+        <div className="flex size-7 shrink-0 items-center justify-center rounded-[7px] bg-[var(--rb-bg-accent-soft)]">
+          <MessageSquareDiff className="size-3.5 text-[var(--rb-blue-500)]" strokeWidth={2} />
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-semibold text-[var(--rb-fg-1)]">Reply all similar</div>
@@ -888,7 +954,7 @@ function GroupReplyPanel({
           {topTags.map((t) => (
             <span
               key={t}
-              className="inline-flex items-center gap-1 rounded-full bg-[rgba(142,91,255,0.10)] px-2 py-0.5 text-[10px] font-semibold text-[var(--rb-purple-500)]"
+              className="inline-flex items-center gap-1 rounded-full bg-[var(--rb-bg-accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--rb-blue-500)]"
             >
               <Sparkles className="size-2" strokeWidth={2} />
               {humanizeToken(t)}
@@ -938,7 +1004,7 @@ function GroupReplyPanel({
         {/* AI suggestion */}
         <div className="rounded-[10px] border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--rb-purple-500)]">
+            <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--rb-blue-500)]">
               <Sparkles className="size-2.5" strokeWidth={2} />
               AI draft · based on top issue
             </div>
@@ -1272,6 +1338,80 @@ export function InboxScreen({
     if (next) setSelectedId(next.id);
   }, [sorted]);
 
+  // ── Keyboard flow ────────────────────────────────────────────────────────────
+  // j/k (or arrows) move the selection, Enter jumps to the composer, "/" jumps
+  // to search. Triage without touching the mouse. Handlers bail out whenever
+  // focus is in an input/textarea so typing a reply never moves the selection.
+  const sortedRef = useRef(sorted);
+  sortedRef.current = sorted;
+  const selectedIdRef = useRef(selectedId);
+  selectedIdRef.current = selectedId;
+
+  useEffect(() => {
+    function isTypingTarget(el: EventTarget | null): boolean {
+      if (!(el instanceof HTMLElement)) return false;
+      return (
+        el.tagName === "INPUT" ||
+        el.tagName === "TEXTAREA" ||
+        el.tagName === "SELECT" ||
+        el.isContentEditable
+      );
+    }
+
+    function moveSelection(delta: 1 | -1) {
+      const list = sortedRef.current;
+      if (list.length === 0) return;
+      const idx = list.findIndex((r) => r.id === selectedIdRef.current);
+      const next = list[idx === -1 ? 0 : Math.min(Math.max(idx + delta, 0), list.length - 1)];
+      if (!next || next.id === selectedIdRef.current) return;
+      setSelectedId(next.id);
+      setMobilePane("list");
+      // Keep the keyboard selection visible as it walks past the fold
+      requestAnimationFrame(() => {
+        document
+          .querySelector(`[data-review-id="${CSS.escape(next.id)}"]`)
+          ?.scrollIntoView({ block: "nearest" });
+      });
+    }
+
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (isTypingTarget(e.target)) return;
+
+      switch (e.key) {
+        case "j":
+        case "ArrowDown":
+          e.preventDefault();
+          moveSelection(1);
+          break;
+        case "k":
+        case "ArrowUp":
+          e.preventDefault();
+          moveSelection(-1);
+          break;
+        case "Enter": {
+          // Row-level Enter (focused row) already opens; this catches the
+          // "selection exists, focus elsewhere" case and drops into the composer.
+          const el = document.getElementById("rb-composer-input");
+          if (el) {
+            e.preventDefault();
+            el.focus();
+          }
+          break;
+        }
+        case "/": {
+          e.preventDefault();
+          const search = document.querySelector<HTMLInputElement>("[data-inbox-search]");
+          search?.focus();
+          break;
+        }
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, []);
+
   return (
     <div className="flex flex-1 min-h-0 overflow-hidden">
 
@@ -1315,6 +1455,10 @@ export function InboxScreen({
                   )} />
                   Live
                 </span>
+                {/* Keyboard affordance — shown where the eye already reads meta */}
+                <span className="hidden text-[11px] font-normal text-[var(--rb-fg-4)] lg:inline">
+                  · j/k navigate · ↵ reply · / search
+                </span>
               </div>
               <h1
                 className="mt-1 text-[24px] font-semibold leading-tight tracking-[-0.022em] text-[var(--rb-fg-1)]"
@@ -1328,7 +1472,7 @@ export function InboxScreen({
               {showGroupBtn && !selectMode && (
                 <button
                   onClick={() => { setGroupMode(true); setSelectedId(null); setGroupReviewsOverride(null); }}
-                  className="flex h-8 items-center gap-1.5 rounded-[8px] bg-[rgba(142,91,255,0.10)] px-3 text-[12px] font-semibold text-[var(--rb-purple-500)] transition-colors hover:bg-[rgba(142,91,255,0.16)]"
+                  className="flex h-8 items-center gap-1.5 rounded-[8px] bg-[var(--rb-bg-accent-soft)] px-3 text-[12px] font-semibold text-[var(--rb-blue-500)] transition-colors hover:bg-[var(--rb-blue-100)]"
                 >
                   <MessageSquareDiff className="size-3.5" strokeWidth={2} />
                   Reply all · {groupCount}
@@ -1370,9 +1514,13 @@ export function InboxScreen({
           <div className="relative mb-2.5">
             <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[var(--rb-fg-3)]" strokeWidth={1.5} />
             <input
+              data-inbox-search
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search reviews…"
+              onKeyDown={(e) => {
+                if (e.key === "Escape") (e.target as HTMLInputElement).blur();
+              }}
+              placeholder="Search reviews…   ( / )"
               className="h-8 w-full rounded-[8px] border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] pl-7 pr-7 text-[12px] text-[var(--rb-fg-1)] placeholder:text-[var(--rb-fg-3)] outline-none transition-colors focus:border-[var(--rb-border-2)]"
             />
             {search && (
@@ -1456,7 +1604,12 @@ export function InboxScreen({
         </div>
 
         {/* Review rows */}
-        <div className="flex-1 overflow-y-auto">
+        <div
+          role="listbox"
+          aria-label="Reviews"
+          aria-multiselectable={selectMode || undefined}
+          className="flex-1 overflow-y-auto"
+        >
           {sorted.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-3 py-20 text-center">
               <Inbox className="size-10 text-[var(--rb-fg-4)]" strokeWidth={1.5} />
@@ -1533,7 +1686,7 @@ export function InboxScreen({
                     setManuallySelected(new Set());
                   }
                 }}
-                className="flex h-7 items-center gap-1.5 rounded-[7px] bg-[rgba(142,91,255,0.10)] px-3 text-[11px] font-semibold text-[var(--rb-purple-500)] transition-colors hover:bg-[rgba(142,91,255,0.16)]"
+                className="flex h-7 items-center gap-1.5 rounded-[7px] bg-[var(--rb-bg-accent-soft)] px-3 text-[11px] font-semibold text-[var(--rb-blue-500)] transition-colors hover:bg-[var(--rb-blue-100)]"
               >
                 <MessageSquareDiff className="size-3" strokeWidth={2} />
                 Reply all

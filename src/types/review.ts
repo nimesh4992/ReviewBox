@@ -16,6 +16,9 @@ export type IncidentStatus = "active" | "investigating" | "resolved";
 
 export interface AppReview {
   id: string;
+  /** Workspace app this review belongs to. Optional: rows cached before the
+      API started returning it (and demo fixtures) may not carry one. */
+  appId?: string;
   author: string;
   rating: 1 | 2 | 3 | 4 | 5;
   text: string;
