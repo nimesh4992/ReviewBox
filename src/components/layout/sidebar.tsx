@@ -98,106 +98,41 @@ function SidebarNavItem({
   icon: Icon,
   signal,
   isActive,
-  indent = false,
-}: NavItem & { isActive: boolean; indent?: boolean }) {
+}: NavItem & { isActive: boolean }) {
   return (
     <Link
       href={href}
+      aria-current={isActive ? "page" : undefined}
       className={cn(
-        "group relative flex h-9 items-center justify-between rounded-md px-2.5 text-sm transition-colors duration-150",
-        indent && "ml-3",
+        "group flex h-8 items-center justify-between rounded-md px-2 text-rb-base transition-colors duration-150",
         isActive
-          ? "bg-[#0A84FF]/10 text-[#0058B3] dark:bg-[#0A84FF]/20 dark:text-[#4592FF]"
-          : "text-[#48484D] hover:bg-black/[0.04] hover:text-[#1D1D1F] dark:text-[#8E8E93] dark:hover:bg-white/[0.06] dark:hover:text-[#F5F5F7]",
+          ? "bg-[var(--rb-bg-selected)] font-medium text-[var(--rb-blue-600)]"
+          : "text-fg-2 hover:bg-[var(--rb-bg-hover)] hover:text-fg-1",
       )}
     >
-      {isActive && (
-        <span className="absolute left-0 top-1.5 bottom-1.5 w-0.5 rounded-full bg-[#0A84FF]" />
-      )}
-      <span className="flex min-w-0 items-center gap-2.5 pl-0.5">
+      <span className="flex min-w-0 items-center gap-2.5">
         <Icon
           className={cn(
             "size-4 shrink-0",
-            isActive ? "text-[#0A84FF]" : "text-[#86868B] group-hover:text-[#48484D] dark:group-hover:text-[#F5F5F7]",
+            isActive ? "text-[var(--rb-blue-500)]" : "text-fg-3 group-hover:text-fg-2",
           )}
           strokeWidth={1.5}
         />
-        <span className="truncate text-[13px]">{name}</span>
+        <span className="truncate">{name}</span>
       </span>
       {signal && (
         <span
           className={cn(
-            "rounded px-1.5 py-0.5 text-[10px] font-medium tabular-nums",
+            "rounded px-1.5 py-0.5 text-rb-xs font-medium tabular-nums",
             isActive
-              ? "bg-[#0A84FF]/15 text-[#0A84FF]"
-              : "bg-black/[0.06] text-[#86868B] dark:bg-white/[0.08]",
+              ? "bg-[var(--rb-blue-100)] text-[var(--rb-blue-600)]"
+              : "bg-[var(--rb-bg-hover)] text-fg-3",
           )}
         >
           {signal}
         </span>
       )}
     </Link>
-  );
-}
-
-// ── NavGroup ──────────────────────────────────────────────────────────────────
-
-function SidebarNavGroup({
-  label,
-  items,
-  pathname,
-}: NavGroup & { pathname: string }) {
-  const hasActive = items.some((i) => pathname === i.href);
-  const [open, setOpen] = useState(true);
-
-  if (!label) {
-    return (
-      <div className="space-y-0.5">
-        {items.map((item) => (
-          <SidebarNavItem
-            key={item.href}
-            {...item}
-            isActive={pathname === item.href}
-          />
-        ))}
-      </div>
-    );
-  }
-
-  return (
-    <div>
-      <button
-        onClick={() => setOpen((v) => !v)}
-        className={cn(
-          "flex w-full items-center justify-between rounded-md px-2.5 pt-3 pb-1 text-left transition-colors",
-          hasActive
-            ? "text-[#48484D] dark:text-[#C7C7CC]"
-            : "text-[#86868B] hover:text-[#48484D] dark:hover:text-[#C7C7CC]",
-        )}
-      >
-        <span className="text-[10px] font-semibold uppercase tracking-widest">{label}</span>
-        <ChevronDown
-          className={cn(
-            "size-3 transition-transform duration-150",
-            !open && "-rotate-90",
-          )}
-          strokeWidth={1.5}
-        />
-      </button>
-
-      {open && (
-        <div className="mt-0.5 space-y-0.5">
-          {items.map((item) => (
-            <SidebarNavItem
-              key={item.href}
-              {...item}
-              isActive={pathname === item.href}
-              indent={items.length > 1}
-            />
-          ))}
-        </div>
-      )}
-    </div>
   );
 }
 
@@ -240,35 +175,28 @@ export function Sidebar({ className }: { className?: string }) {
   return (
     <aside
       className={cn(
-        "flex h-screen w-[220px] shrink-0 flex-col bg-[#F5F5F7] border-r border-black/[0.06] dark:bg-[#0E0E11] dark:border-white/[0.06]",
+        "flex h-screen w-[220px] shrink-0 flex-col border-r border-[var(--rb-border-1)] bg-[var(--rb-bg-canvas)]",
         className,
       )}
     >
-      {/* Logo */}
+      {/* Logo — the "Review Intelligence" tagline came off: a product doesn't
+          need to explain itself to someone already inside it. */}
       <div className="px-4 pt-4 pb-3">
-        <div className="flex items-center gap-2.5">
-          <div className="flex size-7 items-center justify-center rounded-lg bg-[#0A84FF] text-[11px] font-bold text-white tracking-tight">
+        <Link href="/dashboard" className="flex w-fit items-center gap-2.5">
+          <div className="flex size-7 items-center justify-center rounded-lg bg-[var(--rb-blue-500)] text-[11px] font-bold tracking-tight text-white">
             R
           </div>
-          <div className="min-w-0">
-            <div className="text-[13px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7] tracking-tight">ReviewBox</div>
-            <div className="text-[10px] text-[#86868B]">Review Intelligence</div>
-          </div>
-        </div>
+          <span className="text-rb-md font-semibold tracking-tight text-fg-1">ReviewBox</span>
+        </Link>
       </div>
 
-      {/* Demo mode banner — shown until workspace is connected */}
+      {/* Demo mode — one quiet line, not a card with its own heading */}
       {isLoaded && !user?.publicMetadata?.onboarded && (
-        <div className="mx-3 mb-2 rounded-[8px] border border-amber-200 bg-amber-50 px-3 py-2 dark:border-amber-900/40 dark:bg-amber-950/20">
-          <div className="flex items-center justify-between">
-            <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">
-              Demo data
-            </span>
-            <span className="size-1.5 rounded-full bg-amber-400" />
-          </div>
-          <p className="mt-0.5 text-[10px] leading-tight text-amber-600 dark:text-amber-500">
-            Viewing sample data — connect your app to go live
-          </p>
+        <div className="mx-3 mb-2 flex items-center gap-2 rounded-md border border-[var(--rb-amber-500)]/30 bg-[var(--rb-amber-100)]/40 px-2.5 py-1.5">
+          <span className="size-1.5 shrink-0 rounded-full bg-[var(--rb-amber-500)]" />
+          <span className="text-rb-xs leading-tight text-[var(--rb-amber-600)]">
+            Sample data — connect your app to go live
+          </span>
         </div>
       )}
 
@@ -278,63 +206,54 @@ export function Sidebar({ className }: { className?: string }) {
           <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
-              className="h-8 w-full justify-between rounded-md border border-black/[0.07] bg-black/[0.02] px-2.5 text-left text-xs text-[#48484D] hover:bg-black/[0.04] hover:text-[#1D1D1F] dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-[#8E8E93] dark:hover:bg-white/[0.06] dark:hover:text-[#F5F5F7]"
+              className="h-8 w-full justify-between rounded-md border border-[var(--rb-border-2)] bg-surface px-2.5 text-left text-rb-sm text-fg-2 hover:bg-[var(--rb-bg-hover)] hover:text-fg-1"
             >
               <span className="min-w-0 truncate">
                 {apps.find((a) => a.id === selectedApp)?.name ?? "All apps"}
               </span>
-              <ChevronDown className="size-3 shrink-0 text-[#86868B]" strokeWidth={1.5} />
+              <ChevronDown className="size-3 shrink-0 text-fg-3" strokeWidth={1.5} />
             </Button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent
-            align="start"
-            className="w-52 border-black/[0.08] bg-white text-[#1D1D1F] shadow-lg dark:bg-[#1F1F22] dark:border-white/[0.08] dark:text-[#F5F5F7]"
-          >
-            <DropdownMenuLabel className="text-[11px] text-[#86868B]">
+          <DropdownMenuContent align="start" className="w-52">
+            <DropdownMenuLabel className="text-rb-xs text-fg-3">
               Workspace apps
             </DropdownMenuLabel>
             {apps.length > 1 && (
-              <DropdownMenuItem
-                className="gap-2 text-[#48484D] focus:bg-black/[0.04] focus:text-[#1D1D1F]"
-                onClick={() => setSelectedApp("")}
-              >
-                <span className="size-4 shrink-0 rounded bg-gray-200 text-[8px] font-bold leading-4 text-center text-gray-500">
+              <DropdownMenuItem className="gap-2" onClick={() => setSelectedApp("")}>
+                <span className="size-4 shrink-0 rounded bg-[var(--rb-bg-sunken)] text-center text-[8px] font-bold leading-4 text-fg-3">
                   ∗
                 </span>
                 <span className="truncate">All apps</span>
-                {selectedApp === "" && <span className="ml-auto text-[#0A84FF]">✓</span>}
+                {selectedApp === "" && <span className="ml-auto text-[var(--rb-blue-500)]">✓</span>}
               </DropdownMenuItem>
             )}
             {apps.length > 0 ? apps.map((app) => (
               <DropdownMenuItem
                 key={app.id}
-                className="gap-2 text-[#48484D] focus:bg-black/[0.04] focus:text-[#1D1D1F]"
+                className="gap-2"
                 onClick={() => setSelectedApp(app.id)}
               >
                 {app.icon_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={app.icon_url} alt="" className="size-4 shrink-0 rounded object-cover" />
                 ) : (
-                  <span className="size-4 shrink-0 rounded bg-gray-200 text-[8px] font-bold leading-4 text-center text-gray-500">
+                  <span className="size-4 shrink-0 rounded bg-[var(--rb-bg-sunken)] text-center text-[8px] font-bold leading-4 text-fg-3">
                     {app.name[0]?.toUpperCase()}
                   </span>
                 )}
                 <span className="truncate">{app.name}</span>
                 {selectedApp === app.id && (
-                  <span className="ml-auto text-[#0A84FF]">✓</span>
+                  <span className="ml-auto text-[var(--rb-blue-500)]">✓</span>
                 )}
               </DropdownMenuItem>
             )) : (
-              <DropdownMenuItem disabled className="text-[#86868B]">
+              <DropdownMenuItem disabled className="text-fg-3">
                 No apps connected
               </DropdownMenuItem>
             )}
-            <DropdownMenuSeparator className="bg-black/[0.06]" />
+            <DropdownMenuSeparator />
             <DropdownMenuItem asChild>
-              <Link
-                href="/settings"
-                className="cursor-pointer text-[#0A84FF] focus:bg-black/[0.04] focus:text-[#0A84FF]"
-              >
+              <Link href="/settings" className="cursor-pointer text-[var(--rb-blue-500)]">
                 + Connect another app
               </Link>
             </DropdownMenuItem>
@@ -342,26 +261,40 @@ export function Sidebar({ className }: { className?: string }) {
         </DropdownMenu>
       </div>
 
-      <div className="mx-3 h-px bg-black/[0.06] dark:bg-white/[0.06]" />
+      <div className="mx-3 h-px bg-[var(--rb-border-1)]" />
 
-      {/* Navigation */}
-      <nav className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
+      {/* Navigation. Groups no longer collapse — twelve items always fit, and
+          the per-group chevron buttons added interaction cost with no payoff.
+          Labels are plain headers; every row sits flush at the same indent. */}
+      <nav className="flex-1 space-y-4 overflow-y-auto px-3 py-3">
         {navGroups.map((group, i) => (
-          <SidebarNavGroup
-            key={i}
-            label={group.label}
-            items={group.items.map((item) =>
-              item.href === "/reviews" && unrepliedCount > 0
-                ? { ...item, signal: String(unrepliedCount) }
-                : item
+          <div key={i}>
+            {group.label && (
+              <div className="px-2 pb-1 text-rb-xs font-medium uppercase tracking-[0.08em] text-fg-4">
+                {group.label}
+              </div>
             )}
-            pathname={pathname}
-          />
+            <div className="space-y-0.5">
+              {group.items.map((item) => {
+                const withSignal =
+                  item.href === "/reviews" && unrepliedCount > 0
+                    ? { ...item, signal: String(unrepliedCount) }
+                    : item;
+                return (
+                  <SidebarNavItem
+                    key={item.href}
+                    {...withSignal}
+                    isActive={pathname === item.href}
+                  />
+                );
+              })}
+            </div>
+          </div>
         ))}
       </nav>
 
       {/* Account menu (real — opens dropdown with profile + settings + sign out) */}
-      <div className="border-t border-black/[0.06] px-3 py-2.5 dark:border-white/[0.06]">
+      <div className="border-t border-[var(--rb-border-1)] px-3 py-2.5">
         <UserMenu variant="row" />
       </div>
     </aside>
