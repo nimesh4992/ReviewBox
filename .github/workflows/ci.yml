@@ -149,8 +149,38 @@ jobs:
 
       # Blocks the merge. Nothing is currently critical, so a red here is a
       # genuine new problem rather than pre-existing debt.
+      #
+      # Wrapped in a retry because a bare `npm audit` conflates two very
+      # different outcomes — both exit 1:
+      #   1. a critical advisory exists  → must block the merge
+      #   2. the registry answered 4xx/5xx → tells us nothing at all
+      # We hit (2) on c844e9d: the legacy /security/audits/quick endpoint, which
+      # npm's own notice says is being retired, returned "400 Invalid package
+      # tree" for a lockfile that had audited clean 44 minutes earlier. Failing
+      # the merge gate on npm's uptime is how a pipeline gets ignored.
+      #
+      # So: retry transient registry errors, fail loudly on real advisories,
+      # and if the registry never answers, pass with a visible warning rather
+      # than a silent green — the run is UNVERIFIED, and the log says so.
       - name: npm audit (critical blocks the merge)
-        run: npm audit --audit-level=critical
+        run: |
+          for attempt in 1 2 3; do
+            if out=$(npm audit --audit-level=critical 2>&1); then
+              echo "$out"
+              echo "No critical advisories."
+              exit 0
+            fi
+            if grep -qE "audit endpoint returned an error|Invalid package tree|ENETUNREACH|ETIMEDOUT|socket hang up" <<<"$out"; then
+              echo "::warning::npm audit registry error on attempt ${attempt}/3 — retrying."
+              tail -n 5 <<<"$out"
+              sleep $((attempt * 5))
+              continue
+            fi
+            echo "$out"
+            echo "::error::Critical advisories found — see the npm audit output above."
+            exit 1
+          done
+          echo "::warning::npm audit could not reach the registry after 3 attempts. Advisory status is UNVERIFIED for this run, not clean."
 
       # Reports but does not block. `--audit-level=high` cannot pass today: the
       # remaining high advisories are eslint-toolchain and vitest devDeps whose
