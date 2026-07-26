@@ -4,15 +4,15 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "Blog â€” ReviewBox",
+  title: "Blog",
   description:
-    "Guides, case studies, and product updates from the ReviewBox team.",
+    "Engineering notes and practical guides on managing App Store and Google Play reviews — replies, ratings, sentiment, and release health.",
 };
 
 const FEATURED = {
   title: "How we reduced AI reply costs by 94% without hurting quality",
   excerpt:
-    "We rebuilt the reply pipeline from scratch â€” 25 templates, a Redis cache, and Gemini for the hard cases. Here's exactly how the math works.",
+    "We rebuilt the reply pipeline from scratch — 25 templates, a Redis cache, and Gemini for the hard cases. Here's exactly how the math works.",
   category: "Engineering",
   date: "May 15, 2026",
   readTime: "8 min read",
@@ -30,7 +30,7 @@ const POSTS = [
   },
   {
     title: "Rating spikes: how to detect them before they become a PR problem",
-    excerpt: "A burst of 1-star reviews in 24 hours is a signal. Here's how to read it â€” and what to do next.",
+    excerpt: "A burst of 1-star reviews in 24 hours is a signal. Here's how to read it — and what to do next.",
     category: "Product",
     date: "May 5, 2026",
     readTime: "4 min read",
@@ -46,7 +46,7 @@ const POSTS = [
     slug: "/blog/appstore-vs-google-play-rating",
   },
   {
-    title: "Case study: Acme Banking, 4.21 â†’ 4.58 in 90 days",
+    title: "Case study: Acme Banking, 4.21 → 4.58 in 90 days",
     excerpt:
       "11-minute average reply time. A structured response framework. And one weekend sprint that changed everything.",
     category: "Case Studies",
@@ -57,7 +57,7 @@ const POSTS = [
   {
     title: "Connecting Google Play to ReviewBox: the complete guide",
     excerpt:
-      "Service account setup, API scopes, the exact JSON you need â€” with screenshots for every step.",
+      "Service account setup, API scopes, the exact JSON you need — with screenshots for every step.",
     category: "How-to",
     date: "April 10, 2026",
     readTime: "7 min read",
@@ -144,7 +144,7 @@ export default function BlogPage() {
               <p className="mt-3 text-gray-500 dark:text-[#86868B] leading-relaxed">{FEATURED.excerpt}</p>
               <div className="mt-4 flex items-center gap-3 text-xs text-gray-400 dark:text-[#636366]">
                 <span>{FEATURED.date}</span>
-                <span>Â·</span>
+                <span>·</span>
                 <span>{FEATURED.readTime}</span>
               </div>
             </div>
@@ -173,7 +173,7 @@ export default function BlogPage() {
               </p>
               <div className="mt-4 flex items-center gap-2 text-xs text-gray-400 dark:text-[#636366]">
                 <span>{post.date}</span>
-                <span>Â·</span>
+                <span>·</span>
                 <span>{post.readTime}</span>
               </div>
             </Link>

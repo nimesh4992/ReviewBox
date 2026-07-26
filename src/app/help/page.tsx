@@ -4,7 +4,7 @@ import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
 export const metadata = {
-  title: "Help Center — ReviewBox",
+  title: "Help Center",
   description:
     "Guides, tutorials, and answers for ReviewBox — setup, AI replies, automations, billing, and more.",
 };

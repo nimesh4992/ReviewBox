@@ -23,6 +23,13 @@ concurrency:
 
 env:
   NODE_VERSION: "20"
+
+  # Vercel target for the deploy-production job at the bottom of this file.
+  # These two are identifiers, not credentials — Vercel's own bot prints them
+  # in its public PR comments — so they live here rather than in secrets, and
+  # the only thing you have to add is VERCEL_TOKEN.
+  VERCEL_ORG_ID: "team_mQlD3mcz32rsA4HcPOBRiW6b"
+  VERCEL_PROJECT_ID: "prj_OE66Qpr8IdTXwLG6BOzevWYagRcl"
   # Build-time fallbacks so build doesn't fail when secrets aren't wired.
   # Real values come from Vercel env at deploy time.
   #
@@ -192,3 +199,89 @@ jobs:
       - name: npm audit (high severity — advisory)
         run: npm audit --audit-level=high
         continue-on-error: true
+
+  # ── Production deploy ───────────────────────────────────────────────────────
+  #
+  # Deploys master to Vercel through the CLI instead of Vercel's Git
+  # integration.
+  #
+  # Why: Vercel's Git integration only builds a commit whose *author* is a
+  # member of the Vercel team. The repo owner's GitHub account (nimesh4992) is
+  # not a member of the Vercel "ReviewBox" team, so every push and every
+  # Redeploy of master was answered with:
+  #
+  #   Deployment Blocked — the commit author did not have contributing access
+  #   The Hobby Plan does not support collaboration for private repositories
+  #
+  # That check does not apply to CLI deploys, which authenticate with a token
+  # belonging to the team itself. So this path does not care who authored or
+  # pushed the commit, and it keeps the project on the Hobby plan.
+  #
+  # Gated on the four blocking jobs so a red master cannot reach production.
+  # e2e-tests is deliberately excluded — it is advisory and currently cannot
+  # pass without Clerk test credentials (BUG-037).
+  deploy-production:
+    name: Deploy to production
+    needs: [build-and-typecheck, lint, unit-tests, security-audit]
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      # Skip rather than fail when the token is absent. Without this, adding
+      # this job would turn master red until the secret exists, and a red
+      # pipeline that everyone learns to ignore is worse than no pipeline.
+      - name: Check for VERCEL_TOKEN
+        id: guard
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          if [ -z "$VERCEL_TOKEN" ]; then
+            echo "::warning::VERCEL_TOKEN is not set — skipping the production deploy. Add it at Settings → Secrets and variables → Actions (create the token at Vercel → Account Settings → Tokens, scoped to the ReviewBox team)."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: steps.guard.outputs.ready == 'true'
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+
+      - name: Install Vercel CLI
+        if: steps.guard.outputs.ready == 'true'
+        run: npm install --global vercel@latest
+
+      # `vercel pull` fetches the project's own production environment
+      # variables, so the real Clerk / Supabase / Groq values come from Vercel
+      # and are never duplicated into GitHub secrets.
+      - name: Pull Vercel production environment
+        if: steps.guard.outputs.ready == 'true'
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+        env:
+          # VERCEL_ORG_ID and VERCEL_PROJECT_ID come from the workflow-level
+          # env block and are already present in every step's environment.
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Build
+        if: steps.guard.outputs.ready == 'true'
+        run: vercel build --prod --token="$VERCEL_TOKEN"
+        env:
+          # VERCEL_ORG_ID and VERCEL_PROJECT_ID come from the workflow-level
+          # env block and are already present in every step's environment.
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      - name: Deploy
+        if: steps.guard.outputs.ready == 'true'
+        run: |
+          url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          echo "Deployed: $url"
+          echo "### Production deploy" >> "$GITHUB_STEP_SUMMARY"
+          echo "$url" >> "$GITHUB_STEP_SUMMARY"
+        env:
+          # VERCEL_ORG_ID and VERCEL_PROJECT_ID come from the workflow-level
+          # env block and are already present in every step's environment.
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

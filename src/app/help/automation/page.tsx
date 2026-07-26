@@ -4,7 +4,7 @@ import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
 export const metadata = {
-  title: "Automation Rules — ReviewBox Help",
+  title: "Automation Rules — Help",
   description:
     "Learn how to build automation rules in ReviewBox to auto-triage, auto-draft, and auto-reply to app store reviews.",
 };

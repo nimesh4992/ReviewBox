@@ -4,13 +4,13 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "Customers â€” ReviewBox",
+  title: "Customers",
   description: "See how mobile teams use ReviewBox to respond faster and improve their ratings.",
 };
 
 const METRICS = [
-  { value: "48h â†’ 6h", label: "Average first-reply time" },
-  { value: "4.21 â†’ 4.58", label: "Average rating after 90 days" },
+  { value: "48h → 6h", label: "Average first-reply time" },
+  { value: "4.21 → 4.58", label: "Average rating after 90 days" },
   { value: "340%", label: "More reviews replied to per week" },
   { value: "$0", label: "Cost per AI reply (template tier)" },
 ];
@@ -18,7 +18,7 @@ const METRICS = [
 const TESTIMONIALS = [
   {
     quote:
-      "We went from replying to maybe 20% of our reviews manually to replying to 95% â€” with better, more on-brand responses. It took one afternoon to set up.",
+      "We went from replying to maybe 20% of our reviews manually to replying to 95% — with better, more on-brand responses. It took one afternoon to set up.",
     author: "Sarah K.",
     role: "Head of Product, Fintech startup",
     rating: 5,
@@ -32,7 +32,7 @@ const TESTIMONIALS = [
   },
   {
     quote:
-      "Our app store rating went from 4.0 to 4.6 in three months. We changed nothing in the product â€” we just started actually responding to every review.",
+      "Our app store rating went from 4.0 to 4.6 in three months. We changed nothing in the product — we just started actually responding to every review.",
     author: "Priya M.",
     role: "Growth, Consumer app (2M MAU)",
     rating: 5,
@@ -81,7 +81,7 @@ export default function CustomersPage() {
             Mobile teams that reply faster and rate higher.
           </h1>
           <p className="mt-4 text-lg text-gray-500 dark:text-[#86868B]">
-            From indie apps to 2M MAU products â€” real results from real teams.
+            From indie apps to 2M MAU products — real results from real teams.
           </p>
         </div>
 
@@ -122,7 +122,7 @@ export default function CustomersPage() {
               <div key={t.author} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-8">
                 <div className="flex gap-0.5 mb-4">
                   {Array.from({ length: t.rating }).map((_, i) => (
-                    <span key={i} className="text-amber-400 text-sm">â˜…</span>
+                    <span key={i} className="text-amber-400 text-sm">★</span>
                   ))}
                 </div>
                 <p className="text-sm leading-relaxed text-gray-700 dark:text-[#C7C7CC]">&ldquo;{t.quote}&rdquo;</p>

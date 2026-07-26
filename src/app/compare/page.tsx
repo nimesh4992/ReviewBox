@@ -6,7 +6,10 @@ import { MarketingShell } from "@/components/layout/marketing-shell";
 import { RoiCalculator } from "@/components/marketing/roi-calculator";
 
 export const metadata = {
-  title: "ReviewBox vs AppFollow – Feature Comparison",
+  // `absolute` skips the root layout's "%s | ReviewBox" template — the brand
+  // is already the first word of this title, and appending it again gave
+  // "ReviewBox vs AppFollow – Feature Comparison | ReviewBox".
+  title: { absolute: "ReviewBox vs AppFollow – Feature Comparison" },
   description:
     "ReviewBox vs AppFollow: same stores, better AI, at a fraction of the price. 14-day free trial, no card required.",
 };

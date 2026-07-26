@@ -1,7 +1,7 @@
 ﻿import Link from "next/link";
 
 export const metadata = {
-  title: "Refund & Cancellation Policy â€” ReviewBox",
+  title: "Refund & Cancellation Policy",
 };
 
 export default function RefundPolicyPage() {
@@ -12,7 +12,7 @@ export default function RefundPolicyPage() {
           href="/"
           className="inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-800"
         >
-          â† Back to ReviewBox
+          ← Back to ReviewBox
         </Link>
 
         <div className="mt-8 rounded-2xl bg-white px-8 py-10 shadow-sm ring-1 ring-gray-200 sm:px-12">
@@ -38,7 +38,7 @@ export default function RefundPolicyPage() {
                 2. Subscription Cancellation
               </h2>
               <p className="mt-3">
-                You may cancel your subscription at any time through your dashboard settings or by contacting us at nssatikunvar@gmail.com. Upon cancellation, your subscription will remain active until the end of the current billing cycle. No further charges will be made after cancellation.
+                You may cancel your subscription at any time through your dashboard settings or by contacting us at hello@tryreviewbox.com. Upon cancellation, your subscription will remain active until the end of the current billing cycle. No further charges will be made after cancellation.
               </p>
             </section>
 
@@ -56,7 +56,7 @@ export default function RefundPolicyPage() {
                 4. Contact Us
               </h2>
               <p className="mt-3">
-                For any questions regarding billing, cancellations, or refunds, please email us at nssatikunvar@gmail.com.
+                For any questions regarding billing, cancellations, or refunds, please email us at hello@tryreviewbox.com.
               </p>
             </section>
           </div>

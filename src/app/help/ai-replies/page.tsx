@@ -4,7 +4,7 @@ import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
 export const metadata = {
-  title: "How AI Replies Work — ReviewBox Help",
+  title: "How AI Replies Work — Help",
   description:
     "Learn how ReviewBox's 3-tier AI reply pipeline works: templates, cache, and Groq — and how 85% of replies cost $0.",
 };

@@ -1,8 +1,8 @@
 ﻿import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
 
 export const metadata = {
-  title: "Privacy Policy â€” ReviewBox",
-  description: "ReviewBox Privacy Policy â€” how we collect, use, and protect your data.",
+  title: "Privacy Policy",
+  description: "ReviewBox Privacy Policy — how we collect, use, and protect your data.",
 };
 
 const SECTIONS = [
@@ -90,30 +90,30 @@ export default function PrivacyPage() {
         </p>
         <ul className="mt-2 list-disc space-y-1.5 pl-5">
           <li>
-            <strong>Supabase</strong> â€” PostgreSQL database and file storage (EU region). Your
+            <strong>Supabase</strong> — PostgreSQL database and file storage (EU region). Your
             review data and account data are stored here.
           </li>
           <li>
-            <strong>Clerk</strong> â€” Authentication and user management. Handles sign-up,
+            <strong>Clerk</strong> — Authentication and user management. Handles sign-up,
             sign-in, and session tokens.
           </li>
           <li>
-            <strong>Stripe</strong> â€” Payment processing. Receives billing details to manage
+            <strong>Stripe</strong> — Payment processing. Receives billing details to manage
             subscriptions.
           </li>
           <li>
-            <strong>Groq / Google (Gemini)</strong> â€” AI inference for generating reply drafts
+            <strong>Groq / Google (Gemini)</strong> — AI inference for generating reply drafts
             and sentiment analysis. Review text is sent for processing and is not retained beyond
             the request lifecycle.
           </li>
           <li>
-            <strong>PostHog</strong> â€” Product analytics. Receives anonymized usage events.
+            <strong>PostHog</strong> — Product analytics. Receives anonymized usage events.
           </li>
           <li>
-            <strong>Resend</strong> â€” Transactional email delivery.
+            <strong>Resend</strong> — Transactional email delivery.
           </li>
           <li>
-            <strong>Upstash</strong> â€” Redis rate limiting and caching.
+            <strong>Upstash</strong> — Redis rate limiting and caching.
           </li>
         </ul>
         <p>
@@ -144,14 +144,14 @@ export default function PrivacyPage() {
           <li>
             <strong>Export:</strong> Download your data in a portable format via{" "}
             <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs">
-              Settings â†’ Privacy â†’ Export data
+              Settings → Privacy → Export data
             </code>
             .
           </li>
           <li>
             <strong>Deletion:</strong> Request erasure of your data via{" "}
             <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs">
-              Settings â†’ Privacy â†’ Delete account
+              Settings → Privacy → Delete account
             </code>{" "}
             or by emailing us.
           </li>
