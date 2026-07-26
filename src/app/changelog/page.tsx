@@ -4,8 +4,8 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "Changelog â€” ReviewBox",
-  description: "What's new in ReviewBox â€” release notes grouped by month.",
+  title: "Changelog — ReviewBox",
+  description: "Release notes for ReviewBox, grouped by month — new features, fixes, and changes to review sync, AI replies, and alerting.",
 };
 
 const RELEASES = [
@@ -17,7 +17,7 @@ const RELEASES = [
         date: "May 15, 2026",
         type: "feature" as const,
         title: "Apple App Store sync + App Store Connect API",
-        body: "You can now connect your App Store Connect account and sync reviews from any iOS app. Reviews land in the same queue as Google Play â€” with the same AI triage, priority scoring, and reply workflow.",
+        body: "You can now connect your App Store Connect account and sync reviews from any iOS app. Reviews land in the same queue as Google Play — with the same AI triage, priority scoring, and reply workflow.",
         items: [
           "App Store Connect JWT authentication (ES256, per-workspace credentials)",
           "Unified review queue across both stores",
@@ -29,13 +29,13 @@ const RELEASES = [
         version: "v1.3.2",
         date: "May 10, 2026",
         type: "improvement" as const,
-        title: "AI cost optimisation â€” 94% fewer tokens",
+        title: "AI cost optimisation — 94% fewer tokens",
         body: "Major rework of the AI reply pipeline to eliminate redundant API calls. The vast majority of replies are now handled without hitting Groq at all.",
         items: [
           "25-template match layer resolves ~70% of requests at zero tokens",
           "SHA-256 Redis reply cache (7-day TTL) handles ~20% of remainder",
-          "Prompt compression strips filler phrases â€” 73% shorter inputs",
-          "Gemini 2.0 Flash for batch sentiment on ambiguous 3â˜… reviews",
+          "Prompt compression strips filler phrases — 73% shorter inputs",
+          "Gemini 2.0 Flash for batch sentiment on ambiguous 3★ reviews",
         ],
       },
       {
@@ -43,7 +43,7 @@ const RELEASES = [
         date: "May 1, 2026",
         type: "feature" as const,
         title: "Automation rules + auto-draft",
-        body: "Build rules that fire automatically when reviews arrive. Auto-triage, auto-escalate, and auto-draft replies â€” all configurable per workspace.",
+        body: "Build rules that fire automatically when reviews arrive. Auto-triage, auto-escalate, and auto-draft replies — all configurable per workspace.",
         items: [
           "Visual rule builder with 8 condition types",
           "Actions: escalate, tag, draft reply, assign",
@@ -61,11 +61,11 @@ const RELEASES = [
         date: "April 20, 2026",
         type: "feature" as const,
         title: "Rating spike detection + email alerts",
-        body: "ReviewBox now monitors for sudden bursts of low-rated reviews on the same app version. If â‰¥5 reviews rated â‰¤2â˜… arrive within 24 hours on a single version, the workspace owner gets an email alert.",
+        body: "ReviewBox now monitors for sudden bursts of low-rated reviews on the same app version. If ≥5 reviews rated ≤2★ arrive within 24 hours on a single version, the workspace owner gets an email alert.",
         items: [
           "Spike detection runs on every sync",
           "Alert email includes version, count, and sample reviews",
-          "Configurable threshold in Settings â†’ Alerts",
+          "Configurable threshold in Settings → Alerts",
         ],
       },
       {
@@ -137,7 +137,7 @@ export default function ChangelogPage() {
         <div className="pt-8 pb-12">
           <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">Changelog</h1>
           <p className="mt-3 text-gray-500 dark:text-[#86868B]">
-            Every release, every improvement â€” shipped and documented.
+            Every release, every improvement — shipped and documented.
           </p>
         </div>
 
@@ -160,7 +160,7 @@ export default function ChangelogPage() {
                         {TYPE_LABELS[entry.type]}
                       </span>
                       <span className="font-mono text-xs text-gray-400 dark:text-[#636366]">{entry.version}</span>
-                      <span className="text-xs text-gray-400 dark:text-[#636366]">Â·</span>
+                      <span className="text-xs text-gray-400 dark:text-[#636366]">·</span>
                       <span className="text-xs text-gray-400 dark:text-[#636366]">{entry.date}</span>
                     </div>
                     <h3 className="mt-3 text-lg font-semibold text-gray-900 dark:text-[#F5F5F7]">{entry.title}</h3>

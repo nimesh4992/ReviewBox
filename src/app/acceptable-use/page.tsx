@@ -1,8 +1,8 @@
 ﻿import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
 
 export const metadata = {
-  title: "Acceptable Use Policy â€” ReviewBox",
-  description: "ReviewBox Acceptable Use Policy â€” rules for using the platform responsibly.",
+  title: "Acceptable Use Policy — ReviewBox",
+  description: "ReviewBox Acceptable Use Policy — rules for using the platform responsibly.",
 };
 
 const SECTIONS = [
@@ -27,7 +27,7 @@ export default function AcceptableUsePage() {
       plainLanguage={[
         "Don't break the law with our product. Don't break our product.",
         "No spam, no malware, no impersonation, no harassment.",
-        "Reasonable API rate limits apply â€” see section 5.",
+        "Reasonable API rate limits apply — see section 5.",
         "Violations can suspend your workspace within 24 hours.",
       ]}
       sections={SECTIONS}
@@ -48,7 +48,7 @@ export default function AcceptableUsePage() {
       <LegalSection id="replying" number={2} title="Replying on behalf of others">
         <p>
           You must have authority to reply to the reviews of the apps you connect. Replying to
-          reviews of an app you don&apos;t own â€” even if you have the credentials â€” violates this
+          reviews of an app you don&apos;t own — even if you have the credentials — violates this
           policy.
         </p>
         <p>

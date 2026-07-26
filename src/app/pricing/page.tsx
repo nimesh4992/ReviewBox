@@ -5,7 +5,7 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "Pricing â€” ReviewBox",
+  title: "Pricing — ReviewBox",
   description:
     "Simple, transparent pricing for every team. Start free, no credit card required.",
 };
@@ -260,15 +260,15 @@ export default function PricingPage() {
               },
               {
                 q: "Can I switch plans later?",
-                a: "Yes â€” upgrade or downgrade at any time from Billing settings. Upgrades take effect immediately; downgrades take effect at the next billing cycle.",
+                a: "Yes — upgrade or downgrade at any time from Billing settings. Upgrades take effect immediately; downgrades take effect at the next billing cycle.",
               },
               {
                 q: "What happens if I go over my review limit?",
-                a: "We'll notify you when you hit 80% of your quota. Your existing reviews stay safe â€” new reviews will pause syncing until you upgrade or the next cycle resets.",
+                a: "We'll notify you when you hit 80% of your quota. Your existing reviews stay safe — new reviews will pause syncing until you upgrade or the next cycle resets.",
               },
               {
                 q: "Is there a refund policy?",
-                a: "Yes â€” 30-day full refund on monthly and annual plans, no questions asked. See our Refund Policy for details.",
+                a: "Yes — 30-day full refund on monthly and annual plans, no questions asked. See our Refund Policy for details.",
               },
               {
                 q: "Do you offer annual billing?",
@@ -286,7 +286,7 @@ export default function PricingPage() {
         {/* CTA */}
         <div className="mt-20 rounded-2xl bg-gray-900 px-8 py-14 text-center">
           <h2 className="text-2xl font-bold text-white sm:text-3xl">
-            Start free â€” upgrade when you&apos;re ready.
+            Start free — upgrade when you&apos;re ready.
           </h2>
           <p className="mt-3 text-gray-400">
             No contracts. No lock-in. Cancel any time.

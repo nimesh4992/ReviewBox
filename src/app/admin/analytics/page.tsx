@@ -83,7 +83,7 @@ export default async function AdminAnalyticsPage() {
         <StatCard
           label="Total workspaces"
           value={totalWorkspaces}
-          sub={planBreakdown || "â€”"}
+          sub={planBreakdown || "—"}
         />
         <StatCard label="Total apps connected" value={totalApps ?? 0} />
         <StatCard label="Total reviews synced" value={totalReviews ?? 0} />

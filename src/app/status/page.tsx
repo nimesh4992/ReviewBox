@@ -5,8 +5,8 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "System Status â€” ReviewBox",
-  description: "Live status of ReviewBox services â€” API, AI replies, sync, and more.",
+  title: "System Status — ReviewBox",
+  description: "Service status for ReviewBox — review sync, AI reply generation, store connections, and the dashboard.",
 };
 
 type ServiceStatus = "operational" | "degraded" | "outage" | "maintenance";
@@ -17,14 +17,14 @@ const SERVICES: { name: string; status: ServiceStatus; latency?: string }[] = [
   { name: "Dashboard & Web App", status: "operational", latency: "98ms" },
   { name: "API", status: "operational", latency: "112ms" },
   { name: "AI Reply Generation", status: "operational", latency: "340ms" },
-  { name: "Google Play Sync", status: "operational", latency: "â€”" },
-  { name: "Apple App Store Sync", status: "operational", latency: "â€”" },
+  { name: "Google Play Sync", status: "operational", latency: "—" },
+  { name: "Apple App Store Sync", status: "operational", latency: "—" },
   { name: "Webhooks", status: "operational", latency: "55ms" },
-  { name: "Email Notifications", status: "operational", latency: "â€”" },
+  { name: "Email Notifications", status: "operational", latency: "—" },
   { name: "Upstash Redis (Cache)", status: "operational", latency: "8ms" },
 ];
 
-// 90-day uptime simulation â€” each entry is a day, true = up, false = incident
+// 90-day uptime simulation — each entry is a day, true = up, false = incident
 function generateUptimeBar(incidents: number[]): boolean[] {
   return Array.from({ length: 90 }, (_, i) => !incidents.includes(i));
 }
@@ -135,7 +135,7 @@ export default function StatusPage() {
               target="_blank"
               rel="noopener noreferrer"
             >
-              Subscribe to updates â†’
+              Subscribe to updates →
             </a>
           </p>
         </div>
@@ -153,7 +153,7 @@ export default function StatusPage() {
               <div key={svc.name} className="flex items-center justify-between px-6 py-4">
                 <div>
                   <p className="text-sm font-medium text-gray-900 dark:text-[#F5F5F7]">{svc.name}</p>
-                  {svc.latency && svc.latency !== "â€”" && (
+                  {svc.latency && svc.latency !== "—" && (
                     <p className="text-xs text-gray-400 dark:text-[#636366] mt-0.5">avg latency {svc.latency}</p>
                   )}
                 </div>

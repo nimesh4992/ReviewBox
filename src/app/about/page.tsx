@@ -4,18 +4,18 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "About â€” ReviewBox",
+  title: "About — ReviewBox",
   description: "ReviewBox is the app-store review management platform built by people who've shipped apps.",
 };
 
 const VALUES = [
   {
     title: "Replies that sound human",
-    body: "AI drafts are starting points, not finishes. We built templates and tone controls so every reply sounds like you wrote it â€” because eventually you'll hit publish.",
+    body: "AI drafts are starting points, not finishes. We built templates and tone controls so every reply sounds like you wrote it — because eventually you'll hit publish.",
   },
   {
     title: "Signal over noise",
-    body: "App stores generate thousands of reviews. Our job is to surface the ones that actually need your attention â€” the crashes, the billing issues, the 1-star spikes.",
+    body: "App stores generate thousands of reviews. Our job is to surface the ones that actually need your attention — the crashes, the billing issues, the 1-star spikes.",
   },
   {
     title: "Invisible infrastructure",
@@ -52,7 +52,7 @@ export default function AboutPage() {
           </h1>
           <p className="mt-6 text-xl text-gray-500 dark:text-[#86868B] leading-relaxed">
             ReviewBox started as an internal tool. We managed six apps across two stores, and
-            responding to reviews was taking four hours a week â€” mostly spent on copy-pasting and
+            responding to reviews was taking four hours a week — mostly spent on copy-pasting and
             writing the same replies over and over. We automated that. Then we made it better.
           </p>
         </div>
@@ -62,7 +62,7 @@ export default function AboutPage() {
           {[
             { value: "2,400+", label: "AI drafts generated / day" },
             { value: "48h", label: "Average first-reply time drop" },
-            { value: "4.21â†’4.58", label: "Avg. rating lift after 90 days" },
+            { value: "4.21→4.58", label: "Avg. rating lift after 90 days" },
             { value: "< 5 min", label: "Setup to first synced review" },
           ].map(({ value, label }) => (
             <div key={label} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6">
@@ -92,7 +92,7 @@ export default function AboutPage() {
           <h2 className="text-xl font-bold text-gray-900 dark:text-[#F5F5F7]">Where the team hangs out</h2>
           <p className="mt-3 text-gray-500 dark:text-[#86868B] text-sm leading-relaxed">
             We&apos;re a small, fully remote team. Most of us are in San Francisco and London.
-            We meet in person twice a year. Everything else is async â€” we write things down,
+            We meet in person twice a year. Everything else is async — we write things down,
             ship things, and measure the impact.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">

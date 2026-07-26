@@ -120,7 +120,7 @@ export default async function AdminCustomersPage() {
                     <td className="px-4 py-3 text-gray-700">{row.app_count}</td>
                     <td className="px-4 py-3 text-gray-500">{joined}</td>
                     <td className="px-4 py-3 font-mono text-xs text-gray-400">
-                      {row.owner_clerk_id ?? "â€”"}
+                      {row.owner_clerk_id ?? "—"}
                     </td>
                   </tr>
                 );

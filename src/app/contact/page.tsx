@@ -5,7 +5,7 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "Contact â€” ReviewBox",
+  title: "Contact — ReviewBox",
   description:
     "Get in touch with the ReviewBox team. Support, sales, and partnerships.",
 };
@@ -42,8 +42,8 @@ const CHANNELS = [
 
 const FAQS = [
   { q: "How fast do you respond?", a: "Within one business day for support. Sales emails typically same day." },
-  { q: "Is there live chat?", a: "Not yet â€” but every email goes to a real person and we respond fast." },
-  { q: "Can I schedule a demo?", a: "Yes â€” email sales@tryreviewbox.com and we'll find a time." },
+  { q: "Is there live chat?", a: "Not yet — but every email goes to a real person and we respond fast." },
+  { q: "Can I schedule a demo?", a: "Yes — email sales@tryreviewbox.com and we'll find a time." },
   { q: "Where are you based?", a: "We're a remote-first team with people in San Francisco and London." },
 ];
 
@@ -76,7 +76,7 @@ export default function ContactPage() {
 
           <div className="mt-6 flex items-center gap-2 text-sm text-gray-500 dark:text-[#86868B]">
             <Clock className="h-4 w-4 text-emerald-500" />
-            <span>We respond within <strong className="text-gray-800 dark:text-[#F5F5F7]">one business day</strong> â€” usually faster.</span>
+            <span>We respond within <strong className="text-gray-800 dark:text-[#F5F5F7]">one business day</strong> — usually faster.</span>
           </div>
         </div>
 
@@ -122,7 +122,7 @@ export default function ContactPage() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366] mb-2">Headquarters</p>
                 <p className="font-semibold text-gray-900 dark:text-[#F5F5F7]">AT Work Inc.</p>
-                <p className="text-sm text-gray-500 dark:text-[#86868B] mt-1">Remote-first Â· San Francisco + London</p>
+                <p className="text-sm text-gray-500 dark:text-[#86868B] mt-1">Remote-first · San Francisco + London</p>
               </div>
               <div className="border-t border-gray-100 dark:border-white/6 pt-6">
                 <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366] mb-2">Legal</p>
@@ -151,7 +151,7 @@ export default function ContactPage() {
                   <Link href="/help" className="text-[#0A84FF] hover:underline">
                     help.tryreviewbox.com
                   </Link>{" "}
-                  â€” it answers ~70% of questions instantly.
+                  — it answers ~70% of questions instantly.
                 </p>
               </div>
             </div>

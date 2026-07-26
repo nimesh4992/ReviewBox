@@ -4,7 +4,7 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "Careers â€” ReviewBox",
+  title: "Careers — ReviewBox",
   description: "Join the team building the best review management platform for mobile apps.",
 };
 
@@ -47,11 +47,11 @@ const BENEFITS = [
   { emoji: "ðŸ’°", label: "Competitive salary + equity" },
   { emoji: "ðŸ¥", label: "Full health, dental, vision (US)" },
   { emoji: "ðŸŒ", label: "Fully remote, async-first" },
-  { emoji: "âœˆï¸", label: "2Ã— annual team offsites" },
+  { emoji: "✈ï¸", label: "2× annual team offsites" },
   { emoji: "ðŸ“š", label: "$2K/year learning budget" },
   { emoji: "ðŸ’»", label: "Top-of-the-line equipment" },
   { emoji: "ðŸ–ï¸", label: "Unlimited PTO (min 20 days)" },
-  { emoji: "âš¡", label: "Founder access, fast decisions" },
+  { emoji: "⚡", label: "Founder access, fast decisions" },
 ];
 
 export default function CareersPage() {
@@ -79,7 +79,7 @@ export default function CareersPage() {
           </h1>
           <p className="mt-6 text-xl text-gray-500 dark:text-[#86868B] leading-relaxed">
             We&apos;re a small team building tools for other small teams. If you want to own big
-            things fast, work on a product people pay for, and skip the corporate ladder â€”
+            things fast, work on a product people pay for, and skip the corporate ladder —
             you might be our person.
           </p>
 
@@ -107,7 +107,7 @@ export default function CareersPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             {[
               { title: "Ownership over org charts", body: "You own the problem, not just a ticket. If something is broken, you fix it. If something is missing, you ship it." },
-              { title: "Deliberate writing", body: "We write to think. Proposals, bug reports, design docs â€” clarity of writing reflects clarity of thinking." },
+              { title: "Deliberate writing", body: "We write to think. Proposals, bug reports, design docs — clarity of writing reflects clarity of thinking." },
               { title: "Sustainable pacing", body: "We work normal hours most of the time. When we crunch, it's purposeful and temporary, not the default mode." },
               { title: "Quality sensing", body: "You notice when something is slightly off before anyone tells you. You care about the detail even when no-one's watching." },
             ].map((v) => (
@@ -138,9 +138,9 @@ export default function CareersPage() {
                     <span className="text-[10px] font-semibold uppercase tracking-widest text-gray-400">
                       {role.team}
                     </span>
-                    <span className="text-gray-200">Â·</span>
+                    <span className="text-gray-200">·</span>
                     <span className="text-[10px] text-gray-400">{role.location}</span>
-                    <span className="text-gray-200">Â·</span>
+                    <span className="text-gray-200">·</span>
                     <span className="text-[10px] text-gray-400">{role.type}</span>
                   </div>
                   <h3 className="text-base font-semibold text-gray-900 dark:text-[#F5F5F7]">{role.title}</h3>
@@ -151,7 +151,7 @@ export default function CareersPage() {
                     href={`mailto:hello@tryreviewbox.com?subject=Application: ${encodeURIComponent(role.title)}`}
                     className="inline-flex items-center rounded-xl border border-gray-200 dark:border-white/10 px-4 py-2 text-sm font-semibold text-gray-700 dark:text-[#C7C7CC] hover:bg-gray-50 dark:hover:bg-white/5"
                   >
-                    Apply â†’
+                    Apply →
                   </a>
                 </div>
               </div>
@@ -162,7 +162,7 @@ export default function CareersPage() {
             <a href="mailto:hello@tryreviewbox.com" className="text-[#0A84FF] hover:underline">
               hello@tryreviewbox.com
             </a>{" "}
-            anyway â€” we read every email.
+            anyway — we read every email.
           </p>
         </div>
 

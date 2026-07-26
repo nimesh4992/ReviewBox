@@ -1,14 +1,14 @@
 ﻿import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
 
 export const metadata = {
-  title: "Refund Policy â€” ReviewBox",
-  description: "ReviewBox refund policy â€” 30-day refunds for monthly and annual plans.",
+  title: "Refund Policy — ReviewBox",
+  description: "ReviewBox refund policy — 30-day refunds for monthly and annual plans.",
 };
 
 const SECTIONS = [
   { id: "refund-window",       title: "Refund window" },
-  { id: "monthly",             title: "30 days â€” monthly" },
-  { id: "annual",              title: "30 days â€” annual" },
+  { id: "monthly",             title: "30 days — monthly" },
+  { id: "annual",              title: "30 days — annual" },
   { id: "accidental-charges",  title: "Accidental charges" },
   { id: "chargebacks",         title: "Chargebacks" },
   { id: "request",             title: "How to request a refund" },
@@ -27,7 +27,7 @@ export default function RefundPage() {
         "Monthly plans: full refund within 30 days of each billing cycle start.",
         "Annual plans: full refund within 30 days of purchase or renewal.",
         "Accidental duplicate charges are refunded same day.",
-        "Refund requests are processed within 5â€“10 business days via Stripe.",
+        "Refund requests are processed within 5–10 business days via Stripe.",
       ]}
       sections={SECTIONS}
     >
@@ -44,7 +44,7 @@ export default function RefundPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="monthly" number={2} title="30 days â€” monthly">
+      <LegalSection id="monthly" number={2} title="30 days — monthly">
         <p>
           If you are on a monthly billing cycle, you may request a full refund of the most recent
           charge within 30 days of when that charge was made. Prior billing periods are not
@@ -57,7 +57,7 @@ export default function RefundPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="annual" number={3} title="30 days â€” annual">
+      <LegalSection id="annual" number={3} title="30 days — annual">
         <p>
           If you are on an annual billing cycle, you may request a full refund of the annual charge
           within 30 days of the original purchase date or the most recent annual renewal date.
@@ -71,8 +71,8 @@ export default function RefundPage() {
 
       <LegalSection id="accidental-charges" number={4} title="Accidental charges">
         <p>
-          If you were charged for a plan upgrade or renewal that you did not intend â€” for example,
-          because of an accidental click or a team member acting without authorisation â€” contact us
+          If you were charged for a plan upgrade or renewal that you did not intend — for example,
+          because of an accidental click or a team member acting without authorisation — contact us
           within <strong>7 days</strong> of the charge and we will issue a full refund and, where
           applicable, reverse the plan change.
         </p>
@@ -94,7 +94,7 @@ export default function RefundPage() {
           If a chargeback is filed for a charge that is covered by this Refund Policy, we will
           provide the card network with documentation demonstrating that you were eligible for a
           direct refund. Filing a chargeback does not guarantee a refund and may delay resolution
-          by 30â€“90 days.
+          by 30–90 days.
         </p>
       </LegalSection>
 
@@ -112,8 +112,8 @@ export default function RefundPage() {
         </ul>
         <p className="mt-3">
           We typically respond within one business day and process approved refunds within
-          5â€“10 business days. Stripe&apos;s processing time means the credit may take an
-          additional 3â€“7 days to appear on your statement.
+          5–10 business days. Stripe&apos;s processing time means the credit may take an
+          additional 3–7 days to appear on your statement.
         </p>
       </LegalSection>
     </LegalPageLayout>

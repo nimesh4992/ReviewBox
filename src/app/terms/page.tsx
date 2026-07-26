@@ -1,8 +1,8 @@
 ﻿import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
 
 export const metadata = {
-  title: "Terms of Service â€” ReviewBox",
-  description: "ReviewBox Terms of Service â€” the rules governing your use of the platform.",
+  title: "Terms of Service — ReviewBox",
+  description: "ReviewBox Terms of Service — the rules governing your use of the platform.",
 };
 
 const SECTIONS = [
@@ -30,10 +30,10 @@ export default function TermsPage() {
       jurisdiction="Global"
       version="2.0"
       plainLanguage={[
-        "By using ReviewBox you agree to these Terms. Read them â€” they matter.",
+        "By using ReviewBox you agree to these Terms. Read them — they matter.",
         "14-day free trial, no card required. Three paid tiers: Starter, Pro, Team.",
         "You own your review data. We process it only to provide the service.",
-        "Questions? Email legal@tryreviewbox.com â€” a real lawyer reads these.",
+        "Questions? Email legal@tryreviewbox.com — a real lawyer reads these.",
       ]}
       sections={SECTIONS}
     >
@@ -72,15 +72,15 @@ export default function TermsPage() {
         <p>ReviewBox offers three paid subscription tiers billed monthly:</p>
         <ul className="mt-2 list-disc space-y-1.5 pl-5">
           <li>
-            <strong>Starter â€” $49/month:</strong> Up to 2 apps, 5,000 reviews/month, email alerts,
+            <strong>Starter — $49/month:</strong> Up to 2 apps, 5,000 reviews/month, email alerts,
             50 AI drafts/day.
           </li>
           <li>
-            <strong>Pro â€” $99/month:</strong> Up to 10 apps, 50,000 reviews/month, Slack alerts,
+            <strong>Pro — $99/month:</strong> Up to 10 apps, 50,000 reviews/month, Slack alerts,
             200 AI drafts/day.
           </li>
           <li>
-            <strong>Team â€” $199/month:</strong> Unlimited apps, reviews, AI drafts, and priority
+            <strong>Team — $199/month:</strong> Unlimited apps, reviews, AI drafts, and priority
             support.
           </li>
         </ul>
