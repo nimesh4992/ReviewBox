@@ -20,8 +20,12 @@ export type AnalyticsEvent =
   | { name: "upgrade_clicked"; properties: { plan: "starter" | "pro" | "team" } }
   | { name: "upgrade_completed"; properties: { plan: "starter" | "pro" | "team" } }
   // Core product engagement
-  | { name: "reply_drafted"; properties: { source: "template" | "cache" | "groq" } }
-  | { name: "reply_sent"; properties: { app_platform: "google_play" | "app_store" } }
+  | { name: "reply_drafted"; properties: { source: "template" | "cache" | "groq" | "unknown" } }
+  // method distinguishes the connected one-click post ("api") from Draft
+  // Mode's copy-paste-then-confirm ("manual") — activation looks different
+  // in each, so the funnel needs to see both.
+  | { name: "reply_sent"; properties: { app_platform: "google_play" | "app_store"; method: "api" | "manual" } }
+  | { name: "competitor_added"; properties: { platform: "google_play" | "app_store" } }
   // Power features
   | { name: "automation_rule_created"; properties: { action: string } }
   | { name: "template_created"; properties: Record<string, never> }

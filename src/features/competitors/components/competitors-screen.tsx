@@ -5,6 +5,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Loader2, Plus, Search, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { track } from "@/lib/analytics";
 import {
   Dialog,
   DialogContent,
@@ -200,6 +201,10 @@ function AddCompetitorDialog({
         );
         return;
       }
+      track({
+        name: "competitor_added",
+        properties: { platform: platform === "app-store" ? "app_store" : "google_play" },
+      });
       onAdded();
       onOpenChange(false);
       setQuery("");

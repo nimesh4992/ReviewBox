@@ -14,6 +14,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 
 import { cn } from "@/lib/utils";
+import { track } from "@/lib/analytics";
 import { useApps } from "@/hooks/use-apps";
 import { AppReview, ReviewSentiment, AIReplyTone } from "@/types/review";
 import { humanizeToken, formatReviewDate } from "@/utils/format";
@@ -377,6 +378,15 @@ function ReplyComposer({
       // Store for learning loop — track source + original text before any edit
       setDraftSource(data.source ?? null);
       setOriginalDraft(data.reply);
+      track({
+        name: "reply_drafted",
+        properties: {
+          source:
+            data.source === "template" || data.source === "cache" || data.source === "groq"
+              ? data.source
+              : "unknown",
+        },
+      });
     } catch {
       setGenerateError("Something went wrong.");
     } finally {
@@ -440,6 +450,13 @@ function ReplyComposer({
       }
       markReplied(review.id, text.trim());
       setReplyDone(true);
+      track({
+        name: "reply_sent",
+        properties: {
+          app_platform: review.source === "App Store" ? "app_store" : "google_play",
+          method: "api",
+        },
+      });
       setTimeout(() => onAdvance(review.id), 1200);
     } catch {
       setSendFeedback("error");
@@ -483,6 +500,13 @@ function ReplyComposer({
       if (res.ok) {
         markReplied(review.id, text.trim());
         setReplyDone(true);
+        track({
+          name: "reply_sent",
+          properties: {
+            app_platform: review.source === "App Store" ? "app_store" : "google_play",
+            method: "manual",
+          },
+        });
         setTimeout(() => onAdvance(review.id), 1000);
       }
     } catch {
