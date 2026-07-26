@@ -1,7 +1,7 @@
 # Today — Handoff for next agent
 
-**Last updated:** 2026-07-25
-**Branch agent left on:** `claude/product-market-readiness-zcfowh` (pushed, draft PR open)
+**Last updated:** 2026-07-26
+**Branch agent left on:** `claude/product-market-readiness-zcfowh` (pushed, draft PR #67 open, production domain currently serves this branch's build)
 
 You are the next Claude agent. Read this top-to-bottom before doing anything.
 
@@ -11,109 +11,88 @@ You are the next Claude agent. Read this top-to-bottom before doing anything.
 
 1. **`CLAUDE.md`** (repo root) — stack, conventions, autopilot model, what NOT to do
 2. **`docs/decisions.md`** — IMMUTABLE rules. D000 (non-coder contract) and D009 (never-do list) are critical.
-3. **`docs/MARKET_READINESS_AUDIT.md`** ← **new — read before picking work**
-4. **`docs/SPINE.md`** — the 8-step launch gate. Still 0/8 verified.
-5. **`docs/backlog.md`** — ICE-ranked queue
-6. **This file (`docs/today.md`)** — last session's handoff
+3. **`docs/UX_AUDIT.md`** — the 8 slop patterns + per-screen findings driving the UX program
+4. **`docs/backlog.md`** — ICE-ranked queue
+5. **This file (`docs/today.md`)** — last session's handoff
 
 ---
 
-## What happened this session (2026-07-25)
+## What happened this session (2026-07-26)
 
-A market-readiness audit was requested. It found **five defects that were
-breaking the product for a real customer, all of which passed CI** — `tsc`
-clean, 80 unit tests green, lint clean, production build green.
+The founder asked two big things: redesign the website from scratch ("think
+like a UI designer hired fresh"), and — after a PM-style usability rating of
+3/5 — "get me at least 4/5 on all the points." Six slices shipped to PR #67:
 
-All five are fixed on this branch. Full write-up in
-`docs/MARKET_READINESS_AUDIT.md`; one-line summaries in `docs/BUGS.md`
-(BUG-024 … BUG-035).
+### Website slice 1 — homepage, Direction A (founder-approved)
+- Newsreader editorial serif via next/font; hero "Your *worst* review
+  deserves your *best* reply."; **ProductFrame** (the inbox drawn as the hero
+  illustration, reply types itself). Nav/footer rebuilt on tokens; links to
+  the approved-for-deletion pages (/customers /careers /status) removed;
+  fake social chips replaced with hello@tryreviewbox.com.
+- **Bug found:** font tokens declared at `:root` referenced next/font vars
+  that only exist on `<body>` — CSS silently invalidates the whole custom
+  property. Font tokens now live on `body`. Remember this if adding fonts.
+- Founder approvals on file: Direction A + the full 25→15 page cut
+  (deletions/redirects are Slice 3, NOT done yet).
 
-### The founder's month-long "Play Store not connected" email — diagnosed and fixed
+### Inbox core-loop pass
+- Keyboard flow: j/k/arrows move selection, Enter → composer, "/" → search.
+  Rows are real listbox options (focus ring, Enter/Space) — were click-only divs.
+- **Credential-aware reply hierarchy:** connected app → hero button is
+  one-click "Post reply to <store>"; no credentials → Draft Mode copy-paste
+  stays hero. Reviews now carry `appId` (API select + type).
+- All 10 remaining purple accents in the inbox → brand blue.
 
-It was **not** a false alarm. The sync really was failing every single day.
+### Competitors — real tracking (replaces invented rows)
+- `competitor_apps` table (migration 016, **founder must run** — safe, and
+  the API detects 42P01 and falls back to the old illustrative rows until
+  then). Add via store search (same endpoint as onboarding), max 5,
+  rate-limited, audited. Rating/total-ratings scraped through the existing
+  6h Redis metadata cache. Reply rate/trend for competitors show "—" —
+  not public, never invented.
 
-The public scraper only ran when an app had zero reviews. Every sync after the
-first went straight to the Google Play Publisher API — which Draft Mode
-customers have no credentials for, by design (D018). So sync #2 onward 403'd
-forever, `last_sync_status` was pinned to `needs_play_console_access`, and the
-daily health cron dutifully emailed about it every 3 days.
+### Funnel instrumentation
+- `reply_drafted` (source), `reply_sent` (method: api|manual),
+  `competitor_added` now actually fire — they were defined in
+  `src/lib/analytics.ts` but had zero call sites. "% of signups that post a
+  first reply" is now measurable in PostHog.
 
-Two independent bugs were feeding it, both fixed:
-1. The scraper now runs on **every** sync (BUG-024) — so status is `success`
-   and the nag stops at the source.
-2. `/api/health/user-check` had no `deleted_at` filter, so **soft-deleted apps
-   nagged forever** — their `last_sync_attempted_at` freezes at deletion, which
-   permanently satisfies the "failing 48h+" test (BUG-029).
+### Also
+- Cookie banner retokened (was hardcoded dark + indigo).
+- Reports screen checked: already honest (real Send-now endpoints, real CSV
+  export, "Coming soon" for unbuilt) — audit memory was stale.
 
-### The other three
-
-- **BUG-025** — every sync erased the user's saved drafts and "mark as replied"
-  state. App Store reviews were reset on *every* sync because iTunes RSS never
-  reports developer replies. This is the worst one: it silently destroyed user
-  work, and a single-session spine walk would not have caught it.
-- **BUG-028** — trial users were locked out of AI drafts (middleware gated
-  `/api/reply` to paid plans; onboarding stamps everyone `trial`; Stripe is
-  deferred so nobody could pay). The trial could not demo the product.
-- **BUG-030/031** — inbox pagination silently dropped reviews sharing a
-  timestamp; the sidebar app selector filtered nothing.
-
-**Verification:** `tsc` 0 errors · 92 unit tests (was 80) · lint 0 errors ·
-production build passes.
+**Verification:** every slice rendered locally with stubbed APIs before
+commit (light+dark+mobile for homepage; keyboard flow asserted
+programmatically for inbox; tracked+empty states for competitors).
+tsc 0 · lint 0 errors · 95 unit tests · production build green.
+All 4 blocking CI jobs green on every push. E2E advisory red = BUG-037
+(needs founder's real Clerk test keys).
 
 ---
 
 ## What you should pick up next
 
-**Do not start feature work.** The backlog is ICE-ranked and ICE has no term for
-"the core loop is broken." Order:
+1. **FOUNDER: run migration 016** (`supabase/migrations/016_competitor_apps.sql`)
+   — flips Competitors from "coming soon" to the real add flow.
+2. **FOUNDER: review the homepage on the PR #67 preview.** Website slice 2
+   (Pricing + Compare on the new system) is explicitly gated on this approval.
+3. **Website slice 3 — the cut** (approved): delete /customers +
+   /customers/acme-banking (410), /careers → 301 /about, /status → 301
+   /help, merge the two contradictory refund pages (**founder must pick
+   which text survives**), update sitemap.ts + robots.ts.
+4. **DS-003 gray sweep** — ~1,000 raw gray-* utilities remain outside the
+   redesigned screens. Mechanical, low-risk.
+5. **BUG-037** — founder adds Clerk test secrets → make E2E blocking.
 
-1. **FOUNDER: walk the spine** (`docs/SPINE.md`, 8 steps, ~30 min, real app on
-   the Vercel preview). It is 0/8 after two months. Nothing else produces real
-   information about readiness.
-   **Then walk step 8 again the next day** — BUG-025 and BUG-029 only appear on
-   the second day, and that is exactly the class of bug that got through.
-2. **FOUNDER DECISION — BUG-020 (US-only reviews).** The scrape is hardcoded to
-   `country: "us", lang: "en"`, but the dashboard's headline review count is the
-   store's **global** figure. A non-US app shows "3,412 reviews" on the
-   dashboard and ~200 in the inbox. Recommendation: label it honestly in the UI
-   (1h) rather than fanning out locales (8× scrape volume, more block risk).
-3. **Write the spine e2e test** — sign in → sync → draft → mark replied →
-   **sync again** → assert the reply survived. That one test covers BUG-024,
-   BUG-025 and BUG-030 at once. Currently no e2e touches the spine at all.
-4. **BUG-022 — move sync off the 24h Vercel Hobby cron** to Supabase `pg_cron` +
-   `pg_net` (free, extension already enabled). 24h latency is weak for a
-   "respond fast to bad reviews" product at $99/mo.
-5. **Only then reverse D013** and turn Stripe on. Taking money for a product
-   whose core loop is unverified is the worse failure.
+## Standing watch
 
----
-
-## Open risk to watch
-
-`docs/MARKET_READINESS_AUDIT.md` G-3: the fix for BUG-024 makes the **public
-Google Play scrape the single point of failure** for the whole product. That is
-what D018 requires, but it concentrates all risk on one unofficial dependency
-that Google actively rate-limits from datacenter IPs. Sentry alerting on sync
-failure was added this session — **watch it.** A Google-side block is a total
-outage, not a degradation.
-
----
-
-## The process finding (most important thing in this handoff)
-
-Every bug above was invisible to strict TypeScript, ESLint, 80 unit tests, a
-build gate, and three prior security audits that found 44+ issues between them.
-
-That apparatus verifies code is *internally consistent*. Every bug here was a
-**state-over-time** bug — correct on first execution, wrong on the second:
-
-- sync #1 works, sync #2 onward fails
-- reply saved, next sync erases it
-- app deleted, emails continue
-- page 1 correct, page 2 drops rows
-
-Unit tests cannot catch this class. Ask **"what happens the second time?"** —
-that question would have found all five.
+- PR #67 has an hourly self check-in armed (send_later). All pushes get
+  Vercel previews now (Git integration fixed after the founder removed the
+  second collaborator). Production domain points at this branch's build —
+  **don't push to master until #67 merges** or prod regresses.
+- Ahrefs MCP: "insufficient plan" — don't invent keyword volumes.
+  SEO plan lives in `docs/SEO_CONTENT_PLAN.md` (Phase 0 shipped).
 
 ---
 
@@ -136,3 +115,5 @@ that question would have found all five.
 - Always write PR descriptions as plain-English 5-minute test plans.
 - Always update this file at end of session.
 - Always ICE-score new backlog items added to `docs/backlog.md`.
+- Honesty rule: no fabricated metrics, testimonials, logos, or numbers —
+  anywhere, ever. "Show, don't claim."
