@@ -26,32 +26,21 @@ export function IncidentList({ incidents }: { incidents: IncidentAlert[] }) {
   const activeCount = incidents.filter((i) => i.status !== "resolved").length;
 
   return (
-    <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
-      {/* Header */}
-      <div className="border-b border-gray-100 px-4 py-3">
-        <div className="flex items-start justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-900">Incidents</h2>
-            <p className="mt-0.5 text-xs text-gray-400">Review-driven issues requiring ownership</p>
-          </div>
-          <Button variant="ghost" size="sm" className="h-7 text-xs text-gray-400 hover:text-gray-600">
-            View all
-            <ArrowRight className="size-3" />
-          </Button>
-        </div>
-
-        {/* Stats strip */}
-        <div className="mt-3 flex items-center gap-5 text-xs text-gray-400">
-          <span>
-            <span className="font-semibold text-red-600">{criticalCount}</span> critical
-          </span>
-          <span>
-            <span className="font-semibold text-amber-600">{highCount}</span> high
-          </span>
-          <span className="ml-auto">
-            <span className="font-semibold text-gray-700">{activeCount}</span> open
-          </span>
-        </div>
+    <section className="overflow-hidden rounded-xl border border-[var(--rb-border-1)] bg-surface">
+      {/* Summary strip. The title and description that used to sit here just
+          repeated the PageHeader directly above it, and "View all" pointed at
+          the page it was already on — both removed. The counts are the only
+          part that earned the space. */}
+      <div className="flex items-center gap-5 border-b border-[var(--rb-border-1)] px-4 py-3 text-rb-sm text-fg-3">
+        <span>
+          <span className="font-semibold text-[var(--rb-red-600)]">{criticalCount}</span> critical
+        </span>
+        <span>
+          <span className="font-semibold text-[var(--rb-amber-600)]">{highCount}</span> high
+        </span>
+        <span className="ml-auto">
+          <span className="font-semibold text-fg-1">{activeCount}</span> open
+        </span>
       </div>
 
       <div className="divide-y divide-gray-100">

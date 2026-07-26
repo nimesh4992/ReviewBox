@@ -57,17 +57,20 @@ export async function sendNeverSyncedNudge(
   const r = getResend();
   if (!r) return;
 
+  // Draft Mode (D018): reviews sync from the public store listing and need NO
+  // credentials from the customer. Telling them to go set up a service account
+  // sends them off to fix something that is not the problem — if nothing has
+  // arrived, the fault is ours. Point at the manual re-sync, then at us.
   const isPlay = platform === "google_play";
-  const fixUrl = isPlay
-    ? "https://play.google.com/console"
-    : `${APP_URL}/settings`;
+  const storeName = isPlay ? "Google Play" : "the App Store";
+  const fixUrl = `${APP_URL}/settings`;
   const guideUrl = isPlay
     ? `${APP_URL}/help/connect-google-play`
     : `${APP_URL}/help/connect-app-store`;
 
-  const body = isPlay
-    ? `ReviewBox can read your Google Play reviews once you invite our service account to your Play Console. It takes about 2 minutes.`
-    : `ReviewBox needs your App Store Connect API credentials (.p8 key, Key ID, Issuer ID) to sync reviews. Paste them in Settings → Apps.`;
+  const body =
+    `ReviewBox pulls your reviews from ${storeName} automatically — you don't need to set anything up. ` +
+    `Try <strong>Settings → Apps → Sync now</strong>. If that doesn't bring them in, just reply to this email and we'll fix it from our side.`;
 
   const html = shell(
     `<tr>
@@ -88,12 +91,12 @@ export async function sendNeverSyncedNudge(
           <tr>
             <td style="border-radius:8px;background:#0A84FF;">
               <a href="${fixUrl}" style="display:inline-block;padding:12px 28px;font-size:14px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:8px;">
-                ${isPlay ? "Open Play Console" : "Add credentials"}
+                Open Settings
               </a>
             </td>
             <td style="padding-left:12px;">
               <a href="${guideUrl}" style="font-size:14px;color:#0A84FF;text-decoration:none;">
-                Step-by-step guide →
+                Read the setup guide →
               </a>
             </td>
           </tr>
@@ -106,9 +109,9 @@ export async function sendNeverSyncedNudge(
   const { error } = await r.emails.send({
     from: FROM,
     to,
-    subject: `${appName} hasn't synced yet — 2-minute fix`,
+    subject: `${appName} hasn't synced yet`,
     html,
-    text: `${appName} hasn't synced yet.\n\n${body}\n\n${isPlay ? "Open Play Console: " + fixUrl : "Add credentials: " + fixUrl}\nSetup guide: ${guideUrl}`,
+    text: `${appName} hasn't synced yet.\n\n${body.replace(/<[^>]+>/g, "")}\n\nOpen Settings: ${fixUrl}\nSetup guide: ${guideUrl}`,
   });
 
   if (error) console.error("[email] never-synced nudge:", error);

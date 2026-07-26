@@ -45,12 +45,26 @@ function parsePrivateKey(raw: string | undefined): string | undefined {
   return key;
 }
 
-const PRIVATE_KEY = parsePrivateKey(process.env.GOOGLE_PRIVATE_KEY);
+/**
+ * Parsed lazily, NOT at module load. parsePrivateKey() throws on a malformed
+ * key; doing that at import time takes down every route that transitively
+ * imports this file — including /api/sync/reviews and the reply endpoint —
+ * with an opaque module-init failure rather than a handled per-app error.
+ */
+let privateKeyCache: { value: string | undefined } | null = null;
+
+function getPrivateKey(): string | undefined {
+  if (!privateKeyCache) {
+    privateKeyCache = { value: parsePrivateKey(process.env.GOOGLE_PRIVATE_KEY) };
+  }
+  return privateKeyCache.value;
+}
 
 /**
  * Creates an authenticated Google Play Publisher API client using the Service Account.
  */
 function getPlayClient() {
+  const PRIVATE_KEY = getPrivateKey();
   if (!CLIENT_EMAIL || !PRIVATE_KEY) {
     throw new Error("Google Play Service Account credentials are missing.");
   }

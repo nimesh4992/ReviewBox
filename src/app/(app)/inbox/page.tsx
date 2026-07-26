@@ -2,10 +2,14 @@
 
 import { InboxScreen } from "@/features/reviews/components/review-queue";
 import { useReviewQueue } from "@/hooks/use-review-queue";
+import { useWorkspaceStore } from "@/store/use-workspace-store";
 
 export default function InboxPage() {
+  // Scope the inbox to the app picked in the sidebar. "" = all apps.
+  const selectedApp = useWorkspaceStore((s) => s.selectedApp);
+
   const { reviews, fetchNextPage, hasNextPage, isFetchingNextPage, isFetching, isLoading } =
-    useReviewQueue();
+    useReviewQueue(selectedApp ? { appId: selectedApp } : {});
 
   return (
     <div className="flex h-[calc(100vh-52px)] flex-col overflow-hidden">

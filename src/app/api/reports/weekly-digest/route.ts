@@ -88,6 +88,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
         .from("apps")
         .select("name")
         .eq("workspace_id", ws.id)
+        .is("deleted_at", null)
         .limit(1);
       const appName = apps?.[0]?.name ?? ws.name ?? "your app";
 

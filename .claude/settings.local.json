@@ -16,7 +16,10 @@
       "Bash(rm -f \"D:/Projects/Reviews/.git/index.lock\")",
       "Bash(git commit -m ' *)",
       "Bash(git push *)",
-      "Bash(git add *)"
+      "Bash(git add *)",
+      "mcp__Claude_Code_Remote__send_later",
+      "mcp__Claude_Code_Remote__delete_trigger",
+      "mcp__Claude_Code_Remote__update_trigger"
     ]
   }
 }

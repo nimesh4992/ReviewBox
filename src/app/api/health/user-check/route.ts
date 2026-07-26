@@ -127,11 +127,17 @@ async function handler(req: NextRequest): Promise<NextResponse> {
 
   // ── Load all active apps ──────────────────────────────────────────────────
 
+  // deleted_at IS NULL is essential: a soft-deleted app is never picked up by
+  // the sync worker (which filters it out), so its last_sync_attempted_at is
+  // frozen forever. Without this filter it permanently satisfies the
+  // "failing for 48h+" test and re-nags the owner every 3 days, indefinitely,
+  // about an app they already disconnected.
   const { data: apps } = await sb
     .from("apps")
     .select(
       "id, workspace_id, name, platform, store_id, last_sync_attempted_at, last_sync_status",
     )
+    .is("deleted_at", null)
     .not("store_id", "is", null)
     .not("store_id", "eq", "");
 
@@ -139,7 +145,9 @@ async function handler(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ message: "No apps to check", ...summary });
   }
 
-  // Load workspace created_at for the "never synced" threshold check
+  // Load workspace created_at for the "never synced" threshold check.
+  // This query filters soft-deleted workspaces, so membership in the resulting
+  // map doubles as the liveness check applied to all three signals below.
   const workspaceIds = [...new Set(apps.map((a) => a.workspace_id as string))];
   const { data: workspaces } = await sb
     .from("workspaces")
@@ -151,8 +159,12 @@ async function handler(req: NextRequest): Promise<NextResponse> {
     (workspaces ?? []).map((w) => [w.id as string, w.created_at as string]),
   );
 
+  /** Owners of soft-deleted workspaces must never be emailed. */
+  const isLiveWorkspace = (workspaceId: string): boolean => wsCreatedAt.has(workspaceId);
+
   // Batch-resolve all owner emails upfront — one DB query + one Clerk call.
-  const ownerEmails = await resolveOwnerEmails(workspaceIds);
+  // Only for live workspaces; deleted ones are dropped above.
+  const ownerEmails = await resolveOwnerEmails([...wsCreatedAt.keys()]);
 
   // ── Signal 1: Never synced ────────────────────────────────────────────────
 
@@ -184,6 +196,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   const successStatuses = new Set(["success", "credentials_verified", null]);
 
   for (const app of apps) {
+    if (!isLiveWorkspace(app.workspace_id as string)) continue;
     if (successStatuses.has(app.last_sync_status as string | null)) continue;
     if (!app.last_sync_attempted_at) continue;
     if ((app.last_sync_attempted_at as string) > fortyEightHoursAgo) continue; // only if failing for 48h+
@@ -235,6 +248,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
 
       const app = apps.find((a) => a.id === appId);
       if (!app) continue;
+      if (!isLiveWorkspace(app.workspace_id as string)) continue;
 
       const key = `health_nudge:spike_unreplied:${appId}`;
       if (await alreadySent(redis, key)) { summary.skipped++; continue; }

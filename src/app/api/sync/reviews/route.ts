@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, clerkClient } from "@clerk/nextjs/server";
+import * as Sentry from "@sentry/nextjs";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { fetchReviews as fetchGooglePlayReviews } from "@/services/google-play/publisher-api";
@@ -11,6 +12,7 @@ import {
 import { fetchGooglePlayMetadata, fetchAppStoreMetadata } from "@/services/store-search";
 import { buildEnrichedRow } from "@/lib/review-mapper";
 import { bootstrapReviews } from "@/services/bootstrap-reviews";
+import { planSyncWrites, mergeReviewRows } from "@/lib/sync-writes";
 import { sendRatingSpikeAlert } from "@/lib/email/send-rating-spike-alert";
 import { notifyRatingSpike, notifyUrgentReview } from "@/lib/slack";
 import { runAutomationRules } from "@/lib/automation-executor";
@@ -101,15 +103,46 @@ async function refreshAppMetadata(app: DbApp): Promise<void> {
 
 // ── Google Play sync ───────────────────────────────────────────────────────────
 
-async function syncGooglePlayApp(app: DbApp, summary: SyncSummary): Promise<AppSyncResult> {
-  // Metadata scrape + review fetch run in parallel — saves ~1-2s per app
-  const [, playReviews] = await Promise.all([
+/**
+ * Draft Mode (D018): the PUBLIC SCRAPER is the primary sync path.
+ *
+ * The launch tier requires zero store credentials from the customer, so the
+ * scraper must run on EVERY sync — not just the first one. Previously the
+ * scraper only ran when the app had zero reviews, and every subsequent sync
+ * went straight to the Publisher API. For any customer who had not invited our
+ * service account to their Play Console (i.e. the documented launch path) that
+ * meant:
+ *   - reviews stopped updating permanently after day one, and
+ *   - last_sync_status was pinned to a failure code, which drove a red
+ *     dashboard banner and a "hasn't synced in 2 days" nag email every 3 days.
+ *
+ * The Publisher API is still used when it is available because it carries data
+ * the public page does not (developer replies, device). Its rows take
+ * precedence for any review both sources return. When it is unavailable the
+ * sync still succeeds on scraper data alone.
+ */
+async function syncGooglePlayApp(app: DbApp, summary: SyncSummary, isFirstSync: boolean): Promise<AppSyncResult> {
+  const [, scraped, apiReviews] = await Promise.all([
     refreshAppMetadata(app),
-    fetchGooglePlayReviews(app.store_id),
+    // Public scrape — no credentials. Failure here is fatal only if the API
+    // path also produced nothing.
+    bootstrapReviews("google_play", app.id, app.workspace_id, app.store_id).catch((err) => {
+      console.warn(`[sync] gplay scrape failed for ${app.store_id}:`, err instanceof Error ? err.message : err);
+      return null;
+    }),
+    // Official Publisher API — optional. Absent/unauthorized credentials are
+    // an expected state in Draft Mode, not an error.
+    fetchGooglePlayReviews(app.store_id).catch((err) => {
+      console.warn(`[sync] gplay publisher API unavailable for ${app.store_id}:`, err instanceof Error ? err.message : err);
+      return null;
+    }),
   ]);
-  if (!playReviews.length) return { reviewCount: 0 };
 
-  const rows = playReviews
+  if (scraped === null && apiReviews === null) {
+    return { reviewCount: 0, error: `Google Play app ${app.id}: both public scrape and Publisher API failed` };
+  }
+
+  const apiRows = (apiReviews ?? [])
     // Skip rows with no reviewId — an empty external_id collapses every such
     // review onto a single row under onConflict "app_id,external_id" (data loss).
     .filter((r) => !!r.reviewId)
@@ -136,41 +169,67 @@ async function syncGooglePlayApp(app: DbApp, summary: SyncSummary): Promise<AppS
       );
     });
 
-  return upsertAndFinalize(app, rows, summary);
+  // Scraper first, then let Publisher API rows win on the same external_id —
+  // they carry developer replies and device, which the public page lacks.
+  return upsertAndFinalize(app, mergeReviewRows(scraped, apiRows), summary, isFirstSync);
 }
 
 // ── App Store sync ────────────────────────────────────────────────────────────
 
-async function syncAppStoreApp(app: DbApp, summary: SyncSummary): Promise<AppSyncResult> {
-  // Metadata scrape runs in parallel; await its settled result (it swallows its
-  // own errors internally) so the promise isn't left floating off the try/catch.
-  const metadataPromise = refreshAppMetadata(app);
+/**
+ * Same Draft Mode contract as Google Play (D018): the public iTunes RSS feed is
+ * the primary path and needs no credentials. App Store Connect API credentials
+ * are optional and only add developer-reply state.
+ */
+async function syncAppStoreApp(app: DbApp, summary: SyncSummary, isFirstSync: boolean): Promise<AppSyncResult> {
+  const [, scraped] = await Promise.all([
+    refreshAppMetadata(app),
+    bootstrapReviews("app_store", app.id, app.workspace_id, app.store_id).catch((err) => {
+      console.warn(`[sync] app store RSS failed for ${app.store_id}:`, err instanceof Error ? err.message : err);
+      return null;
+    }),
+  ]);
 
-  if (!app.access_token || !app.refresh_token) {
-    await metadataPromise;
-    return { reviewCount: 0, error: `App Store app ${app.id}: missing credentials` };
+  // Official Connect API — optional in Draft Mode. Missing or broken
+  // credentials must not fail the sync when the public feed worked.
+  const apiRows = await fetchAppStoreApiRows(app).catch((err) => {
+    console.warn(`[sync] app store Connect API unavailable for ${app.store_id}:`, err instanceof Error ? err.message : err);
+    return null;
+  });
+
+  if (scraped === null && apiRows === null) {
+    return { reviewCount: 0, error: `App Store app ${app.id}: both public feed and Connect API failed` };
   }
+
+  return upsertAndFinalize(app, mergeReviewRows(scraped, apiRows), summary, isFirstSync);
+}
+
+/**
+ * Fetch reviews via the App Store Connect API. Returns null when the workspace
+ * has not supplied credentials — an expected, non-error state in Draft Mode.
+ * Throws only on a genuine API failure so the caller can log it.
+ */
+async function fetchAppStoreApiRows(
+  app: DbApp,
+): Promise<ReturnType<typeof buildEnrichedRow>[] | null> {
+  if (!app.access_token || !app.refresh_token) return null;
 
   let creds: { keyId: string; issuerId: string };
   try {
     creds = JSON.parse(app.access_token) as { keyId: string; issuerId: string };
   } catch {
-    await metadataPromise;
-    return { reviewCount: 0, error: `App Store app ${app.id}: invalid access_token JSON` };
+    throw new Error("invalid access_token JSON");
   }
 
   const jwt = await buildJWT(creds.keyId, creds.issuerId, app.refresh_token);
   const appStoreId = await fetchAppStoreId(app.store_id, jwt);
   if (!appStoreId) {
-    await metadataPromise;
-    return { reviewCount: 0, error: `App Store app ${app.id}: could not resolve app ID for ${app.store_id}` };
+    throw new Error(`could not resolve app ID for ${app.store_id}`);
   }
 
   const ascReviews = await fetchAppStoreReviews(appStoreId, jwt);
-  await metadataPromise;
-  if (!ascReviews.length) return { reviewCount: 0 };
 
-  const rows = ascReviews
+  return ascReviews
     .filter((r) => !!r.id)
     .map((r) => {
       const hasReply = !!r.relationships?.response?.data;
@@ -189,8 +248,6 @@ async function syncAppStoreApp(app: DbApp, summary: SyncSummary): Promise<AppSyn
         null,
       );
     });
-
-  return upsertAndFinalize(app, rows, summary);
 }
 
 // ── Upsert + spike detection (shared) ─────────────────────────────────────────
@@ -199,27 +256,112 @@ async function upsertAndFinalize(
   app: DbApp,
   rows: ReturnType<typeof buildEnrichedRow>[],
   summary: SyncSummary,
+  isFirstSync: boolean,
 ): Promise<AppSyncResult> {
   const sb = getServiceClient();
 
   if (!rows.length) return { reviewCount: 0 };
 
-  const { error } = await sb
-    .from("reviews")
-    .upsert(rows, { onConflict: "app_id,external_id" });
+  // ── Split new vs already-known reviews ────────────────────────────────────
+  //
+  // A blanket `upsert(rows, { onConflict: "app_id,external_id" })` rewrites
+  // EVERY column of an existing row from freshly-scraped store data, including
+  // reply_status and reply_text. Those two are user-owned: a saved AI draft
+  // (draft_ready) or a Draft Mode "mark as replied" would be silently reset to
+  // needs_reply / null on the very next sync. The iTunes RSS feed never
+  // reports developer replies at all, so every App Store review was reset
+  // daily, including ones replied to through the Connect API.
+  //
+  // So: insert genuinely new reviews, and leave known rows alone apart from
+  // one upgrade — promoting to "replied" when the store now shows a developer
+  // reply we did not already have. Reply state is never downgraded.
+  //
+  // Known rows' content (body, rating, version) is deliberately NOT refreshed.
+  // Store reviews are effectively immutable in practice, and re-writing them
+  // every sync buys nothing while widening the surface for exactly the kind of
+  // overwrite bug this function exists to prevent. If edited reviews ever need
+  // to be tracked, add an explicit content-only update that names its columns.
+  const externalIds = rows.map((r) => r.external_id);
+  const existing = new Map<string, { id: string; reply_status: string }>();
 
-  if (error) {
-    const msg = `app ${app.id}: ${error.message}`;
-    summary.errors.push(msg);
-    return { reviewCount: 0, error: msg };
+  // Chunked so a busy app doesn't build an over-long PostgREST `in.()` filter.
+  for (let i = 0; i < externalIds.length; i += 200) {
+    const { data, error: lookupError } = await sb
+      .from("reviews")
+      .select("id, external_id, reply_status")
+      .eq("app_id", app.id)
+      .in("external_id", externalIds.slice(i, i + 200));
+
+    if (lookupError) {
+      const msg = `app ${app.id}: ${lookupError.message}`;
+      summary.errors.push(msg);
+      return { reviewCount: 0, error: msg };
+    }
+    for (const r of data ?? []) {
+      existing.set(r.external_id as string, {
+        id: r.id as string,
+        reply_status: r.reply_status as string,
+      });
+    }
+  }
+
+  const { inserts: newRows, promotions } = planSyncWrites(rows, existing);
+
+  if (newRows.length) {
+    // ignoreDuplicates guards the race where a concurrent sync inserted the
+    // same review between our lookup and this write — it must not clobber.
+    const { error } = await sb
+      .from("reviews")
+      .upsert(newRows, { onConflict: "app_id,external_id", ignoreDuplicates: true });
+
+    if (error) {
+      const msg = `app ${app.id}: ${error.message}`;
+      summary.errors.push(msg);
+      return { reviewCount: 0, error: msg };
+    }
+  }
+
+  // Promote known reviews that the store now shows a developer reply for.
+  // planSyncWrites() guarantees these are all needs_reply → replied; it never
+  // downgrades a user-owned draft_ready or replied.
+  if (promotions.length) {
+    await Promise.allSettled(
+      promotions.map((p) =>
+        sb
+          .from("reviews")
+          .update({
+            reply_status: "replied",
+            reply_text:   p.replyText,
+            replied_at:   new Date().toISOString(),
+          })
+          .eq("id", p.id)
+          // Re-assert the precondition at write time so a reply the user saved
+          // between our lookup and now isn't overwritten.
+          .eq("reply_status", "needs_reply"),
+      ),
+    );
   }
 
   summary.appsProcessed++;
-  summary.reviewsUpserted += rows.length;
+  summary.reviewsUpserted += newRows.length;
   // last_synced_at is written by recordSyncResult() after all processing completes
 
-  // Run automation rules on newly synced reviews (only unreplied ones are candidates)
-  const unrepliedReviews: AppReview[] = rows
+  // Fire Gemini onboarding enrichment once, on the first sync that produced data.
+  // Generates KB entries + reply templates from the workspace's real reviews.
+  if (isFirstSync && newRows.length) {
+    enrichOnboarding(
+      app.workspace_id,
+      app.name,
+      newRows.map((r) => ({ text: r.body ?? "", rating: r.rating })),
+    ).catch((err) =>
+      console.warn("[sync] enrich:", err instanceof Error ? err.message : err),
+    );
+  }
+
+  // Run automation rules on NEWLY synced reviews only. Running them over every
+  // row each sync would re-fire auto-draft / auto-reply on the same months-old
+  // reviews every single day.
+  const unrepliedReviews: AppReview[] = newRows
     .filter((r) => r.reply_status === "needs_reply")
     .map((r) => ({
       id:              r.external_id,
@@ -360,6 +502,16 @@ async function recordSyncResult(
     | { ok: true; reviewCount: number }
     | { ok: false; platform: "google_play" | "app_store"; errMsg: string },
 ): Promise<void> {
+  // The public scrape is the primary data path (D018), so a sync that produced
+  // nothing is now the loudest signal that the product has stopped working for
+  // a customer. Without this it was a console.warn nobody reads: reviews would
+  // quietly stop arriving and the first we'd hear is a churn email.
+  if (!result.ok) {
+    Sentry.captureMessage(`[sync] app ${appId} failed: ${result.errMsg}`, {
+      level: "error",
+      tags: { route: "api/sync/reviews", platform: result.platform },
+    });
+  }
   const sb = getServiceClient();
   const now = new Date().toISOString();
 
@@ -418,10 +570,11 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
           .update({ last_sync_attempted_at: new Date().toISOString() })
           .eq("id", app.id);
 
-        // ── Bootstrap: seed public reviews on first connect ───────────────────
-        // Runs when the app has ZERO reviews in the DB (not just when
-        // last_sync_attempted_at was null). This means a retry after a failed
-        // first sync won't re-scrape if we already partially populated the table.
+        // First sync = the app has ZERO reviews in the DB (not merely that
+        // last_sync_attempted_at was null), so a retry after a failed first
+        // sync doesn't re-run onboarding enrichment on an already-seeded app.
+        // The public scrape itself now runs on EVERY sync (D018 Draft Mode) —
+        // see syncGooglePlayApp / syncAppStoreApp.
         const { count: existingReviewCount } = await sb
           .from("reviews")
           .select("id", { count: "exact", head: true })
@@ -429,35 +582,10 @@ async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
 
         const isFirstSync = (existingReviewCount ?? 0) === 0;
 
-        if (isFirstSync) {
-          try {
-            const bootstrapRows = await bootstrapReviews(app.platform, app.id, app.workspace_id, app.store_id);
-            if (bootstrapRows.length) {
-              await getServiceClient()
-                .from("reviews")
-                .upsert(bootstrapRows, { onConflict: "app_id,external_id" });
-              summary.reviewsUpserted += bootstrapRows.length;
-              console.log(`[sync] bootstrap ${app.store_id}: ${bootstrapRows.length} reviews`);
-              // Fire Gemini enrichment — generates KB entries + reply templates.
-              // Fire-and-forget so it doesn't block the sync response.
-              enrichOnboarding(
-                app.workspace_id,
-                app.name,
-                bootstrapRows.map((r) => ({ text: r.body ?? "", rating: r.rating })),
-              ).catch((err) =>
-                console.warn("[sync] enrich:", err instanceof Error ? err.message : err),
-              );
-            }
-          } catch (err) {
-            console.warn(`[sync] bootstrap failed for ${app.store_id}:`, err instanceof Error ? err.message : err);
-            // Bootstrap failure is non-fatal — Publisher API sync still runs below.
-          }
-        }
-
         // Per-app result tracked locally — no cross-app race via shared summary.
         const result: AppSyncResult =
-          app.platform === "google_play" ? await syncGooglePlayApp(app, summary)
-          : app.platform === "app_store" ? await syncAppStoreApp(app, summary)
+          app.platform === "google_play" ? await syncGooglePlayApp(app, summary, isFirstSync)
+          : app.platform === "app_store" ? await syncAppStoreApp(app, summary, isFirstSync)
           : { reviewCount: 0 };
 
         if (result.error) {

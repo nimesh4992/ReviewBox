@@ -68,6 +68,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const rating     = searchParams.get("rating") ? parseInt(searchParams.get("rating")!, 10) : undefined;
     const platform   = searchParams.get("platform") ?? undefined;
     const search     = searchParams.get("search")?.trim() ?? undefined;
+    const appId      = searchParams.get("appId")?.trim() || undefined;
 
     const workspaceId = await getWorkspaceId(userId);
     if (!workspaceId) {
@@ -76,14 +77,64 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
 
     const sb = getServiceClient();
+
+    // Reviews are scoped to the workspace's LIVE apps. Without this, reviews
+    // belonging to a disconnected (soft-deleted) app keep showing in the inbox
+    // forever, and the sidebar's app selector has nothing to filter on.
+    const { data: liveApps, error: appsError } = await sb
+      .from("apps")
+      .select("id")
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null);
+
+    if (appsError) return captureAndError(appsError, "GET /api/reviews (apps)");
+
+    let liveAppIds = (liveApps ?? []).map((a) => a.id as string);
+
+    // An appId from the client is only honoured if it is one of this
+    // workspace's live apps — never trusted as a filter on its own.
+    if (appId) {
+      if (!liveAppIds.includes(appId)) {
+        return NextResponse.json({ reviews: [], nextCursor: null, hasMore: false });
+      }
+      liveAppIds = [appId];
+    }
+
+    if (!liveAppIds.length) {
+      return NextResponse.json({ reviews: [], nextCursor: null, hasMore: false });
+    }
+
     let query = sb
       .from("reviews")
       .select("id,external_id,source,author,rating,body,app_version,device,country,store_created_at,sentiment,priority,issue_tags,reply_status,escalation_state,has_ai_suggestion,reply_text")
       .eq("workspace_id", workspaceId)
+      .in("app_id", liveAppIds)
+      // `id` is the tiebreaker for both ordering and the cursor below. Ordering
+      // by timestamp alone is non-deterministic between reviews that share one,
+      // which makes pagination drop rows.
       .order("store_created_at", { ascending: false })
+      .order("id", { ascending: false })
       .limit(limit + 1);
 
-    if (cursor)    query = query.lt("store_created_at", cursor);
+    if (cursor) {
+      // Composite cursor "<timestamp>|<id>". Paging on the timestamp alone
+      // skipped every review that shared the last row's timestamp — common,
+      // since store feeds batch reviews to the same second and the scraper
+      // falls back to now() for unparseable dates. Those reviews were then
+      // unreachable in the inbox.
+      const sep = cursor.lastIndexOf("|");
+      const cursorTs = sep === -1 ? cursor : cursor.slice(0, sep);
+      const cursorId = sep === -1 ? null   : cursor.slice(sep + 1);
+
+      if (cursorId && /^[0-9a-f-]{36}$/i.test(cursorId)) {
+        query = query.or(
+          `store_created_at.lt.${cursorTs},and(store_created_at.eq.${cursorTs},id.lt.${cursorId})`,
+        );
+      } else {
+        // Legacy timestamp-only cursor from an in-flight session.
+        query = query.lt("store_created_at", cursorTs);
+      }
+    }
     if (status)    query = query.eq("reply_status", status);
     if (sentiment) query = query.eq("sentiment", sentiment);
     if (rating !== undefined && !isNaN(rating)) query = query.eq("rating", rating);
@@ -107,7 +158,8 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const hasMore = rows.length > limit;
     const page    = hasMore ? rows.slice(0, limit) : rows;
     const reviews = page.map(mapDbReview);
-    const nextCursor = hasMore ? page[page.length - 1]?.store_created_at ?? null : null;
+    const last    = page[page.length - 1];
+    const nextCursor = hasMore && last ? `${last.store_created_at}|${last.id}` : null;
 
     return NextResponse.json({ reviews, nextCursor, hasMore });
   } catch (err) {

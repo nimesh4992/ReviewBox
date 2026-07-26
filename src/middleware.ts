@@ -160,22 +160,43 @@ export default clerkMiddleware(async (auth, request) => {
   // Both checks read fresh state from /api/onboarding/state (DB-authoritative),
   // never from the JWT.
 
+  // Redirecting an API request to an HTML page is never useful: fetch() follows
+  // the 307, POSTs to a page route, and the caller's res.json() blows up on
+  // markup. API callers get a machine-readable 402 in the same shape as
+  // apiError() so the UI can show a real message.
+  const isApiRequest = nextUrl.pathname.startsWith("/api/");
+  const billingBlock = (
+    code: string,
+    message: string,
+    query: Record<string, string>,
+  ): NextResponse => {
+    if (isApiRequest) {
+      return NextResponse.json({ error: code, message }, { status: 402 });
+    }
+    const url = new URL("/billing", request.url);
+    for (const [k, v] of Object.entries(query)) url.searchParams.set(k, v);
+    return NextResponse.redirect(url);
+  };
+
   // Trial expiry (only while plan === "trial")
   if (plan === "trial" && trialEndsAt) {
     const expired = new Date(trialEndsAt) < new Date();
     if (expired && !nextUrl.pathname.startsWith("/billing")) {
-      const url = new URL("/billing", request.url);
-      url.searchParams.set("reason", "trial-expired");
-      return NextResponse.redirect(url);
+      return billingBlock("TRIAL_EXPIRED", "Your trial has ended. Choose a plan to continue.", { reason: "trial-expired" });
     }
   }
 
-  // Billing gate — only paid plans access billed routes
-  const paidPlans = new Set(["starter", "pro", "team"]);
-  if (isBilledRoute(request) && !paidPlans.has(plan)) {
-    const billingUrl = new URL("/billing", request.url);
-    billingUrl.searchParams.set("required", "1");
-    return NextResponse.redirect(billingUrl);
+  // Entitlement gate for billed routes.
+  //
+  // "trial" MUST be entitled. Onboarding stamps every new user with
+  // plan: "trial", and the billed set covers /api/reply(.*) — the AI draft
+  // endpoint that is the product's core value. Gating it to paid-only meant
+  // every trial user was bounced off the one feature the trial exists to
+  // demonstrate, with no way to pay for it (Stripe is deferred, D013).
+  // Expiry of that trial is enforced by the check directly above.
+  const entitledPlans = new Set(["trial", "starter", "pro", "team"]);
+  if (isBilledRoute(request) && !entitledPlans.has(plan)) {
+    return billingBlock("PLAN_REQUIRED", "This feature requires an active plan.", { required: "1" });
   }
 
   // Payment grace period
@@ -183,9 +204,7 @@ export default clerkMiddleware(async (auth, request) => {
   if (paymentFailedAt) {
     const graceExpired = new Date(new Date(paymentFailedAt).getTime() + 7 * 86400000) < new Date();
     if (graceExpired && !nextUrl.pathname.startsWith("/billing")) {
-      const url = new URL("/billing", request.url);
-      url.searchParams.set("reason", "payment-failed");
-      return NextResponse.redirect(url);
+      return billingBlock("PAYMENT_FAILED", "Your last payment failed. Update your billing details to continue.", { reason: "payment-failed" });
     }
   }
 

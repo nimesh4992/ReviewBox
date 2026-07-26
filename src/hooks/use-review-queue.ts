@@ -11,6 +11,8 @@ export interface ReviewFiltersQuery {
   platform?: string;
   /** Server-side full-text search on review body + author. Pass when ≥3 chars. */
   search?: string;
+  /** Limit to one app in the workspace. Omit for all apps. */
+  appId?: string;
 }
 
 interface ReviewPage {
@@ -31,6 +33,7 @@ async function fetchReviews(
   if (filters.rating !== undefined) params.set("rating", String(filters.rating));
   if (filters.platform) params.set("platform", filters.platform);
   if (filters.search)   params.set("search", filters.search);
+  if (filters.appId)    params.set("appId", filters.appId);
 
   const res = await fetch(`/api/reviews?${params.toString()}`);
   if (!res.ok) throw new Error(`Reviews fetch failed: ${res.status}`);

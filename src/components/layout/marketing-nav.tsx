@@ -22,10 +22,6 @@ const LogoMark = ({ size = 22 }: { size?: number }) => (
   </svg>
 );
 
-const LivePulse = ({ size = 7, color = "var(--rb-green-500)" }: { size?: number; color?: string }) => (
-  <div className="rb-live-pulse" style={{ width: size, height: size, background: color, borderRadius: "50%", flexShrink: 0 }} />
-);
-
 const Arrow = ({ size = 13 }: { size?: number }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
     <line x1="5" y1="12" x2="19" y2="12" /><polyline points="12 5 19 12 12 19" />
@@ -63,9 +59,8 @@ const NAV_LINKS = [
 ];
 
 export function MarketingNav() {
-  const [scrolled, setScrolled]   = useState(false);
-  const [dismissed, setDismissed] = useState(false);
-  const { theme, toggle }         = useMarketingTheme();
+  const [scrolled, setScrolled] = useState(false);
+  const { theme, toggle }       = useMarketingTheme();
 
   useEffect(() => {
     const fn = () => setScrolled(window.scrollY > 40);
@@ -75,19 +70,9 @@ export function MarketingNav() {
 
   return (
     <header style={{ position: "sticky", top: 0, zIndex: 50 }}>
-      {/* Announcement bar */}
-      {!dismissed && (
-        <div style={{ background: "var(--rb-fg-1)", color: "var(--rb-bg-canvas)", fontSize: 12.5, height: 34, display: "flex", alignItems: "center", justifyContent: "center", gap: 12, position: "relative" }}>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "2px 8px", borderRadius: 99, background: "var(--rb-blue-500)", color: "#fff", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", fontFamily: "var(--rb-font-mono)" }}>SHIPPED</span>
-          <span style={{ letterSpacing: "-0.005em" }}>Incident detection is generally available. Auto-paging from review patterns, live today.</span>
-          <Link href="/changelog" style={{ color: "var(--rb-bg-canvas)", fontWeight: 600, fontSize: 12.5, display: "inline-flex", alignItems: "center", gap: 4 }}>
-            Read the post <Arrow size={11} />
-          </Link>
-          <button onClick={() => setDismissed(true)} aria-label="Dismiss" style={{ position: "absolute", right: 16, top: "50%", transform: "translateY(-50%)", background: "transparent", border: 0, color: "var(--rb-bg-canvas)", opacity: 0.6, cursor: "pointer", padding: 4, display: "inline-flex" }}>
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" /></svg>
-          </button>
-        </div>
-      )}
+      {/* Announcement bar — removed. It hard-coded a "generally available"
+          launch claim that nothing updates, so it would keep announcing the
+          same release forever. Reinstate it driven by real changelog data. */}
 
       {/* Main bar */}
       <div style={{ background: scrolled ? "color-mix(in oklab, var(--rb-bg-canvas) 88%, transparent)" : "color-mix(in oklab, var(--rb-bg-canvas) 70%, transparent)", backdropFilter: "blur(20px) saturate(180%)", WebkitBackdropFilter: "blur(20px) saturate(180%)", borderBottom: scrolled ? "1px solid var(--rb-border-1)" : "1px solid transparent", transition: "background 200ms, border-color 200ms" }}>
@@ -100,10 +85,9 @@ export function MarketingNav() {
                 <LogoMark size={22} />
                 <span style={{ fontFamily: "var(--rb-font-display)", fontSize: 17, fontWeight: 700, color: "var(--rb-fg-1)", letterSpacing: "-0.02em" }}>ReviewBox</span>
               </Link>
-              <Link href="/status" style={{ display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 8px", borderRadius: 99, background: "var(--rb-bg-sunken)", border: "1px solid var(--rb-border-1)", fontSize: 10.5, fontWeight: 600, color: "var(--rb-fg-3)", fontFamily: "var(--rb-font-mono)", letterSpacing: "0.04em", textDecoration: "none" }}>
-                <LivePulse size={6} color="var(--rb-green-500)" />
-                <span>All systems normal</span>
-              </Link>
+              {/* "All systems normal" pill removed — it was hard-coded, so it
+                  claimed green during an outage too. Restore it only once it
+                  reads a real uptime source. /status stays linked in the footer. */}
             </div>
 
             {/* Nav links */}

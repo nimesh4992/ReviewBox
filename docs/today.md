@@ -1,7 +1,7 @@
 # Today — Handoff for next agent
 
-**Last updated:** 2026-05-26
-**Branch agent left on:** `fix/audit-round-3` (pushed, PR at https://github.com/nimesh4992/ReviewBox/pull/new/fix/audit-round-3)
+**Last updated:** 2026-07-25
+**Branch agent left on:** `claude/product-market-readiness-zcfowh` (pushed, draft PR open)
 
 You are the next Claude agent. Read this top-to-bottom before doing anything.
 
@@ -10,131 +10,110 @@ You are the next Claude agent. Read this top-to-bottom before doing anything.
 ## Read order, every session
 
 1. **`CLAUDE.md`** (repo root) — stack, conventions, autopilot model, what NOT to do
-2. **`docs/decisions.md`** — IMMUTABLE rules. D000 (non-coder contract) and D009 (14 things you never do) are critical.
-3. **`docs/backlog.md`** — single source of truth for what to build next, ICE-ranked
-4. **This file (`docs/today.md`)** — last session's handoff
+2. **`docs/decisions.md`** — IMMUTABLE rules. D000 (non-coder contract) and D009 (never-do list) are critical.
+3. **`docs/MARKET_READINESS_AUDIT.md`** ← **new — read before picking work**
+4. **`docs/SPINE.md`** — the 8-step launch gate. Still 0/8 verified.
+5. **`docs/backlog.md`** — ICE-ranked queue
+6. **This file (`docs/today.md`)** — last session's handoff
 
 ---
 
-## What shipped this session (2026-05-26)
+## What happened this session (2026-07-25)
 
-### `fix/audit-round-3` — **awaiting founder merge** (9 fixes)
+A market-readiness audit was requested. It found **five defects that were
+breaking the product for a real customer, all of which passed CI** — `tsc`
+clean, 80 unit tests green, lint clean, production build green.
 
-Cross-verification audit by a third-party review agent found bugs missed in the prior two passes. All 9 fixed in one commit (`e59d0cf`).
+All five are fixed on this branch. Full write-up in
+`docs/MARKET_READINESS_AUDIT.md`; one-line summaries in `docs/BUGS.md`
+(BUG-024 … BUG-035).
 
-| ID | File | Fix |
-|----|------|-----|
-| C-02 | `cron/trial-nudge/route.ts` | `isAuthorized()` now fail-closed — was `return true` when `CRON_SECRET` unset, allowing anyone to fire mass trial emails |
-| H-01 | `onboarding/complete` + `onboarding/slug-check` | Slug regex fixed — `(?:...)?` optional group allowed 1-char slugs; now requires min 3 chars |
-| H-02 | `cron/trial-nudge/route.ts` | Dedup Redis key now written BEFORE sending email (both day5 + day12 loops) |
-| H-03 | `account/accept-invite/route.ts` | Invite email check iterates all `emailAddresses`, not just `[0]` |
-| H-05 | `reviews/[id]/reply/route.ts` | Server-side char limit before store submit (Google Play: 350, App Store: 5950) |
-| H-06 | `gdpr/export/route.ts` | Removed `export const GET = handler` — CSRF vector |
-| M-01 | `reports/export/route.ts` | `days` param clamped 1-365; NaN/negative now default to 30 |
-| C-03 | `reviews/route.ts` | PostgREST `.or()` search param strips `,().'"\` before interpolation |
-| M-03 | `sync/reviews/route.ts` | `notifyWorkspaceOwner` `.single()` → `.maybeSingle()` |
-| L-01 | `google-play/service-account/route.ts` | Uses `apiError("UNAUTHORIZED", 401)` not raw `NextResponse.json` |
+### The founder's month-long "Play Store not connected" email — diagnosed and fixed
 
-Also added `REPLY_TOO_LONG` to `ApiErrorCode` union in `src/lib/api-response.ts`.
+It was **not** a false alarm. The sync really was failing every single day.
 
-**TypeScript:** 0 errors.
+The public scraper only ran when an app had zero reviews. Every sync after the
+first went straight to the Google Play Publisher API — which Draft Mode
+customers have no credentials for, by design (D018). So sync #2 onward 403'd
+forever, `last_sync_status` was pinned to `needs_play_console_access`, and the
+daily health cron dutifully emailed about it every 3 days.
 
----
+Two independent bugs were feeding it, both fixed:
+1. The scraper now runs on **every** sync (BUG-024) — so status is `success`
+   and the nag stops at the source.
+2. `/api/health/user-check` had no `deleted_at` filter, so **soft-deleted apps
+   nagged forever** — their `last_sync_attempted_at` freezes at deletion, which
+   permanently satisfies the "failing 48h+" test (BUG-029).
 
-## PRs awaiting founder merge (priority order)
+### The other three
 
-| # | Branch | What it does | Priority |
-|---|--------|-------------|----------|
-| 1 | `fix/audit-round-3` | 9 security + correctness fixes | 🔴 HIGH |
+- **BUG-025** — every sync erased the user's saved drafts and "mark as replied"
+  state. App Store reviews were reset on *every* sync because iTunes RSS never
+  reports developer replies. This is the worst one: it silently destroyed user
+  work, and a single-session spine walk would not have caught it.
+- **BUG-028** — trial users were locked out of AI drafts (middleware gated
+  `/api/reply` to paid plans; onboarding stamps everyone `trial`; Stripe is
+  deferred so nobody could pay). The trial could not demo the product.
+- **BUG-030/031** — inbox pagination silently dropped reviews sharing a
+  timestamp; the sidebar app selector filtered nothing.
 
-Check all open PRs: https://github.com/nimesh4992/ReviewBox/pulls
-
----
-
-## Untracked artifacts — do NOT commit
-
-Two files in repo root from cross-verification agent:
-- `gen_report.js` — session-specific path, unusable outside original env
-- `ReviewBox_Code_Review_Report.docx` — generated artifact
-
-Leave unstaged.
-
----
-
-## One HUMAN action needed right now
-
-**Set `CRON_SECRET` in Vercel environment variables.**
-
-- Vercel dashboard → your project → Settings → Environment Variables
-- Add: `CRON_SECRET` = `e61b2c02c385535daa15e71d533dde895b8dcdf396c825841fa59ac1dbeb4480`
-- Apply to: Production + Preview + Development
-- Redeploy after setting it
-
-Why: `weekly-digest`, `unreplied-alert`, AND `trial-nudge` all fail closed without this. None of the email crons fire until this is set.
+**Verification:** `tsc` 0 errors · 92 unit tests (was 80) · lint 0 errors ·
+production build passes.
 
 ---
 
 ## What you should pick up next
 
-**Merge all PRs first (founder job). Then:**
+**Do not start feature work.** The backlog is ICE-ranked and ICE has no term for
+"the core loop is broken." Order:
 
-**Top non-blocked NOW item: N3 — Detail pages · ICE 64**
-
-`/incidents/[id]` and `/releases/[version]` show stubs or blank content. Users click from lists and hit nothing — trust killer.
-
-### N3 scope — Done when:
-1. `/incidents/[id]` — shows: title, severity badge, description, owner, detected-at, status chip, timeline.
-2. `/releases/[version]` — shows: version, rollout % bar, rating delta, complaint delta, status badge, reviews tagged for that version.
-3. Both have a back link and use `AppShell`.
-4. Mobile usable.
-
-### Start
-```powershell
-cd D:\Projects\Reviews
-git checkout master
-git pull origin master
-git checkout -b claude/n3-detail-pages
-```
-
----
-
-## After N3: N4 — Remove or wire dead buttons · ICE 56
-
-Remaining dead buttons:
-- `aso-screen.tsx` — "Export" and "Suggest keywords"
-- `reports-screen.tsx` — "Run report" and "Configure"
-  (note: dead "+ New report" already removed on branch `claude/n3-n4-detail-pages-and-dead-buttons` — cherry-pick or re-apply that one change)
+1. **FOUNDER: walk the spine** (`docs/SPINE.md`, 8 steps, ~30 min, real app on
+   the Vercel preview). It is 0/8 after two months. Nothing else produces real
+   information about readiness.
+   **Then walk step 8 again the next day** — BUG-025 and BUG-029 only appear on
+   the second day, and that is exactly the class of bug that got through.
+2. **FOUNDER DECISION — BUG-020 (US-only reviews).** The scrape is hardcoded to
+   `country: "us", lang: "en"`, but the dashboard's headline review count is the
+   store's **global** figure. A non-US app shows "3,412 reviews" on the
+   dashboard and ~200 in the inbox. Recommendation: label it honestly in the UI
+   (1h) rather than fanning out locales (8× scrape volume, more block risk).
+3. **Write the spine e2e test** — sign in → sync → draft → mark replied →
+   **sync again** → assert the reply survived. That one test covers BUG-024,
+   BUG-025 and BUG-030 at once. Currently no e2e touches the spine at all.
+4. **BUG-022 — move sync off the 24h Vercel Hobby cron** to Supabase `pg_cron` +
+   `pg_net` (free, extension already enabled). 24h latency is weak for a
+   "respond fast to bad reviews" product at $99/mo.
+5. **Only then reverse D013** and turn Stripe on. Taking money for a product
+   whose core loop is unverified is the worse failure.
 
 ---
 
-## What requires the founder (D009 — never do these yourself)
+## Open risk to watch
 
-- **Merge the open PR** above
-- **Set `CRON_SECRET`** in Vercel (see above)
-- **N6** — Add Stripe test keys to `.env.local`
-
----
-
-## Lessons learned this session
-
-1. **Cross-verification catches bugs after two audit passes.** A fresh agent found 9 more real bugs. Run a secondary audit after major security work — it always pays.
-
-2. **Dedup-before-send is the correct order.** Write the idempotency key BEFORE firing the side effect. Safer failure: missed email (retryable) > double-send (trust damage).
-
-3. **All email crons must fail closed.** Sync route stays open intentionally (onboarding sync). Email crons (weekly-digest, unreplied-alert, trial-nudge) must all return 401 when CRON_SECRET unset.
-
-4. **`(?:...)?` ≠ required group.** The trailing `?` makes the whole group optional, silently allowing 1-char slugs despite "3-40 chars" in the error message.
-
-5. All prior lessons still apply — PowerShell `&&` broken (use `;`), no `gh` CLI on this machine.
+`docs/MARKET_READINESS_AUDIT.md` G-3: the fix for BUG-024 makes the **public
+Google Play scrape the single point of failure** for the whole product. That is
+what D018 requires, but it concentrates all risk on one unofficial dependency
+that Google actively rate-limits from datacenter IPs. Sentry alerting on sync
+failure was added this session — **watch it.** A Google-side block is a total
+outage, not a degradation.
 
 ---
 
-## Active state of the repo
+## The process finding (most important thing in this handoff)
 
-- **Local branch:** `fix/audit-round-3` (committed and pushed)
-- **Master:** clean
-- **Build:** TypeScript clean (0 errors)
-- **Tests:** 70 unit tests (unchanged this session)
+Every bug above was invisible to strict TypeScript, ESLint, 80 unit tests, a
+build gate, and three prior security audits that found 44+ issues between them.
+
+That apparatus verifies code is *internally consistent*. Every bug here was a
+**state-over-time** bug — correct on first execution, wrong on the second:
+
+- sync #1 works, sync #2 onward fails
+- reply saved, next sync erases it
+- app deleted, emails continue
+- page 1 correct, page 2 drops rows
+
+Unit tests cannot catch this class. Ask **"what happens the second time?"** —
+that question would have found all five.
 
 ---
 

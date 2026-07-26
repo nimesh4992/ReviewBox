@@ -224,9 +224,11 @@ export function Sidebar({ className }: { className?: string }) {
       .then((data: { apps: App[] } | null) => {
         if (data?.apps?.length) {
           setApps(data.apps);
-          const names = data.apps.map((a) => a.name);
-          if (!selectedApp || !names.includes(selectedApp)) {
-            setSelectedApp(data.apps[0].name);
+          // Reset to "all apps" if the persisted selection no longer exists —
+          // covers a deleted app and the migration off name-based selection.
+          const ids = data.apps.map((a) => a.id);
+          if (selectedApp && !ids.includes(selectedApp)) {
+            setSelectedApp("");
           }
         }
       })
@@ -278,7 +280,9 @@ export function Sidebar({ className }: { className?: string }) {
               variant="ghost"
               className="h-8 w-full justify-between rounded-md border border-black/[0.07] bg-black/[0.02] px-2.5 text-left text-xs text-[#48484D] hover:bg-black/[0.04] hover:text-[#1D1D1F] dark:border-white/[0.08] dark:bg-white/[0.04] dark:text-[#8E8E93] dark:hover:bg-white/[0.06] dark:hover:text-[#F5F5F7]"
             >
-              <span className="min-w-0 truncate">{selectedApp}</span>
+              <span className="min-w-0 truncate">
+                {apps.find((a) => a.id === selectedApp)?.name ?? "All apps"}
+              </span>
               <ChevronDown className="size-3 shrink-0 text-[#86868B]" strokeWidth={1.5} />
             </Button>
           </DropdownMenuTrigger>
@@ -289,11 +293,23 @@ export function Sidebar({ className }: { className?: string }) {
             <DropdownMenuLabel className="text-[11px] text-[#86868B]">
               Workspace apps
             </DropdownMenuLabel>
+            {apps.length > 1 && (
+              <DropdownMenuItem
+                className="gap-2 text-[#48484D] focus:bg-black/[0.04] focus:text-[#1D1D1F]"
+                onClick={() => setSelectedApp("")}
+              >
+                <span className="size-4 shrink-0 rounded bg-gray-200 text-[8px] font-bold leading-4 text-center text-gray-500">
+                  ∗
+                </span>
+                <span className="truncate">All apps</span>
+                {selectedApp === "" && <span className="ml-auto text-[#0A84FF]">✓</span>}
+              </DropdownMenuItem>
+            )}
             {apps.length > 0 ? apps.map((app) => (
               <DropdownMenuItem
                 key={app.id}
                 className="gap-2 text-[#48484D] focus:bg-black/[0.04] focus:text-[#1D1D1F]"
-                onClick={() => setSelectedApp(app.name)}
+                onClick={() => setSelectedApp(app.id)}
               >
                 {app.icon_url ? (
                   // eslint-disable-next-line @next/next/no-img-element
@@ -304,7 +320,7 @@ export function Sidebar({ className }: { className?: string }) {
                   </span>
                 )}
                 <span className="truncate">{app.name}</span>
-                {selectedApp === app.name && (
+                {selectedApp === app.id && (
                   <span className="ml-auto text-[#0A84FF]">✓</span>
                 )}
               </DropdownMenuItem>
