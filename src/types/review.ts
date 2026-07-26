@@ -121,6 +121,37 @@ export type AutomationConditionField =
   | "country"
   | "version";
 
+// ── Competitors ───────────────────────────────────────────────────────────────
+
+export interface CompetitorBenchmarkRow {
+  /** DB row id — present only for real tracked competitors */
+  id?: string;
+  name: string;
+  platform?: "google_play" | "app_store";
+  storeId?: string;
+  iconUrl?: string | null;
+  /** Lifetime store rating. Null = not yet fetched / unavailable. */
+  rating: number | null;
+  /** Lifetime store review count. */
+  ratingCount?: number | null;
+  /** Only measurable for your own app (needs review history) — null for competitors. */
+  reviewsPerWeek: number | null;
+  replyRate: number | null;
+  trend: number[] | null;
+  you: boolean;
+  illustrative: boolean;
+}
+
+export interface CompetitorsResponse {
+  yourApp: CompetitorBenchmarkRow | null;
+  competitors: CompetitorBenchmarkRow[];
+  hasRealData: boolean;
+  /** True when the competitor_apps table exists — the UI shows the real
+      add/remove flow. False = migration 016 not applied yet; illustrative
+      placeholder rows are served instead. */
+  canAdd: boolean;
+}
+
 export interface AutomationCondition {
   field: AutomationConditionField;
   operator: "equals" | "contains" | "less_than" | "greater_than" | "in";

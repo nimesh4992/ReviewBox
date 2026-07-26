@@ -49,9 +49,12 @@ export type AuditAction =
   | "alerts.update"
   // Slack
   | "slack.connect"
-  | "slack.disconnect";
+  | "slack.disconnect"
+  // Competitors
+  | "competitor.add"
+  | "competitor.remove";
 
-export type AuditTargetType = "review" | "rule" | "template" | "kb" | "app" | "workspace" | "member" | "subscription";
+export type AuditTargetType = "review" | "rule" | "template" | "kb" | "app" | "workspace" | "member" | "subscription" | "competitor";
 
 export interface AuditEvent {
   workspaceId: string | null;
