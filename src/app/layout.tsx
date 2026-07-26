@@ -1,5 +1,5 @@
 ﻿import type { Metadata, Viewport } from "next";
-import { Inter } from "next/font/google";
+import { Inter, Newsreader } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 
@@ -14,6 +14,17 @@ import { SentryIdentify } from "@/components/providers/sentry-identify";
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+});
+
+// Editorial serif for marketing display type only (--rb-font-serif / Tailwind
+// `font-serif`). The app UI stays entirely on Inter — nothing there references
+// this variable, so shipping it from the root layout costs the app one
+// preloaded font file and no visual change.
+const newsreader = Newsreader({
+  subsets: ["latin"],
+  style: ["normal", "italic"],
+  variable: "--font-newsreader",
+  axes: ["opsz"],
 });
 
 const RAW_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
@@ -67,7 +78,7 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en">
-        <body className={`${inter.variable} antialiased`} suppressHydrationWarning>
+        <body className={`${inter.variable} ${newsreader.variable} antialiased`} suppressHydrationWarning>
           <QueryProvider>
             <PostHogProvider>
               <SentryIdentify />

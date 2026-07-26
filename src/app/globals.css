@@ -50,8 +50,12 @@
   --rb-text-display: 28px;   /* KPI values, hero numbers        */
 
   /* ── Font families ── */
-  --rb-font-display: -apple-system, "SF Pro Display", var(--font-inter), "Inter", BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
-  --rb-font-text:    -apple-system, "SF Pro Text",    var(--font-inter), "Inter", BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
+  /* NOTE: families that reference a next/font variable (--font-inter,
+     --font-newsreader) are declared on `body` below, NOT here. next/font puts
+     its variables on <body>, and a custom property that references a variable
+     undefined at the element where it's declared computes to invalid — so a
+     :root declaration like `--x: var(--font-inter), ...` silently poisons the
+     whole chain and every font-family using it falls back to inherited. */
   --rb-font-mono:    "SF Mono", ui-monospace, Menlo, Monaco, Consolas, "Courier New", monospace;
 
   /* Foreground — light */
@@ -206,6 +210,8 @@
 
 @theme inline {
   --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--rb-font-serif);
+  --font-mono: var(--rb-font-mono);
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);
@@ -263,7 +269,24 @@ html {
   text-rendering: optimizeLegibility;
 }
 
+/* In-page anchors (e.g. the homepage "See it work ↓") glide instead of jump —
+   but never against a reduced-motion preference. */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
 body {
+  /* Font family tokens live here (not :root) because they substitute
+     var(--font-inter) / var(--font-newsreader), which next/font defines on
+     <body>. See the note in the :root block. */
+  --rb-font-display: -apple-system, "SF Pro Display", var(--font-inter, Inter), "Inter", BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
+  --rb-font-text:    -apple-system, "SF Pro Text",    var(--font-inter, Inter), "Inter", BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
+  /* Marketing display serif (Newsreader via next/font). Marketing pages only —
+     the app UI never uses a serif. */
+  --rb-font-serif:   var(--font-newsreader, Newsreader), "Newsreader", Georgia, "Times New Roman", serif;
+
   min-height: 100vh;
   background: var(--rb-bg-canvas);
   color: var(--rb-fg-1);
@@ -296,59 +319,6 @@ textarea {
 .scrollbar-quiet {
   scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
   scrollbar-width: thin;
-}
-
-/* ── Landing page hero utilities ─────────────────────────────────────────── */
-.hero-dot-grid {
-  background-image: radial-gradient(circle, #d1d5db 1px, transparent 1px);
-  background-size: 28px 28px;
-  opacity: 0.45;
-}
-
-.hero-blue-glow {
-  background: radial-gradient(ellipse 70% 50% at 50% 60%, rgba(10,132,255,0.07) 0%, transparent 70%);
-}
-
-.hero-h1 {
-  font-size: clamp(48px, 7vw, 80px);
-}
-
-.rb-gradient-text {
-  background: linear-gradient(135deg, #0A84FF 0%, #0058B3 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* ── Marketing animations ─────────────────────────────────────────────────── */
-@keyframes rb-pulse {
-  0%, 80%, 100% { opacity: 0.25; transform: scale(0.8); }
-  40%           { opacity: 1;    transform: scale(1);   }
-}
-@keyframes rb-marquee {
-  from { transform: translateX(0); }
-  to   { transform: translateX(-50%); }
-}
-@keyframes rb-fade-up {
-  from { opacity: 0; transform: translateY(16px); }
-  to   { opacity: 1; transform: translateY(0); }
-}
-@keyframes rb-blink {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0; }
-}
-
-.rb-marquee-track {
-  display: flex;
-  gap: 56px;
-  animation: rb-marquee 32s linear infinite;
-  width: max-content;
-}
-
-.rb-live-pulse {
-  display: inline-block;
-  border-radius: 50%;
-  animation: rb-pulse 1.6s ease-in-out infinite;
 }
 
 /* ─────────────────────────────────────────────────────────────────────

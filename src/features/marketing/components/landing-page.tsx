@@ -1,13 +1,19 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import Link from "next/link";
+
 import { MarketingShell } from "@/components/layout/marketing-shell";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
+import { ProductFrame } from "@/features/marketing/components/product-frame";
 
 /**
- * Landing page.
+ * Homepage, Direction A: product-forward light.
+ *
+ * The product frame is the hero image; an editorial serif (Newsreader) carries
+ * the headlines; body copy stays on the system sans; mono is reserved for
+ * labels and data. One interactive accent — brand blue.
  *
  * Every claim on this page has to be something the product actually does
  * today — see the build-status table in CLAUDE.md. No customer logos, no
@@ -58,16 +64,6 @@ const PLANS = [
   },
 ];
 
-const DEMO_REVIEW = {
-  rating: 1,
-  title: "Crashes on iPad after 4.2.1",
-  body: "Every time I open the budgets tab on iPad it freezes for five to ten seconds. Started after the last update. I use this daily for my small business.",
-  meta: "App Store · iOS · v4.2.1",
-};
-
-const DEMO_DRAFT =
-  "Thanks for flagging the iPad freeze on 4.2.1 — we reproduced it this morning and a fix is rolling out this week. In the meantime, force-quitting and reopening restores the session. I'll follow up here the moment 4.2.2 lands.";
-
 // ─── Utilities ────────────────────────────────────────────────────────────────
 
 function Section({
@@ -78,7 +74,7 @@ function Section({
   className?: string;
 }) {
   return (
-    <section className={`mx-auto w-full max-w-5xl px-6 ${className}`}>
+    <section className={`mx-auto w-full max-w-5xl px-5 sm:px-6 ${className}`}>
       {children}
     </section>
   );
@@ -106,23 +102,31 @@ function SecondaryLink({ href, children }: { href: string; children: React.React
   );
 }
 
+function SectionHeading({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="font-serif text-[32px] leading-[1.1] font-medium tracking-[-0.01em] text-fg-1 sm:text-[40px]">
+      {children}
+    </h2>
+  );
+}
+
 // ─── Hero ─────────────────────────────────────────────────────────────────────
 
 function Hero() {
   return (
-    <header className="mx-auto w-full max-w-5xl px-6 pt-24 pb-20 sm:pt-32 sm:pb-28">
-      <h1 className="max-w-3xl font-[family-name:var(--rb-font-display)] text-[44px] leading-[1.05] font-bold tracking-[-0.03em] text-fg-1 sm:text-[64px]">
-        Stop managing app reviews in a spreadsheet.
+    <header className="mx-auto w-full max-w-5xl px-5 pt-20 pb-16 text-center sm:px-6 sm:pt-28">
+      <h1 className="mx-auto max-w-[21ch] font-serif text-[clamp(42px,7vw,72px)] leading-[1.06] font-medium tracking-[-0.015em] text-fg-1 text-balance">
+        Your <em>worst</em> review deserves your <em>best</em> reply.
       </h1>
 
-      <p className="mt-6 max-w-xl text-[17px] leading-relaxed text-fg-2">
-        ReviewBox pulls every App Store and Play Store review into one queue,
-        drafts a reply in your voice, and posts it back to the store.
+      <p className="mx-auto mt-6 max-w-[46ch] text-[17px] leading-relaxed text-fg-2 sm:text-[18px]">
+        Every App Store and Google Play review in one inbox, answered in your
+        voice — and posted back to the store.
       </p>
 
-      <div className="mt-9 flex flex-wrap items-center gap-3">
+      <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
         <PrimaryLink href="/sign-up">Start free</PrimaryLink>
-        <SecondaryLink href="/pricing">See pricing</SecondaryLink>
+        <SecondaryLink href="#see-it-work">See it work ↓</SecondaryLink>
       </div>
 
       <p className="mt-5 text-[13px] text-fg-3">
@@ -132,82 +136,18 @@ function Hero() {
   );
 }
 
-// ─── Reply demo ───────────────────────────────────────────────────────────────
-
-/**
- * Types the draft out on mount. This mirrors what the product does — a draft
- * written against a real review — rather than asserting a number we'd have to
- * stand behind.
- *
- * Deliberately not gated on scroll position: the text is server-rendered in
- * full and only *replayed* as an animation, so it stays readable with JS off,
- * with reduced motion on, or if the reader lands mid-page from an anchor.
- */
-function ReplyDemo() {
-  const [typed, setTyped] = useState(DEMO_DRAFT);
-
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-
-    setTyped("");
-    let i = 0;
-    const id = setInterval(() => {
-      i += 2;
-      setTyped(DEMO_DRAFT.slice(0, i));
-      if (i >= DEMO_DRAFT.length) clearInterval(id);
-    }, 16);
-    return () => clearInterval(id);
-  }, []);
-
-  return (
-    <div className="overflow-hidden rounded-xl border border-[var(--rb-border-1)] bg-surface">
-      {/* The review */}
-      <div className="border-b border-[var(--rb-border-1)] p-6">
-        <div className="flex items-center justify-between gap-4">
-          <span className="font-[family-name:var(--rb-font-mono)] text-[11px] tracking-wide text-fg-3 uppercase">
-            {DEMO_REVIEW.meta}
-          </span>
-          <span aria-label={`${DEMO_REVIEW.rating} out of 5 stars`} className="text-[13px] text-fg-3">
-            <span className="text-[var(--rb-amber-500)]">{"★".repeat(DEMO_REVIEW.rating)}</span>
-            {"★".repeat(5 - DEMO_REVIEW.rating)}
-          </span>
-        </div>
-        <h3 className="mt-3 text-[15px] font-semibold text-fg-1">{DEMO_REVIEW.title}</h3>
-        <p className="mt-1.5 text-[14px] leading-relaxed text-fg-2">{DEMO_REVIEW.body}</p>
-      </div>
-
-      {/* The draft */}
-      <div className="bg-[var(--rb-bg-sunken)] p-6">
-        <span className="font-[family-name:var(--rb-font-mono)] text-[11px] tracking-wide text-fg-3 uppercase">
-          Suggested reply
-        </span>
-        {/* min-height reserves the two lines the finished draft occupies on a
-            wide viewport, so the card doesn't grow while the text types in. */}
-        <p className="mt-3 min-h-[3rem] text-[14px] leading-relaxed text-fg-1">
-          {typed}
-          {typed.length < DEMO_DRAFT.length && (
-            <span className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[0.15em] bg-[var(--rb-blue-500)] align-baseline" />
-          )}
-        </p>
-      </div>
-    </div>
-  );
-}
-
 // ─── Capabilities ─────────────────────────────────────────────────────────────
 
 function Capabilities() {
   return (
     <Section className="py-24 sm:py-28">
-      <h2 className="max-w-2xl font-[family-name:var(--rb-font-display)] text-[32px] leading-tight font-bold tracking-[-0.025em] text-fg-1 sm:text-[40px]">
-        What it does
-      </h2>
+      <SectionHeading>What it does</SectionHeading>
 
-      <div className="mt-12 grid gap-x-12 gap-y-10 sm:grid-cols-2">
+      <div className="mt-10 grid gap-x-12 sm:grid-cols-2">
         {CAPABILITIES.map((c) => (
-          <div key={c.title}>
-            <h3 className="text-[16px] font-semibold text-fg-1">{c.title}</h3>
-            <p className="mt-2 text-[15px] leading-relaxed text-fg-2">{c.body}</p>
+          <div key={c.title} className="border-t border-[var(--rb-border-2)] py-7">
+            <h3 className="text-[15.5px] font-semibold text-fg-1">{c.title}</h3>
+            <p className="mt-2 text-[14.5px] leading-relaxed text-fg-2">{c.body}</p>
           </div>
         ))}
       </div>
@@ -219,23 +159,21 @@ function Capabilities() {
 
 function Pricing() {
   return (
-    <Section className="py-24 sm:py-28">
-      <h2 className="font-[family-name:var(--rb-font-display)] text-[32px] leading-tight font-bold tracking-[-0.025em] text-fg-1 sm:text-[40px]">
-        Pricing
-      </h2>
+    <Section className="pb-24 sm:pb-28">
+      <SectionHeading>Pricing</SectionHeading>
       <p className="mt-4 max-w-xl text-[15px] leading-relaxed text-fg-2">
-        Every plan starts with the same 14-day trial, and no plan asks for a card
-        up front.
+        Every plan starts with the same 14-day trial, and no plan asks for a
+        card up front.
       </p>
 
-      <div className="mt-12 grid gap-6 sm:grid-cols-3">
+      <div className="mt-10 grid gap-5 sm:grid-cols-3">
         {PLANS.map((plan) => (
           <div
             key={plan.name}
-            className={`rounded-xl border p-6 ${
+            className={`rounded-xl border bg-surface p-6 ${
               plan.popular
-                ? "border-[var(--rb-blue-500)] bg-surface"
-                : "border-[var(--rb-border-1)] bg-surface"
+                ? "border-[var(--rb-blue-500)] shadow-[var(--rb-shadow-sm)]"
+                : "border-[var(--rb-border-2)]"
             }`}
           >
             <div className="flex items-baseline justify-between">
@@ -248,17 +186,17 @@ function Pricing() {
             </div>
 
             <p className="mt-4">
-              <span className="font-[family-name:var(--rb-font-display)] text-[36px] font-bold tracking-[-0.03em] text-fg-1">
+              <span className="font-serif text-[40px] font-medium tracking-[-0.01em] text-fg-1">
                 ${plan.price}
               </span>
-              <span className="ml-1 text-[14px] text-fg-3">/ month</span>
+              <span className="ml-1.5 text-[13px] text-fg-3">/ month</span>
             </p>
 
-            <p className="mt-3 text-[14px] leading-relaxed text-fg-2">{plan.body}</p>
+            <p className="mt-2 text-[13.5px] leading-relaxed text-fg-2">{plan.body}</p>
 
-            <ul className="mt-6 space-y-2">
+            <ul className="mt-5 space-y-2 border-t border-[var(--rb-border-1)] pt-5">
               {plan.features.map((f) => (
-                <li key={f} className="text-[14px] text-fg-2">
+                <li key={f} className="text-[13.5px] text-fg-2">
                   {f}
                 </li>
               ))}
@@ -280,13 +218,15 @@ function Pricing() {
 
 function Closing() {
   return (
-    <Section className="border-t border-[var(--rb-border-1)] py-24 sm:py-28">
-      <h2 className="max-w-2xl font-[family-name:var(--rb-font-display)] text-[32px] leading-tight font-bold tracking-[-0.025em] text-fg-1 sm:text-[40px]">
-        Connect an app and see your real reviews in about a minute.
-      </h2>
-      <div className="mt-9 flex flex-wrap items-center gap-3">
-        <PrimaryLink href="/sign-up">Start free</PrimaryLink>
-        <SecondaryLink href="/help">Read the docs</SecondaryLink>
+    <Section className="pb-28 sm:pb-32">
+      <div className="border-t border-[var(--rb-border-2)] pt-20 text-center sm:pt-24">
+        <h2 className="mx-auto max-w-[22ch] font-serif text-[34px] leading-[1.1] font-medium tracking-[-0.01em] text-fg-1 text-balance sm:text-[44px]">
+          Connect an app and see your real reviews in about a minute.
+        </h2>
+        <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
+          <PrimaryLink href="/sign-up">Start free</PrimaryLink>
+          <SecondaryLink href="/help">Read the docs</SecondaryLink>
+        </div>
       </div>
     </Section>
   );
@@ -300,8 +240,8 @@ export function LandingPage() {
       <MarketingNav />
       <main>
         <Hero />
-        <Section className="pb-24 sm:pb-28">
-          <ReplyDemo />
+        <Section>
+          <ProductFrame id="see-it-work" />
         </Section>
         <Capabilities />
         <Pricing />

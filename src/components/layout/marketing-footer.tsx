@@ -1,58 +1,82 @@
 import Link from "next/link";
 
-const LogoMark = ({ size = 22 }: { size?: number }) => (
-  <svg width={size} height={size} viewBox="0 0 64 64" style={{ display: "block" }}>
-    <defs>
-      <linearGradient id="rb-footer-logo-grad" x1="0" y1="0" x2="64" y2="64" gradientUnits="userSpaceOnUse">
-        <stop offset="0" stopColor="#4592FF" />
-        <stop offset="1" stopColor="#0058B3" />
-      </linearGradient>
-    </defs>
-    <path d="M14 8 H50 A8 8 0 0 1 58 16 V40 A8 8 0 0 1 50 48 H28 L18 58 V48 H14 A8 8 0 0 1 6 40 V16 A8 8 0 0 1 14 8 Z" fill="url(#rb-footer-logo-grad)" />
-    <rect x="14" y="32" width="6" height="8"  rx="3" fill="#fff" fillOpacity="0.97" />
-    <rect x="23" y="29" width="6" height="11" rx="3" fill="#fff" fillOpacity="0.97" />
-    <rect x="32" y="25" width="6" height="15" rx="3" fill="#fff" fillOpacity="0.97" />
-    <rect x="41" y="20" width="6" height="20" rx="3" fill="#fff" fillOpacity="0.97" />
-  </svg>
-);
+import { LogoMark } from "@/components/layout/logo-mark";
 
-
+/**
+ * Columns reflect the approved post-cut sitemap — no links to /customers,
+ * /careers or /status (all scheduled for deletion), and no social buttons:
+ * the old footer showed X / LinkedIn / GitHub chips that all pointed back at
+ * tryreviewbox.com, implying accounts that don't exist. The one real contact
+ * channel is the email address.
+ */
 const FOOTER_COLS = [
-  { h: "Product",   l: [{ t: "Inbox",              href: "/sign-up" }, { t: "AI replies",        href: "/sign-up" }, { t: "Incident detection", href: "/sign-up" }, { t: "Release health",  href: "/sign-up" }, { t: "Automations",   href: "/sign-up" }, { t: "Reply kit",   href: "/sign-up" }] },
-  { h: "Compare",   l: [{ t: "vs AppFollow",        href: "/compare" }, { t: "vs AppBot",         href: "/compare" }, { t: "vs Sensor Tower",    href: "/compare" }, { t: "vs Spreadsheets", href: "/compare" }] },
-  { h: "Resources", l: [{ t: "Blog",                href: "/blog" },    { t: "Customers",         href: "/customers" }, { t: "Changelog",       href: "/changelog" }, { t: "Help center", href: "/help" },    { t: "FAQ",           href: "/faq" }] },
-  { h: "Company",   l: [{ t: "About",               href: "/about" },   { t: "Careers",           href: "/careers" }, { t: "Privacy",         href: "/privacy" },   { t: "Terms",        href: "/terms" },   { t: "Status",        href: "/status" }] },
+  {
+    heading: "Product",
+    links: [
+      { label: "Pricing", href: "/pricing" },
+      { label: "Compare", href: "/compare" },
+      { label: "Changelog", href: "/changelog" },
+      { label: "Sign in", href: "/sign-in" },
+    ],
+  },
+  {
+    heading: "Resources",
+    links: [
+      { label: "Blog", href: "/blog" },
+      { label: "Help center", href: "/help" },
+      { label: "FAQ", href: "/faq" },
+      { label: "Contact", href: "/contact" },
+    ],
+  },
+  {
+    heading: "Company",
+    links: [
+      { label: "About", href: "/about" },
+      { label: "Privacy", href: "/privacy" },
+      { label: "Terms", href: "/terms" },
+      { label: "DPA", href: "/dpa" },
+    ],
+  },
 ];
 
 export function MarketingFooter() {
   return (
-    <footer style={{ padding: "80px 0 32px", background: "var(--rb-bg-sunken)", borderTop: "1px solid var(--rb-border-1)" }}>
-      <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 24px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr 1fr 1fr 1fr", gap: 40, marginBottom: 56 }}>
-          {/* Brand column */}
+    <footer className="border-t border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)]">
+      <div className="mx-auto max-w-6xl px-5 pt-16 pb-8 sm:px-6">
+        <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-[2fr_1fr_1fr_1fr]">
           <div>
-            <Link href="/" style={{ display: "inline-flex", alignItems: "center", gap: 10, textDecoration: "none" }}>
+            <Link href="/" className="flex w-fit items-center gap-2.5" aria-label="ReviewBox home">
               <LogoMark size={22} />
-              <span style={{ fontFamily: "var(--rb-font-display)", fontSize: 17, fontWeight: 700, color: "var(--rb-fg-1)", letterSpacing: "-0.02em" }}>ReviewBox</span>
+              <span className="text-[16px] font-semibold tracking-[-0.02em] text-fg-1">
+                ReviewBox
+              </span>
             </Link>
-            <p style={{ fontSize: 13, color: "var(--rb-fg-3)", marginTop: 14, lineHeight: 1.55, maxWidth: 280 }}>
-              App review management for product teams who&apos;d rather ship the fix than argue whose ticket it was.
+            <p className="mt-4 max-w-[280px] text-[13px] leading-relaxed text-fg-3">
+              App review management for teams who&apos;d rather ship the fix than
+              argue whose ticket it was.
             </p>
-            <div style={{ display: "flex", gap: 10, marginTop: 18 }}>
-              {["X", "in", "GH"].map(s => (
-                <a key={s} href="https://tryreviewbox.com" style={{ width: 30, height: 30, borderRadius: 7, background: "var(--rb-bg-surface)", border: "1px solid var(--rb-border-1)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10.5, fontWeight: 700, color: "var(--rb-fg-3)", fontFamily: "var(--rb-font-mono)", textDecoration: "none" }}>{s}</a>
-              ))}
-            </div>
+            <a
+              href="mailto:hello@tryreviewbox.com"
+              className="mt-4 inline-block text-[13px] text-fg-3 transition-colors hover:text-fg-1"
+            >
+              hello@tryreviewbox.com
+            </a>
           </div>
 
-          {/* Link columns */}
-          {FOOTER_COLS.map(s => (
-            <div key={s.h}>
-              <div style={{ fontSize: 11, fontWeight: 700, color: "var(--rb-fg-3)", marginBottom: 16, letterSpacing: "0.08em", textTransform: "uppercase" }}>{s.h}</div>
-              <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 9 }}>
-                {s.l.map(it => (
-                  <li key={it.t}>
-                    <Link href={it.href} style={{ fontSize: 13, color: "var(--rb-fg-3)", textDecoration: "none" }}>{it.t}</Link>
+          {FOOTER_COLS.map((col) => (
+            <div key={col.heading}>
+              <div className="font-[family-name:var(--rb-font-mono)] text-[11px] font-semibold tracking-[0.08em] text-fg-3 uppercase">
+                {col.heading}
+              </div>
+              <ul className="mt-4 space-y-2.5">
+                {col.links.map((l) => (
+                  <li key={l.label}>
+                    <Link
+                      href={l.href}
+                      className="text-[13px] text-fg-3 transition-colors hover:text-fg-1"
+                    >
+                      {l.label}
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -60,15 +84,18 @@ export function MarketingFooter() {
           ))}
         </div>
 
-        {/* Bottom bar */}
-        <div style={{ paddingTop: 24, borderTop: "1px solid var(--rb-border-1)", display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--rb-fg-4)", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
-          <div>© 2026 ReviewBox, Inc. All rights reserved.</div>
-          <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
-            {/* Hard-coded "All systems normal" removed — it read green during an
-                outage too. /status is still linked in the Company column above. */}
-            <Link href="/dpa"     style={{ color: "var(--rb-fg-4)", textDecoration: "none" }}>DPA</Link>
-            <Link href="/privacy" style={{ color: "var(--rb-fg-4)", textDecoration: "none" }}>Privacy</Link>
-            <Link href="/terms"   style={{ color: "var(--rb-fg-4)", textDecoration: "none" }}>Terms</Link>
+        <div className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--rb-border-1)] pt-6 text-[12px] text-fg-4">
+          <span>&copy; {new Date().getFullYear()} ReviewBox</span>
+          <div className="flex items-center gap-5">
+            <Link href="/privacy" className="transition-colors hover:text-fg-2">
+              Privacy
+            </Link>
+            <Link href="/terms" className="transition-colors hover:text-fg-2">
+              Terms
+            </Link>
+            <Link href="/dpa" className="transition-colors hover:text-fg-2">
+              DPA
+            </Link>
           </div>
         </div>
       </div>
