@@ -16,9 +16,6 @@ const LogoMark = ({ size = 22 }: { size?: number }) => (
   </svg>
 );
 
-const LivePulse = ({ size = 6, color = "var(--rb-green-500)" }: { size?: number; color?: string }) => (
-  <div className="rb-live-pulse" style={{ width: size, height: size, background: color, borderRadius: "50%", flexShrink: 0 }} />
-);
 
 const FOOTER_COLS = [
   { h: "Product",   l: [{ t: "Inbox",              href: "/sign-up" }, { t: "AI replies",        href: "/sign-up" }, { t: "Incident detection", href: "/sign-up" }, { t: "Release health",  href: "/sign-up" }, { t: "Automations",   href: "/sign-up" }, { t: "Reply kit",   href: "/sign-up" }] },
@@ -67,9 +64,8 @@ export function MarketingFooter() {
         <div style={{ paddingTop: 24, borderTop: "1px solid var(--rb-border-1)", display: "flex", justifyContent: "space-between", fontSize: 12, color: "var(--rb-fg-4)", flexWrap: "wrap", gap: 12, alignItems: "center" }}>
           <div>© 2026 ReviewBox, Inc. All rights reserved.</div>
           <div style={{ display: "flex", gap: 18, alignItems: "center" }}>
-            <span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
-              <LivePulse /> All systems normal
-            </span>
+            {/* Hard-coded "All systems normal" removed — it read green during an
+                outage too. /status is still linked in the Company column above. */}
             <Link href="/dpa"     style={{ color: "var(--rb-fg-4)", textDecoration: "none" }}>DPA</Link>
             <Link href="/privacy" style={{ color: "var(--rb-fg-4)", textDecoration: "none" }}>Privacy</Link>
             <Link href="/terms"   style={{ color: "var(--rb-fg-4)", textDecoration: "none" }}>Terms</Link>
