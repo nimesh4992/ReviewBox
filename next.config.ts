@@ -43,13 +43,25 @@ export default withSentryConfig(nextConfig, {
   widenClientFileUpload: true,
   tunnelRoute: "/monitoring",
 
-  // Disable middleware auto-instrumentation — Sentry's edge wrapper crashes
-  // when SENTRY_DSN is missing (e.g. Vercel preview deployments).
-  // Middleware errors are still caught by the server-side Sentry init.
-  autoInstrumentMiddleware: false,
-
   webpack: {
     automaticVercelMonitors: true,
+
+    // Keep Sentry's edge wrapper off the middleware: it crashes when
+    // SENTRY_DSN is missing, e.g. on Vercel preview deployments.
+    //
+    // Moved here from the top level, where it had silently become a no-op.
+    // @sentry/nextjs deprecated the top-level spelling between the pinned
+    // ^10.53.1 and the installed 10.68.0, and the SDK now reads only
+    // `userSentryOptions.webpack?.autoInstrumentMiddleware ?? true`
+    // (build/cjs/config/webpack.js) — it never looks at the old key.
+    //
+    // Hygiene, not a bug fix: building with and without this produced a
+    // byte-identical middleware bundle (282,495 bytes, no wrapper helpers),
+    // so the wrapper was not being applied either way on this project. This
+    // restores the config's stated intent so it keeps holding if that
+    // changes, and silences the deprecation warning.
+    autoInstrumentMiddleware: false,
+
     treeshake: {
       removeDebugLogging: true,
     },
