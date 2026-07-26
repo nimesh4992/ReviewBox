@@ -1,7 +1,7 @@
 ﻿import Link from "next/link";
 
 export const metadata = {
-  title: "Refund & Cancellation Policy — ReviewBox",
+  title: "Refund & Cancellation Policy",
 };
 
 export default function RefundPolicyPage() {

@@ -1,7 +1,7 @@
 ﻿import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
 
 export const metadata = {
-  title: "Data Processing Agreement — ReviewBox",
+  title: "Data Processing Agreement",
   description: "ReviewBox DPA — GDPR-compliant data processing agreement for EEA and UK customers.",
 };
 

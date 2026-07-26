@@ -4,7 +4,7 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "FAQ — ReviewBox",
+  title: "FAQ",
   description: "Frequently asked questions about ReviewBox — setup, pricing, AI replies, and more.",
 };
 

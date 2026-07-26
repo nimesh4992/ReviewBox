@@ -1,7 +1,7 @@
 ﻿import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
 
 export const metadata = {
-  title: "Refund Policy — ReviewBox",
+  title: "Refund Policy",
   description: "ReviewBox refund policy — 30-day refunds for monthly and annual plans.",
 };
 

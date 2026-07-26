@@ -4,7 +4,7 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "Changelog — ReviewBox",
+  title: "Changelog",
   description: "Release notes for ReviewBox, grouped by month — new features, fixes, and changes to review sync, AI replies, and alerting.",
 };
 

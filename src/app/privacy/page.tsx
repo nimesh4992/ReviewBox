@@ -1,7 +1,7 @@
 ﻿import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
 
 export const metadata = {
-  title: "Privacy Policy — ReviewBox",
+  title: "Privacy Policy",
   description: "ReviewBox Privacy Policy — how we collect, use, and protect your data.",
 };
 

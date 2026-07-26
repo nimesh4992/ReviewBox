@@ -4,7 +4,7 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "Blog — ReviewBox",
+  title: "Blog",
   description:
     "Engineering notes and practical guides on managing App Store and Google Play reviews — replies, ratings, sentiment, and release health.",
 };

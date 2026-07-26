@@ -1,7 +1,7 @@
 ﻿import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
 
 export const metadata = {
-  title: "Acceptable Use Policy — ReviewBox",
+  title: "Acceptable Use Policy",
   description: "ReviewBox Acceptable Use Policy — rules for using the platform responsibly.",
 };
 

@@ -5,7 +5,7 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "System Status — ReviewBox",
+  title: "System Status",
   description: "Service status for ReviewBox — review sync, AI reply generation, store connections, and the dashboard.",
 };
 

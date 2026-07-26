@@ -5,7 +5,7 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "Contact — ReviewBox",
+  title: "Contact",
   description:
     "Get in touch with the ReviewBox team. Support, sales, and partnerships.",
 };

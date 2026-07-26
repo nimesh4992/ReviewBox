@@ -4,7 +4,7 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "Acme Banking: 4.21 → 4.58 in 90 Days — ReviewBox",
+  title: "Acme Banking: 4.21 → 4.58 in 90 Days",
   description:
     "How Acme Banking went from a 4.21 to a 4.58 App Store rating in 90 days using ReviewBox's AI reply pipeline and automation rules.",
 };

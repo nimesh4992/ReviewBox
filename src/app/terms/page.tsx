@@ -1,7 +1,7 @@
 ﻿import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
 
 export const metadata = {
-  title: "Terms of Service — ReviewBox",
+  title: "Terms of Service",
   description: "ReviewBox Terms of Service — the rules governing your use of the platform.",
 };
 

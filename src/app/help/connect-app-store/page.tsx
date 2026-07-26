@@ -4,7 +4,7 @@ import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
 export const metadata = {
-  title: "Connect the App Store — ReviewBox Help",
+  title: "Connect the App Store — Help",
   description:
     "Step-by-step guide to connecting your iOS app to ReviewBox using an App Store Connect API key.",
 };

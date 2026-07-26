@@ -4,7 +4,7 @@ import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 
 export const metadata = {
-  title: "How we reduced AI reply costs by 94% without hurting quality — ReviewBox Blog",
+  title: "How we reduced AI reply costs by 94% without hurting quality",
   description:
     "We rebuilt the reply pipeline from scratch — 25 templates, a Redis cache, and Gemini for the hard cases. Here's exactly how the math works.",
 };

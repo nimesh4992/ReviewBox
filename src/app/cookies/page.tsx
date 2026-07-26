@@ -1,7 +1,7 @@
 ﻿import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
 
 export const metadata = {
-  title: "Cookie Policy — ReviewBox",
+  title: "Cookie Policy",
   description: "ReviewBox Cookie Policy — what cookies we set, why, and how to manage them.",
 };
 
