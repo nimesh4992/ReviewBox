@@ -3,10 +3,15 @@ import { cn } from "@/lib/utils";
 
 // Note: set ADMIN_CLERK_USER_ID in .env.local to your Clerk user ID (Clerk dashboard > Users)
 
-type PlanName = "free" | "starter" | "pro" | "team";
+// Local to the badge styling — deliberately not the PlanName from lib/plans,
+// so adding a plan there can't silently change admin colours. It does need
+// every real plan name though: `trial` was missing, so every workspace on a
+// trial (which is every new signup) was shown as "free" here.
+type PlanName = "free" | "trial" | "starter" | "pro" | "team";
 
 const PLAN_BADGE: Record<PlanName, string> = {
   free:    "bg-gray-100 text-gray-500 border border-gray-200",
+  trial:   "bg-amber-50 text-amber-700 border border-amber-200",
   starter: "bg-blue-50 text-blue-600 border border-blue-200",
   pro:     "bg-indigo-50 text-indigo-600 border border-indigo-200",
   team:    "bg-purple-50 text-purple-700 border border-purple-200",
