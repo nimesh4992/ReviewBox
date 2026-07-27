@@ -149,9 +149,8 @@ Critical-edge features for AppFollow competition.
 **Effort:** 1d.
 **Done when:** User saves a filter combo as a named view; pins to sidebar.
 
-### [ ] X12 · Admin panel real data · ICE 45 (5×9÷1)
-**Effort:** 1d.
-**Done when:** /admin shows real customers (workspaces table joined with Clerk users), AI usage volumes.
+### [x] X12 · Admin panel real data · ICE 45 (5×9÷1) — SHIPPED 2026-07-27
+*Admin business portal on PR #67: overview KPIs (workspaces, signups 7d, est. MRR from D002 list prices, reviews, AI drafts), customer detail (members w/ Clerk emails, apps + sync health, usage, audit trail), and a full support-ticket system (migration 017, in-app "Contact support" in Settings, /admin/tickets queue with threads + internal notes). ADR 007.*
 
 ### [x] X13 · Playwright e2e — onboarding + inbox flow · ICE 49 (7×7÷1) — SHIPPED 2026-05-30
 *11 unauthenticated redirect tests, auth page structure, mocked inbox tests (gated behind NEXT_PUBLIC_BYPASS_E2E=1). Merged in `feat/x1-slack-integration`.*

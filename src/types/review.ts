@@ -246,6 +246,39 @@ export interface KnowledgeBaseEntry {
   createdAt: string;
 }
 
+// ── Support tickets (admin portal) ────────────────────────────────────────────
+
+export type SupportTicketStatus = "open" | "pending" | "resolved" | "closed";
+export type SupportTicketSource = "in_app" | "email" | "manual";
+export type SupportTicketAuthor = "customer" | "admin";
+
+export interface SupportTicket {
+  id: string;
+  workspaceId: string | null;
+  /** Present when the query embeds the workspaces relation. */
+  workspaceName?: string | null;
+  requesterEmail: string;
+  requesterName: string | null;
+  subject: string;
+  status: SupportTicketStatus;
+  priority: ReviewPriority;
+  source: SupportTicketSource;
+  createdAt: string;
+  updatedAt: string;
+  lastMessageAt: string;
+}
+
+export interface SupportTicketMessage {
+  id: string;
+  ticketId: string;
+  authorType: SupportTicketAuthor;
+  authorName: string | null;
+  body: string;
+  /** Admin-only note — never shown to the customer. */
+  isInternal: boolean;
+  createdAt: string;
+}
+
 // ── Alerts ────────────────────────────────────────────────────────────────────
 
 export type AlertType =

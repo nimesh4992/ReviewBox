@@ -1,6 +1,6 @@
 # Today — Handoff for next agent
 
-**Last updated:** 2026-07-26
+**Last updated:** 2026-07-27
 **Branch agent left on:** `claude/product-market-readiness-zcfowh` (pushed, draft PR #67 open, production domain currently serves this branch's build)
 
 You are the next Claude agent. Read this top-to-bottom before doing anything.
@@ -11,85 +11,79 @@ You are the next Claude agent. Read this top-to-bottom before doing anything.
 
 1. **`CLAUDE.md`** (repo root) — stack, conventions, autopilot model, what NOT to do
 2. **`docs/decisions.md`** — IMMUTABLE rules. D000 (non-coder contract) and D009 (never-do list) are critical.
-3. **`docs/UX_AUDIT.md`** — the 8 slop patterns + per-screen findings driving the UX program
-4. **`docs/backlog.md`** — ICE-ranked queue
-5. **This file (`docs/today.md`)** — last session's handoff
+3. **`docs/backlog.md`** — ICE-ranked queue
+4. **This file (`docs/today.md`)** — last session's handoff
 
 ---
 
-## What happened this session (2026-07-26)
+## What happened this session (2026-07-27)
 
-The founder asked two big things: redesign the website from scratch ("think
-like a UI designer hired fresh"), and — after a PM-style usability rating of
-3/5 — "get me at least 4/5 on all the points." Six slices shipped to PR #67:
+Founder asked: *"start build a backend portal to manage the business. customer,
+tickets etc"*. One slice shipped to PR #67 — the **admin business portal**
+(backlog X12, extended with support tickets). ADR: `docs/adr/007-admin-portal-support-tickets.md`.
 
-### Website slice 1 — homepage, Direction A (founder-approved)
-- Newsreader editorial serif via next/font; hero "Your *worst* review
-  deserves your *best* reply."; **ProductFrame** (the inbox drawn as the hero
-  illustration, reply types itself). Nav/footer rebuilt on tokens; links to
-  the approved-for-deletion pages (/customers /careers /status) removed;
-  fake social chips replaced with hello@tryreviewbox.com.
-- **Bug found:** font tokens declared at `:root` referenced next/font vars
-  that only exist on `<body>` — CSS silently invalidates the whole custom
-  property. Font tokens now live on `body`. Remember this if adding fonts.
-- Founder approvals on file: Direction A + the full 25→15 page cut
-  (deletions/redirects are Slice 3, NOT done yet).
+### /admin — overview (new)
+- Real KPIs from Supabase: active workspaces (+ plan breakdown + deleted count),
+  signups last 7d, **est. MRR from D002 list prices** (clearly labeled — Stripe
+  stays untouched per D013), apps connected, reviews synced (+7d), AI drafts 7d.
+- Recent-signups and needs-a-reply ticket snapshots, both linked through.
 
-### Inbox core-loop pass
-- Keyboard flow: j/k/arrows move selection, Enter → composer, "/" → search.
-  Rows are real listbox options (focus ring, Enter/Space) — were click-only divs.
-- **Credential-aware reply hierarchy:** connected app → hero button is
-  one-click "Post reply to <store>"; no credentials → Draft Mode copy-paste
-  stays hero. Reviews now carry `appId` (API select + type).
-- All 10 remaining purple accents in the inbox → brand blue.
+### /admin/customers — list upgraded + detail page (new)
+- List: full D002 plan vocabulary badges (incl. past_due/canceled), review
+  counts (PostgREST `reviews(count)` with graceful fallback), trial-end dates,
+  deleted badge, rows link to detail.
+- Detail (`/admin/customers/[id]`): members with real emails (Clerk batch
+  lookup), apps with sync health + lifetime rating, usage stats (reviews,
+  needs-reply, AI calls 30d), workspace tickets, last 8 audit-log events,
+  Stripe customer id if present.
 
-### Competitors — real tracking (replaces invented rows)
-- `competitor_apps` table (migration 016, **founder must run** — safe, and
-  the API detects 42P01 and falls back to the old illustrative rows until
-  then). Add via store search (same endpoint as onboarding), max 5,
-  rate-limited, audited. Rating/total-ratings scraped through the existing
-  6h Redis metadata cache. Reply rate/trend for competitors show "—" —
-  not public, never invented.
+### Support tickets (new system)
+- **Migration `017_support_tickets.sql`** — `support_tickets` +
+  `support_ticket_messages`, RLS on (customers can read their own workspace's
+  non-internal thread; all writes service-role only). Idempotent.
+- Customers file tickets in-app: Settings → **Contact support** card →
+  `POST /api/support/tickets` (Clerk auth, rate-limited 5/h, audited).
+- Founder works them at `/admin/tickets`: status-filter tabs, thread view,
+  reply box + **internal notes**, status/priority dropdowns (auto "pending"
+  when a public reply lands on an open ticket), `/admin/tickets/new` to log
+  email-arrived requests (auto-links workspace via Clerk email lookup).
+- **D009 #6 respected:** admin replies are stored in the thread only — nothing
+  is emailed. UI says so explicitly.
+- Everything degrades gracefully until migration 017 is applied (42P01 →
+  setup notice / 503 with email fallback), same pattern as migration 016.
 
-### Funnel instrumentation
-- `reply_drafted` (source), `reply_sent` (method: api|manual),
-  `competitor_added` now actually fire — they were defined in
-  `src/lib/analytics.ts` but had zero call sites. "% of signups that post a
-  first reply" is now measurable in PostHog.
+### Plumbing
+- `src/lib/admin-auth.ts` — shared fail-closed admin gate (layout + API routes).
+- `src/lib/support-tickets.ts` — vocab, validation, row mappers.
+- audit.ts: `ticket.create|update|message` actions + `ticket` target type.
+- middleware: `/api/support(.*)` registered as an app route (prod host would
+  otherwise bounce it to /dashboard).
+- 32 new unit tests (admin gate, ticket validation/mappers) → **127 total**.
 
-### Also
-- Cookie banner retokened (was hardcoded dark + indigo).
-- Reports screen checked: already honest (real Send-now endpoints, real CSV
-  export, "Coming soon" for unbuilt) — audit memory was stale.
-
-**Verification:** every slice rendered locally with stubbed APIs before
-commit (light+dark+mobile for homepage; keyboard flow asserted
-programmatically for inbox; tracked+empty states for competitors).
-tsc 0 · lint 0 errors · 95 unit tests · production build green.
-All 4 blocking CI jobs green on every push. E2E advisory red = BUG-037
-(needs founder's real Clerk test keys).
+**Verification:** tsc 0 · lint 0 errors · 127 unit tests green · production
+build green.
 
 ---
 
 ## What you should pick up next
 
-1. **FOUNDER: run migration 016** (`supabase/migrations/016_competitor_apps.sql`)
-   — flips Competitors from "coming soon" to the real add flow.
-2. **FOUNDER: review the homepage on the PR #67 preview.** Website slice 2
-   (Pricing + Compare on the new system) is explicitly gated on this approval.
+1. **FOUNDER: run migration 017** (`supabase/migrations/017_support_tickets.sql`)
+   — switches on the ticket system. Also **016** if still not run.
+2. **FOUNDER: review + merge PR #67** (it now carries 7 slices; preview link
+   in the PR). Homepage verdict still gates Website slice 2 (Pricing + Compare).
 3. **Website slice 3 — the cut** (approved): delete /customers +
    /customers/acme-banking (410), /careers → 301 /about, /status → 301
    /help, merge the two contradictory refund pages (**founder must pick
    which text survives**), update sitemap.ts + robots.ts.
 4. **DS-003 gray sweep** — ~1,000 raw gray-* utilities remain outside the
-   redesigned screens. Mechanical, low-risk.
+   redesigned screens. Mechanical, low-risk. (New admin pages intentionally
+   match the existing admin gray style — internal tooling, out of scope.)
 5. **BUG-037** — founder adds Clerk test secrets → make E2E blocking.
 
 ## Standing watch
 
 - PR #67 has an hourly self check-in armed (send_later). All pushes get
-  Vercel previews now (Git integration fixed after the founder removed the
-  second collaborator). Production domain points at this branch's build —
+  Vercel previews. Production domain points at this branch's build —
   **don't push to master until #67 merges** or prod regresses.
 - Ahrefs MCP: "insufficient plan" — don't invent keyword volumes.
   SEO plan lives in `docs/SEO_CONTENT_PLAN.md` (Phase 0 shipped).
