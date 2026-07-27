@@ -63,6 +63,20 @@ tickets etc"*. One slice shipped to PR #67 — the **admin business portal**
 **Verification:** tsc 0 · lint 0 errors · 127 unit tests green · production
 build green.
 
+### Also this session: full user-role & access-control audit (report only, no fixes)
+
+Founder asked for a thorough per-page/per-section role audit. Two exhaustive
+sweeps (all 67 API routes + every page/component) → **`docs/ROLE_AUDIT.md`**.
+Headline: tenant isolation is clean (zero cross-workspace holes — A-), but
+internal owner/member roles are enforced in only 6 of 67 routes and ZERO UI
+components (C-). Standouts: any member can GDPR-export the tenant including
+store credentials; Slack OAuth callback bypasses the admin-only webhook gate;
+members can enable auto-reply; `stripe/portal` binds by email not workspace;
+and a middleware matcher gap leaves `/api/import|competitors|auth/slack|cron`
+unreachable on the prod app host (shipped features silently broken). Backlog
+items **R1–R3** added (ICE-scored). Next agent: R1 is a 30-min functional fix
+— do it first.
+
 ---
 
 ## What you should pick up next
