@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AutomationExecutionLog, AutomationPreset, AutomationRule } from "@/types/review";
-import { featuredPresets, automationPresets, mockRules } from "@/features/automations/data/mock-automations";
+import { featuredPresets, automationPresets } from "@/features/automations/data/mock-automations";
 import { RuleBuilderModal } from "./rule-builder-modal";
 
 // ── Preset → default rule mapping ─────────────────────────────────────────────
@@ -375,7 +375,10 @@ type ActiveTab = "rules" | "presets";
 
 export function AutomationHub() {
   const [activeTab, setActiveTab]       = useState<ActiveTab>("rules");
-  const [rules, setRules]               = useState<AutomationRule[]>(mockRules);
+  // Starts empty and only ever shows DB rules. Seeding with sample rules made
+  // every zero-rule workspace look configured forever (the fetch below skipped
+  // empty responses), and toggling a sample fired the API with a fake id.
+  const [rules, setRules]               = useState<AutomationRule[]>([]);
   const [showBuilder, setShowBuilder]   = useState(false);
   const [editingRule, setEditingRule]   = useState<AutomationRule | null>(null);
   const [loading, setLoading]           = useState(false);
@@ -387,7 +390,7 @@ export function AutomationHub() {
       .then(async (res) => {
         if (!res.ok) return;
         const json = (await res.json()) as { rules: AutomationRule[] };
-        if (!cancelled && Array.isArray(json.rules) && json.rules.length > 0) {
+        if (!cancelled && Array.isArray(json.rules)) {
           setRules(json.rules);
         }
       })

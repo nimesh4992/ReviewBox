@@ -1,7 +1,5 @@
-import { Sparkles, Plus, Upload } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { mockTags } from "../data/mock-reply-kit";
-import type { TagCategory, TagDefinition } from "@/types/review";
+import { Sparkles } from "lucide-react";
+import type { ReviewIssueTag, TagCategory } from "@/types/review";
 
 const CATEGORY_LABEL: Record<TagCategory, string> = {
   bugs: "Bugs",
@@ -11,51 +9,40 @@ const CATEGORY_LABEL: Record<TagCategory, string> = {
 
 const CATEGORY_ORDER: TagCategory[] = ["bugs", "user_feedback", "monetization"];
 
-function groupByCategory(tags: TagDefinition[]): Record<TagCategory, TagDefinition[]> {
-  return {
-    bugs: tags.filter((t) => t.category === "bugs"),
-    user_feedback: tags.filter((t) => t.category === "user_feedback"),
-    monetization: tags.filter((t) => t.category === "monetization"),
-  };
-}
-
 /**
- * Tags list.
- *
- * Deliberate removals from the previous version, both redundancy:
- * - the "#" row-number column — numbers carried no meaning and no ordering
- *   control, they just made the table look machine-generated;
- * - the per-row "Category" column — rows are already grouped under category
- *   headers, so every row restated what the header above it said.
- *
- * The solid-indigo "Smarter tags, powered by AI" banner became a one-line
- * muted hint. A promo panel inside a settings table is noise; the capability
- * is still discoverable, it just no longer shouts over the content.
+ * The REAL tag vocabulary — the eight ReviewIssueTags the zero-cost rules
+ * engine (src/lib/rules-engine.ts) applies to every synced review. This list
+ * previously showed 18 invented tags from mock data; now it shows exactly
+ * what the product does. Custom user-defined tags are a future feature — the
+ * "Add tag" / "Import" buttons that pretended otherwise are gone.
  */
-export function TagsTab() {
-  const grouped = groupByCategory(mockTags);
+const TAG_VOCABULARY: { tag: ReviewIssueTag; label: string; color: string; category: TagCategory }[] = [
+  { tag: "crash",              label: "Crash",              color: "#ef4444", category: "bugs" },
+  { tag: "performance",        label: "Performance",        color: "#ef4444", category: "bugs" },
+  { tag: "release-regression", label: "Release regression", color: "#ef4444", category: "bugs" },
+  { tag: "login",              label: "Login issues",       color: "#ef4444", category: "bugs" },
+  { tag: "feature-request",    label: "Feature request",    color: "#6366f1", category: "user_feedback" },
+  { tag: "support-delay",      label: "Support delay",      color: "#6366f1", category: "user_feedback" },
+  { tag: "localization",       label: "Localization",       color: "#6366f1", category: "user_feedback" },
+  { tag: "billing",            label: "Billing",            color: "#f59e0b", category: "monetization" },
+];
 
+export function TagsTab() {
   return (
     <div>
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
+      <div className="mb-4">
         <h2 className="text-rb-lg font-semibold text-fg-1">Tags</h2>
-        <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" className="text-fg-3">
-            <Upload strokeWidth={1.5} className="size-4" />
-            Import
-          </Button>
-          <Button size="sm">
-            <Plus strokeWidth={1.5} className="size-4" />
-            Add tag
-          </Button>
-        </div>
+        <p className="mt-1 text-rb-sm text-fg-3">
+          Every synced review is auto-tagged against this vocabulary. Filter the inbox by any of
+          them.
+        </p>
       </div>
 
       {/* Table */}
       <div className="w-full overflow-hidden rounded-xl border border-[var(--rb-border-1)] bg-surface">
         {CATEGORY_ORDER.map((category) => {
-          const tags = grouped[category];
+          const tags = TAG_VOCABULARY.filter((t) => t.category === category);
           if (!tags.length) return null;
           return (
             <div key={category}>
@@ -65,16 +52,17 @@ export function TagsTab() {
                 </span>
                 <span className="text-rb-xs tabular-nums text-fg-4">{tags.length}</span>
               </div>
-              {tags.map((tag) => (
+              {tags.map((t) => (
                 <div
-                  key={tag.id}
+                  key={t.tag}
                   className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-4 py-2 last:border-b-0 hover:bg-[var(--rb-bg-hover)]"
                 >
                   <span
                     className="size-2 shrink-0 rounded-full"
-                    style={{ backgroundColor: tag.color }}
+                    style={{ backgroundColor: t.color }}
                   />
-                  <span className="text-rb-base text-fg-1">{tag.name}</span>
+                  <span className="text-rb-base text-fg-1">{t.label}</span>
+                  <span className="ml-auto font-mono text-rb-xs text-fg-4">{t.tag}</span>
                 </div>
               ))}
             </div>
@@ -82,13 +70,11 @@ export function TagsTab() {
         })}
       </div>
 
-      {/* AI hint — quiet, not a banner */}
+      {/* Honest capability note — the rules engine really does this, at zero AI cost */}
       <p className="mt-3 flex items-center gap-1.5 text-rb-sm text-fg-3">
         <Sparkles strokeWidth={1.5} className="size-3.5" />
-        Semantic analysis can auto-tag incoming reviews against this list.
-        <button type="button" className="font-medium text-[var(--rb-blue-500)] hover:underline">
-          Try it
-        </button>
+        Tagging runs automatically on every sync — no setup, no AI cost. Custom tags are on the
+        roadmap.
       </p>
     </div>
   );

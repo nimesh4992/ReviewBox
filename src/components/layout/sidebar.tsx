@@ -51,39 +51,42 @@ type NavGroup = {
 // Signal numbers were previously hardcoded ("127" inbox, "2" incidents).
 // Until they're wired to real counts via React Query, all set to null so
 // we don't lie to users about what's in their workspace.
+// Ordered by the core loop (D018): the inbox IS the product, so it sits
+// first-class next to Dashboard instead of buried in a group. Group labels
+// are verbs — what the user is doing, not a taxonomy of screens.
 const navGroups: NavGroup[] = [
   {
     label: null,
     items: [
+      { name: "Inbox",     href: "/inbox",     icon: Inbox, signal: null },
       { name: "Dashboard", href: "/dashboard", icon: Gauge, signal: null },
     ],
   },
   {
-    label: "Manage reviews",
+    label: "Automate",
     items: [
-      { name: "Reviews",     href: "/reviews",     icon: Inbox,    signal: null },
-      { name: "Automations", href: "/automations", icon: Workflow,  signal: null },
-      { name: "Reply Kit",   href: "/reply-kit",   icon: BookOpen,  signal: null },
+      { name: "Automations", href: "/automations", icon: Workflow, signal: null },
+      { name: "Reply Kit",   href: "/reply-kit",   icon: BookOpen, signal: null },
     ],
   },
   {
     label: "Monitor",
     items: [
-      { name: "Sentiment",  href: "/sentiment",  icon: BarChart2,    signal: null },
+      { name: "Sentiment",  href: "/sentiment",  icon: BarChart2,     signal: null },
+      { name: "Releases",   href: "/releases",   icon: Rocket,        signal: null },
       { name: "Incidents",  href: "/incidents",  icon: AlertTriangle, signal: null },
-      { name: "Releases",   href: "/releases",   icon: Rocket,       signal: null },
       { name: "Reports",    href: "/reports",    icon: FileBarChart,  signal: null },
     ],
   },
   {
-    label: "Get insights",
+    label: "Grow",
     items: [
-      { name: "Competitors", href: "/competitors", icon: Trophy,  signal: null },
-      { name: "ASO",         href: "/aso",         icon: Search,  signal: null },
+      { name: "Competitors", href: "/competitors", icon: Trophy, signal: null },
+      { name: "ASO",         href: "/aso",         icon: Search, signal: null },
     ],
   },
   {
-    label: "Settings",
+    label: null,
     items: [
       { name: "Settings", href: "/settings", icon: Settings, signal: null },
     ],
@@ -277,7 +280,7 @@ export function Sidebar({ className }: { className?: string }) {
             <div className="space-y-0.5">
               {group.items.map((item) => {
                 const withSignal =
-                  item.href === "/reviews" && unrepliedCount > 0
+                  item.href === "/inbox" && unrepliedCount > 0
                     ? { ...item, signal: String(unrepliedCount) }
                     : item;
                 return (

@@ -77,6 +77,26 @@ unreachable on the prod app host (shipped features silently broken). Backlog
 items **R1–R3** added (ICE-scored). Next agent: R1 is a 30-min functional fix
 — do it first.
 
+### Also this session: IA restructure phase 1 ("de-vibe-code" pass)
+
+Founder: "features/screens feel vibe-coded — move things around, categorise,
+fine-tune." Shipped (see `docs/IA_RESTRUCTURE.md` for the full plan):
+- **Releases page rebuilt on real data** — groups synced reviews by
+  `app_version` (count, avg ★, delta vs prior, first seen → links to the real
+  detail page). Fabricated 4-version table + rollout bars + 2 dead buttons
+  deleted (`release-health-table.tsx`, `releaseHealth` mock removed).
+- **Automations honest** — mock-rule seed removed (zero-rule workspaces saw
+  fake rules forever; toggling fired the API with fake ids). Starts empty,
+  real empty state shows.
+- **Reply Kit Tags** — now shows the real 8-tag rules-engine vocabulary;
+  dead Import/Add-tag/Try-it controls removed.
+- **Dead buttons removed** — Settings "Manage access", Automations header
+  "Add rule".
+- **Nav re-categorized** — Inbox first-class (real unreplied badge; was keyed
+  to the /reviews redirect), groups: Automate / Monitor / Grow.
+Phase 2 (merges/cuts: Reply Kit→Automations, Incidents→Inbox, Reports trim,
+ASO rename) is written up in the doc and **awaits founder verdict**.
+
 ---
 
 ## What you should pick up next
