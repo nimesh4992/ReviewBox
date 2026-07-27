@@ -97,6 +97,24 @@ fine-tune." Shipped (see `docs/IA_RESTRUCTURE.md` for the full plan):
 Phase 2 (merges/cuts: Reply Kit→Automations, Incidents→Inbox, Reports trim,
 ASO rename) is written up in the doc and **awaits founder verdict**.
 
+### Also this session: fix — apps added from Settings never synced
+
+Founder report: "app connected, basic data not scraped." Root cause candidates
+found (couldn't read prod DB from the sandbox; Play Store is blocked by the
+sandbox egress proxy, so live scrape testing was inconclusive):
+1. **Fixed:** `POST /api/apps` (Settings → Add app) did neither the metadata
+   fetch nor the first-sync trigger that onboarding does — the app sat empty
+   until the 8am cron. Now mirrors onboarding: `fetchAppMetadata` before
+   insert (42703 fallback) + fire-and-forget `/api/sync/reviews` trigger, and
+   logs loudly when CRON_SECRET is missing in prod.
+2. **Founder must verify:** `CRON_SECRET` env var exists in Vercel. Without
+   it, the daily cron AND all server-side sync triggers are rejected in prod
+   (sync/reviews `isAuthorized` fails closed) — only the manual "Sync now"
+   button works. Not visible from the repo.
+3. Remaining suspect if 1+2 check out: Google 403-blocking Vercel egress IPs —
+   the truth is in `apps.last_sync_error` (visible in Settings → Apps and
+   /admin customer detail). Ask founder for the exact status text.
+
 ---
 
 ## What you should pick up next
