@@ -158,10 +158,10 @@ function BillingContent() {
       <div className="p-4 md:p-6">
         {/* Trial expired banner */}
         {trialExpired && (
-          <div className="mb-6 flex items-start gap-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
-            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" strokeWidth={1.5} />
-            <p className="text-sm text-amber-800">
-              <span className="font-semibold">Your free trial has expired.</span>{" "}
+          <div className="mb-6 flex items-start gap-3 rounded-lg border border-[var(--rb-amber-500)]/30 bg-[var(--rb-amber-500)]/10 px-4 py-3">
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-[var(--rb-amber-500)]" strokeWidth={1.5} />
+            <p className="text-sm text-fg-2">
+              <span className="font-semibold text-fg-1">Your free trial has expired.</span>{" "}
               Choose a plan to continue using ReviewBox.
             </p>
           </div>
