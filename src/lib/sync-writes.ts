@@ -96,3 +96,20 @@ export function mergeReviewRows<T extends { external_id: string }>(
   }
   return [...merged.values()];
 }
+
+/**
+ * Does a store-API failure mean "the customer hasn't granted access", as
+ * opposed to a transient hiccup? Only the former may mark an app as
+ * not-connected (publisher_api_connected = false) — a 5xx or timeout must
+ * not flip a connected app back to the "connect your Play Console" banner.
+ */
+export function isGpPermissionError(message: string): boolean {
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("403") ||
+    lower.includes("permission") ||
+    lower.includes("forbidden") ||
+    lower.includes("unauthorized") ||
+    lower.includes("credentials are missing")
+  );
+}

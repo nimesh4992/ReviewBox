@@ -1,5 +1,5 @@
 import { auth, clerkClient } from "@clerk/nextjs/server";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { sendWelcomeEmail } from "@/lib/email/send-welcome";
@@ -12,6 +12,7 @@ import {
   type AppCategory,
 } from "@/lib/brand-voice-stubs";
 import { fetchAppMetadata } from "@/services/store-search";
+import { syncWorkspace } from "@/services/review-sync";
 
 interface OnboardingBody {
   workspaceName: string;
@@ -28,6 +29,10 @@ interface OnboardingBody {
 }
 
 const TRIAL_DAYS = 14;
+
+// The after() first-sync scrapes the public store (10–30s) — needs more than
+// the default function budget so the sync isn't cut off mid-write.
+export const maxDuration = 60;
 
 // Same pattern as /api/onboarding/slug-check — keep in sync.
 // Requires minimum 3 chars: one leading alnum, 1-38 middle chars, one trailing alnum.
@@ -235,23 +240,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     appId = appInsert.data!.id as string;
   }
 
-  // Kick off the first review sync immediately so the user doesn't have to
-  // wait up to 24h for the daily cron. Fire-and-forget — non-blocking so
-  // the response isn't held up by Google Play API latency.
-  // Google Play sync takes 5–15s; App Store needs credentials so it'll
-  // be a no-op until the user adds them in Settings.
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL?.startsWith("http")
-      ? process.env.NEXT_PUBLIC_APP_URL
-      : process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000";
-  const cronSecret = process.env.CRON_SECRET;
-  void fetch(`${appUrl}/api/sync/reviews?workspaceId=${workspaceId}`, {
-    method: "GET",
-    headers: cronSecret ? { authorization: `Bearer ${cronSecret}` } : {},
-  }).catch((err) => {
-    console.error("[onboarding] first-sync trigger:", err);
+  // Kick off the first review sync so the dashboard has real public-store
+  // data (rating + latest reviews) the moment the user lands on it — no
+  // Play Console credentials needed (D018 Draft Mode).
+  //
+  // Runs via after(), in-process, AFTER the response is sent. The previous
+  // fire-and-forget HTTP self-fetch died in production two ways: Vercel
+  // freezes the lambda when the response returns (the request often never
+  // left the box), and without CRON_SECRET the sync route rejected the
+  // cookieless server-to-server call with a 401. Calling syncWorkspace()
+  // directly needs no auth hop and after() keeps the invocation alive.
+  after(async () => {
+    try {
+      await syncWorkspace(workspaceId);
+    } catch (err) {
+      console.error("[onboarding] first sync failed:", err);
+    }
   });
 
   // Mark user as onboarded + set trial window + fire welcome email
