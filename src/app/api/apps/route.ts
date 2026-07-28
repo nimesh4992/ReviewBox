@@ -127,28 +127,6 @@ export async function POST(request: NextRequest) {
     return apiError("INVALID_INPUT", 400, "Missing store identifier (packageName or bundleId)");
   }
 
-  // Grab public store metadata (icon, lifetime rating, review count) before
-  // insert so the app row isn't blank while the first sync runs. Best-effort —
-  // a failed scrape must not block adding the app.
-  let metadata: {
-    icon_url?: string | null;
-    developer?: string | null;
-    lifetime_rating?: number | null;
-    lifetime_review_count?: number | null;
-    metadata_refreshed_at?: string;
-  } = {};
-  try {
-    const platform = body.platform === "google_play" ? "google-play" : "app-store";
-    const meta = await fetchAppMetadata(platform, storeId);
-    if (meta) {
-      metadata = {
-        icon_url:              meta.icon,
-        developer:             meta.developer || null,
-        lifetime_rating:       meta.rating,
-        lifetime_review_count: meta.reviewCount,
-        metadata_refreshed_at: new Date().toISOString(),
-      };
-    }
   // Fetch lifetime metadata (icon, rating, review count) before insert, same
   // as onboarding — apps added from Settings previously never got any of it.
   let metadata: Awaited<ReturnType<typeof fetchAppMetadata>> = null;
@@ -164,11 +142,6 @@ export async function POST(request: NextRequest) {
   let insert = await sb
     .from("apps")
     .insert({
-      workspace_id: workspaceId,
-      name: body.name,
-      platform: body.platform,
-      store_id: storeId,
-      ...metadata,
       workspace_id:           workspaceId,
       name:                   body.name,
       platform:               body.platform,
@@ -182,7 +155,6 @@ export async function POST(request: NextRequest) {
     .select()
     .single();
 
-  // 42703 = metadata columns missing (migration 012 pending) — insert without.
   // 42703 = metadata columns missing (migration 012 not applied) — insert
   // without them rather than failing the add entirely.
   if (insert.error?.code === "42703") {
@@ -200,14 +172,16 @@ export async function POST(request: NextRequest) {
 
   const { data: app, error } = insert;
 
-  if (error) {
   if (error || !app) {
     return apiError("INTERNAL_SERVER_ERROR", 500);
   }
 
-  // First sync (public scrape — no credentials needed) runs after the
-  // response is sent, so the user sees their reviews within ~30s of adding
-  // the app instead of waiting for the daily cron.
+  // 7. Kick off the first review sync (public scrape — no credentials
+  // needed). Runs in-process via after(), AFTER the response is sent, so an
+  // app added from Settings shows reviews within ~30s instead of sitting
+  // empty until the daily cron. An HTTP self-fetch is NOT reliable here:
+  // Vercel freezes the lambda on response, and without CRON_SECRET the sync
+  // route rejects cookieless server-to-server calls in production.
   after(async () => {
     try {
       await syncWorkspace(workspaceId);
@@ -216,7 +190,7 @@ export async function POST(request: NextRequest) {
     }
   });
 
-  // 7. Audit
+  // 8. Audit
   await audit({
     workspaceId,
     actorUserId: userId,
@@ -225,28 +199,6 @@ export async function POST(request: NextRequest) {
     targetId: (app as { id: string }).id,
     payload: { name: body.name, platform: body.platform, storeId },
     request,
-  });
-
-  // 8. Kick off the first review sync immediately, exactly like onboarding
-  // does — otherwise an app added from Settings sits empty until the daily
-  // cron. Fire-and-forget; the Draft Mode scraper needs no credentials.
-  const appUrl =
-    process.env.NEXT_PUBLIC_APP_URL?.startsWith("http")
-      ? process.env.NEXT_PUBLIC_APP_URL
-      : process.env.VERCEL_URL
-        ? `https://${process.env.VERCEL_URL}`
-        : "http://localhost:3000";
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret && process.env.NODE_ENV === "production") {
-    // Without the secret the internal trigger (and the daily cron) is
-    // rejected in production — surface it loudly instead of failing silently.
-    console.error("[apps] CRON_SECRET is not set — first sync cannot be triggered server-side");
-  }
-  void fetch(`${appUrl}/api/sync/reviews?workspaceId=${workspaceId}`, {
-    method: "GET",
-    headers: cronSecret ? { authorization: `Bearer ${cronSecret}` } : {},
-  }).catch((err) => {
-    console.error("[apps] first-sync trigger:", err);
   });
 
   // 9. Return new app
