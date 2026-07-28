@@ -3,7 +3,6 @@ import {
   InsightSignal,
   OperationalMetric,
   PlatformHealth,
-  ReleaseHealth,
 } from "@/types/review";
 
 export const incidentAlerts: IncidentAlert[] = [
@@ -140,45 +139,3 @@ export const aiInsightSignals: InsightSignal[] = [
   },
 ];
 
-export const releaseHealth: ReleaseHealth[] = [
-  {
-    version: "5.42.0",
-    status: "degraded",
-    ratingDelta: "−0.34",
-    ratingDeltaNum: -0.34,
-    complaintDelta: "+38%",
-    rollout: "45%",
-    rolloutNum: 45,
-    startedAt: "Today, 08:30",
-  },
-  {
-    version: "5.41.2",
-    status: "healthy",
-    ratingDelta: "+0.03",
-    ratingDeltaNum: 0.03,
-    complaintDelta: "−6%",
-    rollout: "100%",
-    rolloutNum: 100,
-    startedAt: "Apr 29",
-  },
-  {
-    version: "5.41.0",
-    status: "monitoring",
-    ratingDelta: "−0.07",
-    ratingDeltaNum: -0.07,
-    complaintDelta: "+4%",
-    rollout: "100%",
-    rolloutNum: 100,
-    startedAt: "Apr 21",
-  },
-  {
-    version: "5.40.1",
-    status: "healthy",
-    ratingDelta: "+0.11",
-    ratingDeltaNum: 0.11,
-    complaintDelta: "−9%",
-    rollout: "100%",
-    rolloutNum: 100,
-    startedAt: "Apr 14",
-  },
-];

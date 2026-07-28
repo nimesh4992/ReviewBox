@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { X } from "lucide-react";
 
 import { useApps } from "@/hooks/use-apps";
@@ -20,6 +20,7 @@ const DISMISS_KEY = "rb_cred_banner_dismissed";
 
 export function CredentialsBanner() {
   const router = useRouter();
+  const pathname = usePathname();
   const [dismissed, setDismissed] = useState(true);
 
   useEffect(() => {
@@ -31,9 +32,14 @@ export function CredentialsBanner() {
 
   const { apps } = useApps();
 
+  // The dashboard renders its own, richer status strip for exactly this
+  // state — showing this bar there too meant two banners about one problem.
+  const onDashboard = pathname === "/dashboard";
+
   const hasAtLeastOneApp = apps.length > 0;
   const anyMissingCredentials = apps.some((a) => !a.has_credentials);
-  const shouldShow = hasAtLeastOneApp && anyMissingCredentials && !dismissed;
+  const shouldShow =
+    hasAtLeastOneApp && anyMissingCredentials && !dismissed && !onDashboard;
 
   function handleDismiss() {
     sessionStorage.setItem(DISMISS_KEY, "1");
@@ -42,28 +48,29 @@ export function CredentialsBanner() {
 
   if (!shouldShow) return null;
 
+  // Quiet strip, not a solid-blue shout: this renders above every screen, so
+  // it has to coexist with real work. Sunken background, one accent link.
   return (
     <div
-      role="alert"
+      role="status"
       aria-live="polite"
-      style={{ backgroundColor: "#0A84FF" }}
-      className="flex items-center justify-between gap-3 px-4 py-2.5 text-white text-sm"
+      className="flex items-center gap-3 border-b border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-4 py-2 text-rb-sm text-fg-2"
     >
-      <span className="flex-1">
-        Your store account isn&apos;t linked yet — ReviewBox can&apos;t fetch reviews.
+      <span className="min-w-0 flex-1 truncate">
+        Store account not linked yet — reviews can&apos;t sync until it is.
       </span>
       <button
         onClick={() => router.push("/settings")}
-        className="font-medium underline underline-offset-2 whitespace-nowrap hover:opacity-80 transition-opacity"
+        className="shrink-0 font-medium text-[var(--rb-blue-500)] hover:underline"
       >
-        Link account →
+        Link account
       </button>
       <button
         onClick={handleDismiss}
-        aria-label="Dismiss banner"
-        className="ml-1 p-0.5 rounded hover:bg-white/20 transition-colors"
+        aria-label="Dismiss"
+        className="shrink-0 rounded p-0.5 text-fg-3 transition-colors hover:text-fg-1"
       >
-        <X size={16} strokeWidth={1.5} />
+        <X size={14} strokeWidth={1.5} />
       </button>
     </div>
   );

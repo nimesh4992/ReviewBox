@@ -18,6 +18,7 @@ export type ApiErrorCode =
   | "INVALID_INPUT"
   | "NOT_FOUND"
   // Conflict / business rules
+  | "ALREADY_EXISTS"
   | "SLUG_TAKEN"
   | "SLUG_RESERVED"
   | "PLAN_REQUIRED"
@@ -76,6 +77,7 @@ function defaultMessage(code: ApiErrorCode): string {
     case "MISSING_FIELDS":        return "One or more required fields are missing.";
     case "INVALID_INPUT":         return "The request contains invalid data.";
     case "NOT_FOUND":             return "The requested resource was not found.";
+    case "ALREADY_EXISTS":        return "This item already exists.";
     case "SLUG_TAKEN":            return "That workspace URL is already taken.";
     case "SLUG_RESERVED":         return "That workspace URL is reserved.";
     case "PLAN_REQUIRED":         return "This feature requires an upgraded plan.";

@@ -9,31 +9,22 @@ interface ThemeCtx {
   toggle: () => void;
 }
 
-const Ctx = createContext<ThemeCtx>({ theme: "dark", toggle: () => {} });
+const Ctx = createContext<ThemeCtx>({ theme: "light", toggle: () => {} });
 
 export function useMarketingTheme() {
   return useContext(Ctx);
 }
 
 export function MarketingShell({ children }: { children: React.ReactNode }) {
-  // SSR default: dark (matches homepage). Corrected on mount from OS / localStorage.
-  const [theme, setTheme] = useState<Theme>("dark");
+  // Marketing is light by default — SSR and first paint included. The bright
+  // SaaS design is the product's face; visitors with a dark OS were being
+  // greeted by a dark canvas the design was never tuned for. Dark remains an
+  // explicit choice via the nav toggle (persisted), never an OS inference.
+  const [theme, setTheme] = useState<Theme>("light");
 
   useEffect(() => {
     const stored = localStorage.getItem("rb-marketing-theme") as Theme | null;
-    if (stored === "dark" || stored === "light") {
-      setTheme(stored);
-    } else {
-      setTheme(window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
-    }
-    const mq = window.matchMedia("(prefers-color-scheme: dark)");
-    const handler = (e: MediaQueryListEvent) => {
-      if (!localStorage.getItem("rb-marketing-theme")) {
-        setTheme(e.matches ? "dark" : "light");
-      }
-    };
-    mq.addEventListener("change", handler);
-    return () => mq.removeEventListener("change", handler);
+    if (stored === "dark" || stored === "light") setTheme(stored);
   }, []);
 
   const toggle = useCallback(() => {
