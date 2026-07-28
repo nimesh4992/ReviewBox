@@ -91,6 +91,13 @@ export async function POST(
         .from("apps")
         .update({ last_sync_status: "credentials_verified", last_sync_error: null })
         .eq("id", appId);
+      // Durable connection flag for the "connect Play Console" banner.
+      // Separate statement so a pending migration 016 (42703) can't void
+      // the status update above.
+      await sb
+        .from("apps")
+        .update({ publisher_api_connected: true })
+        .eq("id", appId);
       return NextResponse.json(
         {
           ok: true,

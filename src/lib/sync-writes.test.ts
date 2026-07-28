@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 
-import { planSyncWrites, mergeReviewRows, type KnownReview } from "./sync-writes";
+import { planSyncWrites, mergeReviewRows, isGpPermissionError, type KnownReview } from "./sync-writes";
 
 function row(external_id: string, reply_status = "needs_reply", reply_text: string | null = null) {
   return { external_id, reply_status, reply_text };
@@ -134,5 +134,23 @@ describe("mergeReviewRows", () => {
     expect(mergeReviewRows([row("a")], null).map((r) => r.external_id)).toEqual(["a"]);
     expect(mergeReviewRows(null, [row("b")]).map((r) => r.external_id)).toEqual(["b"]);
     expect(mergeReviewRows(null, undefined)).toEqual([]);
+  });
+});
+
+describe("isGpPermissionError", () => {
+  it("treats access-denied shapes as permission errors", () => {
+    expect(isGpPermissionError("Request failed with status code 403")).toBe(true);
+    expect(isGpPermissionError("The caller does not have permission")).toBe(true);
+    expect(isGpPermissionError("Forbidden")).toBe(true);
+    expect(isGpPermissionError("401 Unauthorized")).toBe(true);
+    expect(isGpPermissionError("Google Play Service Account credentials are missing.")).toBe(true);
+  });
+
+  it("does not classify transient failures as permission errors", () => {
+    // These must NOT flip a connected app back to "connect your Play Console".
+    expect(isGpPermissionError("Google Play fetchReviews timeout")).toBe(false);
+    expect(isGpPermissionError("Request failed with status code 500")).toBe(false);
+    expect(isGpPermissionError("socket hang up")).toBe(false);
+    expect(isGpPermissionError("Request failed with status code 404")).toBe(false);
   });
 });
