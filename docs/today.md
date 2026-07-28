@@ -1,9 +1,7 @@
 # Today — Handoff for next agent
 
 **Last updated:** 2026-07-28
-**Branch agent left on:** `claude/playstore-data-scraping-signup-o0sm75` (pushed, draft PR open)
-**Last updated:** 2026-07-27
-**Branch agent left on:** `claude/product-market-readiness-zcfowh` (pushed, draft PR #67 open, production domain currently serves this branch's build)
+**Branch agent left on:** `claude/playstore-data-scraping-signup-o0sm75` (repair PR open — see below; PRs #66/#67/#68 all merged)
 
 You are the next Claude agent. Read this top-to-bottom before doing anything.
 
@@ -68,8 +66,42 @@ errors · production build passes. Live scrape not testable from this sandbox
 
 ---
 
+### ⚠️ Merge-conflict repair (same session, second PR)
+
+PR #68 was merged together with a `master` merge commit whose conflict
+resolution broke the build: `dashboard/page.tsx` ended up containing BOTH the
+old per-app `SyncBanners` body AND the new `WorkspaceStatusStrip` from PR #67
+(mashed into one function, syntax errors), and `POST /api/apps` contained two
+stacked metadata-fetch + sync-trigger implementations. `master` is therefore
+red (build + type-check fail) — Vercel keeps serving the last green deploy,
+but nothing new can ship until the repair PR merges. The repair:
+
+- Adopts PR #67's single `WorkspaceStatusStrip` and folds the
+  "public data — connect Play Console" state in as its lowest-priority tier
+  (errors > syncing > quiet > AI prep > connect nudge).
+- Unifies `POST /api/apps` on PR #67's metadata style + this branch's
+  in-process `after()` sync (their fire-and-forget HTTP trigger re-introduced
+  the exact bug this branch fixes — removed).
+- Repairs this file's merged-in duplicate headers.
+
 ## Founder actions needed
-## What happened this session (2026-07-27)
+
+1. **Merge the repair PR** for `claude/playstore-data-scraping-signup-o0sm75`
+   — master is red until then.
+2. Run `supabase/migrations/016_publisher_api_connected.sql` in the Supabase
+   SQL editor (also run 016_competitor_apps + 017_support_tickets from PR #67
+   if not yet applied).
+3. **Set `CRON_SECRET` in Vercel env vars** (any long random string) — without
+   it the daily cron coordinator refuses to run in production.
+4. After deploy: log in — the dashboard kicks a sync itself; public rating +
+   reviews should appear within ~30s.
+5. **Enable branch protection on `master` requiring CI** — PR #68 merged with
+   a red Build + type-check, which is how master broke. This has been on the
+   checklist since May.
+
+---
+
+## What happened last session (2026-07-27)
 
 Founder asked: *"start build a backend portal to manage the business. customer,
 tickets etc"*. One slice shipped to PR #67 — the **admin business portal**
