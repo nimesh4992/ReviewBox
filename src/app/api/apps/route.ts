@@ -149,6 +149,14 @@ export async function POST(request: NextRequest) {
         metadata_refreshed_at: new Date().toISOString(),
       };
     }
+  // Fetch lifetime metadata (icon, rating, review count) before insert, same
+  // as onboarding — apps added from Settings previously never got any of it.
+  let metadata: Awaited<ReturnType<typeof fetchAppMetadata>> = null;
+  try {
+    metadata = await fetchAppMetadata(
+      body.platform === "google_play" ? "google-play" : "app-store",
+      storeId,
+    );
   } catch (err) {
     console.warn("[apps] metadata fetch failed:", err);
   }
@@ -161,11 +169,22 @@ export async function POST(request: NextRequest) {
       platform: body.platform,
       store_id: storeId,
       ...metadata,
+      workspace_id:           workspaceId,
+      name:                   body.name,
+      platform:               body.platform,
+      store_id:               storeId,
+      icon_url:               metadata?.icon ?? null,
+      developer:              metadata?.developer ?? null,
+      lifetime_rating:        metadata?.rating ?? null,
+      lifetime_review_count:  metadata?.reviewCount ?? null,
+      metadata_refreshed_at:  metadata ? new Date().toISOString() : null,
     })
     .select()
     .single();
 
   // 42703 = metadata columns missing (migration 012 pending) — insert without.
+  // 42703 = metadata columns missing (migration 012 not applied) — insert
+  // without them rather than failing the add entirely.
   if (insert.error?.code === "42703") {
     insert = await sb
       .from("apps")
@@ -182,6 +201,7 @@ export async function POST(request: NextRequest) {
   const { data: app, error } = insert;
 
   if (error) {
+  if (error || !app) {
     return apiError("INTERNAL_SERVER_ERROR", 500);
   }
 
@@ -207,6 +227,28 @@ export async function POST(request: NextRequest) {
     request,
   });
 
-  // 8. Return new app
+  // 8. Kick off the first review sync immediately, exactly like onboarding
+  // does — otherwise an app added from Settings sits empty until the daily
+  // cron. Fire-and-forget; the Draft Mode scraper needs no credentials.
+  const appUrl =
+    process.env.NEXT_PUBLIC_APP_URL?.startsWith("http")
+      ? process.env.NEXT_PUBLIC_APP_URL
+      : process.env.VERCEL_URL
+        ? `https://${process.env.VERCEL_URL}`
+        : "http://localhost:3000";
+  const cronSecret = process.env.CRON_SECRET;
+  if (!cronSecret && process.env.NODE_ENV === "production") {
+    // Without the secret the internal trigger (and the daily cron) is
+    // rejected in production — surface it loudly instead of failing silently.
+    console.error("[apps] CRON_SECRET is not set — first sync cannot be triggered server-side");
+  }
+  void fetch(`${appUrl}/api/sync/reviews?workspaceId=${workspaceId}`, {
+    method: "GET",
+    headers: cronSecret ? { authorization: `Bearer ${cronSecret}` } : {},
+  }).catch((err) => {
+    console.error("[apps] first-sync trigger:", err);
+  });
+
+  // 9. Return new app
   return NextResponse.json({ app }, { status: 201 });
 }

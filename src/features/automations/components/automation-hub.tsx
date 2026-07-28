@@ -14,7 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { AutomationExecutionLog, AutomationPreset, AutomationRule } from "@/types/review";
-import { featuredPresets, automationPresets, mockRules } from "@/features/automations/data/mock-automations";
+import { featuredPresets, automationPresets } from "@/features/automations/data/mock-automations";
 import { RuleBuilderModal } from "./rule-builder-modal";
 
 // ── Preset → default rule mapping ─────────────────────────────────────────────
@@ -98,8 +98,8 @@ function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void 
       aria-checked={enabled}
       role="switch"
       className={cn(
-        "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rb-indigo-500)] focus-visible:ring-offset-2",
-        enabled ? "bg-[var(--rb-indigo-500)]" : "bg-[var(--rb-bg-hover)]",
+        "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer items-center rounded-full transition-colors duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rb-blue-500)] focus-visible:ring-offset-2",
+        enabled ? "bg-[var(--rb-blue-500)]" : "bg-[var(--rb-bg-hover)]",
       )}
     >
       <span className={cn(
@@ -111,10 +111,12 @@ function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void 
 }
 
 function MetaColumn({ value, label }: { value: string; label: string }) {
+  // Fixed width + tabular numerals so the four columns line up across rows —
+  // with min-w they drifted per row and read as scattered text, not a table.
   return (
-    <div className="flex flex-col items-start min-w-[80px]">
-      <span className="text-xs font-semibold text-[var(--rb-fg-2)]">{value}</span>
-      <span className="text-[10px] text-[var(--rb-fg-4)] mt-0.5">{label}</span>
+    <div className="flex w-24 flex-col items-start">
+      <span className="w-full truncate text-rb-sm font-medium tabular-nums text-fg-2">{value}</span>
+      <span className="mt-0.5 text-rb-xs text-fg-4">{label}</span>
     </div>
   );
 }
@@ -153,15 +155,17 @@ function RuleRow({ rule, onToggle, onEdit, onDelete }: RuleRowProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-[var(--rb-border-1)] bg-white shadow-sm p-4 flex items-center gap-4">
+    <div className="flex items-center gap-4 bg-surface px-4 py-3 hover:bg-[var(--rb-bg-hover)]">
       <Toggle enabled={enabled} onToggle={handleToggle} />
 
       <div className="flex-1 min-w-0">
-        <p className={cn("text-sm font-semibold text-[var(--rb-fg-1)] truncate", saving && "opacity-60")}>
-          {rule.isRecommended && <span className="text-[var(--rb-indigo-500)] mr-1">[Recommended]</span>}
+        {/* The "[Recommended]" bracket prefix is gone on purpose: once a rule
+            is added it is the user's rule, and a vendor label shouting inside
+            its name added nothing. Presets keep a quiet Suggested pill. */}
+        <p className={cn("truncate text-rb-md font-medium text-fg-1", saving && "opacity-60")}>
           {rule.name}
         </p>
-        <p className="text-xs text-[var(--rb-fg-4)] mt-0.5 truncate">{rule.description}</p>
+        <p className="mt-0.5 truncate text-rb-sm text-fg-3">{rule.description}</p>
       </div>
 
       <div className="hidden md:flex items-center gap-6">
@@ -178,7 +182,7 @@ function RuleRow({ rule, onToggle, onEdit, onDelete }: RuleRowProps) {
         <button
           type="button"
           onClick={() => onEdit(rule)}
-          className="rounded-lg p-1.5 text-[var(--rb-fg-4)] hover:text-[var(--rb-indigo-500)] hover:bg-indigo-50 transition-colors"
+          className="rounded-lg p-1.5 text-[var(--rb-fg-4)] hover:text-[var(--rb-blue-500)] hover:bg-[var(--rb-bg-accent-soft)] transition-colors"
           aria-label="Edit rule"
         >
           <Pencil className="size-3.5" strokeWidth={1.5} />
@@ -282,7 +286,7 @@ function RunHistoryPanel() {
 
           {/* Action badge + time */}
           <div className="flex items-center gap-2 shrink-0">
-            <span className="rounded-full bg-indigo-50 px-2 py-0.5 text-[10px] font-medium text-indigo-600">
+            <span className="rounded-full border border-[var(--rb-border-2)] px-2 py-0.5 text-[10px] font-medium text-[var(--rb-fg-3)]">
               {ACTION_LABEL[log.action] ?? log.action}
             </span>
             <span className="text-[11px] text-[var(--rb-fg-4)]">{timeAgo(log.executedAt)}</span>
@@ -350,7 +354,7 @@ function PresetCard({ preset, onInstall }: { preset: AutomationPreset; onInstall
           "mt-4 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed",
           state === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
             : state === "error" ? "bg-red-50 text-red-600 border border-red-200"
-            : "bg-[var(--rb-indigo-500)] text-white hover:bg-[var(--rb-indigo-600)]",
+            : "bg-[var(--rb-blue-500)] text-white hover:bg-[var(--rb-blue-600)]",
         )}
       >
         {state === "loading" ? (
@@ -371,7 +375,10 @@ type ActiveTab = "rules" | "presets";
 
 export function AutomationHub() {
   const [activeTab, setActiveTab]       = useState<ActiveTab>("rules");
-  const [rules, setRules]               = useState<AutomationRule[]>(mockRules);
+  // Starts empty and only ever shows DB rules. Seeding with sample rules made
+  // every zero-rule workspace look configured forever (the fetch below skipped
+  // empty responses), and toggling a sample fired the API with a fake id.
+  const [rules, setRules]               = useState<AutomationRule[]>([]);
   const [showBuilder, setShowBuilder]   = useState(false);
   const [editingRule, setEditingRule]   = useState<AutomationRule | null>(null);
   const [loading, setLoading]           = useState(false);
@@ -383,7 +390,7 @@ export function AutomationHub() {
       .then(async (res) => {
         if (!res.ok) return;
         const json = (await res.json()) as { rules: AutomationRule[] };
-        if (!cancelled && Array.isArray(json.rules) && json.rules.length > 0) {
+        if (!cancelled && Array.isArray(json.rules)) {
           setRules(json.rules);
         }
       })
@@ -520,19 +527,10 @@ export function AutomationHub() {
       {activeTab === "rules" && (
         <div className="space-y-6">
           {/* Rules list */}
+          {/* No section heading here: the tab above already says "Added rules"
+              and the page header already carries the Add rule action. Saying
+              each twice on one screen was noise. */}
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-[var(--rb-fg-1)]">Added rules</h2>
-              <Button
-                size="sm"
-                className="h-8 bg-[var(--rb-indigo-500)] hover:bg-[var(--rb-indigo-600)] text-white"
-                onClick={() => { setEditingRule(null); setShowBuilder(true); }}
-              >
-                <Plus className="size-3.5" strokeWidth={1.5} />
-                Add rule
-              </Button>
-            </div>
-
             <div className="space-y-3">
               {loading ? (
                 <div className="text-sm text-[var(--rb-fg-4)] py-4 text-center">Loading rules…</div>
@@ -546,21 +544,25 @@ export function AutomationHub() {
                   <button
                     type="button"
                     onClick={() => { setEditingRule(null); setShowBuilder(true); }}
-                    className="mt-4 rounded-lg bg-[var(--rb-indigo-500)] px-4 py-1.5 text-xs font-medium text-white hover:bg-[var(--rb-indigo-600)]"
+                    className="mt-4 rounded-lg bg-[var(--rb-blue-500)] px-4 py-1.5 text-xs font-medium text-white hover:bg-[var(--rb-blue-600)]"
                   >
                     Create first rule
                   </button>
                 </div>
               ) : (
-                rules.map((rule) => (
-                  <RuleRow
-                    key={rule.id}
-                    rule={rule}
-                    onToggle={handleToggle}
-                    onEdit={openEdit}
-                    onDelete={handleDeleteRule}
-                  />
-                ))
+                // One bordered list with dividers, not floating shadowed cards.
+                // Rules are a table the user scans, not content to showcase.
+                <div className="divide-y divide-[var(--rb-border-1)] overflow-hidden rounded-xl border border-[var(--rb-border-1)] bg-surface">
+                  {rules.map((rule) => (
+                    <RuleRow
+                      key={rule.id}
+                      rule={rule}
+                      onToggle={handleToggle}
+                      onEdit={openEdit}
+                      onDelete={handleDeleteRule}
+                    />
+                  ))}
+                </div>
               )}
             </div>
           </div>

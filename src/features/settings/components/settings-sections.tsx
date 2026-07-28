@@ -7,6 +7,7 @@ import { AlertPreferences } from "./alert-preferences";
 import { AppConnections } from "./app-connections";
 import { DataPrivacySection } from "./data-privacy-section";
 import { SlackIntegration } from "./slack-integration";
+import { SupportSection } from "./support-section";
 import { TeamMembers } from "./team-members";
 import { AppFollowImport } from "./appfollow-import";
 
@@ -18,6 +19,7 @@ export function SettingsSections() {
       <TeamMembers />
       <AppConnections />
       <AppFollowImport />
+      <SupportSection />
       <DataPrivacySection />
     </div>
   );

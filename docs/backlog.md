@@ -13,6 +13,24 @@ Status legend: `[ ]` queued · `[~]` in progress · `[x]` shipped · `[!]` block
 
 These are the next items to ship. Don't skip; don't reorder without thinking.
 
+### [ ] R1 · Middleware matcher gaps — features broken on prod app host · ICE 85 (9×9.5÷1)
+**Added 2026-07-27 by role audit (`docs/ROLE_AUDIT.md` P0-5).**
+**Effort:** 0.5h.
+**Done when:** `/api/import(.*)`, `/api/competitors(.*)`, `/api/auth/slack(.*)`, `/api/cron(.*)` are added to the middleware app-route matcher so `app.tryreviewbox.com` stops redirecting them to /dashboard. Verify AppFollow import, Slack OAuth, Competitors add, and the trial-nudge cron end-to-end after.
+**Why now:** These are shipped features that appear silently broken in production — not a role issue, a routing bug the audit surfaced.
+
+### [ ] R2 · Role-enforcement P0 pack · ICE 48 (8×9÷1.5)
+**Added 2026-07-27 by role audit (`docs/ROLE_AUDIT.md` P0-1..4, P0-6).**
+**Effort:** 1.5d.
+**Done when:** (1) `POST /api/gdpr/export` owner-only, and export stops including `apps.access_token/refresh_token`; (2) Slack OAuth callback + `DELETE /api/settings/slack` + `/api/settings/slack/test` require workspace admin; (3) automation-rule create/update/delete requires admin (auto_reply owner-only); (4) shared `requireWorkspaceRole()` helper replaces the three inline patterns; (5) `sync/reviews` auth fail-open removed (previews too); (6) `stripe/portal` binds customer→workspace before D013 ever lifts.
+**Why now:** Every gap becomes live exposure the day a customer invites their first teammate — which is what the Team plan sells.
+
+### [ ] R3 · Role-aware UI + honest failure states · ICE 24 (8×6÷2)
+**Added 2026-07-27 by role audit (`docs/ROLE_AUDIT.md` P1).**
+**Effort:** 2d.
+**Done when:** members no longer see owner-only controls (delete flows, credential forms, billing actions, invite form) — hidden or disabled with a "workspace owner only" hint; `WorkspaceDefaults` stops showing "Saved ✓" on 403; Slack paste-URL disconnect reports real status; the two delete-account flows are merged into one; owner gets remove-member / revoke-invite controls; signed-in users keep `?redirect_url` through sign-in/up (invite links).
+**Why now:** Trust — the UI currently lies to non-owners and sometimes to owners.
+
 ### [x] N1 · Apply Supabase migrations to prod · ICE 90 (10×9÷1)
 *Applied 2026-05-19. Migrations 002–006 live in production. Note: 002 required normalizing existing rows before adding check constraint.*
 **Effort:** 5 min (founder pastes SQL).
@@ -149,9 +167,8 @@ Critical-edge features for AppFollow competition.
 **Effort:** 1d.
 **Done when:** User saves a filter combo as a named view; pins to sidebar.
 
-### [ ] X12 · Admin panel real data · ICE 45 (5×9÷1)
-**Effort:** 1d.
-**Done when:** /admin shows real customers (workspaces table joined with Clerk users), AI usage volumes.
+### [x] X12 · Admin panel real data · ICE 45 (5×9÷1) — SHIPPED 2026-07-27
+*Admin business portal on PR #67: overview KPIs (workspaces, signups 7d, est. MRR from D002 list prices, reviews, AI drafts), customer detail (members w/ Clerk emails, apps + sync health, usage, audit trail), and a full support-ticket system (migration 017, in-app "Contact support" in Settings, /admin/tickets queue with threads + internal notes). ADR 007.*
 
 ### [x] X13 · Playwright e2e — onboarding + inbox flow · ICE 49 (7×7÷1) — SHIPPED 2026-05-30
 *11 unauthenticated redirect tests, auth page structure, mocked inbox tests (gated behind NEXT_PUBLIC_BYPASS_E2E=1). Merged in `feat/x1-slack-integration`.*

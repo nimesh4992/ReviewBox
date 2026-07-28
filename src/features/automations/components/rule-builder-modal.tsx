@@ -430,7 +430,7 @@ export function RuleBuilderModal({
             <button
               type="button"
               onClick={() => setConditions((prev) => [...prev, { ...DEFAULT_CONDITION }])}
-              className="mt-2 flex items-center gap-1.5 text-xs font-medium text-[var(--rb-indigo-500)] hover:text-[var(--rb-indigo-600)] transition-colors"
+              className="mt-2 flex items-center gap-1.5 text-xs font-medium text-[var(--rb-blue-500)] hover:text-[var(--rb-blue-600)] transition-colors"
             >
               <Plus className="size-3.5" strokeWidth={1.5} />
               Add condition
@@ -447,7 +447,7 @@ export function RuleBuilderModal({
                   className={cn(
                     "flex items-start gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors",
                     action === opt.value
-                      ? "border-[var(--rb-indigo-500)] bg-indigo-50"
+                      ? "border-[var(--rb-blue-500)] bg-[var(--rb-bg-accent-soft)]"
                       : "border-gray-200 hover:bg-gray-50",
                   )}
                 >
@@ -457,12 +457,12 @@ export function RuleBuilderModal({
                     value={opt.value}
                     checked={action === opt.value}
                     onChange={() => { setAction(opt.value); setActionConfig(""); }}
-                    className="accent-[var(--rb-indigo-500)] mt-0.5"
+                    className="accent-[var(--rb-blue-500)] mt-0.5"
                   />
                   <div>
                     <span className={cn(
                       "text-sm font-medium",
-                      action === opt.value ? "text-[var(--rb-indigo-500)]" : "text-gray-700",
+                      action === opt.value ? "text-[var(--rb-blue-500)]" : "text-gray-700",
                     )}>
                       {opt.label}
                     </span>
@@ -495,7 +495,7 @@ export function RuleBuilderModal({
                   type="radio" name="appsScope" value="all"
                   checked={appsScope === "all"}
                   onChange={() => setAppsScope("all")}
-                  className="accent-[var(--rb-indigo-500)]"
+                  className="accent-[var(--rb-blue-500)]"
                 />
                 All apps
               </label>
@@ -504,7 +504,7 @@ export function RuleBuilderModal({
                   type="radio" name="appsScope" value="specific"
                   checked={appsScope === "specific"}
                   onChange={() => setAppsScope("specific")}
-                  className="accent-[var(--rb-indigo-500)]"
+                  className="accent-[var(--rb-blue-500)]"
                 />
                 Specific app
               </label>
@@ -527,7 +527,7 @@ export function RuleBuilderModal({
           <Button
             onClick={handleSave}
             disabled={!canSave}
-            className="bg-[var(--rb-indigo-500)] hover:bg-[var(--rb-indigo-600)] text-white"
+            className="bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)] text-white"
           >
             {isEditing ? "Update rule" : "Save rule"}
           </Button>

@@ -29,14 +29,17 @@ export function CookieBanner() {
 
   if (!visible) return null;
 
+  // Tokens, not hardcoded colors: the old banner was a fixed dark slab with an
+  // indigo accent no matter the page theme. This one follows the surrounding
+  // theme and uses the one interactive accent the design system allows.
   return (
-    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-white/[0.08] bg-[#1a1d27]">
+    <div className="fixed inset-x-0 bottom-0 z-50 border-t border-[var(--rb-border-2)] bg-surface shadow-[var(--rb-shadow-lg)]">
       <div className="mx-auto flex max-w-6xl flex-col items-start justify-between gap-3 px-4 py-3.5 sm:flex-row sm:items-center sm:gap-6">
-        <p className="text-sm text-white/60 leading-relaxed">
+        <p className="text-[13px] leading-relaxed text-fg-2">
           We use cookies for authentication and analytics. See our{" "}
           <Link
             href="/privacy"
-            className="text-[#5B5BD6] underline-offset-2 hover:underline"
+            className="text-[var(--rb-blue-500)] underline-offset-2 hover:underline"
           >
             Privacy Policy
           </Link>
@@ -46,13 +49,13 @@ export function CookieBanner() {
         <div className="flex shrink-0 items-center gap-2">
           <button
             onClick={() => accept("essential")}
-            className="rounded-lg border border-white/[0.12] bg-transparent px-3.5 py-1.5 text-sm text-white/60 transition-colors hover:border-white/20 hover:text-white/80"
+            className="rounded-lg border border-[var(--rb-border-2)] bg-transparent px-3.5 py-1.5 text-[13px] text-fg-2 transition-colors hover:bg-[var(--rb-bg-hover)] hover:text-fg-1"
           >
             Essential only
           </button>
           <button
             onClick={() => accept("accepted")}
-            className="rounded-lg bg-[#5B5BD6] px-3.5 py-1.5 text-sm font-medium text-white transition-opacity hover:opacity-90"
+            className="rounded-lg bg-[var(--rb-blue-500)] px-3.5 py-1.5 text-[13px] font-medium text-white transition-colors hover:bg-[var(--rb-blue-600)]"
           >
             Accept all
           </button>

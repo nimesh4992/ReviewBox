@@ -16,6 +16,9 @@ export type IncidentStatus = "active" | "investigating" | "resolved";
 
 export interface AppReview {
   id: string;
+  /** Workspace app this review belongs to. Optional: rows cached before the
+      API started returning it (and demo fixtures) may not carry one. */
+  appId?: string;
   author: string;
   rating: 1 | 2 | 3 | 4 | 5;
   text: string;
@@ -118,6 +121,37 @@ export type AutomationConditionField =
   | "country"
   | "version";
 
+// ── Competitors ───────────────────────────────────────────────────────────────
+
+export interface CompetitorBenchmarkRow {
+  /** DB row id — present only for real tracked competitors */
+  id?: string;
+  name: string;
+  platform?: "google_play" | "app_store";
+  storeId?: string;
+  iconUrl?: string | null;
+  /** Lifetime store rating. Null = not yet fetched / unavailable. */
+  rating: number | null;
+  /** Lifetime store review count. */
+  ratingCount?: number | null;
+  /** Only measurable for your own app (needs review history) — null for competitors. */
+  reviewsPerWeek: number | null;
+  replyRate: number | null;
+  trend: number[] | null;
+  you: boolean;
+  illustrative: boolean;
+}
+
+export interface CompetitorsResponse {
+  yourApp: CompetitorBenchmarkRow | null;
+  competitors: CompetitorBenchmarkRow[];
+  hasRealData: boolean;
+  /** True when the competitor_apps table exists — the UI shows the real
+      add/remove flow. False = migration 016 not applied yet; illustrative
+      placeholder rows are served instead. */
+  canAdd: boolean;
+}
+
 export interface AutomationCondition {
   field: AutomationConditionField;
   operator: "equals" | "contains" | "less_than" | "greater_than" | "in";
@@ -209,6 +243,39 @@ export interface KnowledgeBaseEntry {
   title: string;
   content: string;
   category: "product" | "known_issue" | "faq" | "roadmap";
+  createdAt: string;
+}
+
+// ── Support tickets (admin portal) ────────────────────────────────────────────
+
+export type SupportTicketStatus = "open" | "pending" | "resolved" | "closed";
+export type SupportTicketSource = "in_app" | "email" | "manual";
+export type SupportTicketAuthor = "customer" | "admin";
+
+export interface SupportTicket {
+  id: string;
+  workspaceId: string | null;
+  /** Present when the query embeds the workspaces relation. */
+  workspaceName?: string | null;
+  requesterEmail: string;
+  requesterName: string | null;
+  subject: string;
+  status: SupportTicketStatus;
+  priority: ReviewPriority;
+  source: SupportTicketSource;
+  createdAt: string;
+  updatedAt: string;
+  lastMessageAt: string;
+}
+
+export interface SupportTicketMessage {
+  id: string;
+  ticketId: string;
+  authorType: SupportTicketAuthor;
+  authorName: string | null;
+  body: string;
+  /** Admin-only note — never shown to the customer. */
+  isInternal: boolean;
   createdAt: string;
 }
 

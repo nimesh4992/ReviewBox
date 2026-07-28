@@ -411,7 +411,7 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 | Onboarding → demo mode banner + first-visit modal | ✅ Done |
 | PostHog analytics | ✅ Done |
 | Sentry error monitoring | ✅ Done |
-| Admin panel wired to real customer data | 🔲 Pending |
+| Admin panel wired to real customer data | ✅ Done — overview KPIs, customer detail, support tickets (needs migration 017) |
 | Security audit + RLS verification | ✅ Done (3 passes: 2026-05-21 + 2026-05-25 round-1/2 + 2026-05-26 cross-verify — 44+ fixes) |
 | Next.js 15 → 16 upgrade | 🔲 When stable |
 | Unit test suite (Vitest) | ✅ Done — 70 tests across 9 files, CI-gated |

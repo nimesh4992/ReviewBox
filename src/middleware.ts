@@ -61,6 +61,7 @@ const isAppRoute = createRouteMatcher([
   "/api/automations(.*)",
   "/api/reply-kit(.*)",
   "/api/settings(.*)",
+  "/api/support(.*)",
   "/api/onboarding(.*)",
   "/api/account(.*)",
   "/api/team(.*)",

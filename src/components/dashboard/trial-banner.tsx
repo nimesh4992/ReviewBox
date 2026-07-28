@@ -31,6 +31,11 @@ export function TrialBanner() {
 
   if (daysLeft <= 0) return null; // middleware handles expiry
 
+  // Quiet until it matters: the sidebar account footer already shows "Trial"
+  // every day. This banner only earns dashboard space in the final 3 days,
+  // when the ask is genuinely urgent.
+  if (daysLeft > 3) return null;
+
   function dismiss() {
     setDismissed(true);
     if (typeof window !== "undefined") {
