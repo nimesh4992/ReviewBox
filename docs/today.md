@@ -1,6 +1,7 @@
 # Today — Handoff for next agent
 
 **Last updated:** 2026-07-28
+**Branch agent left on:** `claude/playstore-data-scraping-signup-o0sm75` (pushed, draft PR open)
 **Branch agent left on:** `claude/playstore-data-scraping-signup-o0sm75` (repair PR open — see below; PRs #66/#67/#68 all merged)
 
 You are the next Claude agent. Read this top-to-bottom before doing anything.
@@ -224,26 +225,6 @@ The public Google Play scrape is the single point of failure for Draft Mode
 (G-3 in `docs/MARKET_READINESS_AUDIT.md`). Google rate-limits datacenter
 IPs; Sentry alerts on sync failure — **watch it.** A Google-side block is a
 total outage, not a degradation.
-1. **FOUNDER: run migration 017** (`supabase/migrations/017_support_tickets.sql`)
-   — switches on the ticket system. Also **016** if still not run.
-2. **FOUNDER: review + merge PR #67** (it now carries 7 slices; preview link
-   in the PR). Homepage verdict still gates Website slice 2 (Pricing + Compare).
-3. **Website slice 3 — the cut** (approved): delete /customers +
-   /customers/acme-banking (410), /careers → 301 /about, /status → 301
-   /help, merge the two contradictory refund pages (**founder must pick
-   which text survives**), update sitemap.ts + robots.ts.
-4. **DS-003 gray sweep** — ~1,000 raw gray-* utilities remain outside the
-   redesigned screens. Mechanical, low-risk. (New admin pages intentionally
-   match the existing admin gray style — internal tooling, out of scope.)
-5. **BUG-037** — founder adds Clerk test secrets → make E2E blocking.
-
-## Standing watch
-
-- PR #67 has an hourly self check-in armed (send_later). All pushes get
-  Vercel previews. Production domain points at this branch's build —
-  **don't push to master until #67 merges** or prod regresses.
-- Ahrefs MCP: "insufficient plan" — don't invent keyword volumes.
-  SEO plan lives in `docs/SEO_CONTENT_PLAN.md` (Phase 0 shipped).
 
 ---
 
@@ -266,5 +247,30 @@ total outage, not a degradation.
 - Always write PR descriptions as plain-English 5-minute test plans.
 - Always update this file at end of session.
 - Always ICE-score new backlog items added to `docs/backlog.md`.
-- Honesty rule: no fabricated metrics, testimonials, logos, or numbers —
-  anywhere, ever. "Show, don't claim."
+
+---
+
+## Update 2026-07-28 (later session) — R1 middleware fix + master repair
+
+Two things landed on branch `claude/product-market-readiness-zcfowh` (PR #69),
+cut fresh from master after PR #67 merged:
+
+1. **R1 (role-audit P0-5)** — `src/middleware.ts`: `/api/import`,
+   `/api/competitors`, `/api/auth/slack` added to the app-route matcher and
+   `/api/cron/(.*)` to the public matcher, so `app.tryreviewbox.com` stops
+   redirecting them to `/dashboard` before auth runs. Fixes AppFollow import,
+   Competitors add/remove, Slack OAuth, and the trial-nudge cron in prod.
+
+2. **⚠️ Repaired a broken master.** PR #68's "Merge branch master into
+   claude/playstore…" commit (`56aae7f`) botched its conflict resolution and
+   shipped code that does **not** type-check — `src/app/api/apps/route.ts`
+   (duplicate insert keys, a malformed double-`if`, two competing sync
+   triggers) and `src/app/(app)/dashboard/page.tsx` (a component boundary
+   spliced into a props type). It merged to master as `f684de1`, so
+   **master/production has been broken since PR #68 merged**. This PR restores
+   both files to #68's last clean tip (`56aae7f^1`) — #68's intended
+   `after(syncWorkspace)` sync + Connect-Play-Console banner — reconciled with
+   current master. tsc 0 · lint 0 · 129 tests · build green.
+
+**Founder:** merging PR #69 fixes production. If you can, still confirm
+`CRON_SECRET` is set in Vercel (the sync trigger depends on it).

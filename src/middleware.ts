@@ -28,6 +28,12 @@ const isPublicRoute = createRouteMatcher([
   "/api/sync/(.*)",
   "/api/reports/weekly-digest",
   "/api/reports/unreplied-alert",
+  // Cron routes authenticate themselves via CRON_SECRET (machine calls, no
+  // Clerk session) — they must be public so auth.protect() doesn't reject
+  // them, exactly like the two report crons above. Previously unmatched, so on
+  // the prod app host trial-nudge was redirected to /dashboard before its
+  // secret check ever ran (docs/ROLE_AUDIT.md P0-5).
+  "/api/cron/(.*)",
   "/api/health/(.*)",
   "/api/demo/(.*)",
   "/api/auth/clear-onboarded-cookie",
@@ -75,6 +81,14 @@ const isAppRoute = createRouteMatcher([
   "/api/health(.*)",
   "/api/admin(.*)",
   "/api/debug(.*)",
+  // User-triggered API routes that were in neither matcher, so on the prod app
+  // host they were redirected to /dashboard before auth.protect() ran — making
+  // AppFollow import, the Competitors add/remove flow, and Slack OAuth appear
+  // silently broken in production (docs/ROLE_AUDIT.md P0-5). Each still runs
+  // its own auth() check.
+  "/api/import(.*)",
+  "/api/competitors(.*)",
+  "/api/auth/slack(.*)",
 ]);
 
 // Routes that require an active paid plan

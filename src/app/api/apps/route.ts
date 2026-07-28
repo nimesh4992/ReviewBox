@@ -127,6 +127,28 @@ export async function POST(request: NextRequest) {
     return apiError("INVALID_INPUT", 400, "Missing store identifier (packageName or bundleId)");
   }
 
+  // Grab public store metadata (icon, lifetime rating, review count) before
+  // insert so the app row isn't blank while the first sync runs. Best-effort —
+  // a failed scrape must not block adding the app.
+  let metadata: {
+    icon_url?: string | null;
+    developer?: string | null;
+    lifetime_rating?: number | null;
+    lifetime_review_count?: number | null;
+    metadata_refreshed_at?: string;
+  } = {};
+  try {
+    const platform = body.platform === "google_play" ? "google-play" : "app-store";
+    const meta = await fetchAppMetadata(platform, storeId);
+    if (meta) {
+      metadata = {
+        icon_url:              meta.icon,
+        developer:             meta.developer || null,
+        lifetime_rating:       meta.rating,
+        lifetime_review_count: meta.reviewCount,
+        metadata_refreshed_at: new Date().toISOString(),
+      };
+    }
   // Fetch lifetime metadata (icon, rating, review count) before insert, same
   // as onboarding — apps added from Settings previously never got any of it.
   let metadata: Awaited<ReturnType<typeof fetchAppMetadata>> = null;
@@ -142,6 +164,11 @@ export async function POST(request: NextRequest) {
   let insert = await sb
     .from("apps")
     .insert({
+      workspace_id: workspaceId,
+      name: body.name,
+      platform: body.platform,
+      store_id: storeId,
+      ...metadata,
       workspace_id:           workspaceId,
       name:                   body.name,
       platform:               body.platform,
@@ -155,6 +182,7 @@ export async function POST(request: NextRequest) {
     .select()
     .single();
 
+  // 42703 = metadata columns missing (migration 012 pending) — insert without.
   // 42703 = metadata columns missing (migration 012 not applied) — insert
   // without them rather than failing the add entirely.
   if (insert.error?.code === "42703") {
@@ -172,6 +200,7 @@ export async function POST(request: NextRequest) {
 
   const { data: app, error } = insert;
 
+  if (error) {
   if (error || !app) {
     return apiError("INTERNAL_SERVER_ERROR", 500);
   }
@@ -201,6 +230,7 @@ export async function POST(request: NextRequest) {
     request,
   });
 
+  // 8. Return new app
   // 9. Return new app
   return NextResponse.json({ app }, { status: 201 });
 }
