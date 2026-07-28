@@ -149,6 +149,14 @@ export async function POST(request: NextRequest) {
         metadata_refreshed_at: new Date().toISOString(),
       };
     }
+  // Fetch lifetime metadata (icon, rating, review count) before insert, same
+  // as onboarding — apps added from Settings previously never got any of it.
+  let metadata: Awaited<ReturnType<typeof fetchAppMetadata>> = null;
+  try {
+    metadata = await fetchAppMetadata(
+      body.platform === "google_play" ? "google-play" : "app-store",
+      storeId,
+    );
   } catch (err) {
     console.warn("[apps] metadata fetch failed:", err);
   }
@@ -161,11 +169,22 @@ export async function POST(request: NextRequest) {
       platform: body.platform,
       store_id: storeId,
       ...metadata,
+      workspace_id:           workspaceId,
+      name:                   body.name,
+      platform:               body.platform,
+      store_id:               storeId,
+      icon_url:               metadata?.icon ?? null,
+      developer:              metadata?.developer ?? null,
+      lifetime_rating:        metadata?.rating ?? null,
+      lifetime_review_count:  metadata?.reviewCount ?? null,
+      metadata_refreshed_at:  metadata ? new Date().toISOString() : null,
     })
     .select()
     .single();
 
   // 42703 = metadata columns missing (migration 012 pending) — insert without.
+  // 42703 = metadata columns missing (migration 012 not applied) — insert
+  // without them rather than failing the add entirely.
   if (insert.error?.code === "42703") {
     insert = await sb
       .from("apps")
@@ -182,12 +201,16 @@ export async function POST(request: NextRequest) {
   const { data: app, error } = insert;
 
   if (error) {
+  if (error || !app) {
     return apiError("INTERNAL_SERVER_ERROR", 500);
   }
 
-  // First sync (public scrape — no credentials needed) runs after the
-  // response is sent, so the user sees their reviews within ~30s of adding
-  // the app instead of waiting for the daily cron.
+  // 7. Kick off the first review sync (public scrape — no credentials
+  // needed). Runs in-process via after(), AFTER the response is sent, so an
+  // app added from Settings shows reviews within ~30s instead of sitting
+  // empty until the daily cron. An HTTP self-fetch is NOT reliable here:
+  // Vercel freezes the lambda on response, and without CRON_SECRET the sync
+  // route rejects cookieless server-to-server calls in production.
   after(async () => {
     try {
       await syncWorkspace(workspaceId);
@@ -196,7 +219,7 @@ export async function POST(request: NextRequest) {
     }
   });
 
-  // 7. Audit
+  // 8. Audit
   await audit({
     workspaceId,
     actorUserId: userId,
@@ -208,5 +231,6 @@ export async function POST(request: NextRequest) {
   });
 
   // 8. Return new app
+  // 9. Return new app
   return NextResponse.json({ app }, { status: 201 });
 }
