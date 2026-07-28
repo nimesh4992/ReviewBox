@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   AlertOctagon,
@@ -81,15 +81,61 @@ function formatDelta(value: number | null, suffix = ""): string {
 function SyncBanners({
   apps,
   onRetry,
+  onConnectPlayConsole,
 }: {
   apps: ReturnType<typeof useApps>["apps"];
   onRetry: () => void;
+  onConnectPlayConsole: () => void;
 }) {
   return (
     <>
       {apps.map((app) => {
         const succeeded = app.last_sync_status === "success";
         const emptySuccess = succeeded && (app.last_sync_review_count ?? 0) === 0;
+
+        // Synced from PUBLIC data only — the customer hasn't granted Play
+        // Console access yet. Reviews and rating are real (scraped from the
+        // public listing), so this is informational, not an error: explain
+        // what connecting unlocks.
+        if (
+          succeeded && !emptySuccess &&
+          app.platform === "google_play" &&
+          app.publisher_api_connected !== true
+        ) {
+          return (
+            <div
+              key={app.id}
+              className="flex items-start gap-3 rounded-xl border border-[#0A84FF]/20 bg-[#0A84FF]/[0.04] px-4 py-3"
+            >
+              <Sparkles className="mt-0.5 size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
+              <div className="flex-1">
+                <div className="text-[13px] font-semibold text-fg-1">
+                  {app.name} is showing public Play Store data
+                </div>
+                <div className="mt-0.5 text-[11px] leading-relaxed text-fg-3">
+                  Your rating and latest reviews are synced from the public store listing.
+                  Connect your Play Console to reply to reviews from ReviewBox, see device
+                  details, and sync everything automatically.
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    onClick={onConnectPlayConsole}
+                    className="rounded-md bg-[#0A84FF] px-3 py-1 text-[11px] font-semibold text-white hover:bg-[#0070e0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
+                  >
+                    Connect Play Console
+                  </button>
+                  <Link
+                    href="/help/connect-google-play"
+                    className="text-[11px] font-medium text-fg-3 hover:text-fg-2"
+                  >
+                    How it works →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
         // Fully synced with reviews — no banner
         if (succeeded && !emptySuccess) return null;
 
@@ -283,6 +329,20 @@ export default function DashboardPage() {
     return () => clearInterval(id);
   }, [hasUnsyncedApp, refetchMetrics, refetchApps]);
 
+  // Self-heal: if an app has NEVER attempted a sync (the signup-time trigger
+  // can be lost — deploy rollout, serverless timeout), kick one from here.
+  // This request is Clerk-authenticated, so the sync route pins it to the
+  // user's own workspace. Fires at most once per page mount; the 10s polling
+  // above picks up the results.
+  const syncKickedRef = useRef(false);
+  useEffect(() => {
+    if (syncKickedRef.current || appsLoading || !hasUnsyncedApp) return;
+    syncKickedRef.current = true;
+    void fetch("/api/sync/reviews").catch(() => {
+      // Best-effort — the daily cron remains the fallback.
+    });
+  }, [appsLoading, hasUnsyncedApp]);
+
   const firstSyncDone = apps.some((a) => a.last_synced_at !== null);
   const totalReviews  = metrics?.totalReviews ?? 0;
 
@@ -443,7 +503,11 @@ export default function DashboardPage() {
       </header>
 
       {/* ── Sync banners (single, merged) ── */}
-      <SyncBanners apps={apps} onRetry={handleRetry} />
+      <SyncBanners
+        apps={apps}
+        onRetry={handleRetry}
+        onConnectPlayConsole={() => setSetupModalOpen(true)}
+      />
 
       {/* ── AI enrichment banner ── */}
       {aiEnriching === true && (

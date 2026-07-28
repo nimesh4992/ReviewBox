@@ -1,7 +1,7 @@
 # Today — Handoff for next agent
 
-**Last updated:** 2026-07-25
-**Branch agent left on:** `claude/product-market-readiness-zcfowh` (pushed, draft PR open)
+**Last updated:** 2026-07-28
+**Branch agent left on:** `claude/playstore-data-scraping-signup-o0sm75` (pushed, draft PR open)
 
 You are the next Claude agent. Read this top-to-bottom before doing anything.
 
@@ -11,109 +11,87 @@ You are the next Claude agent. Read this top-to-bottom before doing anything.
 
 1. **`CLAUDE.md`** (repo root) — stack, conventions, autopilot model, what NOT to do
 2. **`docs/decisions.md`** — IMMUTABLE rules. D000 (non-coder contract) and D009 (never-do list) are critical.
-3. **`docs/MARKET_READINESS_AUDIT.md`** ← **new — read before picking work**
-4. **`docs/SPINE.md`** — the 8-step launch gate. Still 0/8 verified.
-5. **`docs/backlog.md`** — ICE-ranked queue
-6. **This file (`docs/today.md`)** — last session's handoff
+3. **`docs/backlog.md`** — ICE-ranked queue
+4. **This file (`docs/today.md`)** — last session's handoff
 
 ---
 
-## What happened this session (2026-07-25)
+## What happened this session (2026-07-28)
 
-A market-readiness audit was requested. It found **five defects that were
-breaking the product for a real customer, all of which passed CI** — `tsc`
-clean, 80 unit tests green, lint clean, production build green.
+Founder reported: **"Every time I log in the dashboard is empty"** — the
+"Syncing Mumbai One…" banner spins forever, every KPI is zero.
 
-All five are fixed on this branch. Full write-up in
-`docs/MARKET_READINESS_AUDIT.md`; one-line summaries in `docs/BUGS.md`
-(BUG-024 … BUG-035).
+The 2026-07-25 session (merged as PR #66) fixed the scraper *logic* (BUG-024:
+public scrape now runs on every sync). But the dashboard is still empty
+because **the sync never gets triggered at all**. Four trigger-path bugs,
+all fixed on this branch:
 
-### The founder's month-long "Play Store not connected" email — diagnosed and fixed
+1. **First-sync trigger was a fire-and-forget HTTP self-fetch** in
+   `/api/onboarding/complete`. On Vercel the lambda freezes the moment the
+   response is sent, so the request usually died on the floor. And when it
+   did fire with `CRON_SECRET` unset in production, the sync route rejected
+   the cookieless server-to-server call with a 401 (fail-closed by design).
+   → Sync logic extracted to **`src/services/review-sync.ts`** and called
+   **in-process via `after()`** (Next 15). No HTTP hop, no auth hop.
+2. **The daily cron coordinator fanned out workers with the same
+   fire-and-forget fetch** — same freeze problem, so even the scheduled
+   daily sync could silently do nothing.
+   → Fanout now wrapped in `after()` + `Promise.allSettled`.
+3. **`POST /api/apps` ("Connect app" button) did nothing after the insert** —
+   no metadata scrape, no sync trigger, blank row until the next cron.
+   → Now fetches public store metadata (icon, lifetime rating, review count)
+   before insert and triggers a first sync via `after()`.
+4. **The dashboard never self-healed** — it polled every 10s while an app
+   had never synced, but never actually kicked a sync.
+   → Dashboard now fires one Clerk-authenticated `/api/sync/reviews` call
+   per mount when any app has `last_sync_attempted_at === null`. This also
+   rescues already-stuck workspaces (like the founder's) on next login.
 
-It was **not** a false alarm. The sync really was failing every single day.
+Plus the product ask on top:
 
-The public scraper only ran when an app had zero reviews. Every sync after the
-first went straight to the Google Play Publisher API — which Draft Mode
-customers have no credentials for, by design (D018). So sync #2 onward 403'd
-forever, `last_sync_status` was pinned to `needs_play_console_access`, and the
-daily health cron dutifully emailed about it every 3 days.
+5. **New "Connect Play Console" banner** — when a Google Play app is synced
+   from public data only, the dashboard now says so and offers "Connect
+   Play Console" (opens the existing setup modal) instead of pretending
+   everything is fully connected. Backed by a new
+   `apps.publisher_api_connected` column, written by every sync (true when
+   the Publisher API responds; false only on permission-shaped errors —
+   `isGpPermissionError()` in `src/lib/sync-writes.ts`, unit-tested) and by
+   the "Verify connection" button.
+   **Migration `016_publisher_api_connected.sql` — founder must run it.**
+   All code tolerates the column being absent until then (42703 fallbacks).
 
-Two independent bugs were feeding it, both fixed:
-1. The scraper now runs on **every** sync (BUG-024) — so status is `success`
-   and the nag stops at the source.
-2. `/api/health/user-check` had no `deleted_at` filter, so **soft-deleted apps
-   nagged forever** — their `last_sync_attempted_at` freezes at deletion, which
-   permanently satisfies the "failing 48h+" test (BUG-029).
-
-### The other three
-
-- **BUG-025** — every sync erased the user's saved drafts and "mark as replied"
-  state. App Store reviews were reset on *every* sync because iTunes RSS never
-  reports developer replies. This is the worst one: it silently destroyed user
-  work, and a single-session spine walk would not have caught it.
-- **BUG-028** — trial users were locked out of AI drafts (middleware gated
-  `/api/reply` to paid plans; onboarding stamps everyone `trial`; Stripe is
-  deferred so nobody could pay). The trial could not demo the product.
-- **BUG-030/031** — inbox pagination silently dropped reviews sharing a
-  timestamp; the sidebar app selector filtered nothing.
-
-**Verification:** `tsc` 0 errors · 92 unit tests (was 80) · lint 0 errors ·
-production build passes.
+**Verification:** `tsc` 0 errors · 97 unit tests green (3 new) · lint 0
+errors · production build passes. Live scrape not testable from this sandbox
+(egress proxy blocks play.google.com) — verify on the Vercel preview.
 
 ---
+
+## Founder actions needed
+
+1. Merge the draft PR for `claude/playstore-data-scraping-signup-o0sm75`.
+2. Run `supabase/migrations/016_publisher_api_connected.sql` in the Supabase
+   SQL editor (safe to re-run; without it the connect-banner state just
+   stays conservative — nothing breaks).
+3. **Set `CRON_SECRET` in Vercel env vars** (any long random string) —
+   without it the daily cron coordinator refuses to run in production.
+4. After deploy: just log in. The dashboard kicks a sync itself; Mumbai
+   One's public rating + reviews should appear within ~30s.
 
 ## What you should pick up next
 
-**Do not start feature work.** The backlog is ICE-ranked and ICE has no term for
-"the core loop is broken." Order:
-
-1. **FOUNDER: walk the spine** (`docs/SPINE.md`, 8 steps, ~30 min, real app on
-   the Vercel preview). It is 0/8 after two months. Nothing else produces real
-   information about readiness.
-   **Then walk step 8 again the next day** — BUG-025 and BUG-029 only appear on
-   the second day, and that is exactly the class of bug that got through.
-2. **FOUNDER DECISION — BUG-020 (US-only reviews).** The scrape is hardcoded to
-   `country: "us", lang: "en"`, but the dashboard's headline review count is the
-   store's **global** figure. A non-US app shows "3,412 reviews" on the
-   dashboard and ~200 in the inbox. Recommendation: label it honestly in the UI
-   (1h) rather than fanning out locales (8× scrape volume, more block risk).
-3. **Write the spine e2e test** — sign in → sync → draft → mark replied →
-   **sync again** → assert the reply survived. That one test covers BUG-024,
-   BUG-025 and BUG-030 at once. Currently no e2e touches the spine at all.
-4. **BUG-022 — move sync off the 24h Vercel Hobby cron** to Supabase `pg_cron` +
-   `pg_net` (free, extension already enabled). 24h latency is weak for a
-   "respond fast to bad reviews" product at $99/mo.
-5. **Only then reverse D013** and turn Stripe on. Taking money for a product
-   whose core loop is unverified is the worse failure.
-
----
+1. Verify the first-sync flow end-to-end on the Vercel preview (fresh
+   sign-up → app search → dashboard shows data without touching anything).
+2. BUG-020 founder decision still open — US-only scrape vs global counts.
+3. Spine e2e test (sign in → sync → draft → mark replied → sync again →
+   reply survived).
+4. BUG-022 — move sync off the 24h Vercel Hobby cron to Supabase `pg_cron`.
 
 ## Open risk to watch
 
-`docs/MARKET_READINESS_AUDIT.md` G-3: the fix for BUG-024 makes the **public
-Google Play scrape the single point of failure** for the whole product. That is
-what D018 requires, but it concentrates all risk on one unofficial dependency
-that Google actively rate-limits from datacenter IPs. Sentry alerting on sync
-failure was added this session — **watch it.** A Google-side block is a total
-outage, not a degradation.
-
----
-
-## The process finding (most important thing in this handoff)
-
-Every bug above was invisible to strict TypeScript, ESLint, 80 unit tests, a
-build gate, and three prior security audits that found 44+ issues between them.
-
-That apparatus verifies code is *internally consistent*. Every bug here was a
-**state-over-time** bug — correct on first execution, wrong on the second:
-
-- sync #1 works, sync #2 onward fails
-- reply saved, next sync erases it
-- app deleted, emails continue
-- page 1 correct, page 2 drops rows
-
-Unit tests cannot catch this class. Ask **"what happens the second time?"** —
-that question would have found all five.
+The public Google Play scrape is the single point of failure for Draft Mode
+(G-3 in `docs/MARKET_READINESS_AUDIT.md`). Google rate-limits datacenter
+IPs; Sentry alerts on sync failure — **watch it.** A Google-side block is a
+total outage, not a degradation.
 
 ---
 

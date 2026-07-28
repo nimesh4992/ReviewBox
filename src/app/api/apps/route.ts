@@ -1,9 +1,15 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { canAddApp } from "@/lib/plan-enforcement";
 import { apiError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
+import { fetchAppMetadata } from "@/services/store-search";
+import { syncWorkspace } from "@/services/review-sync";
+
+// POST triggers a public-store scrape via after() — needs more than the
+// default function budget so the first sync isn't cut off mid-write.
+export const maxDuration = 60;
 
 export async function GET() {
   const { userId } = await auth();
@@ -20,13 +26,28 @@ export async function GET() {
   const full = await sb
     .from("apps")
     .select(
-      "id, name, platform, store_id, last_synced_at, access_token, refresh_token, icon_url, developer, lifetime_rating, lifetime_review_count, last_sync_attempted_at, last_sync_status, last_sync_error, last_sync_review_count, deleted_at",
+      "id, name, platform, store_id, last_synced_at, access_token, refresh_token, icon_url, developer, lifetime_rating, lifetime_review_count, last_sync_attempted_at, last_sync_status, last_sync_error, last_sync_review_count, publisher_api_connected, deleted_at",
     )
     .eq("workspace_id", workspaceId)
     .is("deleted_at", null)
     .order("created_at");
 
   let apps: Record<string, unknown>[] = (full.data as Record<string, unknown>[] | null) ?? [];
+
+  if (full.error?.code === "42703") {
+    // publisher_api_connected missing (migration 016 pending) — retry without
+    // it before dropping all the way to the minimal column set.
+    const mid = await sb
+      .from("apps")
+      .select(
+        "id, name, platform, store_id, last_synced_at, access_token, refresh_token, icon_url, developer, lifetime_rating, lifetime_review_count, last_sync_attempted_at, last_sync_status, last_sync_error, last_sync_review_count, deleted_at",
+      )
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
+      .order("created_at");
+    apps = (mid.data as Record<string, unknown>[] | null) ?? [];
+    full.error = mid.error;
+  }
 
   if (full.error?.code === "42703") {
     // One or more columns missing (pre-migration state). Try without the newer
@@ -51,6 +72,7 @@ export async function GET() {
     lifetime_rating:        (r.lifetime_rating as number | null) ?? null,
     lifetime_review_count:  (r.lifetime_review_count as number | null) ?? null,
     has_credentials:        !!(r.access_token && r.refresh_token),
+    publisher_api_connected: (r.publisher_api_connected as boolean | null) ?? null,
     last_sync_attempted_at: (r.last_sync_attempted_at as string | null) ?? null,
     last_sync_status:       (r.last_sync_status as string | null) ?? null,
     last_sync_error:        (r.last_sync_error as string | null) ?? null,
@@ -105,20 +127,74 @@ export async function POST(request: NextRequest) {
     return apiError("INVALID_INPUT", 400, "Missing store identifier (packageName or bundleId)");
   }
 
-  const { data: app, error } = await sb
+  // Grab public store metadata (icon, lifetime rating, review count) before
+  // insert so the app row isn't blank while the first sync runs. Best-effort —
+  // a failed scrape must not block adding the app.
+  let metadata: {
+    icon_url?: string | null;
+    developer?: string | null;
+    lifetime_rating?: number | null;
+    lifetime_review_count?: number | null;
+    metadata_refreshed_at?: string;
+  } = {};
+  try {
+    const platform = body.platform === "google_play" ? "google-play" : "app-store";
+    const meta = await fetchAppMetadata(platform, storeId);
+    if (meta) {
+      metadata = {
+        icon_url:              meta.icon,
+        developer:             meta.developer || null,
+        lifetime_rating:       meta.rating,
+        lifetime_review_count: meta.reviewCount,
+        metadata_refreshed_at: new Date().toISOString(),
+      };
+    }
+  } catch (err) {
+    console.warn("[apps] metadata fetch failed:", err);
+  }
+
+  let insert = await sb
     .from("apps")
     .insert({
       workspace_id: workspaceId,
       name: body.name,
       platform: body.platform,
       store_id: storeId,
+      ...metadata,
     })
     .select()
     .single();
 
+  // 42703 = metadata columns missing (migration 012 pending) — insert without.
+  if (insert.error?.code === "42703") {
+    insert = await sb
+      .from("apps")
+      .insert({
+        workspace_id: workspaceId,
+        name: body.name,
+        platform: body.platform,
+        store_id: storeId,
+      })
+      .select()
+      .single();
+  }
+
+  const { data: app, error } = insert;
+
   if (error) {
     return apiError("INTERNAL_SERVER_ERROR", 500);
   }
+
+  // First sync (public scrape — no credentials needed) runs after the
+  // response is sent, so the user sees their reviews within ~30s of adding
+  // the app instead of waiting for the daily cron.
+  after(async () => {
+    try {
+      await syncWorkspace(workspaceId);
+    } catch (err) {
+      console.error("[apps] first sync failed:", err);
+    }
+  });
 
   // 7. Audit
   await audit({

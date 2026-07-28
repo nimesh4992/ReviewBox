@@ -18,6 +18,12 @@ export interface WorkspaceApp {
   last_sync_status: string | null;
   last_sync_error: string | null;
   last_sync_review_count: number | null;
+  /**
+   * Whether the official store API works for this app (customer granted
+   * access). null = unknown (never synced, or migration 016 not applied).
+   * Drives the "connect your Play Console" banner.
+   */
+  publisher_api_connected: boolean | null;
 }
 
 async function fetchApps(): Promise<WorkspaceApp[]> {
