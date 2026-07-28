@@ -1,8 +1,14 @@
 # Today — Handoff for next agent
 
 **Last updated:** 2026-07-28
-**Branch agent left on:** `claude/playstore-data-scraping-signup-o0sm75` (pushed, draft PR open)
-**Branch agent left on:** `claude/playstore-data-scraping-signup-o0sm75` (repair PR open — see below; PRs #66/#67/#68 all merged)
+**Branch agent left on:** `claude/playstore-data-scraping-signup-o0sm75` (PRs #66-#70 merged; final repair + sync-visibility PR open)
+
+> ⚠️ **Coordination warning:** TWO Claude sessions were repairing master
+> concurrently. PR #70 (this branch) fixed the broken #68 merge; PR #69
+> (`claude/product-market-readiness-zcfowh`) merged AFTER it and re-broke
+> the same two files by layering the old #68 content back on top. If that
+> other session is still live, do not both touch `dashboard/page.tsx` /
+> `api/apps/route.ts` at once. Canonical versions = this branch's.
 
 You are the next Claude agent. Read this top-to-bottom before doing anything.
 
@@ -85,10 +91,33 @@ but nothing new can ship until the repair PR merges. The repair:
   the exact bug this branch fixes — removed).
 - Repairs this file's merged-in duplicate headers.
 
+### Follow-up: "Sync is not working" — silent no-op paths made visible
+
+After production started serving the fixed build the founder still reported
+sync not working. Three ways `syncWorkspace()` could do NOTHING silently,
+all fixed on the final PR:
+
+1. The apps select used `.is("deleted_at", null)` with **no 42703 fallback**
+   — if migration 015 isn't applied in prod, the query errors, the error was
+   discarded, and the sync returned "success" having synced nothing.
+   Now falls back tier-wise and reports select failures in `summary.errors`.
+2. **Apps with an empty `store_id`** (onboarding manual-entry with just an
+   app name) were filtered out in SQL — nothing to scrape, no status, banner
+   spins forever. Now stamped `missing_store_id` with a plain-English
+   `last_sync_error` telling the user to add the package name in Settings;
+   the dashboard error strip surfaces it.
+3. **`/api/onboarding/setup`** (added by #67, used by the live wizard's step
+   3) still triggered its bootstrap with the fire-and-forget HTTP self-fetch.
+   Now `after()` + in-process `syncWorkspace()`, like the other routes.
+
+Diagnosis aid: `/api/debug/sync-status` (signed-in) shows per-app sync state
+and a next_action string — first thing to check when "sync doesn't work".
+
 ## Founder actions needed
 
-1. **Merge the repair PR** for `claude/playstore-data-scraping-signup-o0sm75`
-   — master is red until then.
+1. **Merge the open repair PR** for
+   `claude/playstore-data-scraping-signup-o0sm75` — master is red (again)
+   until then; #69's merge re-broke it.
 2. Run `supabase/migrations/016_publisher_api_connected.sql` in the Supabase
    SQL editor (also run 016_competitor_apps + 017_support_tickets from PR #67
    if not yet applied).
