@@ -44,16 +44,16 @@ export function SupportSection() {
   }
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-      <h2 className="text-sm font-semibold text-gray-900">Contact support</h2>
-      <p className="mt-0.5 text-xs text-gray-400">
+    <div className="rounded-xl border border-[var(--rb-border-1)] bg-surface p-5 shadow-[var(--rb-shadow-xs)]">
+      <h2 className="text-sm font-semibold text-fg-1">Contact support</h2>
+      <p className="mt-0.5 text-xs text-fg-3">
         We reply by email, usually within one business day.
       </p>
 
       {sent ? (
-        <div className="mt-4 rounded-lg border border-emerald-200 bg-emerald-50 p-3">
-          <p className="text-sm font-medium text-emerald-800">Got it — we&apos;re on it.</p>
-          <p className="mt-0.5 text-xs text-emerald-700">
+        <div className="mt-4 rounded-lg border border-[var(--rb-green-500)]/25 bg-[var(--rb-green-500)]/10 p-3">
+          <p className="text-sm font-medium text-[var(--rb-green-500)]">Got it — we&apos;re on it.</p>
+          <p className="mt-0.5 text-xs text-[var(--rb-green-500)]/90">
             We&apos;ll reply to your account email.{" "}
             <button
               type="button"
@@ -67,7 +67,7 @@ export function SupportSection() {
       ) : (
         <form onSubmit={submit} className="mt-4 space-y-3.5">
           <label className="block">
-            <span className="text-xs font-medium text-gray-600">Subject</span>
+            <span className="text-xs font-medium text-fg-2">Subject</span>
             <Input
               type="text"
               required
@@ -75,11 +75,11 @@ export function SupportSection() {
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
               placeholder="What do you need help with?"
-              className="mt-1.5 h-8 border-gray-200 bg-gray-50 text-sm text-gray-700 focus:bg-white"
+              className="mt-1.5 h-8 text-sm"
             />
           </label>
           <label className="block">
-            <span className="text-xs font-medium text-gray-600">Message</span>
+            <span className="text-xs font-medium text-fg-2">Message</span>
             <textarea
               required
               rows={4}
@@ -87,13 +87,20 @@ export function SupportSection() {
               value={body}
               onChange={(e) => setBody(e.target.value)}
               placeholder="The more detail, the faster we can help."
-              className="mt-1.5 w-full resize-y rounded-md border border-gray-200 bg-gray-50 p-2.5 text-sm text-gray-700 placeholder:text-gray-400 focus:border-gray-400 focus:bg-white focus:outline-none"
+              className="mt-1.5 w-full resize-y rounded-md border border-[var(--rb-border-2)] bg-[var(--rb-bg-sunken)] p-2.5 text-sm text-fg-1 placeholder:text-fg-3 focus:border-[#0A84FF] focus:outline-none"
             />
           </label>
-          {error && <p className="text-xs text-red-500">{error}</p>}
-          <Button type="submit" disabled={sending || !subject.trim() || !body.trim()} className="h-8 w-full">
-            {sending ? "Sending…" : "Send to support"}
-          </Button>
+          {error && <p className="text-xs text-[var(--rb-red-500)]">{error}</p>}
+          <div className="flex justify-end">
+            <Button
+              type="submit"
+              size="sm"
+              disabled={sending || !subject.trim() || !body.trim()}
+              className="h-8 disabled:bg-[var(--rb-bg-sunken)] disabled:text-fg-3 disabled:opacity-100"
+            >
+              {sending ? "Sending…" : "Send to support"}
+            </Button>
+          </div>
         </form>
       )}
     </div>

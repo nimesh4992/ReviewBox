@@ -27,7 +27,7 @@ function ScheduleBadge({ pref }: { pref: AlertPreference }) {
   if (!label) return null;
 
   return (
-    <span className="whitespace-nowrap rounded-full border border-gray-100 bg-gray-50 px-2 py-0.5 text-[10px] text-gray-400">
+    <span className="whitespace-nowrap rounded-full border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-2 py-0.5 text-[10px] text-fg-3">
       {label}
     </span>
   );
@@ -111,14 +111,14 @@ export function AlertPreferences() {
   }
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+    <div className="overflow-hidden rounded-2xl border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">
       {/* Section header */}
-      <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+      <div className="flex items-center justify-between border-b border-[var(--rb-border-1)] px-5 py-4">
         <div>
-          <h2 className="text-sm font-semibold text-gray-900">
+          <h2 className="text-sm font-semibold text-fg-1">
             Alert preferences
           </h2>
-          <p className="mt-0.5 text-xs text-gray-400">
+          <p className="mt-0.5 text-xs text-fg-3">
             Choose when and how ReviewBox notifies you.
           </p>
         </div>
@@ -128,14 +128,14 @@ export function AlertPreferences() {
       {savedAt !== null && (
         <div
           key={savedAt}
-          className="mx-5 mt-4 rounded-lg bg-green-50 px-4 py-2 text-sm font-medium text-green-700 border border-green-200 animate-in fade-in duration-200"
+          className="mx-5 mt-4 rounded-lg border border-[var(--rb-green-500)]/25 bg-[var(--rb-green-500)]/10 px-4 py-2 text-sm font-medium text-[var(--rb-green-500)] animate-in fade-in duration-200"
         >
           Preferences saved
         </div>
       )}
 
       {/* Alert rows */}
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-[var(--rb-border-1)]">
         {prefs.map((pref) => {
           // Guard: channels may be null if the DB row pre-dates the schema migration
           const ch = (pref.channels && typeof pref.channels === "object" && !Array.isArray(pref.channels))
@@ -152,7 +152,7 @@ export function AlertPreferences() {
                 onClick={() => toggleAlert(pref.type)}
                 className={cn(
                   "relative mt-0.5 h-5 w-9 shrink-0 rounded-full transition-colors",
-                  pref.enabled ? "bg-[#5B5BD6]" : "bg-gray-200",
+                  pref.enabled ? "bg-[#0A84FF]" : "bg-[var(--rb-border-3)]",
                 )}
               >
                 <span
@@ -165,10 +165,10 @@ export function AlertPreferences() {
 
               {/* Label + description */}
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-gray-800">
+                <p className="text-sm font-semibold text-fg-1">
                   {pref.label}
                 </p>
-                <p className="mt-0.5 text-xs text-gray-400">
+                <p className="mt-0.5 text-xs text-fg-3">
                   {pref.description}
                 </p>
 
@@ -181,7 +181,7 @@ export function AlertPreferences() {
                       updateSlackWebhook(pref.type, e.target.value)
                     }
                     placeholder="https://hooks.slack.com/services/..."
-                    className="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700 focus:outline-none focus:ring-2 focus:ring-[#5B5BD6]/20"
+                    className="mt-2 w-full rounded-lg border border-[var(--rb-border-2)] bg-[var(--rb-bg-sunken)] px-3 py-2 text-xs text-fg-1 placeholder:text-fg-3 focus:outline-none focus:ring-2 focus:ring-[#0A84FF]/20"
                   />
                 )}
               </div>
@@ -195,8 +195,8 @@ export function AlertPreferences() {
                   className={cn(
                     "flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
                     ch.email
-                      ? "border-[#5B5BD6]/20 bg-[#5B5BD6]/10 text-[#5B5BD6]"
-                      : "border-gray-200 bg-gray-100 text-gray-400",
+                      ? "border-[#0A84FF]/25 bg-[#0A84FF]/10 text-[#0A84FF]"
+                      : "border-[var(--rb-border-2)] bg-[var(--rb-bg-sunken)] text-fg-3",
                   )}
                 >
                   <Mail className="size-3" strokeWidth={1.5} />
@@ -210,8 +210,8 @@ export function AlertPreferences() {
                   className={cn(
                     "flex items-center gap-1 rounded-full border px-2.5 py-1 text-[11px] font-medium transition-colors",
                     ch.slack
-                      ? "border-[#5B5BD6]/20 bg-[#5B5BD6]/10 text-[#5B5BD6]"
-                      : "border-gray-200 bg-gray-100 text-gray-400",
+                      ? "border-[#0A84FF]/25 bg-[#0A84FF]/10 text-[#0A84FF]"
+                      : "border-[var(--rb-border-2)] bg-[var(--rb-bg-sunken)] text-fg-3",
                   )}
                 >
                   <Hash className="size-3" strokeWidth={1.5} />
@@ -228,13 +228,8 @@ export function AlertPreferences() {
       </div>
 
       {/* Save button */}
-      <div className="flex items-center justify-end border-t border-gray-100 px-5 py-4">
-        <Button
-          onClick={savePreferences}
-          disabled={saving}
-          size="sm"
-          className="bg-[#5B5BD6] text-white hover:bg-[#4f4fbf] disabled:opacity-50"
-        >
+      <div className="flex items-center justify-end border-t border-[var(--rb-border-1)] px-5 py-4">
+        <Button onClick={savePreferences} disabled={saving} size="sm">
           {saving ? "Saving…" : "Save preferences"}
         </Button>
       </div>

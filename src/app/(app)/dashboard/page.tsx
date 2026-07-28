@@ -74,7 +74,7 @@ function formatDelta(value: number | null, suffix = ""): string {
   return `${sign}${value}${suffix}`;
 }
 
-// ── WorkspaceStatusStrip ──────────────────────────────────────────────────────
+// ── SyncBanners ───────────────────────────────────────────────────────────────
 // Exactly ONE status element, chosen by priority: sync errors beat an
 // in-flight first sync, which beats "connected but quiet", which beats
 // background AI enrichment. The dashboard previously stacked one banner per
@@ -82,15 +82,12 @@ function formatDelta(value: number | null, suffix = ""): string {
 // credentials bar, a fresh workspace could open on four banners and an
 // uninvited modal. One strip, one action, everything else waits its turn.
 
-function WorkspaceStatusStrip({
+function SyncBanners({
   apps,
-  aiEnriching,
   onRetry,
   onConnectPlayConsole,
-  onOpenSetup,
 }: {
   apps: ReturnType<typeof useApps>["apps"];
-  aiEnriching: boolean;
   onRetry: () => void;
   onConnectPlayConsole: () => void;
 }) {
@@ -257,112 +254,7 @@ function WorkspaceStatusStrip({
         );
       })}
     </>
-  onOpenSetup: () => void;
-}) {
-  const errored = apps.filter(
-    (a) => a.last_sync_status && a.last_sync_status !== "success",
   );
-  const pending = apps.filter(
-    (a) => !a.last_synced_at && !(a.last_sync_status && a.last_sync_status !== "success"),
-  );
-  const quietOk = apps.filter(
-    (a) => a.last_sync_status === "success" && (a.last_sync_review_count ?? 0) === 0,
-  );
-
-  const actionBtn =
-    "rounded-md px-2.5 py-1 text-rb-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]";
-  const quietBtn =
-    `${actionBtn} border border-[var(--rb-border-2)] bg-surface text-fg-2 hover:bg-[var(--rb-bg-hover)]`;
-
-  if (errored.length > 0) {
-    const first = errored[0];
-    const names = errored.map((a) => a.name).join(", ");
-    return (
-      <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-amber-500)]/30 bg-[var(--rb-amber-100)]/40 px-4 py-2.5">
-        <AlertOctagon className="size-4 shrink-0 text-[var(--rb-amber-600)]" strokeWidth={2} />
-        <div className="min-w-0 flex-1">
-          <span className="text-rb-base font-medium text-fg-1">
-            {errored.length === 1 ? `${names} can’t sync yet` : `${errored.length} apps can’t sync yet`}
-          </span>
-          <span className="ml-2 hidden text-rb-sm text-fg-3 sm:inline">
-            {first.last_sync_error ?? "Finish the store connection so reviews can flow."}
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {first.platform === "google_play" ? (
-            <button onClick={onOpenSetup} className={`${actionBtn} bg-[var(--rb-amber-600)] text-white hover:opacity-90`}>
-              Finish setup
-            </button>
-          ) : (
-            <Link href="/help/connect-app-store" className={`${actionBtn} bg-[var(--rb-amber-600)] text-white hover:opacity-90`}>
-              Setup guide
-            </Link>
-          )}
-          <button onClick={onRetry} className={quietBtn}>
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (pending.length > 0) {
-    const label =
-      pending.length === 1 ? `Syncing ${pending[0].name}…` : `Syncing ${pending.length} apps…`;
-    return (
-      <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-border-1)] bg-surface px-4 py-2.5">
-        <Loader2 className="size-4 shrink-0 animate-spin text-[#0A84FF]" strokeWidth={2} />
-        <div className="min-w-0 flex-1">
-          <span className="text-rb-base font-medium text-fg-1">{label}</span>
-          <span className="ml-2 hidden text-rb-sm text-fg-3 sm:inline">
-            First sync takes about 30 seconds — reviews appear automatically.
-          </span>
-        </div>
-        <button onClick={onRetry} className={quietBtn}>
-          Sync now
-        </button>
-      </div>
-    );
-  }
-
-  if (quietOk.length > 0) {
-    const app = quietOk[0];
-    return (
-      <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-border-1)] bg-surface px-4 py-2.5">
-        <Sparkles className="size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
-        <div className="min-w-0 flex-1">
-          <span className="text-rb-base font-medium text-fg-1">
-            {app.name} is connected — no recent reviews yet
-          </span>
-          <span className="ml-2 hidden text-rb-sm text-fg-3 sm:inline">
-            {app.platform === "google_play"
-              ? "Google Play only exposes the last 7 days of reviews."
-              : "New reviews appear as customers leave them."}
-          </span>
-        </div>
-        <Link
-          href={app.platform === "google_play" ? "/help/connect-google-play" : "/help/connect-app-store"}
-          className="shrink-0 text-rb-xs font-medium text-fg-3 hover:text-fg-2"
-        >
-          Why? →
-        </Link>
-      </div>
-    );
-  }
-
-  if (aiEnriching) {
-    return (
-      <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-border-1)] bg-surface px-4 py-2.5">
-        <Bot className="size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
-        <span className="min-w-0 flex-1 text-rb-base text-fg-2">
-          Preparing reply templates from your reviews — about 10 seconds.
-        </span>
-        <Loader2 className="size-4 shrink-0 animate-spin text-fg-3" strokeWidth={2} />
-      </div>
-    );
-  }
-
-  return null;
 }
 
 // ── KpiCard ───────────────────────────────────────────────────────────────────
@@ -612,8 +504,8 @@ export default function DashboardPage() {
 
       {/* ── AI enrichment banner ── */}
       {aiEnriching === true && (
-        <div className="flex items-start gap-3 rounded-xl border border-[var(--rb-indigo-500)]/20 bg-[var(--rb-indigo-500)]/[0.04] px-4 py-3">
-          <Bot className="mt-0.5 size-4 shrink-0 animate-pulse text-[var(--rb-indigo-500)]" strokeWidth={2} />
+        <div className="flex items-start gap-3 rounded-xl border border-[#0A84FF]/20 bg-[#0A84FF]/[0.04] px-4 py-3">
+          <Bot className="mt-0.5 size-4 shrink-0 animate-pulse text-[#0A84FF]" strokeWidth={2} />
           <div className="flex-1">
             <div className="text-[13px] font-semibold text-fg-1">
               AI is preparing your workspace…
@@ -622,16 +514,9 @@ export default function DashboardPage() {
               Gemini is reading your reviews and generating your Knowledge Base and reply templates. This takes about 10 seconds.
             </div>
           </div>
-          <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-[var(--rb-indigo-500)]" strokeWidth={2} />
+          <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-[#0A84FF]" strokeWidth={2} />
         </div>
       )}
-      {/* ── One status strip: errors > syncing > quiet > AI prep ── */}
-      <WorkspaceStatusStrip
-        apps={apps}
-        aiEnriching={aiEnriching === true}
-        onRetry={handleRetry}
-        onOpenSetup={() => setSetupModalOpen(true)}
-      />
 
       {/* ── Hero — portfolio rating ── */}
       <section className="grid grid-cols-1 gap-6 rounded-2xl border border-[var(--rb-border-1)] bg-surface px-5 py-5 shadow-[var(--rb-shadow-xs)] sm:grid-cols-[minmax(0,260px)_1fr] sm:items-center sm:gap-8 sm:px-8 sm:py-7">
