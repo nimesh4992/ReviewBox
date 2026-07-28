@@ -695,7 +695,8 @@ export default function DashboardPage() {
         <div className="flex flex-col gap-3 rounded-xl border border-[var(--rb-border-1)] bg-surface p-5 shadow-[var(--rb-shadow-xs)]">
           <div className="flex items-center justify-between">
             <span className="text-[13px] font-semibold text-fg-1">Ratings</span>
-            <Link href="/alerts" className="text-[11px] font-medium text-[#0A84FF] hover:underline">Set alert →</Link>
+            {/* Alert preferences live in Settings — /alerts is not a route */}
+            <Link href="/settings" className="text-[11px] font-medium text-[#0A84FF] hover:underline">Set alert →</Link>
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-[36px] font-semibold tabular-nums leading-none text-fg-1">

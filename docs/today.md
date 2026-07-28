@@ -64,7 +64,7 @@ Plus the product ask on top:
    the Publisher API responds; false only on permission-shaped errors —
    `isGpPermissionError()` in `src/lib/sync-writes.ts`, unit-tested) and by
    the "Verify connection" button.
-   **Migration `016_publisher_api_connected.sql` — founder must run it.**
+   **Migration `018_publisher_api_connected.sql` — founder must run it.**
    All code tolerates the column being absent until then (42703 fallbacks).
 
 **Verification:** `tsc` 0 errors · 97 unit tests green (3 new) · lint 0
@@ -118,7 +118,7 @@ and a next_action string — first thing to check when "sync doesn't work".
 1. **Merge the open repair PR** for
    `claude/playstore-data-scraping-signup-o0sm75` — master is red (again)
    until then; #69's merge re-broke it.
-2. Run `supabase/migrations/016_publisher_api_connected.sql` in the Supabase
+2. Run `supabase/migrations/018_publisher_api_connected.sql` in the Supabase
    SQL editor (also run 016_competitor_apps + 017_support_tickets from PR #67
    if not yet applied).
 3. **Set `CRON_SECRET` in Vercel env vars** (any long random string) — without
@@ -231,7 +231,7 @@ sandbox egress proxy, so live scrape testing was inconclusive):
    /admin customer detail). Ask founder for the exact status text.
 
 1. Merge the draft PR for `claude/playstore-data-scraping-signup-o0sm75`.
-2. Run `supabase/migrations/016_publisher_api_connected.sql` in the Supabase
+2. Run `supabase/migrations/018_publisher_api_connected.sql` in the Supabase
    SQL editor (safe to re-run; without it the connect-banner state just
    stays conservative — nothing breaks).
 3. **Set `CRON_SECRET` in Vercel env vars** (any long random string) —

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth, clerkClient, currentUser } from "@clerk/nextjs/server";
 
 import { getServiceClient, getWorkspaceId, getWorkspaceRole } from "@/lib/supabase-server";
+import { defer } from "@/lib/defer";
 import { audit } from "@/lib/audit";
 import { apiError, captureAndError } from "@/lib/api-response";
 import { rateLimit } from "@/lib/api-rate-limit";
@@ -87,11 +88,17 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .eq("workspace_id", workspaceId)
       .maybeSingle();
     if ((slackRow as { access_token?: string } | null)?.access_token) {
-      void fetch("https://slack.com/api/auth.revoke", {
-        method:  "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body:    `token=${(slackRow as { access_token: string }).access_token}`,
-      }).catch(() => undefined);
+      // after() so the revoke actually completes on Vercel — a bare
+      // fire-and-forget fetch is killed when the lambda freezes on response,
+      // which would leave a live Slack token behind after a GDPR delete.
+      const slackToken = (slackRow as { access_token: string }).access_token;
+      defer(async () => {
+        await fetch("https://slack.com/api/auth.revoke", {
+          method:  "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body:    `token=${slackToken}`,
+        }).catch(() => undefined);
+      });
     }
 
     const { error: deleteError } = await sb

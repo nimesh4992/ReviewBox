@@ -13,6 +13,16 @@ Status legend: `[ ]` queued · `[~]` in progress · `[x]` shipped · `[!]` block
 
 These are the next items to ship. Don't skip; don't reorder without thinking.
 
+### [ ] AS1 · Per-workspace sync lock · ICE 40 (6×10÷1.5)
+**Added 2026-07-28 by audit round 1 (`docs/AUDIT_SYSTEM.md` A4).**
+**Effort:** 2h.
+**Done when:** `syncWorkspace()` takes a Redis `SET NX EX 120` lock per workspace and returns early (with a `skipped: "already_running"` summary field) when held. Three triggers can currently run it concurrently for the same workspace (dashboard self-heal + onboarding after() + daily cron): the reviews upsert is race-safe, but metadata writes, spike alerts, and Gemini enrichment rely on best-effort dedup only.
+**Why now:** Cheap, and the trigger fan-in shipped this week.
+
+### [ ] AS2 · Finish the interrupted deep-audit round · ICE 36 (9×8÷2)
+**Added 2026-07-28. The four-lens agent sweep (`docs/AUDIT_SYSTEM.md`) was cut off by a usage limit; a scheduled resume is armed.**
+**Done when:** all four lenses report, findings verified + appended to AUDIT_SYSTEM.md, BLOCKER/HIGH fixes shipped or ICE-scored here.
+
 ### [ ] R1 · Middleware matcher gaps — features broken on prod app host · ICE 85 (9×9.5÷1)
 **Added 2026-07-27 by role audit (`docs/ROLE_AUDIT.md` P0-5).**
 **Effort:** 0.5h.
