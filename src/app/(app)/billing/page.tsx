@@ -168,7 +168,7 @@ function BillingContent() {
         )}
 
         {error ? (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+          <div className="mb-6 rounded-lg border border-[var(--rb-red-500)]/25 bg-[var(--rb-red-500)]/10 px-4 py-3 text-sm text-[var(--rb-red-500)]">
             {error}
           </div>
         ) : null}
@@ -187,11 +187,11 @@ function BillingContent() {
         </div>
 
         {/* Manage existing subscription */}
-        <div className="mt-6 rounded-2xl bg-white p-6 shadow-sm border border-gray-200">
+        <div className="mt-6 rounded-2xl bg-surface p-6 shadow-sm border border-[var(--rb-border-1)]">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-base font-semibold text-gray-900">Manage Subscription</h2>
-              <p className="mt-0.5 text-sm text-gray-500">
+              <h2 className="text-base font-semibold text-fg-1">Manage Subscription</h2>
+              <p className="mt-0.5 text-sm text-fg-3">
                 Update payment details, view invoices, or cancel your plan through the Stripe portal.
               </p>
             </div>
@@ -200,7 +200,7 @@ function BillingContent() {
               variant="outline"
               onClick={() => void handleManageSubscription()}
               disabled={portalLoading}
-              className="shrink-0 border-gray-200 text-gray-700 hover:bg-gray-50"
+              className="shrink-0 border-[var(--rb-border-1)] text-fg-2 hover:bg-[var(--rb-bg-hover)]"
             >
               {portalLoading ? (
                 <>
@@ -218,7 +218,7 @@ function BillingContent() {
         </div>
 
         {/* Footer note */}
-        <p className="mt-6 text-center text-sm text-gray-400">
+        <p className="mt-6 text-center text-sm text-fg-3">
           All plans include a 14-day free trial. Cancel anytime. No credit card
           required to start.
         </p>
@@ -246,10 +246,10 @@ function PlanCard({ plan, isLoading, isDisabled, onChoose }: PlanCardProps) {
   return (
     <div
       className={cn(
-        "relative flex flex-col rounded-2xl bg-white p-6 shadow-sm transition-shadow hover:shadow-md",
+        "relative flex flex-col rounded-2xl bg-surface p-6 shadow-sm transition-shadow hover:shadow-md",
         plan.highlight
           ? "ring-2 ring-[#0A84FF]"
-          : "border border-gray-200",
+          : "border border-[var(--rb-border-1)]",
       )}
     >
       {/* Badge */}
@@ -264,14 +264,14 @@ function PlanCard({ plan, isLoading, isDisabled, onChoose }: PlanCardProps) {
 
       {/* Header */}
       <div className="mb-5">
-        <h3 className="text-base font-semibold text-gray-900">{plan.name}</h3>
+        <h3 className="text-base font-semibold text-fg-1">{plan.name}</h3>
         <div className="mt-2 flex items-end gap-1">
-          <span className="text-3xl font-bold tracking-tight text-gray-900">
+          <span className="text-3xl font-bold tracking-tight text-fg-1">
             ${plan.price}
           </span>
-          <span className="mb-1 text-sm text-gray-400">/mo</span>
+          <span className="mb-1 text-sm text-fg-3">/mo</span>
         </div>
-        <p className="mt-1.5 text-sm text-gray-500">{plan.description}</p>
+        <p className="mt-1.5 text-sm text-fg-3">{plan.description}</p>
       </div>
 
       {/* Features */}
@@ -283,12 +283,12 @@ function PlanCard({ plan, isLoading, isDisabled, onChoose }: PlanCardProps) {
                 "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
                 plan.highlight
                   ? "bg-[#0A84FF]/10 text-[#0A84FF]"
-                  : "bg-gray-100 text-gray-500",
+                  : "bg-[var(--rb-bg-sunken)] text-fg-3",
               )}
             >
               <Check className="size-2.5" strokeWidth={2.5} />
             </div>
-            <span className="text-gray-600">{feature}</span>
+            <span className="text-fg-2">{feature}</span>
           </li>
         ))}
       </ul>
@@ -300,7 +300,7 @@ function PlanCard({ plan, isLoading, isDisabled, onChoose }: PlanCardProps) {
           "w-full",
           plan.highlight
             ? "bg-[#0A84FF] text-white hover:bg-[#006EE0]"
-            : "border-gray-200 text-gray-700 hover:bg-gray-50",
+            : "border-[var(--rb-border-1)] text-fg-2 hover:bg-[var(--rb-bg-hover)]",
         )}
         onClick={onChoose}
         disabled={isDisabled}

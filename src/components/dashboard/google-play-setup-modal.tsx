@@ -50,14 +50,14 @@ function PlayConsoleVisual() {
         <span className="font-semibold text-[var(--rb-fg-2)] text-xs">Google Play Console</span>
       </div>
       {/* Mock nav item */}
-      <div className="mb-2 flex items-center gap-2 rounded-lg bg-white border border-[var(--rb-border-1)] px-3 py-2 shadow-sm">
+      <div className="mb-2 flex items-center gap-2 rounded-lg bg-surface border border-[var(--rb-border-1)] px-3 py-2 shadow-sm">
         <div className="h-3 w-3 rounded-sm bg-[var(--rb-bg-hover)]" />
         <span className="text-[var(--rb-fg-2)] font-medium">Users and permissions</span>
         <span className="ml-auto text-[#0A84FF] font-medium text-[10px]">← click here</span>
       </div>
       <div className="flex justify-center my-1.5 text-[var(--rb-fg-4)] font-bold text-base">↓</div>
       {/* Mock invite button */}
-      <div className="mb-2 flex items-center justify-between rounded-lg bg-white border border-[var(--rb-border-1)] px-3 py-2 shadow-sm">
+      <div className="mb-2 flex items-center justify-between rounded-lg bg-surface border border-[var(--rb-border-1)] px-3 py-2 shadow-sm">
         <span className="text-[var(--rb-fg-2)]">Your team</span>
         <div className="flex items-center gap-1.5 rounded-full bg-[#01875F] px-2.5 py-0.5 text-[10px] text-white font-semibold">
           + Invite new users
@@ -65,7 +65,7 @@ function PlayConsoleVisual() {
       </div>
       <div className="flex justify-center my-1.5 text-[var(--rb-fg-4)] font-bold text-base">↓</div>
       {/* Mock email field */}
-      <div className="rounded-lg bg-white border border-[var(--rb-border-1)] px-3 py-2.5 shadow-sm space-y-1.5">
+      <div className="rounded-lg bg-surface border border-[var(--rb-border-1)] px-3 py-2.5 shadow-sm space-y-1.5">
         <div className="text-[10px] text-[var(--rb-fg-4)] font-medium">Email address</div>
         <div className="rounded border border-[#0A84FF] bg-blue-50 px-2 py-1 font-mono text-[10px] text-[#0A84FF] truncate">
           reviewbox@…gserviceaccount.com
@@ -73,7 +73,7 @@ function PlayConsoleVisual() {
       </div>
       <div className="flex justify-center my-1.5 text-[var(--rb-fg-4)] font-bold text-base">↓</div>
       {/* Mock permissions */}
-      <div className="rounded-lg bg-white border border-[var(--rb-border-1)] px-3 py-2.5 shadow-sm space-y-1.5">
+      <div className="rounded-lg bg-surface border border-[var(--rb-border-1)] px-3 py-2.5 shadow-sm space-y-1.5">
         <div className="text-[10px] text-[var(--rb-fg-3)] font-semibold">App permissions</div>
         {["View app information", "Reply to reviews"].map((p) => (
           <div key={p} className="flex items-center gap-1.5">
@@ -163,7 +163,7 @@ function InviteTab({
           <p className="text-[11px] font-semibold uppercase tracking-wider text-[var(--rb-fg-4)] mb-2">
             Service account email — invite this address
           </p>
-          <div className="flex items-center gap-2 rounded-xl border border-[var(--rb-border-1)] bg-[#F5F5F7] px-4 py-3">
+          <div className="flex items-center gap-2 rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-4 py-3">
             {email ? (
               <>
                 <span className="flex-1 truncate font-mono text-[12px] text-[var(--rb-fg-1)] select-all">
@@ -171,7 +171,7 @@ function InviteTab({
                 </span>
                 <button
                   onClick={copyEmail}
-                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--rb-border-1)] bg-white px-3 py-1.5 text-xs font-medium text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)] transition-colors"
+                  className="flex shrink-0 items-center gap-1.5 rounded-lg border border-[var(--rb-border-1)] bg-surface px-3 py-1.5 text-xs font-medium text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)] transition-colors"
                 >
                   {copied ? (
                     <><Check className="size-3.5 text-emerald-500" /> Copied</>
@@ -213,12 +213,12 @@ function InviteTab({
               "rounded-xl border px-4 py-3",
               verifyResult.ok
                 ? "border-emerald-200 bg-emerald-50"
-                : "border-red-200 bg-red-50",
+                : "border-[var(--rb-red-500)]/25 bg-[var(--rb-red-500)]/10",
             )}
           >
             <div className={cn(
               "flex items-center gap-1.5 text-xs font-semibold",
-              verifyResult.ok ? "text-emerald-700" : "text-red-700",
+              verifyResult.ok ? "text-emerald-700" : "text-[var(--rb-red-500)]",
             )}>
               {verifyResult.ok
                 ? <CheckCircle2 className="size-3.5" />
@@ -227,7 +227,7 @@ function InviteTab({
             </div>
             <p className={cn(
               "mt-1 text-[12px] leading-relaxed",
-              verifyResult.ok ? "text-emerald-700/90" : "text-red-700/90",
+              verifyResult.ok ? "text-emerald-700/90" : "text-[var(--rb-red-500)]/90",
             )}>
               {verifyResult.message}
             </p>
@@ -273,7 +273,7 @@ function TroubleshootTab() {
           <p className="mt-1.5 text-[12px] leading-relaxed text-[var(--rb-fg-3)]">{item.a}</p>
         </div>
       ))}
-      <div className="rounded-xl border border-[var(--rb-border-1)] bg-white px-4 py-3.5 text-center">
+      <div className="rounded-xl border border-[var(--rb-border-1)] bg-surface px-4 py-3.5 text-center">
         <p className="text-[13px] font-semibold text-[var(--rb-fg-1)]">Still stuck?</p>
         <p className="mt-0.5 text-[12px] text-[var(--rb-fg-4)]">We reply within one business day.</p>
         <a
@@ -390,7 +390,7 @@ export function GooglePlaySetupModal({ open, onClose, app }: Props) {
             <button
               onClick={handleVerify}
               disabled={verifying}
-              className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--rb-border-1)] bg-white px-5 py-2.5 text-[13px] font-semibold text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)] transition-colors disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-xl border border-[var(--rb-border-1)] bg-surface px-5 py-2.5 text-[13px] font-semibold text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)] transition-colors disabled:opacity-60"
             >
               {verifying ? (
                 <><Loader2 className="size-3.5 animate-spin" />Verifying…</>

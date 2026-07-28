@@ -5,12 +5,10 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  Globe,
   Loader2,
   Plus,
   RefreshCw,
   Settings2,
-  Smartphone,
   Trash2,
   TriangleAlert,
 } from "lucide-react";
@@ -19,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useApps, useInvalidateApps, type WorkspaceApp } from "@/hooks/use-apps";
-import { formatReviewDate } from "@/utils/format";
+import { avatarInitials, formatReviewDate } from "@/utils/format";
 import { GooglePlaySetupModal } from "@/components/dashboard/google-play-setup-modal";
 
 // ── App Store credential form ─────────────────────────────────────────────────
@@ -362,14 +360,13 @@ function AppRow({
   const [setupModalOpen, setSetupModalOpen] = useState(false);
 
   const isAppStore = app.platform === "app_store";
-  const Icon = isAppStore ? Globe : Smartphone;
 
   const statusLabel = app.has_credentials || app.platform === "google_play"
     ? "Connected"
     : "Needs setup";
   const statusClass = app.has_credentials || app.platform === "google_play"
     ? "bg-[var(--rb-green-500)]/10 text-[var(--rb-green-500)] border-[var(--rb-green-500)]/25"
-    : "bg-amber-50 text-amber-700 border-amber-200";
+    : "bg-[var(--rb-amber-500)]/10 text-[var(--rb-amber-500)] border-[var(--rb-amber-500)]/25";
 
   async function handleDelete() {
     if (!confirm(`Remove "${app.name}"? This will delete all synced reviews.`)) return;
@@ -408,9 +405,18 @@ function AppRow({
   return (
     <div className="border-b border-[var(--rb-border-1)] last:border-0">
       <div className="flex items-center gap-3 px-4 py-3.5">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)]">
-          <Icon className="size-4 text-[var(--rb-fg-3)]" />
-        </div>
+        {app.icon_url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- store CDN icon, unknown domains
+          <img
+            src={app.icon_url}
+            alt=""
+            className="size-9 shrink-0 rounded-lg border border-[var(--rb-border-1)] object-cover"
+          />
+        ) : (
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#0A84FF]/10 text-[13px] font-semibold text-[#0A84FF]">
+            {avatarInitials(app.name)}
+          </div>
+        )}
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">

@@ -203,7 +203,7 @@ function ConditionRow({ condition, onChange, onRemove }: ConditionRowProps) {
       <button
         type="button"
         onClick={onRemove}
-        className="flex-shrink-0 rounded-md p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 transition-colors"
+        className="flex-shrink-0 rounded-md p-1.5 text-fg-3 hover:text-red-500 hover:bg-[var(--rb-red-500)]/10 transition-colors"
         aria-label="Remove condition"
       >
         <X className="size-4" strokeWidth={1.5} />
@@ -219,7 +219,7 @@ function ApplyTagConfig({ value, onChange }: { value: string; onChange: (v: stri
     "h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
   return (
     <div className="mt-3 space-y-1">
-      <label className="text-xs font-medium text-gray-600">Which tag to apply</label>
+      <label className="text-xs font-medium text-fg-2">Which tag to apply</label>
       <select value={value} onChange={(e) => onChange(e.target.value)} className={selectClass}>
         <option value="">Pick tag…</option>
         {ISSUE_TAGS.map((t) => <option key={t} value={t}>{t}</option>)}
@@ -246,7 +246,7 @@ function TemplateReplyConfig({
     "h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-xs outline-none focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50";
   return (
     <div className="mt-3 space-y-1">
-      <label className="text-xs font-medium text-gray-600">Template (optional)</label>
+      <label className="text-xs font-medium text-fg-2">Template (optional)</label>
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
@@ -260,7 +260,7 @@ function TemplateReplyConfig({
           </option>
         ))}
       </select>
-      <p className="text-[11px] text-gray-400">
+      <p className="text-[11px] text-fg-3">
         {loading ? "Loading templates…" : "Leave blank to auto-select by rating."}
       </p>
     </div>
@@ -374,14 +374,14 @@ export function RuleBuilderModal({
 
   const isEditing   = Boolean(editId);
   const canSave     = name.trim() && (action !== "apply_tag" || actionConfig);
-  const labelClass  = "text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5 block";
+  const labelClass  = "text-xs font-semibold text-fg-3 uppercase tracking-wide mb-1.5 block";
   const sectionClass = "space-y-3";
 
   return (
     <Dialog open={open} onOpenChange={(v) => { if (!v) handleClose(); }}>
-      <DialogContent className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-surface rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle className="text-base font-semibold text-gray-900">
+          <DialogTitle className="text-base font-semibold text-fg-1">
             {isEditing ? "Edit Rule" : "New Automation Rule"}
           </DialogTitle>
         </DialogHeader>
@@ -401,7 +401,7 @@ export function RuleBuilderModal({
           <div className={sectionClass}>
             <label className={labelClass}>
               Description{" "}
-              <span className="font-normal normal-case text-gray-400">(optional)</span>
+              <span className="font-normal normal-case text-fg-3">(optional)</span>
             </label>
             <Input
               value={description}
@@ -448,7 +448,7 @@ export function RuleBuilderModal({
                     "flex items-start gap-3 rounded-lg border px-3 py-2.5 cursor-pointer transition-colors",
                     action === opt.value
                       ? "border-[var(--rb-blue-500)] bg-[var(--rb-bg-accent-soft)]"
-                      : "border-gray-200 hover:bg-gray-50",
+                      : "border-[var(--rb-border-1)] hover:bg-[var(--rb-bg-hover)]",
                   )}
                 >
                   <input
@@ -462,11 +462,11 @@ export function RuleBuilderModal({
                   <div>
                     <span className={cn(
                       "text-sm font-medium",
-                      action === opt.value ? "text-[var(--rb-blue-500)]" : "text-gray-700",
+                      action === opt.value ? "text-[var(--rb-blue-500)]" : "text-fg-2",
                     )}>
                       {opt.label}
                     </span>
-                    <p className="text-[11px] text-gray-400 mt-0.5">{opt.description}</p>
+                    <p className="text-[11px] text-fg-3 mt-0.5">{opt.description}</p>
                   </div>
                 </label>
               ))}
@@ -490,7 +490,7 @@ export function RuleBuilderModal({
           <div className={sectionClass}>
             <label className={labelClass}>Apply to</label>
             <div className="flex items-center gap-4">
-              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-fg-2 cursor-pointer">
                 <input
                   type="radio" name="appsScope" value="all"
                   checked={appsScope === "all"}
@@ -499,7 +499,7 @@ export function RuleBuilderModal({
                 />
                 All apps
               </label>
-              <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+              <label className="flex items-center gap-2 text-sm text-fg-2 cursor-pointer">
                 <input
                   type="radio" name="appsScope" value="specific"
                   checked={appsScope === "specific"}
@@ -520,8 +520,8 @@ export function RuleBuilderModal({
           </div>
         </div>
 
-        <DialogFooter className="mt-4 pt-4 border-t border-gray-100">
-          <Button variant="outline" onClick={handleClose} className="border-gray-200 text-gray-600">
+        <DialogFooter className="mt-4 pt-4 border-t border-[var(--rb-border-1)]">
+          <Button variant="outline" onClick={handleClose} className="border-[var(--rb-border-1)] text-fg-2">
             Cancel
           </Button>
           <Button

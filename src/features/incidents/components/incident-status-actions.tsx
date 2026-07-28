@@ -37,7 +37,7 @@ export function IncidentStatusActions({
         variant="outline"
         disabled={saving || status === "investigating"}
         onClick={() => updateStatus("investigating")}
-        className="h-8 border-gray-200 text-gray-600 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 disabled:opacity-40"
+        className="h-8 border-[var(--rb-border-1)] text-fg-2 hover:bg-amber-50 hover:border-amber-300 hover:text-amber-700 disabled:opacity-40"
       >
         Mark Investigating
       </Button>
@@ -46,7 +46,7 @@ export function IncidentStatusActions({
         variant="outline"
         disabled={saving || status === "resolved"}
         onClick={() => updateStatus("resolved")}
-        className="h-8 border-gray-200 text-gray-600 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 disabled:opacity-40"
+        className="h-8 border-[var(--rb-border-1)] text-fg-2 hover:bg-emerald-50 hover:border-emerald-300 hover:text-emerald-700 disabled:opacity-40"
       >
         Mark Resolved
       </Button>

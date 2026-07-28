@@ -20,7 +20,7 @@ export function ReplyKit() {
   const [activeTab, setActiveTab] = useState<TabId>("tags");
 
   return (
-    <div>
+    <div className="mx-auto w-full max-w-[1000px]">
       {/* Tab bar */}
       <div className="mb-6 flex border-b border-[var(--rb-border-1)]">
         {TABS.map((tab) => (

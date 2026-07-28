@@ -62,7 +62,9 @@ export function TagsTab() {
                     style={{ backgroundColor: t.color }}
                   />
                   <span className="text-rb-base text-fg-1">{t.label}</span>
-                  <span className="ml-auto font-mono text-rb-xs text-fg-4">{t.tag}</span>
+                  <span className="rounded bg-[var(--rb-bg-sunken)] px-1.5 py-0.5 font-mono text-rb-xs text-fg-3">
+                    {t.tag}
+                  </span>
                 </div>
               ))}
             </div>

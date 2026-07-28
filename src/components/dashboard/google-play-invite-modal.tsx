@@ -69,18 +69,18 @@ export function GooglePlayInviteModal({ hasGooglePlayApp }: Props) {
         <div className="px-6 py-5 space-y-5">
           {/* Email copy box */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-2">
+            <p className="text-xs font-semibold uppercase tracking-widest text-fg-3 mb-2">
               Invite this email to your Play Console
             </p>
-            <div className="flex items-center gap-2 rounded-xl border border-gray-200 bg-[#F5F5F7] px-4 py-3">
+            <div className="flex items-center gap-2 rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-4 py-3">
               {email ? (
                 <>
-                  <span className="flex-1 text-sm font-mono text-gray-900 select-all break-all">
+                  <span className="flex-1 text-sm font-mono text-fg-1 select-all break-all">
                     {email}
                   </span>
                   <button
                     onClick={copyEmail}
-                    className="flex items-center gap-1.5 rounded-lg bg-white border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50 transition-colors shrink-0"
+                    className="flex items-center gap-1.5 rounded-lg bg-surface border border-[var(--rb-border-1)] px-3 py-1.5 text-xs font-medium text-fg-2 hover:bg-[var(--rb-bg-hover)] transition-colors shrink-0"
                   >
                     {copied ? (
                       <><Check className="h-3.5 w-3.5 text-emerald-500" /> Copied</>
@@ -90,14 +90,14 @@ export function GooglePlayInviteModal({ hasGooglePlayApp }: Props) {
                   </button>
                 </>
               ) : (
-                <span className="text-sm text-gray-400">Loading…</span>
+                <span className="text-sm text-fg-3">Loading…</span>
               )}
             </div>
           </div>
 
           {/* Steps */}
           <div>
-            <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
+            <p className="text-xs font-semibold uppercase tracking-widest text-fg-3 mb-3">
               How to invite it
             </p>
             <ol className="space-y-2.5">
@@ -111,14 +111,14 @@ export function GooglePlayInviteModal({ hasGooglePlayApp }: Props) {
                   <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0A84FF]/10 text-[10px] font-bold text-[#0A84FF] mt-0.5">
                     {i + 1}
                   </span>
-                  <span className="text-sm text-gray-600 leading-relaxed">{step}</span>
+                  <span className="text-sm text-fg-2 leading-relaxed">{step}</span>
                 </li>
               ))}
             </ol>
           </div>
 
           {/* Note */}
-          <p className="text-xs text-gray-400 leading-relaxed">
+          <p className="text-xs text-fg-3 leading-relaxed">
             Permissions can take up to 24 hours to activate. Your first reviews will appear once the sync runs.{" "}
             <a href="/help/connect-google-play" className="text-[#0A84FF] hover:underline">
               Full guide
@@ -139,7 +139,7 @@ export function GooglePlayInviteModal({ hasGooglePlayApp }: Props) {
           </a>
           <button
             onClick={dismiss}
-            className="text-sm text-gray-400 hover:text-gray-600 transition-colors"
+            className="text-sm text-fg-3 hover:text-fg-1 transition-colors"
           >
             I&apos;ll do this later
           </button>

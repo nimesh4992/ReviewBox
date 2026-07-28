@@ -19,8 +19,8 @@ export default function AppError({
 
   return (
     <div className="flex flex-1 items-center justify-center p-8">
-      <div className="w-full max-w-md rounded-2xl border border-gray-200 bg-white p-8 text-center shadow-sm">
-        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-red-50">
+      <div className="w-full max-w-md rounded-2xl border border-[var(--rb-border-1)] bg-surface p-8 text-center shadow-sm">
+        <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-[var(--rb-red-500)]/10">
           <svg
             className="h-5 w-5 text-red-500"
             fill="none"
@@ -36,16 +36,16 @@ export default function AppError({
           </svg>
         </div>
 
-        <h2 className="mt-4 text-base font-semibold text-gray-900">
+        <h2 className="mt-4 text-base font-semibold text-fg-1">
           Something went wrong
         </h2>
-        <p className="mt-1.5 text-sm text-gray-500">
+        <p className="mt-1.5 text-sm text-fg-3">
           {error.message
             ? error.message
             : "This section encountered an error. Your other work is unaffected."}
         </p>
         {error.digest && (
-          <p className="mt-1 font-mono text-xs text-gray-400">
+          <p className="mt-1 font-mono text-xs text-fg-3">
             Error ID: {error.digest}
           </p>
         )}
