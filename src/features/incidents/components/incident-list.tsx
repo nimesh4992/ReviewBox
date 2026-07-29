@@ -9,8 +9,8 @@ const SEVERITY_CONFIG: Record<
   IncidentAlert["severity"],
   { bar: string; icon: typeof ShieldAlert; label: string }
 > = {
-  critical: { bar: "bg-red-400", icon: ShieldAlert, label: "Critical" },
-  high: { bar: "bg-amber-400", icon: TriangleAlert, label: "High" },
+  critical: { bar: "bg-[var(--rb-red-400)]", icon: ShieldAlert, label: "Critical" },
+  high: { bar: "bg-[var(--rb-amber-500)]", icon: TriangleAlert, label: "High" },
   medium: { bar: "bg-[var(--rb-border-3)]", icon: TriangleAlert, label: "Medium" },
 };
 

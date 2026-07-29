@@ -14,11 +14,11 @@ const FAQ_SECTIONS = [
     questions: [
       {
         q: "How do I connect Google Play?",
-        a: "You need a Google Cloud service account with the \"Reply to reviews\" permission scoped to your Google Play Console. Create the service account in Google Cloud, download the JSON key, and paste it into ReviewBox Settings → Apps. Full guide: tryreviewbox.com/help/connect-google-play.",
+        a: "You need a Google Cloud service account with the \"Reply to reviews\" permission scoped to your Google Play Console. Create the service account in Google Cloud, download the JSON key, and paste it into ReviewBox Settings → Integrations. Full guide: tryreviewbox.com/help/connect-google-play.",
       },
       {
         q: "How do I connect the App Store?",
-        a: "You need an App Store Connect API key (not the old iTunes key). In App Store Connect, go to Users & Access → Integrations → App Store Connect API, generate a key with Customer Support access, and enter the Key ID, Issuer ID, and .p8 file into ReviewBox Settings → Apps.",
+        a: "You need an App Store Connect API key (not the old iTunes key). In App Store Connect, go to Users & Access → Integrations → App Store Connect API, generate a key with Customer Support access, and enter the Key ID, Issuer ID, and .p8 file into ReviewBox Settings → Integrations.",
       },
       {
         q: "How long does the first sync take?",

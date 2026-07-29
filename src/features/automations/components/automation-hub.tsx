@@ -116,7 +116,7 @@ function MetaColumn({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex w-24 flex-col items-start">
       <span className="w-full truncate text-rb-sm font-medium tabular-nums text-fg-2">{value}</span>
-      <span className="mt-0.5 text-rb-xs text-fg-4">{label}</span>
+      <span className="mt-0.5 text-rb-xs text-fg-3">{label}</span>
     </div>
   );
 }
@@ -302,9 +302,9 @@ function RunHistoryPanel() {
 type BadgeVariant = "AI" | "Reply" | "Tag" | "Report reviews";
 
 const badgeStyles: Record<BadgeVariant, string> = {
-  AI:               "bg-blue-50 text-blue-600 border border-blue-200",
-  Reply:            "bg-emerald-50 text-emerald-700 border border-emerald-200",
-  Tag:              "bg-amber-50 text-amber-600 border border-amber-200",
+  AI:               "bg-[#0A84FF]/10 text-[#0A84FF] border border-[#0A84FF]/25",
+  Reply:            "bg-[var(--rb-green-500)]/10 text-[var(--rb-green-500)] border border-[var(--rb-green-500)]/25",
+  Tag:              "bg-[var(--rb-amber-500)]/10 text-[var(--rb-amber-500)] border border-[var(--rb-amber-500)]/25",
   "Report reviews": "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)] border border-[var(--rb-red-500)]/25",
 };
 
@@ -339,7 +339,7 @@ function PresetCard({ preset, onInstall }: { preset: AutomationPreset; onInstall
   return (
     <div className="relative rounded-2xl border border-[var(--rb-border-1)] bg-surface shadow-sm p-5 hover:shadow-md transition-shadow">
       {preset.isFree && (
-        <span className="absolute top-3 right-3 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">FREE</span>
+        <span className="absolute top-3 right-3 bg-[var(--rb-green-500)]/100 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">FREE</span>
       )}
       <p className="text-sm font-semibold text-[var(--rb-fg-1)] pr-10">{preset.name}</p>
       <p className="text-xs text-[var(--rb-fg-4)] mt-1">{preset.description}</p>
@@ -352,7 +352,7 @@ function PresetCard({ preset, onInstall }: { preset: AutomationPreset; onInstall
         disabled={state === "loading" || state === "success"}
         className={cn(
           "mt-4 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed",
-          state === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
+          state === "success" ? "bg-[var(--rb-green-500)]/10 text-[var(--rb-green-500)] border border-[var(--rb-green-500)]/25"
             : state === "error" ? "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)] border border-[var(--rb-red-500)]/25"
             : "bg-[var(--rb-blue-500)] text-white hover:bg-[var(--rb-blue-600)]",
         )}

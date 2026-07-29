@@ -60,7 +60,7 @@ export function CredentialsBanner() {
         Store account not linked yet — reviews can&apos;t sync until it is.
       </span>
       <button
-        onClick={() => router.push("/settings")}
+        onClick={() => router.push("/settings?tab=integrations")}
         className="shrink-0 font-medium text-[var(--rb-blue-500)] hover:underline"
       >
         Link account

@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useClerk } from "@clerk/nextjs";
 import {
-  ArrowLeft, Check, ChevronRight, Loader2, Plug, Search, Sparkles,
+  Apple, ArrowLeft, Check, ChevronRight, Loader2, Plug, Search, Smartphone, Sparkles,
 } from "lucide-react";
 import { track } from "@/lib/analytics";
 import { Input } from "@/components/ui/input";
@@ -235,8 +235,8 @@ export default function OnboardingPage() {
 
   if (hydrating) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#0d0f14]">
-        <Loader2 className="size-5 animate-spin text-white/30" strokeWidth={1.5} />
+      <div className="flex min-h-screen items-center justify-center bg-canvas">
+        <Loader2 className="size-5 animate-spin text-fg-3" strokeWidth={1.5} />
       </div>
     );
   }
@@ -244,16 +244,16 @@ export default function OnboardingPage() {
   const progress = ((step - 1) / (STEPS.length - 1)) * 100;
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#0d0f14] px-4 py-12">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-canvas px-4 py-12">
       {/* Logo */}
       <div className="mb-10 flex items-center gap-2.5">
         <div className="flex size-8 items-center justify-center rounded-lg bg-[#0A84FF]">
           <span className="text-sm font-bold text-white">R</span>
         </div>
-        <span className="text-lg font-semibold tracking-tight text-white">ReviewBox</span>
+        <span className="text-lg font-semibold tracking-tight text-fg-1">ReviewBox</span>
       </div>
 
-      <div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-[#1a1d27] p-8">
+      <div className="w-full max-w-md rounded-2xl border border-[var(--rb-border-1)] bg-surface p-8">
         {/* Step indicator */}
         <div className="mb-8">
           <div className="mb-3 flex items-center justify-between">
@@ -267,18 +267,18 @@ export default function OnboardingPage() {
                     "flex size-6 items-center justify-center rounded-full text-[10px] font-semibold transition-colors",
                     done   && "bg-[#0A84FF] text-white",
                     active && "bg-[#0A84FF] text-white ring-2 ring-[#0A84FF]/30",
-                    !done && !active && "bg-white/[0.06] text-white/30",
+                    !done && !active && "bg-[var(--rb-bg-sunken)] text-fg-3",
                   )}>
                     {done ? "✓" : n}
                   </div>
                   <span className={cn("text-[9px] font-medium hidden sm:block",
-                    active ? "text-white/70" : "text-white/25",
+                    active ? "text-fg-2" : "text-fg-3",
                   )}>{s.label}</span>
                 </div>
               );
             })}
           </div>
-          <div className="h-1 overflow-hidden rounded-full bg-white/[0.06]">
+          <div className="h-1 overflow-hidden rounded-full bg-[var(--rb-bg-hover)]">
             <div
               className="h-full rounded-full bg-[#0A84FF] transition-all duration-500"
               style={{ width: `${progress}%` }}
@@ -368,32 +368,32 @@ function Step1Workspace({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-white">Name your workspace</h2>
-        <p className="mt-1 text-sm text-white/50">Usually your company or app name.</p>
+        <h2 className="text-xl font-semibold text-fg-1">Name your workspace</h2>
+        <p className="mt-1 text-sm text-fg-3">Usually your company or app name.</p>
       </div>
 
       <div className="space-y-4">
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-white/50">Workspace name</label>
+          <label className="mb-1.5 block text-xs font-medium text-fg-3">Workspace name</label>
           <Input
             value={form.workspaceName}
             onChange={(e) => set("workspaceName", e.target.value)}
             placeholder="Acme Corp"
-            className="border-white/[0.08] bg-white/[0.04] text-white placeholder:text-white/20 focus-visible:ring-[#0A84FF]"
+            className="border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] text-fg-1 placeholder:text-fg-3 focus-visible:ring-[#0A84FF]"
             autoFocus
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-white/50">Workspace URL</label>
-          <div className="flex items-center gap-2 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2">
-            <span className="shrink-0 text-xs text-white/30">tryreviewbox.com/</span>
+          <label className="mb-1.5 block text-xs font-medium text-fg-3">Workspace URL</label>
+          <div className="flex items-center gap-2 rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2">
+            <span className="shrink-0 text-xs text-fg-3">tryreviewbox.com/</span>
             <input
               value={form.workspaceSlug}
               onChange={(e) => set("workspaceSlug", slugify(e.target.value))}
               placeholder="acme"
-              className="min-w-0 flex-1 bg-transparent text-sm text-white outline-none placeholder:text-white/20"
+              className="min-w-0 flex-1 bg-transparent text-sm text-fg-1 outline-none placeholder:text-fg-3"
             />
-            {slugStatus.state === "checking" && <Loader2 className="size-3 animate-spin text-white/30" strokeWidth={1.5} />}
+            {slugStatus.state === "checking" && <Loader2 className="size-3 animate-spin text-fg-3" strokeWidth={1.5} />}
             {slugStatus.state === "available" && <Check className="size-3 text-[#1F8A5B]" strokeWidth={2} />}
           </div>
           {(slugStatus.state === "taken" || slugStatus.state === "reserved" || slugStatus.state === "invalid" || slugError) && (
@@ -407,7 +407,7 @@ function Step1Workspace({
                 <button
                   key={s}
                   onClick={() => set("workspaceSlug", s)}
-                  className="rounded border border-white/[0.08] px-2 py-0.5 text-[10px] text-white/50 hover:text-white"
+                  className="rounded border border-[var(--rb-border-1)] px-2 py-0.5 text-[10px] text-fg-3 hover:text-fg-1"
                 >
                   {s}
                 </button>
@@ -420,7 +420,7 @@ function Step1Workspace({
       <button
         onClick={onNext}
         disabled={!canContinue}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-30"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:bg-[var(--rb-bg-hover)] disabled:text-fg-3"
       >
         Continue <ChevronRight className="size-4" strokeWidth={2} />
       </button>
@@ -456,19 +456,29 @@ function Step2App({
     if (searchTimer.current) clearTimeout(searchTimer.current);
     if (query.trim().length < 2) { setResults([]); setSearchFailed(false); return; }
     setSearching(true);
+    // The debounce only cancels the pending timer — a request already in flight
+    // still resolved and overwrote the results. Typing "face" then "facebook"
+    // could leave the slower "face" response on screen under the newer query,
+    // and this is the step where the user picks which app to connect.
+    let stale = false;
     searchTimer.current = setTimeout(async () => {
       try {
         const res = await fetch(
           `/api/onboarding/search-app?query=${encodeURIComponent(query.trim())}&platform=${form.platform}`
         );
+        if (stale) return;
         if (!res.ok) { setSearchFailed(true); setSearching(false); return; }
         const d = (await res.json()) as { results: SearchResult[]; searchFailed?: boolean };
+        if (stale) return;
         setResults(d.results ?? []);
         setSearchFailed(!!d.searchFailed);
-      } catch { setSearchFailed(true); }
-      finally { setSearching(false); }
+      } catch { if (!stale) setSearchFailed(true); }
+      finally { if (!stale) setSearching(false); }
     }, 400);
-    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
+    return () => {
+      stale = true;
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
   }, [query, form.platform]);
 
   const selectApp = (r: SearchResult) => {
@@ -484,11 +494,11 @@ function Step2App({
   return (
     <div className="space-y-6">
       <div>
-        <button onClick={onBack} className="mb-3 flex items-center gap-1 text-xs text-white/40 hover:text-white/70">
+        <button onClick={onBack} className="mb-3 flex items-center gap-1 text-xs text-fg-3 hover:text-fg-2">
           <ArrowLeft className="size-3" strokeWidth={2} /> Back
         </button>
-        <h2 className="text-xl font-semibold text-white">Find your app</h2>
-        <p className="mt-1 text-sm text-white/50">Search by name or paste the bundle/package ID.</p>
+        <h2 className="text-xl font-semibold text-fg-1">Find your app</h2>
+        <p className="mt-1 text-sm text-fg-3">Search by name or paste the bundle/package ID.</p>
       </div>
 
       {/* Platform selector */}
@@ -500,26 +510,31 @@ function Step2App({
             className={cn(
               "rounded-xl border px-4 py-3 text-xs font-semibold transition-colors",
               form.platform === p
-                ? "border-[#0A84FF] bg-[#0A84FF]/10 text-[#4592FF]"
-                : "border-white/[0.08] bg-white/[0.04] text-white/40 hover:border-white/20 hover:text-white/70",
+                ? "border-[#0A84FF] bg-[#0A84FF]/10 text-[#0A84FF]"
+                : "border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] text-fg-3 hover:border-[var(--rb-border-3)] hover:text-fg-2",
             )}
           >
-            {p === "google-play" ? "🤖 Google Play" : "🍎 App Store"}
+            <span className="flex items-center justify-center gap-1.5">
+              {p === "google-play"
+                ? <Smartphone className="size-3.5" strokeWidth={1.5} />
+                : <Apple className="size-3.5" strokeWidth={1.5} />}
+              {p === "google-play" ? "Google Play" : "App Store"}
+            </span>
           </button>
         ))}
       </div>
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-white/30" strokeWidth={1.5} />
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-3" strokeWidth={1.5} />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search your app…"
-          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] py-2.5 pl-9 pr-4 text-sm text-white placeholder:text-white/20 outline-none focus:border-[#0A84FF]/50"
+          className="w-full rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] py-2.5 pl-9 pr-4 text-sm text-fg-1 placeholder:text-fg-3 outline-none focus:border-[#0A84FF]/50"
           autoFocus
         />
-        {searching && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-white/30" strokeWidth={1.5} />}
+        {searching && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-fg-3" strokeWidth={1.5} />}
       </div>
 
       {/* Selected app pill */}
@@ -527,11 +542,11 @@ function Step2App({
         <div className="flex items-center gap-3 rounded-xl border border-[#0A84FF]/30 bg-[#0A84FF]/10 p-3">
           {form.selectedApp.icon
             ? <img src={form.selectedApp.icon} alt="" className="size-8 shrink-0 rounded-lg" />
-            : <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-xs font-bold text-white">{form.selectedApp.name[0]}</div>
+            : <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--rb-bg-hover)] text-xs font-bold text-fg-2">{form.selectedApp.name[0]}</div>
           }
           <div className="min-w-0 flex-1">
-            <div className="truncate text-sm font-semibold text-white">{form.selectedApp.name}</div>
-            <div className="text-xs text-white/50">{form.selectedApp.developer} {form.selectedApp.rating ? `· ${form.selectedApp.rating.toFixed(1)}★` : ""}</div>
+            <div className="truncate text-sm font-semibold text-fg-1">{form.selectedApp.name}</div>
+            <div className="text-xs text-fg-3">{form.selectedApp.developer} {form.selectedApp.rating ? `· ${form.selectedApp.rating.toFixed(1)}★` : ""}</div>
           </div>
           <Check className="size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
         </div>
@@ -539,23 +554,23 @@ function Step2App({
 
       {/* Results */}
       {results.length > 0 && !form.selectedApp && (
-        <div className="max-h-[200px] overflow-y-auto rounded-xl border border-white/[0.08] bg-white/[0.03]">
+        <div className="max-h-[200px] overflow-y-auto rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)]">
           {results.map((r, i) => (
             <button
               key={r.storeId}
               onClick={() => { selectApp(r); setQuery(""); setResults([]); }}
               className={cn(
-                "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-white/[0.06]",
-                i < results.length - 1 && "border-b border-white/[0.04]",
+                "flex w-full items-center gap-3 px-3 py-2.5 text-left transition-colors hover:bg-[var(--rb-bg-hover)]",
+                i < results.length - 1 && "border-b border-[var(--rb-border-1)]",
               )}
             >
               {r.icon
                 ? <img src={r.icon} alt="" className="size-8 shrink-0 rounded-lg" />
-                : <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-white/10 text-xs font-bold text-white">{r.name[0]}</div>
+                : <div className="flex size-8 shrink-0 items-center justify-center rounded-lg bg-[var(--rb-bg-hover)] text-xs font-bold text-fg-2">{r.name[0]}</div>
               }
               <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium text-white">{r.name}</div>
-                <div className="text-xs text-white/40">{r.developer} {r.rating ? `· ${r.rating.toFixed(1)}★` : ""}</div>
+                <div className="truncate text-sm font-medium text-fg-1">{r.name}</div>
+                <div className="text-xs text-fg-3">{r.developer} {r.rating ? `· ${r.rating.toFixed(1)}★` : ""}</div>
               </div>
             </button>
           ))}
@@ -569,7 +584,7 @@ function Step2App({
       {/* App category */}
       {form.selectedApp && (
         <div>
-          <p className="mb-2 text-xs font-medium text-white/50">App category (helps tailor AI replies)</p>
+          <p className="mb-2 text-xs font-medium text-fg-3">App category (helps tailor AI replies)</p>
           <div className="flex flex-wrap gap-1.5">
             {APP_CATEGORIES.map((c) => (
               <button
@@ -578,8 +593,8 @@ function Step2App({
                 className={cn(
                   "rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors",
                   form.appCategory === c.id
-                    ? "border-[#0A84FF] bg-[#0A84FF]/10 text-[#4592FF]"
-                    : "border-white/[0.08] text-white/40 hover:border-white/20 hover:text-white/70",
+                    ? "border-[#0A84FF] bg-[#0A84FF]/10 text-[#0A84FF]"
+                    : "border-[var(--rb-border-1)] text-fg-3 hover:border-[var(--rb-border-3)] hover:text-fg-2",
                 )}
               >
                 {c.emoji} {c.label}
@@ -592,7 +607,7 @@ function Step2App({
       <button
         onClick={onNext}
         disabled={!form.selectedApp}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-30"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:bg-[var(--rb-bg-hover)] disabled:text-fg-3"
       >
         Continue <ChevronRight className="size-4" strokeWidth={2} />
       </button>
@@ -627,19 +642,19 @@ function Step3BrandVoice({
   return (
     <div className="space-y-6">
       <div>
-        <button onClick={onBack} className="mb-3 flex items-center gap-1 text-xs text-white/40 hover:text-white/70">
+        <button onClick={onBack} className="mb-3 flex items-center gap-1 text-xs text-fg-3 hover:text-fg-2">
           <ArrowLeft className="size-3" strokeWidth={2} /> Back
         </button>
         <div className="flex items-center gap-2">
           <Sparkles className="size-4 text-[#0A84FF]" strokeWidth={1.5} />
-          <h2 className="text-xl font-semibold text-white">Your brand voice</h2>
+          <h2 className="text-xl font-semibold text-fg-1">Your brand voice</h2>
         </div>
-        <p className="mt-1 text-sm text-white/50">AI uses this to write replies that sound like you.</p>
+        <p className="mt-1 text-sm text-fg-3">AI uses this to write replies that sound like you.</p>
       </div>
 
       {/* Tone */}
       <div>
-        <p className="mb-2 text-xs font-medium text-white/50">Reply tone</p>
+        <p className="mb-2 text-xs font-medium text-fg-3">Reply tone</p>
         <div className="grid grid-cols-2 gap-2">
           {TONES.map((t) => (
             <button
@@ -649,13 +664,13 @@ function Step3BrandVoice({
                 "rounded-xl border p-3 text-left transition-colors",
                 bv.tone === t.id
                   ? "border-[#0A84FF] bg-[#0A84FF]/10"
-                  : "border-white/[0.08] bg-white/[0.04] hover:border-white/20",
+                  : "border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] hover:border-[var(--rb-border-3)]",
               )}
             >
-              <div className={cn("text-sm font-semibold", bv.tone === t.id ? "text-[#4592FF]" : "text-white/80")}>
+              <div className={cn("text-sm font-semibold", bv.tone === t.id ? "text-[#0A84FF]" : "text-fg-2")}>
                 {t.label}
               </div>
-              <div className="mt-0.5 text-[10px] text-white/30">{t.desc}</div>
+              <div className="mt-0.5 text-[10px] text-fg-3">{t.desc}</div>
             </button>
           ))}
         </div>
@@ -663,46 +678,46 @@ function Step3BrandVoice({
 
       {/* Words to use */}
       <div>
-        <label className="mb-1.5 block text-xs font-medium text-white/50">
-          Words we love to use <span className="text-white/25">(optional)</span>
+        <label className="mb-1.5 block text-xs font-medium text-fg-3">
+          Words we love to use <span className="text-fg-3">(optional)</span>
         </label>
         <input
           value={bv.wordsToUse.join(", ")}
           onChange={(e) => setBv({ wordsToUse: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
           placeholder="thank you, we appreciate, our team…"
-          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder:text-white/20 outline-none focus:border-[#0A84FF]/50"
+          className="w-full rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2.5 text-sm text-fg-1 placeholder:text-fg-3 outline-none focus:border-[#0A84FF]/50"
         />
       </div>
 
       {/* Words to avoid */}
       <div>
-        <label className="mb-1.5 block text-xs font-medium text-white/50">
-          Words we never use <span className="text-white/25">(optional)</span>
+        <label className="mb-1.5 block text-xs font-medium text-fg-3">
+          Words we never use <span className="text-fg-3">(optional)</span>
         </label>
         <input
           value={bv.wordsToAvoid.join(", ")}
           onChange={(e) => setBv({ wordsToAvoid: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
           placeholder="unfortunately, can't, won't…"
-          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder:text-white/20 outline-none focus:border-[#0A84FF]/50"
+          className="w-full rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2.5 text-sm text-fg-1 placeholder:text-fg-3 outline-none focus:border-[#0A84FF]/50"
         />
       </div>
 
       {/* Sign-off */}
       <div>
-        <label className="mb-1.5 block text-xs font-medium text-white/50">
-          Sign off as <span className="text-white/25">(optional)</span>
+        <label className="mb-1.5 block text-xs font-medium text-fg-3">
+          Sign off as <span className="text-fg-3">(optional)</span>
         </label>
         <input
           value={bv.signOff}
           onChange={(e) => setBv({ signOff: e.target.value })}
           placeholder="The Acme Team"
-          className="w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2.5 text-sm text-white placeholder:text-white/20 outline-none focus:border-[#0A84FF]/50"
+          className="w-full rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2.5 text-sm text-fg-1 placeholder:text-fg-3 outline-none focus:border-[#0A84FF]/50"
         />
       </div>
 
       {/* Reply length */}
       <div>
-        <p className="mb-2 text-xs font-medium text-white/50">Reply length</p>
+        <p className="mb-2 text-xs font-medium text-fg-3">Reply length</p>
         <div className="grid grid-cols-3 gap-2">
           {LENGTHS.map((l) => (
             <button
@@ -712,13 +727,13 @@ function Step3BrandVoice({
                 "rounded-xl border p-2.5 text-left transition-colors",
                 bv.replyLength === l.id
                   ? "border-[#0A84FF] bg-[#0A84FF]/10"
-                  : "border-white/[0.08] bg-white/[0.04] hover:border-white/20",
+                  : "border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] hover:border-[var(--rb-border-3)]",
               )}
             >
-              <div className={cn("text-xs font-semibold", bv.replyLength === l.id ? "text-[#4592FF]" : "text-white/70")}>
+              <div className={cn("text-xs font-semibold", bv.replyLength === l.id ? "text-[#0A84FF]" : "text-fg-2")}>
                 {l.label}
               </div>
-              <div className="mt-0.5 text-[9px] text-white/30">{l.desc}</div>
+              <div className="mt-0.5 text-[9px] text-fg-3">{l.desc}</div>
             </button>
           ))}
         </div>
@@ -729,11 +744,11 @@ function Step3BrandVoice({
       <button
         onClick={onNext}
         disabled={saving}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:bg-[var(--rb-bg-hover)] disabled:text-fg-3"
       >
         {saving ? <><Loader2 className="size-4 animate-spin" strokeWidth={2} /> Setting up…</> : <>Set up my workspace <ChevronRight className="size-4" strokeWidth={2} /></>}
       </button>
-      <p className="text-center text-[11px] text-white/25">
+      <p className="text-center text-[11px] text-fg-3">
         You can edit this later in Settings → Brand Voice
       </p>
     </div>
@@ -756,30 +771,30 @@ function Step4Connect({
       <div>
         <div className="flex items-center gap-2">
           <Plug className="size-4 text-[#0A84FF]" strokeWidth={1.5} />
-          <h2 className="text-xl font-semibold text-white">
+          <h2 className="text-xl font-semibold text-fg-1">
             Connect {isGP ? "Google Play" : "App Store"}
           </h2>
         </div>
-        <p className="mt-1 text-sm text-white/50">
+        <p className="mt-1 text-sm text-fg-3">
           Unlock ongoing sync, rating changes, and reply publishing.
-          <span className="ml-1 text-white/30">Optional — you already have 14 days of reviews.</span>
+          <span className="ml-1 text-fg-3">Optional — you already have 14 days of reviews.</span>
         </p>
       </div>
 
       {isGP ? (
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 space-y-3">
-          <p className="text-xs font-semibold text-white/60 uppercase tracking-widest">Google Play setup</p>
-          <ol className="space-y-2 text-sm text-white/60">
-            <li className="flex gap-2"><span className="shrink-0 font-mono text-[#0A84FF]">1.</span>Open <span className="font-medium text-white/80">Google Play Console</span> → Users & Permissions</li>
-            <li className="flex gap-2"><span className="shrink-0 font-mono text-[#0A84FF]">2.</span>Invite <span className="font-mono text-xs text-[#4592FF] bg-[#0A84FF]/10 px-1 rounded">{process.env.NEXT_PUBLIC_GOOGLE_CLIENT_EMAIL ?? "reviews@reviewbox.iam.gserviceaccount.com"}</span></li>
-            <li className="flex gap-2"><span className="shrink-0 font-mono text-[#0A84FF]">3.</span>Set role to <span className="font-medium text-white/80">Release Manager</span> with View+Reply permissions</li>
+        <div className="rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-4 space-y-3">
+          <p className="text-xs font-semibold text-fg-2 uppercase tracking-widest">Google Play setup</p>
+          <ol className="space-y-2 text-sm text-fg-2">
+            <li className="flex gap-2"><span className="shrink-0 font-mono text-[#0A84FF]">1.</span>Open <span className="font-medium text-fg-2">Google Play Console</span> → Users & Permissions</li>
+            <li className="flex gap-2"><span className="shrink-0 font-mono text-[#0A84FF]">2.</span>Invite <span className="font-mono text-xs text-[#0A84FF] bg-[#0A84FF]/10 px-1 rounded">{process.env.NEXT_PUBLIC_GOOGLE_CLIENT_EMAIL ?? "reviews@reviewbox.iam.gserviceaccount.com"}</span></li>
+            <li className="flex gap-2"><span className="shrink-0 font-mono text-[#0A84FF]">3.</span>Set role to <span className="font-medium text-fg-2">Release Manager</span> with View+Reply permissions</li>
             <li className="flex gap-2"><span className="shrink-0 font-mono text-[#0A84FF]">4.</span>Wait ~10 minutes for permissions to propagate, then click Done</li>
           </ol>
         </div>
       ) : (
-        <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-4 space-y-3">
-          <p className="text-xs font-semibold text-white/60 uppercase tracking-widest">App Store Connect setup</p>
-          <p className="text-sm text-white/60">Generate an API key in App Store Connect and paste it in <span className="font-medium text-white/80">Settings → Apps</span> after launching.</p>
+        <div className="rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-4 space-y-3">
+          <p className="text-xs font-semibold text-fg-2 uppercase tracking-widest">App Store Connect setup</p>
+          <p className="text-sm text-fg-2">Generate an API key in App Store Connect and paste it in <span className="font-medium text-fg-2">Settings → Integrations</span> after launching.</p>
         </div>
       )}
 
@@ -792,7 +807,7 @@ function Step4Connect({
         </button>
         <button
           onClick={onSkip}
-          className="w-full py-2 text-sm text-white/30 hover:text-white/60"
+          className="w-full py-2 text-sm text-fg-2 hover:text-fg-1"
         >
           I&apos;ll connect later
         </button>
@@ -855,10 +870,10 @@ function Step5Ready({
         <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-[#0A84FF]/10">
           <Sparkles className="size-6 text-[#0A84FF]" strokeWidth={1.5} />
         </div>
-        <h2 className="text-xl font-semibold text-white">
+        <h2 className="text-xl font-semibold text-fg-1">
           {canLaunch ? "Your workspace is ready" : "Preparing your workspace…"}
         </h2>
-        <p className="mt-1 text-sm text-white/50">
+        <p className="mt-1 text-sm text-fg-3">
           {canLaunch
             ? `${appName} is set up with${progress?.reviewCount ? ` ${progress.reviewCount} reviews,` : ""} AI drafts${progress?.templateCount ? ` and ${progress.templateCount} templates` : ""}.`
             : "Fetching your reviews and generating AI content. Takes about 15-20 seconds."}
@@ -869,21 +884,21 @@ function Step5Ready({
       {progress && (progress.rating !== null || progress.reviewTotal !== null || progress.reviewCount > 0) && (
         <div className="grid grid-cols-3 gap-3">
           {progress.rating !== null && (
-            <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-center">
-              <div className="text-2xl font-semibold text-white">{progress.rating.toFixed(1)}</div>
-              <div className="text-[10px] text-white/40">Store rating</div>
+            <div className="rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-3 text-center">
+              <div className="text-2xl font-semibold text-fg-1">{progress.rating.toFixed(1)}</div>
+              <div className="text-[10px] text-fg-3">Store rating</div>
             </div>
           )}
           {progress.reviewTotal !== null && (
-            <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-center">
-              <div className="text-2xl font-semibold text-white">{progress.reviewTotal.toLocaleString()}</div>
-              <div className="text-[10px] text-white/40">Total reviews</div>
+            <div className="rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-3 text-center">
+              <div className="text-2xl font-semibold text-fg-1">{progress.reviewTotal.toLocaleString()}</div>
+              <div className="text-[10px] text-fg-3">Total reviews</div>
             </div>
           )}
           {progress.reviewCount > 0 && (
-            <div className="rounded-xl border border-white/[0.08] bg-white/[0.03] p-3 text-center">
-              <div className="text-2xl font-semibold text-white">{progress.reviewCount}</div>
-              <div className="text-[10px] text-white/40">In inbox</div>
+            <div className="rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-3 text-center">
+              <div className="text-2xl font-semibold text-fg-1">{progress.reviewCount}</div>
+              <div className="text-[10px] text-fg-3">In inbox</div>
             </div>
           )}
         </div>
@@ -895,14 +910,14 @@ function Step5Ready({
           <div key={c.label} className="flex items-center gap-3">
             <div className={cn(
               "flex size-5 shrink-0 items-center justify-center rounded-full",
-              c.done ? "bg-[#0A84FF]" : "bg-white/[0.06]",
+              c.done ? "bg-[#0A84FF]" : "bg-[var(--rb-bg-hover)]",
             )}>
               {c.done
                 ? <Check className="size-3 text-white" strokeWidth={2.5} />
-                : <Loader2 className="size-3 animate-spin text-white/30" strokeWidth={1.5} />
+                : <Loader2 className="size-3 animate-spin text-fg-3" strokeWidth={1.5} />
               }
             </div>
-            <span className={cn("text-sm", c.done ? "text-white/80" : "text-white/30")}>
+            <span className={cn("text-sm", c.done ? "text-fg-2" : "text-fg-3")}>
               {c.label}
             </span>
           </div>
@@ -914,7 +929,7 @@ function Step5Ready({
       <button
         onClick={onLaunch}
         disabled={!canLaunch || saving}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-30"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:bg-[var(--rb-bg-hover)] disabled:text-fg-3"
       >
         {saving
           ? <><Loader2 className="size-4 animate-spin" strokeWidth={2} /> Launching…</>

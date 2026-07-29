@@ -8,6 +8,7 @@ import { useAsoKeywords, useAddKeyword, useDeleteKeyword, useUpdateKeyword } fro
 import { useMinedKeywords } from "@/hooks/use-mined-keywords";
 import { useApps } from "@/hooks/use-apps";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
+import { resolveSelectedApp } from "@/lib/selected-app";
 import type { AsoKeyword } from "@/types/review";
 import type { MinedPhrase } from "@/app/api/aso/mine/route";
 
@@ -478,12 +479,9 @@ export function ASOScreen() {
   const { mutate: getSuggestions, isPending: suggestLoading, data: asoData } =
     useAsoSuggestions();
 
-  // `selectedApp` is the app NAME (string) from the sidebar selector — resolve
-  // it to the app's id so keyword/suggestion queries actually scope to the app.
-  // (Previously a `typeof selectedApp === "object"` check that was always false,
-  // leaving appId permanently undefined.)
-  const appId = apps.find((a) => a.name === selectedApp)?.id;
-  const appName = selectedApp || "All apps";
+  // Resolved through one tested helper — see src/lib/selected-app.ts for why
+  // this is not open-coded per screen.
+  const { appId, appName } = resolveSelectedApp(apps, selectedApp);
 
   const { data: kwData, isLoading } = useAsoKeywords(appId);
   const { mutate: deleteKw } = useDeleteKeyword();

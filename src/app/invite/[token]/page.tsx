@@ -44,19 +44,22 @@ export default function InviteAcceptPage() {
   }, [isLoaded, isSignedIn, params.token, router]);
 
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#F5F5F7] px-4 py-16">
-      <div className="w-full max-w-md rounded-[18px] border border-black/[0.06] bg-white p-7 shadow-[0_2px_24px_rgba(0,0,0,0.08)]">
+    // Fully tokenized: this page mixed a hardcoded light card (bg-white on
+    // #F5F5F7) with --rb-fg-* text, so in dark mode the copy rendered
+    // near-white on white — an invisible error message on the invite flow.
+    <div className="flex min-h-screen flex-col items-center justify-center bg-canvas px-4 py-16">
+      <div className="w-full max-w-md rounded-[18px] border border-[var(--rb-border-1)] bg-surface p-7 shadow-[var(--rb-shadow-sm)]">
         {status === "loading" || status === "accepting" ? (
           <div className="flex flex-col items-center gap-3 py-4">
             <Loader2 className="size-6 animate-spin text-[#0A84FF]" strokeWidth={1.5} />
-            <p className="text-[13px] text-[var(--rb-fg-3)]">
+            <p className="text-[13px] text-fg-3">
               {status === "loading" ? "Checking your invitation…" : "Adding you to the workspace…"}
             </p>
           </div>
         ) : (
           <div>
-            <h1 className="text-[18px] font-semibold text-[#1D1D1F]">Invitation problem</h1>
-            <p className="mt-2 text-[14px] text-[var(--rb-fg-2)]">{error}</p>
+            <h1 className="text-[18px] font-semibold text-fg-1">Invitation problem</h1>
+            <p className="mt-2 text-[14px] text-fg-2">{error}</p>
             <button
               onClick={() => router.push("/dashboard")}
               className="mt-5 h-10 w-full rounded-[10px] bg-[#0A84FF] text-[14px] font-semibold text-white hover:bg-[#006EE0]"

@@ -70,7 +70,7 @@ export function EmptyWorkspaceWelcome() {
               <ArrowRight className="size-4" strokeWidth={2} />
             </Link>
             <Link
-              href="/settings"
+              href="/settings?tab=integrations"
               className="flex h-10 items-center gap-2 rounded-xl border border-[var(--rb-border-2)] bg-surface px-5 text-rb-md font-medium text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)]"
             >
               Open Settings
@@ -85,7 +85,7 @@ export function EmptyWorkspaceWelcome() {
 
       {/* What you'll get */}
       <div>
-        <h2 className="text-rb-xs font-medium uppercase tracking-[0.08em] text-fg-4">
+        <h2 className="text-rb-xs font-medium uppercase tracking-[0.08em] text-fg-3">
           What ReviewBox does for you
         </h2>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">

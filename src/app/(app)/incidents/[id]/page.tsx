@@ -52,13 +52,13 @@ const SEVERITY_STYLES: Record<
   { bar: string; badge: string; label: string }
 > = {
   critical: {
-    bar:   "bg-red-400",
+    bar:   "bg-[var(--rb-red-400)]",
     badge: "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)] border border-[var(--rb-red-500)]/25",
     label: "Critical",
   },
   high: {
-    bar:   "bg-amber-400",
-    badge: "bg-amber-50 text-amber-700 border border-amber-200",
+    bar:   "bg-[var(--rb-amber-500)]",
+    badge: "bg-[var(--rb-amber-500)]/10 text-[var(--rb-amber-500)] border border-[var(--rb-amber-500)]/25",
     label: "High",
   },
   medium: {
@@ -73,8 +73,8 @@ const STATUS_STYLES: Record<
   { badge: string; label: string }
 > = {
   active:       { badge: "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)] border border-[var(--rb-red-500)]/25",           label: "Active" },
-  investigating:{ badge: "bg-amber-50 text-amber-700 border border-amber-200",     label: "Investigating" },
-  resolved:     { badge: "bg-emerald-50 text-emerald-700 border border-emerald-200", label: "Resolved" },
+  investigating:{ badge: "bg-[var(--rb-amber-500)]/10 text-[var(--rb-amber-500)] border border-[var(--rb-amber-500)]/25",     label: "Investigating" },
+  resolved:     { badge: "bg-[var(--rb-green-500)]/10 text-[var(--rb-green-500)] border border-[var(--rb-green-500)]/25", label: "Resolved" },
 };
 
 // ── Page ──────────────────────────────────────────────────────────────────────
@@ -179,7 +179,7 @@ export default async function IncidentDetailPage({
                 {incident.owner}
               </span>
               {incident.resolvedAt && (
-                <span className="flex items-center gap-1.5 text-emerald-600">
+                <span className="flex items-center gap-1.5 text-[var(--rb-green-500)]">
                   <Clock className="size-3.5" strokeWidth={1.5} />
                   Resolved {incident.resolvedAt}
                 </span>
@@ -207,15 +207,15 @@ export default async function IncidentDetailPage({
             </li>
             {incident.status === "investigating" && (
               <li className="ml-4">
-                <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-white bg-amber-400" />
-                <p className="text-xs font-semibold text-amber-700">Investigation started</p>
+                <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-white bg-[var(--rb-amber-500)]" />
+                <p className="text-xs font-semibold text-[var(--rb-amber-500)]">Investigation started</p>
                 <p className="text-xs text-fg-3 mt-0.5">{incident.owner}</p>
               </li>
             )}
             {incident.resolvedAt && (
               <li className="ml-4">
-                <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-white bg-emerald-400" />
-                <p className="text-xs font-semibold text-emerald-700">Resolved</p>
+                <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-white bg-[var(--rb-green-500)]" />
+                <p className="text-xs font-semibold text-[var(--rb-green-500)]">Resolved</p>
                 <p className="text-xs text-fg-3 mt-0.5">{incident.resolvedAt}</p>
               </li>
             )}

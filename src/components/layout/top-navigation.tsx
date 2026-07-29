@@ -33,13 +33,13 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
   }
 
   return (
-    <header className="sticky top-0 z-30 flex h-13 items-center justify-between gap-3 border-b border-black/[0.06] bg-white/70 px-4 backdrop-blur-xl backdrop-saturate-150 md:px-6 dark:border-white/[0.06] dark:bg-[#0B0B0E]/80">
+    <header className="sticky top-0 z-30 flex h-13 items-center justify-between gap-3 border-b border-[var(--rb-border-1)] bg-[var(--rb-bg-canvas)]/80 px-4 backdrop-blur-xl backdrop-saturate-150 md:px-6">
       {/* Left — mobile menu trigger */}
       <div className="flex shrink-0 items-center">
         <Button
           variant="ghost"
           size="icon-sm"
-          className="text-gray-400 hover:bg-gray-100 md:hidden"
+          className="text-fg-3 hover:bg-[var(--rb-bg-hover)] md:hidden"
           onClick={onOpenSidebar}
           aria-label="Open sidebar"
         >
@@ -50,21 +50,21 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
       {/* Centre — search box (submits to /reviews?search=...) */}
       <form
         onSubmit={handleSearchSubmit}
-        className="mx-auto hidden w-[280px] items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 h-8 md:flex dark:border-white/[0.08] dark:bg-white/[0.04]"
+        className="mx-auto hidden h-8 w-[280px] items-center gap-2 rounded-lg border border-[var(--rb-border-2)] bg-surface px-3 md:flex"
       >
-        <Search className="size-3.5 shrink-0 text-gray-400" strokeWidth={1.5} />
+        <Search className="size-3.5 shrink-0 text-fg-3" strokeWidth={1.5} />
         <input
           type="search"
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           placeholder="Search reviews…"
-          className="flex-1 border-0 bg-transparent text-[13px] text-gray-800 placeholder:text-gray-400 outline-none dark:text-[#F5F5F7] dark:placeholder:text-[#636366]"
+          className="flex-1 border-0 bg-transparent text-[13px] text-fg-1 outline-none placeholder:text-fg-3"
         />
       </form>
 
       {/* Right — Connect app CTA, dark-mode toggle, account menu */}
       <div className="flex shrink-0 items-center gap-2">
-        <Link href="/settings">
+        <Link href="/settings?tab=integrations">
           <button className="flex h-8 items-center gap-1.5 rounded-lg bg-[#0A84FF] px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#006EE0]">
             <Plus className="size-3.5" strokeWidth={2.5} />
             <span className="hidden sm:inline">Connect app</span>
@@ -76,7 +76,7 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
             <Button
               variant="ghost"
               size="icon-sm"
-              className="text-gray-400 hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/[0.06] dark:hover:text-[#C7C7CC]"
+              className="text-fg-3 hover:bg-[var(--rb-bg-hover)] hover:text-fg-1"
               aria-label="Toggle dark mode"
               onClick={toggleTheme}
             >

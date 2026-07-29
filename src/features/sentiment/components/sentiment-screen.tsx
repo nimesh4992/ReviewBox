@@ -9,6 +9,7 @@ import { useSentimentOverview } from "@/hooks/use-sentiment-overview";
 import { useReviewQueue } from "@/hooks/use-review-queue";
 import { useApps } from "@/hooks/use-apps";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
+import { resolveSelectedApp } from "@/lib/selected-app";
 import type { AnalysisResult } from "@/app/api/sentiment/analyze/route";
 import type { SentimentTopic, CriticalReview, TopicReview } from "@/app/api/sentiment/overview/route";
 
@@ -463,11 +464,10 @@ export function SentimentScreen() {
 
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
   const { apps } = useApps();
-  // `selectedApp` is the app NAME (string) — resolve to id so the overview
-  // query scopes to the selected app. (Was a `typeof === "object"` check that
-  // never matched, leaving appId permanently undefined.)
-  const appId = apps.find((a) => a.name === selectedApp)?.id;
-  const appName = selectedApp || "All apps";
+  // Resolved through one tested helper — this screen used to match the
+  // selection by name, which never matched an id, so it silently ignored
+  // the app selector. See src/lib/selected-app.ts.
+  const { appId, appName } = resolveSelectedApp(apps, selectedApp);
 
   const { data: overview, isLoading } = useSentimentOverview(appId, range);
   // Pull recent real reviews for the "Re-cluster with AI" button.

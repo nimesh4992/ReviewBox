@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Loader2, ShieldAlert, ShieldCheck, X } from "lucide-react";
 
 import { PageHeader } from "@/components/layout/page-header";
@@ -37,10 +37,37 @@ function DeclareDialog({ onClose }: { onClose: () => void }) {
     }
   }
 
+  // This dialog is hand-rolled rather than built on the Radix primitive the
+  // other modals use, so nothing gave it Escape-to-close, a focus trap, or a
+  // scroll lock. A keyboard user who opened it had no way out but to tab to
+  // the close button, and focus leaked to the page behind it.
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKeyDown);
+      document.body.style.overflow = prevOverflow;
+    };
+  }, [onClose]);
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Declare incident"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+    >
+      {/* Backdrop — presentational; Escape and the close button are the
+          keyboard-accessible dismissals. */}
+      <div
+        aria-hidden="true"
+        className="absolute inset-0 bg-black/40 backdrop-blur-[2px]"
+        onClick={onClose}
+      />
 
       {/* Sheet */}
       <div className="relative z-10 w-full max-w-[480px] rounded-[18px] border border-[var(--rb-border-1)] bg-surface shadow-2xl">
@@ -76,9 +103,9 @@ function DeclareDialog({ onClose }: { onClose: () => void }) {
                     "rounded-[10px] border px-3 py-2.5 text-left transition-all",
                     severity === opt.value
                       ? opt.value === "critical"
-                        ? "border-red-500 bg-[var(--rb-red-500)]/10"
+                        ? "border-[var(--rb-red-500)] bg-[var(--rb-red-500)]/10"
                         : opt.value === "high"
-                        ? "border-amber-500 bg-amber-50"
+                        ? "border-[var(--rb-amber-500)] bg-[var(--rb-amber-500)]/10"
                         : "border-[var(--rb-border-3)] bg-[var(--rb-bg-sunken)]"
                       : "border-[var(--rb-border-2)] bg-surface hover:bg-[var(--rb-bg-hover)]",
                   )}
@@ -87,7 +114,7 @@ function DeclareDialog({ onClose }: { onClose: () => void }) {
                     "text-[12px] font-semibold",
                     severity === opt.value
                       ? opt.value === "critical" ? "text-[var(--rb-red-500)]"
-                      : opt.value === "high"     ? "text-amber-600"
+                      : opt.value === "high"     ? "text-[var(--rb-amber-500)]"
                       : "text-fg-2"
                       : "text-fg-2",
                   )}>
@@ -102,7 +129,7 @@ function DeclareDialog({ onClose }: { onClose: () => void }) {
           {/* Title */}
           <div className="space-y-1.5">
             <label className="text-[12px] font-semibold text-fg-2">
-              Title <span className="text-red-500">*</span>
+              Title <span className="text-[var(--rb-red-500)]">*</span>
             </label>
             <input
               type="text"
@@ -113,7 +140,7 @@ function DeclareDialog({ onClose }: { onClose: () => void }) {
               className={cn(
                 "w-full rounded-[8px] border bg-[var(--rb-bg-sunken)] px-3 py-2 text-[13px] text-fg-1 placeholder:text-fg-3 outline-none transition-colors",
                 error && !title.trim()
-                  ? "border-red-400 focus:border-red-400"
+                  ? "border-[var(--rb-red-400)] focus:border-[var(--rb-red-400)]"
                   : "border-[var(--rb-border-2)] focus:border-[#0A84FF]",
               )}
             />
@@ -133,7 +160,7 @@ function DeclareDialog({ onClose }: { onClose: () => void }) {
           </div>
 
           {error && (
-            <p className="text-[12px] font-medium text-red-500">{error}</p>
+            <p className="text-[12px] font-medium text-[var(--rb-red-500)]">{error}</p>
           )}
 
           {/* Actions */}

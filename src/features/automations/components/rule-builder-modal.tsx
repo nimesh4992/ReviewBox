@@ -521,7 +521,7 @@ export function RuleBuilderModal({
         </div>
 
         <DialogFooter className="mt-4 pt-4 border-t border-[var(--rb-border-1)]">
-          <Button variant="outline" onClick={handleClose} className="border-[var(--rb-border-1)] text-fg-2">
+          <Button variant="outline" onClick={handleClose} className="border-[var(--rb-border-3)] text-fg-1">
             Cancel
           </Button>
           <Button

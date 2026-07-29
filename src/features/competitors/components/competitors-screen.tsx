@@ -157,22 +157,28 @@ function AddCompetitorDialog({
       setSearchFailed(false);
       return;
     }
+    // Clearing the timer doesn't stop a request that already went out, so a
+    // slow earlier response could land after a newer one and leave results
+    // that don't match what's in the box.
+    let stale = false;
     const t = setTimeout(async () => {
       setSearching(true);
       try {
         const params = new URLSearchParams({ platform, query: q });
         const res = await fetch(`/api/onboarding/search-app?${params.toString()}`);
         const data = (await res.json()) as { results?: SearchResult[]; searchFailed?: boolean };
+        if (stale) return;
         setResults(data.results ?? []);
         setSearchFailed(Boolean(data.searchFailed));
       } catch {
+        if (stale) return;
         setResults([]);
         setSearchFailed(true);
       } finally {
-        setSearching(false);
+        if (!stale) setSearching(false);
       }
     }, 350);
-    return () => clearTimeout(t);
+    return () => { stale = true; clearTimeout(t); };
   }, [query, platform, open]);
 
   async function handleAdd(r: SearchResult) {
@@ -459,7 +465,7 @@ export function CompetitorsScreen() {
                             </span>
                           )}
                           {c.platform && (
-                            <span className="ml-1.5 text-[10px] font-medium text-fg-4">
+                            <span className="ml-1.5 text-[10px] font-medium text-fg-3">
                               {c.platform === "app_store" ? "App Store" : "Google Play"}
                             </span>
                           )}
@@ -491,7 +497,7 @@ export function CompetitorsScreen() {
                           <span className="text-[12px] tabular-nums text-fg-3">{c.replyRate}%</span>
                         </div>
                       ) : (
-                        <span className="text-[12px] text-fg-4" title="Reply rates aren't public — only your own is measurable">
+                        <span className="text-[12px] text-fg-3" title="Reply rates aren't public — only your own is measurable">
                           —
                         </span>
                       )}

@@ -92,7 +92,7 @@ export function UserMenu({
         ) : (
           <button
             className={cn(
-              "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-black/[0.04] focus:outline-none focus:bg-black/[0.04] dark:hover:bg-white/[0.06] dark:focus:bg-white/[0.06]",
+              "flex w-full cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-left transition-colors hover:bg-[var(--rb-bg-hover)] focus:bg-[var(--rb-bg-hover)] focus:outline-none",
               className,
             )}
             aria-label="Account menu"
@@ -101,10 +101,10 @@ export function UserMenu({
               {initials}
             </div>
             <div className="min-w-0 flex-1">
-              <div className="truncate text-[12px] font-semibold text-[#1D1D1F] dark:text-[#F5F5F7]">
+              <div className="truncate text-[12px] font-semibold text-fg-1">
                 {displayName}
               </div>
-              <div className="text-[10px] text-[#86868B]">
+              <div className="text-[10px] text-fg-3">
                 {planLabel}
               </div>
             </div>
@@ -114,20 +114,20 @@ export function UserMenu({
 
       <DropdownMenuContent
         align={variant === "avatar" ? "end" : "start"}
-        className="w-60 border-black/[0.08] bg-white text-[#1D1D1F] shadow-lg dark:bg-[#1F1F22] dark:border-white/[0.08] dark:text-[#F5F5F7]"
+        className="w-60 border-[var(--rb-border-2)] bg-[var(--rb-bg-raised)] text-fg-1 shadow-lg"
       >
         <DropdownMenuLabel className="flex flex-col gap-0.5 py-2">
           <span className="text-[13px] font-semibold">{displayName}</span>
           {email && (
-            <span className="truncate text-[11px] font-normal text-[#86868B]">{email}</span>
+            <span className="truncate text-[11px] font-normal text-fg-3">{email}</span>
           )}
         </DropdownMenuLabel>
 
-        <DropdownMenuSeparator className="bg-black/[0.06]" />
+        <DropdownMenuSeparator className="bg-[var(--rb-border-1)]" />
 
         <DropdownMenuItem
-          onClick={() => router.push("/settings")}
-          className="cursor-pointer gap-2 text-[13px] text-[#48484D] focus:bg-black/[0.04] focus:text-[#1D1D1F]"
+          onClick={() => router.push("/settings?tab=team")}
+          className="cursor-pointer gap-2 text-[13px] text-fg-2 focus:bg-[var(--rb-bg-hover)] focus:text-fg-1"
         >
           <UserIcon className="size-3.5" strokeWidth={1.5} />
           Profile &amp; team
@@ -135,7 +135,7 @@ export function UserMenu({
 
         <DropdownMenuItem
           onClick={() => router.push("/settings")}
-          className="cursor-pointer gap-2 text-[13px] text-[#48484D] focus:bg-black/[0.04] focus:text-[#1D1D1F]"
+          className="cursor-pointer gap-2 text-[13px] text-fg-2 focus:bg-[var(--rb-bg-hover)] focus:text-fg-1"
         >
           <Settings className="size-3.5" strokeWidth={1.5} />
           Workspace settings
@@ -143,7 +143,7 @@ export function UserMenu({
 
         <DropdownMenuItem
           onClick={() => router.push("/billing")}
-          className="cursor-pointer gap-2 text-[13px] text-[#48484D] focus:bg-black/[0.04] focus:text-[#1D1D1F]"
+          className="cursor-pointer gap-2 text-[13px] text-fg-2 focus:bg-[var(--rb-bg-hover)] focus:text-fg-1"
         >
           <CreditCard className="size-3.5" strokeWidth={1.5} />
           Billing
@@ -152,12 +152,12 @@ export function UserMenu({
           </span>
         </DropdownMenuItem>
 
-        <DropdownMenuSeparator className="bg-black/[0.06]" />
+        <DropdownMenuSeparator className="bg-[var(--rb-border-1)]" />
 
         <DropdownMenuItem
           onClick={handleSignOut}
           disabled={signingOut}
-          className="cursor-pointer gap-2 text-[13px] text-red-600 focus:bg-red-50 focus:text-red-700 dark:focus:bg-red-500/10"
+          className="cursor-pointer gap-2 text-[13px] text-[var(--rb-red-500)] focus:bg-[var(--rb-red-500)]/10 focus:text-[var(--rb-red-500)]"
         >
           {signingOut ? (
             <Loader2 className="size-3.5 animate-spin" strokeWidth={1.5} />

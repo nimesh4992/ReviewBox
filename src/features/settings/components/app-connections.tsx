@@ -601,7 +601,7 @@ function AddAppForm({ onAdded }: { onAdded: () => void }) {
           <select
             value={platform}
             onChange={(e) => setPlatform(e.target.value as "google_play" | "app_store")}
-            className="mt-1 h-8 w-full rounded-md border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 text-sm text-[var(--rb-fg-2)] focus:outline-none focus:ring-2 focus:ring-[#0A84FF]/20"
+            className="mt-1 h-8 w-full rounded-md border border-[var(--rb-border-2)] bg-[var(--rb-bg-sunken)] px-3 text-sm text-[var(--rb-fg-2)] focus:outline-none focus:ring-2 focus:ring-[#0A84FF]/20"
           >
             <option value="google_play">Google Play</option>
             <option value="app_store">App Store</option>

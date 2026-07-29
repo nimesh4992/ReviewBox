@@ -74,23 +74,17 @@ function formatDelta(value: number | null, suffix = ""): string {
   return `${sign}${value}${suffix}`;
 }
 
-// ── WorkspaceStatusStrip ──────────────────────────────────────────────────────
-// Exactly ONE status element, chosen by priority: sync errors beat an
-// in-flight first sync, which beats "connected but quiet", which beats
-// background AI enrichment. The dashboard previously stacked one banner per
-// app plus a separate AI panel — with the trial nudge and the global
-// credentials bar, a fresh workspace could open on four banners and an
-// uninvited modal. One strip, one action, everything else waits its turn.
+// ── SyncBanners ───────────────────────────────────────────────────────────────
+// Single authoritative banner section — one status banner per app, chosen by
+// priority: sync errors beat an in-flight first sync, which beats "connected
+// but quiet". Replaces the two separate loops that could double-banner an app.
 
-function WorkspaceStatusStrip({
+function SyncBanners({
   apps,
-  aiEnriching,
   onRetry,
   onConnectPlayConsole,
-  onOpenSetup,
 }: {
   apps: ReturnType<typeof useApps>["apps"];
-  aiEnriching: boolean;
   onRetry: () => void;
   onConnectPlayConsole: () => void;
 }) {
@@ -166,7 +160,7 @@ function WorkspaceStatusStrip({
                 <div className="mt-2 flex items-center gap-2">
                   <button
                     onClick={onRetry}
-                    className="rounded-md border border-[#0A84FF]/30 bg-white px-3 py-1 text-[11px] font-semibold text-[#0A84FF] hover:bg-[#0A84FF]/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
+                    className="rounded-md border border-[#0A84FF]/30 bg-surface px-3 py-1 text-[11px] font-semibold text-[#0A84FF] hover:bg-[#0A84FF]/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
                   >
                     Sync now
                   </button>
@@ -221,7 +215,7 @@ function WorkspaceStatusStrip({
         return (
           <div
             key={app.id}
-            className="flex items-start gap-3 rounded-xl border border-[var(--rb-amber-200,#FDE68A)] bg-[var(--rb-amber-50,#FFFBEB)] px-4 py-3"
+            className="flex items-start gap-3 rounded-xl border border-[var(--rb-amber-500)]/30 bg-[var(--rb-amber-500)]/10 px-4 py-3"
           >
             <AlertOctagon className="mt-0.5 size-4 shrink-0 text-[#D97706]" strokeWidth={2} />
             <div className="flex-1">
@@ -229,7 +223,7 @@ function WorkspaceStatusStrip({
                 {app.name} hasn&apos;t synced yet — action needed
               </div>
               <div className="mt-1 text-[12px] leading-relaxed text-fg-2">
-                {app.last_sync_error ?? "Unknown sync error. Try Settings → Apps → Sync now."}
+                {app.last_sync_error ?? "Unknown sync error. Try Settings → Integrations → Sync now."}
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <Link
@@ -240,14 +234,14 @@ function WorkspaceStatusStrip({
                   Step-by-step guide
                 </Link>
                 <Link
-                  href="/settings"
-                  className="rounded-md border border-[#FCD34D] bg-white px-3 py-1 text-[11px] font-semibold text-[#92400E] hover:bg-[#FEF3C7]"
+                  href="/settings?tab=integrations"
+                  className="rounded-md border border-[var(--rb-amber-500)]/40 bg-surface px-3 py-1 text-[11px] font-semibold text-[var(--rb-amber-600)] hover:bg-[var(--rb-amber-500)]/10"
                 >
                   Open Settings
                 </Link>
                 <button
                   onClick={onRetry}
-                  className="rounded-md border border-[#FCD34D] bg-white px-3 py-1 text-[11px] font-semibold text-[#92400E] hover:bg-[#FEF3C7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D97706]"
+                  className="rounded-md border border-[var(--rb-amber-500)]/40 bg-surface px-3 py-1 text-[11px] font-semibold text-[var(--rb-amber-600)] hover:bg-[var(--rb-amber-500)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rb-amber-600)]"
                 >
                   Retry sync
                 </button>
@@ -258,154 +252,6 @@ function WorkspaceStatusStrip({
       })}
     </>
   );
-  onOpenSetup: () => void;
-}) {
-  const errored = apps.filter(
-    (a) => a.last_sync_status && a.last_sync_status !== "success",
-  );
-  const pending = apps.filter(
-    (a) => !a.last_synced_at && !(a.last_sync_status && a.last_sync_status !== "success"),
-  );
-  const quietOk = apps.filter(
-    (a) => a.last_sync_status === "success" && (a.last_sync_review_count ?? 0) === 0,
-  );
-
-  const actionBtn =
-    "rounded-md px-2.5 py-1 text-rb-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]";
-  const quietBtn =
-    `${actionBtn} border border-[var(--rb-border-2)] bg-surface text-fg-2 hover:bg-[var(--rb-bg-hover)]`;
-
-  if (errored.length > 0) {
-    const first = errored[0];
-    const names = errored.map((a) => a.name).join(", ");
-    return (
-      <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-amber-500)]/30 bg-[var(--rb-amber-100)]/40 px-4 py-2.5">
-        <AlertOctagon className="size-4 shrink-0 text-[var(--rb-amber-600)]" strokeWidth={2} />
-        <div className="min-w-0 flex-1">
-          <span className="text-rb-base font-medium text-fg-1">
-            {errored.length === 1 ? `${names} can’t sync yet` : `${errored.length} apps can’t sync yet`}
-          </span>
-          <span className="ml-2 hidden text-rb-sm text-fg-3 sm:inline">
-            {first.last_sync_error ?? "Finish the store connection so reviews can flow."}
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          {first.platform === "google_play" ? (
-            <button onClick={onOpenSetup} className={`${actionBtn} bg-[var(--rb-amber-600)] text-white hover:opacity-90`}>
-              Finish setup
-            </button>
-          ) : (
-            <Link href="/help/connect-app-store" className={`${actionBtn} bg-[var(--rb-amber-600)] text-white hover:opacity-90`}>
-              Setup guide
-            </Link>
-          )}
-          <button onClick={onRetry} className={quietBtn}>
-            Retry
-          </button>
-        </div>
-      </div>
-    );
-  }
-
-  if (pending.length > 0) {
-    const label =
-      pending.length === 1 ? `Syncing ${pending[0].name}…` : `Syncing ${pending.length} apps…`;
-    return (
-      <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-border-1)] bg-surface px-4 py-2.5">
-        <Loader2 className="size-4 shrink-0 animate-spin text-[#0A84FF]" strokeWidth={2} />
-        <div className="min-w-0 flex-1">
-          <span className="text-rb-base font-medium text-fg-1">{label}</span>
-          <span className="ml-2 hidden text-rb-sm text-fg-3 sm:inline">
-            First sync takes about 30 seconds — reviews appear automatically.
-          </span>
-        </div>
-        <button onClick={onRetry} className={quietBtn}>
-          Sync now
-        </button>
-      </div>
-    );
-  }
-
-  if (quietOk.length > 0) {
-    const app = quietOk[0];
-    return (
-      <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-border-1)] bg-surface px-4 py-2.5">
-        <Sparkles className="size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
-        <div className="min-w-0 flex-1">
-          <span className="text-rb-base font-medium text-fg-1">
-            {app.name} is connected — no recent reviews yet
-          </span>
-          <span className="ml-2 hidden text-rb-sm text-fg-3 sm:inline">
-            {app.platform === "google_play"
-              ? "Google Play only exposes the last 7 days of reviews."
-              : "New reviews appear as customers leave them."}
-          </span>
-        </div>
-        <Link
-          href={app.platform === "google_play" ? "/help/connect-google-play" : "/help/connect-app-store"}
-          className="shrink-0 text-rb-xs font-medium text-fg-3 hover:text-fg-2"
-        >
-          Why? →
-        </Link>
-      </div>
-    );
-  }
-
-  if (aiEnriching) {
-    return (
-      <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-border-1)] bg-surface px-4 py-2.5">
-        <Bot className="size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
-        <span className="min-w-0 flex-1 text-rb-base text-fg-2">
-          Preparing reply templates from your reviews — about 10 seconds.
-        </span>
-        <Loader2 className="size-4 shrink-0 animate-spin text-fg-3" strokeWidth={2} />
-      </div>
-    );
-  }
-
-  // Synced from PUBLIC data only — the customer hasn't granted Play Console
-  // access yet. Reviews and rating are real (scraped from the public store
-  // listing), so this is a nudge, not an error: say what connecting unlocks.
-  const publicOnly = apps.filter(
-    (a) =>
-      a.platform === "google_play" &&
-      a.last_sync_status === "success" &&
-      (a.last_sync_review_count ?? 0) > 0 &&
-      a.publisher_api_connected !== true,
-  );
-
-  if (publicOnly.length > 0) {
-    const app = publicOnly[0];
-    return (
-      <div className="flex items-center gap-3 rounded-xl border border-[#0A84FF]/20 bg-[#0A84FF]/[0.04] px-4 py-2.5">
-        <Sparkles className="size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
-        <div className="min-w-0 flex-1">
-          <span className="text-rb-base font-medium text-fg-1">
-            {app.name} is showing public Play Store data
-          </span>
-          <span className="ml-2 hidden text-rb-sm text-fg-3 sm:inline">
-            Connect your Play Console to reply to reviews and sync everything automatically.
-          </span>
-        </div>
-        <div className="flex shrink-0 items-center gap-2">
-          <button
-            onClick={onConnectPlayConsole}
-            className={`${actionBtn} bg-[#0A84FF] text-white hover:bg-[#0070e0]`}
-          >
-            Connect Play Console
-          </button>
-          <Link
-            href="/help/connect-google-play"
-            className="shrink-0 text-rb-xs font-medium text-fg-3 hover:text-fg-2"
-          >
-            How it works →
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  return null;
 }
 
 // ── KpiCard ───────────────────────────────────────────────────────────────────
@@ -639,7 +485,7 @@ export default function DashboardPage() {
         <button
           onClick={handleExport}
           disabled={exporting}
-          className="flex h-9 w-fit items-center gap-1.5 rounded-lg border border-[var(--rb-border-1)] bg-surface px-4 text-[13px] font-medium text-fg-2 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
+          className="flex h-9 w-fit items-center gap-1.5 rounded-lg border border-[var(--rb-border-3)] bg-surface px-4 text-[13px] font-medium text-fg-2 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
         >
           <Download className="size-3.5" strokeWidth={2} />
           {exporting ? "Exporting…" : "Export CSV"}
@@ -668,14 +514,6 @@ export default function DashboardPage() {
           <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-[#0A84FF]" strokeWidth={2} />
         </div>
       )}
-      {/* ── One status strip: errors > syncing > quiet > AI prep > connect nudge ── */}
-      <WorkspaceStatusStrip
-        apps={apps}
-        aiEnriching={aiEnriching === true}
-        onRetry={handleRetry}
-        onConnectPlayConsole={() => setSetupModalOpen(true)}
-        onOpenSetup={() => setSetupModalOpen(true)}
-      />
 
       {/* ── Hero — portfolio rating ── */}
       <section className="grid grid-cols-1 gap-6 rounded-2xl border border-[var(--rb-border-1)] bg-surface px-5 py-5 shadow-[var(--rb-shadow-xs)] sm:grid-cols-[minmax(0,260px)_1fr] sm:items-center sm:gap-8 sm:px-8 sm:py-7">
@@ -707,7 +545,9 @@ export default function DashboardPage() {
               <span
                 className={cn(
                   "rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums",
-                  avgRatingDelta >= 0 ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700",
+                  avgRatingDelta >= 0
+                    ? "bg-[var(--rb-green-500)]/10 text-[var(--rb-green-500)]"
+                    : "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)]",
                 )}
               >
                 {formatDelta(avgRatingDelta)}
@@ -720,9 +560,13 @@ export default function DashboardPage() {
             </div>
           )}
           <p className="mt-4 max-w-[240px] text-[13px] leading-relaxed text-fg-3">
-            {unreplied > 0
-              ? `${unreplied} reviews awaiting reply.${urgent > 0 ? ` ${urgent} marked urgent.` : ""}`
-              : "All reviews replied to. Great work!"}
+            {/* An empty workspace is not an inbox-zero achievement — congratulating
+                someone for replying to reviews they don't have reads as broken. */}
+            {totalReviews === 0
+              ? "No reviews synced yet. Connect your store to start tracking."
+              : unreplied > 0
+                ? `${unreplied} reviews awaiting reply.${urgent > 0 ? ` ${urgent} marked urgent.` : ""}`
+                : "All reviews replied to. Great work!"}
           </p>
         </div>
         <div className="min-w-0">
@@ -811,7 +655,7 @@ export default function DashboardPage() {
               <div className="text-[15px] font-semibold text-fg-1">Apps</div>
               <div className="mt-0.5 text-xs text-fg-3">Portfolio overview</div>
             </div>
-            <Link href="/settings" className="ml-auto text-xs font-semibold text-[#0A84FF] hover:underline">
+            <Link href="/settings?tab=integrations" className="ml-auto text-xs font-semibold text-[#0A84FF] hover:underline">
               Manage →
             </Link>
           </div>
@@ -823,7 +667,7 @@ export default function DashboardPage() {
           ) : apps.length === 0 ? (
             <div className="px-5 py-8 text-center text-xs text-fg-3">
               No apps connected yet.{" "}
-              <Link href="/settings" className="text-[#0A84FF] hover:underline">Add one →</Link>
+              <Link href="/settings?tab=integrations" className="text-[#0A84FF] hover:underline">Add one →</Link>
             </div>
           ) : (
             apps.map((a, i) => (
