@@ -552,19 +552,85 @@ async function recordSyncResult(
     .eq("id", appId);
 }
 
+/**
+ * Load a workspace's live apps, tolerating missing columns from unapplied
+ * migrations (015 deleted_at, 013 sync-status). The previous version silently
+ * returned zero apps when the select errored — the sync then reported
+ * "success" having done nothing, which the dashboard rendered as an eternal
+ * "Syncing…" banner. Every failure path here is now visible in the summary.
+ */
+async function loadWorkspaceApps(
+  workspaceId: string,
+  summary: SyncSummary,
+): Promise<DbApp[]> {
+  const sb = getServiceClient();
+
+  const full = await sb
+    .from("apps")
+    .select("id, workspace_id, name, platform, store_id, access_token, refresh_token, last_sync_attempted_at, last_synced_at")
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null);
+
+  if (!full.error) return (full.data ?? []) as DbApp[];
+
+  // 42703 = a selected/filtered column doesn't exist yet (migration pending).
+  // Retry without the deleted_at filter, then with core columns only.
+  if (full.error.code === "42703") {
+    const noFilter = await sb
+      .from("apps")
+      .select("id, workspace_id, name, platform, store_id, access_token, refresh_token, last_sync_attempted_at, last_synced_at")
+      .eq("workspace_id", workspaceId);
+    if (!noFilter.error) return (noFilter.data ?? []) as DbApp[];
+
+    const core = await sb
+      .from("apps")
+      .select("id, workspace_id, name, platform, store_id, access_token, refresh_token")
+      .eq("workspace_id", workspaceId);
+    if (!core.error) {
+      return ((core.data ?? []) as Partial<DbApp>[]).map((a) => ({
+        last_sync_attempted_at: null,
+        last_synced_at: null,
+        ...a,
+      })) as DbApp[];
+    }
+    summary.errors.push(`apps select failed: ${core.error.message}`);
+    return [];
+  }
+
+  summary.errors.push(`apps select failed: ${full.error.message}`);
+  return [];
+}
+
 export async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
   const sb = getServiceClient();
   const summary: SyncSummary = { appsProcessed: 0, reviewsUpserted: 0, spikesDetected: 0, errors: [] };
 
-  const { data: apps } = await sb
-    .from("apps")
-    .select("id, workspace_id, name, platform, store_id, access_token, refresh_token, last_sync_attempted_at, last_synced_at")
-    .eq("workspace_id", workspaceId)
-    .is("deleted_at", null)
-    .not("store_id", "is", null)
-    .not("store_id", "eq", "");
+  const allApps = await loadWorkspaceApps(workspaceId, summary);
 
-  if (!apps?.length) return summary;
+  // Apps without a store identifier can't sync — there's nothing to scrape.
+  // This happens when onboarding's manual-entry path was used with just an
+  // app NAME. Previously these were filtered out in SQL and the app showed
+  // "Syncing…" forever; now the app row says exactly what's missing.
+  const apps = allApps.filter((a) => !!a.store_id?.trim());
+  const missingStoreId = allApps.filter((a) => !a.store_id?.trim());
+
+  for (const app of missingStoreId) {
+    summary.errors.push(`app ${app.id} (${app.name}): no store id — skipped`);
+    // Best-effort: columns may not exist pre-migration 013; error ignored.
+    await sb
+      .from("apps")
+      .update({
+        last_sync_attempted_at: new Date().toISOString(),
+        last_sync_status: "missing_store_id",
+        last_sync_error:
+          app.platform === "google_play"
+            ? `We don't know this app's Play Store package name yet (e.g. com.company.app), so there's nothing to sync. Open Settings → Apps and add it.`
+            : `We don't know this app's App Store bundle ID yet, so there's nothing to sync. Open Settings → Apps and add it.`,
+      })
+      .eq("id", app.id);
+  }
+
+  if (!apps.length) return summary;
 
   // Process all apps in parallel — each app's sync is independent.
   // Promise.allSettled so one failing app never blocks the others.

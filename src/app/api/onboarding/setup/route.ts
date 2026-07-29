@@ -11,13 +11,18 @@
  */
 
 import { auth } from "@clerk/nextjs/server";
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
 import { rateLimit } from "@/lib/api-rate-limit";
 import { fetchAppMetadata } from "@/services/store-search";
+import { syncWorkspace } from "@/services/review-sync";
 import { getBrandVoiceStub, type AppCategory } from "@/lib/brand-voice-stubs";
+
+// The after() bootstrap scrapes the public store (10-30s) — needs more than
+// the default function budget so the sync isn't cut off mid-write.
+export const maxDuration = 60;
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -217,18 +222,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   // This runs the 200-review public scrape + Gemini enrichment while the user
   // fills in Steps 4 (connect) and 5 (ready). By the time they click
   // "Launch workspace", the inbox should be populated.
+  //
+  // Runs in-process via after(), AFTER the response is sent. A fire-and-forget
+  // HTTP self-fetch is unreliable here: Vercel freezes the lambda on response,
+  // and without CRON_SECRET the sync route rejects cookieless server-to-server
+  // calls in production — the two failure modes that left new dashboards empty.
   if (isNew) {
-    const appUrl =
-      process.env.NEXT_PUBLIC_APP_URL?.startsWith("http")
-        ? process.env.NEXT_PUBLIC_APP_URL
-        : process.env.VERCEL_URL
-          ? `https://${process.env.VERCEL_URL}`
-          : "http://localhost:3000";
-    const secret = process.env.CRON_SECRET;
-    void fetch(`${appUrl}/api/sync/reviews?workspaceId=${workspaceId}`, {
-      method: "GET",
-      headers: secret ? { authorization: `Bearer ${secret}` } : {},
-    }).catch((err) => console.error("[onboarding/setup] bootstrap trigger:", err));
+    after(async () => {
+      try {
+        await syncWorkspace(workspaceId);
+      } catch (err) {
+        console.error("[onboarding/setup] bootstrap sync failed:", err);
+      }
+    });
   }
 
   return NextResponse.json({ workspaceId, appId });

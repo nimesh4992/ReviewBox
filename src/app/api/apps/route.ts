@@ -202,7 +202,6 @@ export async function POST(request: NextRequest) {
     request,
   });
 
-  // 8. Return new app
   // 9. Return new app
   return NextResponse.json({ app }, { status: 201 });
 }

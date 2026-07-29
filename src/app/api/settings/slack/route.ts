@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { defer } from "@/lib/defer";
 import { audit } from "@/lib/audit";
 import { apiError } from "@/lib/api-response";
 import { rateLimit } from "@/lib/api-rate-limit";
@@ -32,12 +33,16 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
   const token = (data as { access_token?: string } | null)?.access_token;
   if (!token) return apiError("NOT_FOUND", 404);
 
-  // Best-effort token revocation — continue even if Slack is down
-  void fetch("https://slack.com/api/auth.revoke", {
-    method:  "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
-    body:    `token=${token}`,
-  }).catch(() => undefined);
+  // Best-effort token revocation — continue even if Slack is down.
+  // after() keeps the invocation alive: a bare fire-and-forget fetch dies
+  // when Vercel freezes the lambda on response, leaving the token live.
+  defer(async () => {
+    await fetch("https://slack.com/api/auth.revoke", {
+      method:  "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body:    `token=${token}`,
+    }).catch(() => undefined);
+  });
 
   // Delete the workspace_slack row
   await sb.from("workspace_slack").delete().eq("workspace_id", workspaceId);
