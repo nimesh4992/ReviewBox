@@ -13,6 +13,23 @@ Status legend: `[ ]` queued · `[~]` in progress · `[x]` shipped · `[!]` block
 
 These are the next items to ship. Don't skip; don't reorder without thinking.
 
+### [ ] CM1 · Multi-language reviews + replies · ICE 60 (9×8÷1.2)
+**Added 2026-07-29 by `docs/COMPETITIVE_MAP.md`. Blocked on the core sync loop being proven.**
+**Effort:** 1.5d.
+**Done when:** review scrape is not restricted to `lang: "en"`; each review stores its detected language; the inbox shows the original with an optional translation; AI drafts reply in the review's language (brand voice preserved). Verified against a Hindi/Marathi-heavy fixture app.
+**Why now:** our ICP is India-first (`docs/PRODUCT_CONTEXT.md`) and we currently show a fraction of their feedback and would answer it in the wrong language. This is the same class of blind spot as the US-storefront bug, one layer up — invisible in a feature comparison because the row exists on both sides.
+
+### [ ] CM2 · Bulk reply + user-editable tag rules · ICE 32 (8×8÷2)
+**Added 2026-07-29 by `docs/COMPETITIVE_MAP.md`.**
+**Done when:** an operator can select many reviews and apply a template reply, and can create their own auto-tag conditions (text / rating / language / length). Today tags are derived automatically with no user control.
+**Why now:** our buyer is a team of one — leverage is the product.
+
+### [ ] CM3 · Enforce workspace roles before the Team plan is sold · ICE 30 (see R2)
+**Duplicate-guard:** overlaps backlog R2; keep R2 as the implementation item and treat CM3 as the commercial gate. Do not sell Team until R2 ships.
+
+### [ ] CM4 · Competitors screen on real data · ICE 24 (6×8÷2)
+**Added 2026-07-29. Table already exists (migration 016) — this is UI + scrape wiring only.**
+
 ### [ ] AS1 · Per-workspace sync lock · ICE 40 (6×10÷1.5)
 **Added 2026-07-28 by audit round 1 (`docs/AUDIT_SYSTEM.md` A4).**
 **Effort:** 2h.

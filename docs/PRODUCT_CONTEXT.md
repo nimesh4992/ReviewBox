@@ -77,6 +77,30 @@ the code or the promise is a defect — do not leave the gap silent.
   reviews are **per-country** — do not present them as the same number
   without saying so (open: BUG-020).
 
+## Scope — what we are and are not building
+
+Derived from `docs/COMPETITIVE_MAP.md` (the category's feature surface mapped
+against ours). Refuse-list included on purpose: at $49/mo against a $399/mo
+competitor, the "no" decisions are what keep the product viable.
+
+**In scope (the product):** review aggregation from both stores, unified
+inbox, replies posted to the store, templates + knowledge base, AI drafts in
+the workspace's brand voice, sentiment and topic tagging, automation rules,
+rating-spike and unreplied alerts, release/version health, competitor
+tracking, light ASO signals, exports and digests, multi-app workspaces.
+
+**Deliberately NOT building** (revisit only when a paying customer asks):
+- **Agent-performance dashboards** — our buyer *is* the only agent.
+- **Deep ASO** (keyword research suites, traffic-channel analytics) — that is
+  a different product category; we ship signals, not an ASO tool.
+- **Enterprise connectors** (Salesforce, Tableau, Helpshift, Zendesk) — wrong
+  buyer, and each one is permanent maintenance.
+
+**The gap that matters most, and is easy to miss:** multi-language reviews.
+Competitors translate reviews and reply in any language; we are English-only.
+For their US/EU enterprise buyer that is a convenience — for our India-first
+ICP it decides whether the product works at all. Tracked as backlog CM1.
+
 ## Reference customer fixtures (use these in probes and reviews)
 
 | Case | Store ID | Storefront | Why it matters |
