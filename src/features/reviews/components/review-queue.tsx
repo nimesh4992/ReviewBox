@@ -1591,7 +1591,7 @@ export function InboxScreen({
                     "inline-flex h-6 items-center rounded-[6px] border px-2.5 text-[11px] font-semibold font-mono transition-colors",
                     versionFilter === v
                       ? "border-[var(--rb-border-3)] bg-[var(--rb-bg-sunken)] text-[var(--rb-fg-1)]"
-                      : "border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)] text-[var(--rb-fg-3)] hover:bg-[var(--rb-bg-hover)]",
+                      : "border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)]",
                   )}
                 >
                   {v === "all" ? "All" : v}

@@ -69,7 +69,7 @@ function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel }: EntryFo
           onChange={(e) => set("title", e.target.value)}
           placeholder="e.g. Current known issues"
           required
-          className="rounded-lg border border-[var(--rb-border-1)] bg-surface px-3 py-2 text-sm text-fg-1 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30"
+          className="rounded-lg border border-[var(--rb-border-2)] bg-surface px-3 py-2 text-sm text-fg-1 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30"
         />
       </div>
       <div className="flex flex-col gap-1">
@@ -80,7 +80,7 @@ function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel }: EntryFo
           placeholder="Describe the product info, known issue, FAQ, or roadmap item…"
           required
           rows={4}
-          className="rounded-lg border border-[var(--rb-border-1)] bg-surface px-3 py-2 text-sm text-fg-1 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30 resize-none"
+          className="rounded-lg border border-[var(--rb-border-2)] bg-surface px-3 py-2 text-sm text-fg-1 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30 resize-none"
         />
       </div>
       <div className="flex flex-col gap-1">
@@ -88,7 +88,7 @@ function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel }: EntryFo
         <select
           value={form.category}
           onChange={(e) => set("category", e.target.value as KbCategory)}
-          className="rounded-lg border border-[var(--rb-border-1)] bg-surface px-3 py-2 text-sm text-fg-1 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30"
+          className="rounded-lg border border-[var(--rb-border-2)] bg-surface px-3 py-2 text-sm text-fg-1 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30"
         >
           {CATEGORIES.map((c) => (
             <option key={c} value={c}>{CATEGORY_CONFIG[c].label}</option>
