@@ -1,17 +1,7 @@
 # Today — Handoff for next agent
 
 **Last updated:** 2026-07-29
-**Branch agent left on:** `claude/saas-ui-design-review-tt435y` (PR #72 merged; master-repair PR open)
-
-> ⚠️ **Coordination warning (still active):** `src/app/(app)/dashboard/page.tsx`
-> has now been corrupted THREE times by overlapping merges between concurrent
-> sessions (#68's merge, #69's merge, and the manual `Merge branch 'master'`
-> resolution 2d5196b done just before #72 merged). The corruption is always the
-> same shape: `SyncBanners`' JSX spliced into an orphaned `WorkspaceStatusStrip`
-> fragment, which kills the whole build. Canonical version = ONE component,
-> `SyncBanners({ apps, onRetry, onConnectPlayConsole })`, per-app banners, NO
-> `WorkspaceStatusStrip` anywhere in the file. If you resolve a conflict in
-> this file, run `npx tsc --noEmit` before pushing — every time.
+**Branch agent left on:** `claude/saas-ui-design-review-tt435y` (PR #73 open — **merge it, master does not compile**)
 
 You are the next Claude agent. Read this top-to-bottom before doing anything.
 
@@ -26,59 +16,100 @@ You are the next Claude agent. Read this top-to-bottom before doing anything.
 
 ---
 
-## What happened this session (2026-07-28 → 29)
+## ⚠️ Do this first
 
-Founder shared screenshots: Settings/Reply Kit "looks very poorly designed",
-dark mode broken, dead buttons, reports not working, both Save buttons in
-Settings saving each other's fields. Session mandate: **fix the entire UI and
-wiring, keep improving until told to stop.**
+**PR #73 must merge.** Master's `dashboard/page.tsx` is corrupted and fails
+`tsc`, so Vercel cannot build and production has been serving a pre-#72 bundle.
+Every fix below is stacked behind that merge. The founder reported "nothing has
+changed" twice for exactly this reason — the code was merged, the deploy never
+succeeded.
 
-### Shipped and MERGED (PR #72)
+**Do not trust the red "E2E tests (advisory)" check.** It has failed on every
+commit on every branch for this entire session, including documentation-only
+ones. CI uses placeholder Clerk keys that Clerk rejects with `"Invalid host"`,
+so every route — including public pricing and legal pages — serves an error.
+It says nothing about your change. Fix = real Clerk test keys as repo secrets
+(founder, ~10 min). Do not silence it.
 
-- **Dark mode fixed across the app shell.** Settings (all 9 cards), Reply Kit
-  tabs, Incidents, Releases detail, Billing, Automations, review filter panel,
-  Google Play modals, and every route loading skeleton migrated from raw
-  `gray-*`/`bg-white`/`red-50` to `--rb-*` tokens. Red/amber/green states use
-  token alpha colors that work on both themes.
-- **Double-save bug fixed** — "Save defaults" and "Save brand voice" each PATCH
-  only their own field now, with per-card Saving/Saved/Retry feedback.
-- **Reports "Send now" actually works** — new `POST /api/reports/send-now`
-  (Clerk-authed, rate-limited 5/h, workspace-scoped, emails the caller only).
-  The old buttons had been POSTing to CRON_SECRET-gated cron routes → 401 every
-  click. Friendly "no data yet" notice when there's nothing to send.
-- **Global header search wired** — it used to push `/reviews?search=` which
-  redirected to `/inbox` and dropped the query. Now goes to `/inbox?search=`
-  and the inbox seeds its filter from the URL.
-- **Accent unified** to `#0A84FF` (indigo `#5B5BD6` toggles/buttons in
-  alert-preferences, error page, dashboard AI banner all converted).
-- Duplicate "Data & Privacy" card removed (Danger zone covers it).
-- Disabled buttons look disabled (neutral gray), not washed-out blue.
-- Settings capped at 1160px w/ sticky right rail; Reply Kit capped at 1000px;
-  tags slug is a chip next to the label now.
-- Connected apps: real store icon or letter-avatar fallback (no blank square).
-- 5 dead dashboard components deleted (never imported): ai-insights-panel,
-  critical-incident-banner, operational-metrics, platform-health,
-  onboarding-banner.
-- Merge-corruption repairs in `dashboard/page.tsx` + `api/apps/route.ts`.
+---
 
-### Open PR (merge ASAP — master is red without it)
+## What this session did (2026-07-29)
 
-The 2d5196b resolution re-broke `dashboard/page.tsx` on master AGAIN (third
-time). The currently open PR from `claude/saas-ui-design-review-tt435y`
-re-applies the canonical repair. **Master does not type-check until it merges.**
+Founder shared production screenshots: Settings "looks very poorly designed",
+dark mode broken, dead buttons, reports not working, both Save buttons saving
+each other's fields. Mandate: fix the entire UI and wiring, keep going.
 
-### Verified-working wiring (audited, no changes needed)
+### Build / deploy
+- Repaired `dashboard/page.tsx` (spliced `SyncBanners` / `WorkspaceStatusStrip`)
+  and `api/apps/route.ts` (duplicated insert keys, doubled `if (error)`).
+  **Third occurrence** of the same dashboard damage — see the warning in CLAUDE.md.
 
-- Billing checkout/portal: proper STRIPE_NOT_CONFIGURED messaging (M2 pending)
-- Automations rules: GET/POST/PATCH/DELETE routes all exist and are called
-- Settings "Sync now" → `/api/sync/reviews` Clerk path scopes to own workspace
-- Competitors screen: wired to real `/api/competitors` (CLAUDE.md said mock — stale)
-- Onboarding: deliberate dark design, consistent, no drift
+### Bugs where the UI lied about state
+- **Reply Kit deletes and edits failed silently.** Four mutations updated local
+  state without checking `res.ok`, so a rejected delete still removed the row and
+  a rejected save still showed the new values — until a refresh restored the old
+  data. Now checked, with visible errors.
+- **App selector did nothing on Sentiment / ASO / Reports.** The sidebar stores
+  the app **ID**; those screens resolved it by **name**, which never matches, so
+  they showed workspace-wide data under one app's heading and Reports printed a
+  raw UUID. Now behind the tested helper `src/lib/selected-app.ts` — this had
+  already been "fixed" once and regressed, hence the extraction.
+- **Search-as-you-type races** in onboarding and competitors: the debounce
+  cleared the timer but never invalidated an in-flight request, so a slow earlier
+  response could overwrite a newer one. In onboarding that meant connecting the
+  wrong app.
+- **"All reviews replied to. Great work!"** on a workspace with zero reviews.
 
-## What's next (in order)
+### Invisible / unusable UI
+- **Google Play modal**: service-account email drawn in `--rb-fg-1` on a
+  `bg-[#F5F5F7]` box — identical colours in dark mode, so the box looked empty
+  next to a working Copy button. Also two stacked close buttons, nested
+  scrollbars, horizontal overflow, white panels.
+- **Sign-in / sign-up**: shell is tokenised (goes dark) but Clerk's card is
+  `bg-transparent` with fixed light label colours — near-black "Email address"
+  on a dark panel. Pinned the auth shell to `data-theme="light"`.
+- **Account menu**: items were dark-grey on a dark panel and turned near-black
+  on hover — they vanished under the cursor.
+- **Team invite page**: error message rendered white-on-white.
+- **Onboarding**: was hardcoded dark-only (~140 white-alpha values); now
+  theme-aware. Disabled Continue button was an unreadable navy block.
+- **Contrast**: `--rb-fg-4` is 2.15:1 on a light surface. Moved all *content*
+  off it app-wide; left the token value alone (see CLAUDE.md).
 
-1. Founder merges the master-repair PR (master is red until then)
-2. DS4 — replace raw `<button>` in review-queue + aso-screen with `<Button>` (a11y)
-3. Settings section navigation (9 stacked cards = scroll wall)
-4. Remaining `gray-*` migration in admin pages (founder-only, low priority)
-5. CLAUDE.md status table refresh (competitors row says mock; it's wired)
+### Accessibility
+- Declare-incident dialog is hand-rolled, not Radix: added Escape-to-close,
+  scroll lock, `role="dialog"`/`aria-modal`.
+- **DS4 (raw `<button>` → `<Button>`) was checked and deliberately skipped** —
+  its premise is wrong. `globals.css` already applies
+  `:focus-visible { outline: 2px solid var(--brand) }` to every focusable
+  element, so those buttons do show a keyboard focus ring. Swapping 42 controls
+  would restyle a dense inbox UI for no accessibility gain.
+
+### Also
+- Settings: section jump-links, duplicate Data & Privacy card removed.
+- Accent unified on `#0A84FF` (indigo `#5B5BD6` removed from app screens).
+- 5 dead dashboard components deleted (zero imports).
+- Global header search was broken (`/reviews?search=` redirects to `/inbox` and
+  dropped the query); now wired.
+- New `POST /api/reports/send-now` — the Reports buttons were POSTing to
+  CRON_SECRET-gated endpoints and silently 401ing on every click.
+- Tests 129 → 136.
+
+## Verified clean (don't re-audit without reason)
+
+Swept with scripted class-searches, no issues found: divisions guarded against
+NaN/Infinity; `formatReviewDate` handles empty/invalid/non-ISO input; all 61
+client `/api/*` URLs resolve to a real route handler; no `<div onClick>` without
+a keyboard path except the modal backdrop (intentional); inbox search already
+guards against stale responses correctly.
+
+## What's next
+
+1. **Merge PR #73** (founder) — nothing ships until then
+2. Add real Clerk test keys as CI secrets so E2E becomes a real signal
+3. Decide on `--rb-fg-4`: darkening it to pass contrast collapses it into
+   `--rb-fg-3`; needs a design call
+4. Visual QA on the preview in both themes — the agent's network blocks the
+   preview host, so text contrast was verified by computing WCAG ratios, not by
+   looking at pages. Layout is unverified.
+5. Invite the service account in Play Console so reviews actually sync
