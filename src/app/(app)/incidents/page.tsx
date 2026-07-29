@@ -78,7 +78,7 @@ function DeclareDialog({ onClose }: { onClose: () => void }) {
                       ? opt.value === "critical"
                         ? "border-red-500 bg-[var(--rb-red-500)]/10"
                         : opt.value === "high"
-                        ? "border-amber-500 bg-amber-50"
+                        ? "border-[var(--rb-amber-500)] bg-[var(--rb-amber-500)]/10"
                         : "border-[var(--rb-border-3)] bg-[var(--rb-bg-sunken)]"
                       : "border-[var(--rb-border-2)] bg-surface hover:bg-[var(--rb-bg-hover)]",
                   )}
@@ -87,7 +87,7 @@ function DeclareDialog({ onClose }: { onClose: () => void }) {
                     "text-[12px] font-semibold",
                     severity === opt.value
                       ? opt.value === "critical" ? "text-[var(--rb-red-500)]"
-                      : opt.value === "high"     ? "text-amber-600"
+                      : opt.value === "high"     ? "text-[var(--rb-amber-500)]"
                       : "text-fg-2"
                       : "text-fg-2",
                   )}>

@@ -545,7 +545,9 @@ export default function DashboardPage() {
               <span
                 className={cn(
                   "rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums",
-                  avgRatingDelta >= 0 ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700",
+                  avgRatingDelta >= 0
+                    ? "bg-[var(--rb-green-500)]/10 text-[var(--rb-green-500)]"
+                    : "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)]",
                 )}
               >
                 {formatDelta(avgRatingDelta)}
@@ -558,9 +560,13 @@ export default function DashboardPage() {
             </div>
           )}
           <p className="mt-4 max-w-[240px] text-[13px] leading-relaxed text-fg-3">
-            {unreplied > 0
-              ? `${unreplied} reviews awaiting reply.${urgent > 0 ? ` ${urgent} marked urgent.` : ""}`
-              : "All reviews replied to. Great work!"}
+            {/* An empty workspace is not an inbox-zero achievement — congratulating
+                someone for replying to reviews they don't have reads as broken. */}
+            {totalReviews === 0
+              ? "No reviews synced yet. Connect your store to start tracking."
+              : unreplied > 0
+                ? `${unreplied} reviews awaiting reply.${urgent > 0 ? ` ${urgent} marked urgent.` : ""}`
+                : "All reviews replied to. Great work!"}
           </p>
         </div>
         <div className="min-w-0">

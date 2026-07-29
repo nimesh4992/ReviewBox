@@ -17,9 +17,9 @@ interface ApiKbEntry {
 }
 
 const CATEGORY_CONFIG: Record<KbCategory, { label: string; className: string }> = {
-  product: { label: "Product", className: "bg-blue-50 text-blue-600" },
-  known_issue: { label: "Known issue", className: "bg-red-50 text-red-600" },
-  faq: { label: "FAQ", className: "bg-amber-50 text-amber-600" },
+  product: { label: "Product", className: "bg-[#0A84FF]/10 text-[#0A84FF]" },
+  known_issue: { label: "Known issue", className: "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)]" },
+  faq: { label: "FAQ", className: "bg-[var(--rb-amber-500)]/10 text-[var(--rb-amber-500)]" },
   roadmap: { label: "Roadmap", className: "bg-[var(--rb-purple-100)] text-[var(--rb-purple-600)]" },
 };
 
