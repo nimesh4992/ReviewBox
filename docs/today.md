@@ -86,7 +86,9 @@ each other's fields. Mandate: fix the entire UI and wiring, keep going.
   would restyle a dense inbox UI for no accessibility gain.
 
 ### Also
-- Settings: section jump-links, duplicate Data & Privacy card removed.
+- Settings: converted to five tabs (General/Alerts/Integrations/Team/Data) with
+  the active tab in ?tab= and every deep-link into Settings pointed at the tab
+  it means; duplicate Data & Privacy card removed.
 - Accent unified on `#0A84FF` (indigo `#5B5BD6` removed from app screens).
 - 5 dead dashboard components deleted (zero imports).
 - Global header search was broken (`/reviews?search=` redirects to `/inbox` and
@@ -109,7 +111,18 @@ guards against stale responses correctly.
 2. Add real Clerk test keys as CI secrets so E2E becomes a real signal
 3. Decide on `--rb-fg-4`: darkening it to pass contrast collapses it into
    `--rb-fg-3`; needs a design call
-4. Visual QA on the preview in both themes — the agent's network blocks the
-   preview host, so text contrast was verified by computing WCAG ratios, not by
-   looking at pages. Layout is unverified.
+4. Visual QA on the preview. Onboarding, Settings (both tab layouts) and
+   Reports **were** rendered and checked in both themes — the agent's network
+   blocks the Vercel preview host, so this ran against a local dev server with
+   placeholder env and middleware stubbed *locally only* (never committed; see
+   the recipe below). Still unverified: the Inbox with real reviews and the
+   Google Play modal, because neither renders without workspace data.
+
+   Recipe, if you need it: write a `.env.local` with the CI placeholder Clerk/
+   Supabase values, replace `src/middleware.ts` with a pass-through, `npm run
+   dev`, then drive Playwright at `127.0.0.1:3000` with
+   `executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'`.
+   Set the theme by seeding `localStorage['reviewbox-workspace']`. **Restore
+   middleware and delete `.env.local` before committing** — verify with
+   `git status` *after* cleanup, not before.
 5. Invite the service account in Play Console so reviews actually sync
