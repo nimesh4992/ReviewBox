@@ -160,7 +160,7 @@ function SyncBanners({
                 <div className="mt-2 flex items-center gap-2">
                   <button
                     onClick={onRetry}
-                    className="rounded-md border border-[#0A84FF]/30 bg-white px-3 py-1 text-[11px] font-semibold text-[#0A84FF] hover:bg-[#0A84FF]/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
+                    className="rounded-md border border-[#0A84FF]/30 bg-surface px-3 py-1 text-[11px] font-semibold text-[#0A84FF] hover:bg-[#0A84FF]/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
                   >
                     Sync now
                   </button>
@@ -215,7 +215,7 @@ function SyncBanners({
         return (
           <div
             key={app.id}
-            className="flex items-start gap-3 rounded-xl border border-[var(--rb-amber-200,#FDE68A)] bg-[var(--rb-amber-50,#FFFBEB)] px-4 py-3"
+            className="flex items-start gap-3 rounded-xl border border-[var(--rb-amber-500)]/30 bg-[var(--rb-amber-500)]/10 px-4 py-3"
           >
             <AlertOctagon className="mt-0.5 size-4 shrink-0 text-[#D97706]" strokeWidth={2} />
             <div className="flex-1">
@@ -235,13 +235,13 @@ function SyncBanners({
                 </Link>
                 <Link
                   href="/settings"
-                  className="rounded-md border border-[#FCD34D] bg-white px-3 py-1 text-[11px] font-semibold text-[#92400E] hover:bg-[#FEF3C7]"
+                  className="rounded-md border border-[var(--rb-amber-500)]/40 bg-surface px-3 py-1 text-[11px] font-semibold text-[var(--rb-amber-600)] hover:bg-[var(--rb-amber-500)]/10"
                 >
                   Open Settings
                 </Link>
                 <button
                   onClick={onRetry}
-                  className="rounded-md border border-[#FCD34D] bg-white px-3 py-1 text-[11px] font-semibold text-[#92400E] hover:bg-[#FEF3C7] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D97706]"
+                  className="rounded-md border border-[var(--rb-amber-500)]/40 bg-surface px-3 py-1 text-[11px] font-semibold text-[var(--rb-amber-600)] hover:bg-[var(--rb-amber-500)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rb-amber-600)]"
                 >
                   Retry sync
                 </button>
