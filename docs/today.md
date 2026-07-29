@@ -85,6 +85,17 @@ each other's fields. Mandate: fix the entire UI and wiring, keep going.
   element, so those buttons do show a keyboard focus ring. Swapping 42 controls
   would restyle a dense inbox UI for no accessibility gain.
 
+### Design-system rules learned (now in CLAUDE.md)
+- **A hardcoded colour paired with a token colour** is the signature of
+  invisible text — fine in one theme, unreadable in the other. This is how the
+  Google Play modal's service-account email disappeared and how the sign-in
+  form labels went near-black on a dark panel.
+- **`--rb-fg-4` is 2.15:1 on light** — decoration only, never content.
+- **Border weights are semantic**: border-1 divides, border-2 is for inputs,
+  border-3 is for interactive. Two of three plan CTAs on Billing read as
+  disabled because they used divider weight; every contrast check passed,
+  because the failure was affordance rather than legibility.
+
 ### Also
 - Settings: converted to five tabs (General/Alerts/Integrations/Team/Data) with
   the active tab in ?tab= and every deep-link into Settings pointed at the tab

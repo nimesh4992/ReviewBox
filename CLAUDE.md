@@ -622,6 +622,14 @@ silence the check to make it green.
   Play modal's service-account email disappeared).
 - The sidebar app selector stores the app **ID**. Resolve it with
   `resolveSelectedApp()` from `src/lib/selected-app.ts` — never by name.
+- **Border weights are semantic, not decorative.** `--rb-border-1` (6% white in
+  dark) is a *divider* — card edges, row separators. Putting it on something
+  interactive makes the element vanish on a dark surface: a form field stops
+  reading as a field, an outline button stops reading as a button. Use
+  `--rb-border-2` for inputs and `--rb-border-3` for interactive elements. Two
+  of the three plan CTAs on Billing looked disabled because of this, and it
+  passed every contrast check — the failure was affordance, not legibility, so
+  only rendering the screen caught it.
 
 ### What shipped 2026-05-29
 
