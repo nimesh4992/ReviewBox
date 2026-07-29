@@ -19,6 +19,7 @@ import { track } from "@/lib/analytics";
 import { useApps } from "@/hooks/use-apps";
 import { AppReview, ReviewSentiment, AIReplyTone } from "@/types/review";
 import { humanizeToken, formatReviewDate } from "@/utils/format";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // Helper — stamp a review as replied in the infinite query cache
 function useMarkReplied() {
@@ -427,18 +428,24 @@ function ReplyComposer({
         }),
       });
       if (!res.ok) {
-        const data = await res.json().catch(() => ({})) as { error?: string };
+        // The API returns { error: { code, message } }. This block used to
+        // compare data.error (an OBJECT) against code strings, so every
+        // comparison was false and the user always got "Something went
+        // wrong." — the specific, actionable messages below were dead code.
+        const data = await res.json().catch(() => null) as
+          { error?: { code?: string } } | null;
+        const code = data?.error?.code;
         const isCredentialError =
-          data.error === "APP_STORE_NOT_CONNECTED" ||
-          data.error === "GOOGLE_PLAY_NOT_CONFIGURED";
+          code === "APP_STORE_NOT_CONNECTED" ||
+          code === "GOOGLE_PLAY_NOT_CONFIGURED";
         const msg =
-          data.error === "APP_STORE_NOT_CONNECTED"   ? "App Store credentials not connected."      :
-          data.error === "GOOGLE_PLAY_NOT_CONFIGURED"? "Google Play service account not configured." :
-          data.error === "STORE_RATE_LIMITED"        ? "Store rate limit — try again in a few minutes." :
-          data.error === "REVIEW_NOT_FOUND_ON_STORE" ? "Review no longer available on the store."   :
-          data.error === "STORE_SUBMIT_FAILED"       ? "Store rejected the reply — check credentials." :
-          data.error === "REPLY_TOO_LONG"            ? "Reply exceeds the store's character limit."  :
-          "Something went wrong.";
+          code === "APP_STORE_NOT_CONNECTED"   ? "App Store credentials not connected."      :
+          code === "GOOGLE_PLAY_NOT_CONFIGURED"? "Google Play service account not configured." :
+          code === "STORE_RATE_LIMITED"        ? "Store rate limit — try again in a few minutes." :
+          code === "REVIEW_NOT_FOUND_ON_STORE" ? "Review no longer available on the store."   :
+          code === "STORE_SUBMIT_FAILED"       ? "Store rejected the reply — check credentials." :
+          code === "REPLY_TOO_LONG"            ? "Reply exceeds the store's character limit."  :
+          apiErrorMessage(data, "Something went wrong.");
         setSendFeedback("error");
         setSendError(msg);
         if (isCredentialError) {
@@ -921,8 +928,10 @@ function GroupReplyPanel({
           body: JSON.stringify({ replyText: text.trim(), status: "sent" }),
         });
         if (!res.ok) {
-          const data = await res.json().catch(() => ({})) as { error?: string };
-          errs.push({ reviewId: r.id, author: r.author, message: data.error ?? "Failed" });
+          const data: unknown = await res.json().catch(() => null);
+          // message is rendered directly — it must be a string, never the
+          // { code, message } envelope (React #31 crash).
+          errs.push({ reviewId: r.id, author: r.author, message: apiErrorMessage(data, "Failed") });
         } else {
           markReplied(r.id, text.trim());
         }

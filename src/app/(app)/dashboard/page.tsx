@@ -87,6 +87,154 @@ function SyncBanners({
   apps: ReturnType<typeof useApps>["apps"];
   onRetry: () => void;
   onConnectPlayConsole: () => void;
+  onOpenSetup: () => void;
+}) {
+  const errored = apps.filter(
+    (a) => a.last_sync_status && a.last_sync_status !== "success",
+  );
+  const pending = apps.filter(
+    (a) => !a.last_synced_at && !(a.last_sync_status && a.last_sync_status !== "success"),
+  );
+  const quietOk = apps.filter(
+    (a) => a.last_sync_status === "success" && (a.last_sync_review_count ?? 0) === 0,
+  );
+
+  const actionBtn =
+    "rounded-md px-2.5 py-1 text-rb-xs font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]";
+  const quietBtn =
+    `${actionBtn} border border-[var(--rb-border-2)] bg-surface text-fg-2 hover:bg-[var(--rb-bg-hover)]`;
+
+  if (errored.length > 0) {
+    const first = errored[0];
+    const names = errored.map((a) => a.name).join(", ");
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-amber-500)]/30 bg-[var(--rb-amber-100)]/40 px-4 py-2.5">
+        <AlertOctagon className="size-4 shrink-0 text-[var(--rb-amber-600)]" strokeWidth={2} />
+        <div className="min-w-0 flex-1">
+          <span className="text-rb-base font-medium text-fg-1">
+            {errored.length === 1 ? `${names} can’t sync yet` : `${errored.length} apps can’t sync yet`}
+          </span>
+          <span className="ml-2 hidden text-rb-sm text-fg-3 sm:inline">
+            {first.last_sync_error ?? "Finish the store connection so reviews can flow."}
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          {first.platform === "google_play" ? (
+            <button onClick={onOpenSetup} className={`${actionBtn} bg-[var(--rb-amber-600)] text-white hover:opacity-90`}>
+              Finish setup
+            </button>
+          ) : (
+            <Link href="/help/connect-app-store" className={`${actionBtn} bg-[var(--rb-amber-600)] text-white hover:opacity-90`}>
+              Setup guide
+            </Link>
+          )}
+          <button onClick={onRetry} className={quietBtn}>
+            Retry
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (pending.length > 0) {
+    const label =
+      pending.length === 1 ? `Syncing ${pending[0].name}…` : `Syncing ${pending.length} apps…`;
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-border-1)] bg-surface px-4 py-2.5">
+        <Loader2 className="size-4 shrink-0 animate-spin text-[#0A84FF]" strokeWidth={2} />
+        <div className="min-w-0 flex-1">
+          <span className="text-rb-base font-medium text-fg-1">{label}</span>
+          <span className="ml-2 hidden text-rb-sm text-fg-3 sm:inline">
+            First sync takes about 30 seconds — reviews appear automatically.
+          </span>
+        </div>
+        <button onClick={onRetry} className={quietBtn}>
+          Sync now
+        </button>
+      </div>
+    );
+  }
+
+  if (quietOk.length > 0) {
+    const app = quietOk[0];
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-border-1)] bg-surface px-4 py-2.5">
+        <Sparkles className="size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
+        <div className="min-w-0 flex-1">
+          <span className="text-rb-base font-medium text-fg-1">
+            {app.name} is connected — no recent reviews yet
+          </span>
+          <span className="ml-2 hidden text-rb-sm text-fg-3 sm:inline">
+            {app.platform === "google_play"
+              ? "Google Play only exposes the last 7 days of reviews."
+              : "New reviews appear as customers leave them."}
+          </span>
+        </div>
+        <Link
+          href={app.platform === "google_play" ? "/help/connect-google-play" : "/help/connect-app-store"}
+          className="shrink-0 text-rb-xs font-medium text-fg-3 hover:text-fg-2"
+        >
+          Why? →
+        </Link>
+      </div>
+    );
+  }
+
+  if (aiEnriching) {
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-border-1)] bg-surface px-4 py-2.5">
+        <Bot className="size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
+        <span className="min-w-0 flex-1 text-rb-base text-fg-2">
+          Preparing reply templates from your reviews — about 10 seconds.
+        </span>
+        <Loader2 className="size-4 shrink-0 animate-spin text-fg-3" strokeWidth={2} />
+      </div>
+    );
+  }
+
+  // Synced from PUBLIC data only — the customer hasn't granted Play Console
+  // access yet. Reviews and rating are real (scraped from the public store
+  // listing), so this is a nudge, not an error: say what connecting unlocks.
+  const publicOnly = apps.filter(
+    (a) =>
+      a.platform === "google_play" &&
+      a.last_sync_status === "success" &&
+      (a.last_sync_review_count ?? 0) > 0 &&
+      a.publisher_api_connected !== true,
+  );
+
+  if (publicOnly.length > 0) {
+    const app = publicOnly[0];
+    return (
+      <div className="flex items-center gap-3 rounded-xl border border-[#0A84FF]/20 bg-[#0A84FF]/[0.04] px-4 py-2.5">
+        <Sparkles className="size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
+        <div className="min-w-0 flex-1">
+          <span className="text-rb-base font-medium text-fg-1">
+            {app.name} is showing public Play Store data
+          </span>
+          <span className="ml-2 hidden text-rb-sm text-fg-3 sm:inline">
+            Connect your Play Console to reply to reviews and sync everything automatically.
+          </span>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <button
+            onClick={onConnectPlayConsole}
+            className={`${actionBtn} bg-[#0A84FF] text-white hover:bg-[#0070e0]`}
+          >
+            Connect Play Console
+          </button>
+          <Link
+            href="/help/connect-google-play"
+            className="shrink-0 text-rb-xs font-medium text-fg-3 hover:text-fg-2"
+          >
+            How it works →
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  return null;
 }) {
   return (
     <>
@@ -491,6 +639,14 @@ export default function DashboardPage() {
           {exporting ? "Exporting…" : "Export CSV"}
         </button>
       </header>
+      {/* ── One status strip: errors > syncing > quiet > AI prep > connect nudge ── */}
+      <WorkspaceStatusStrip
+        apps={apps}
+        aiEnriching={aiEnriching === true}
+        onRetry={handleRetry}
+        onConnectPlayConsole={() => setSetupModalOpen(true)}
+        onOpenSetup={() => setSetupModalOpen(true)}
+      />
 
       {/* ── Sync banners (single, merged) ── */}
       <SyncBanners

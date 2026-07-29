@@ -4,7 +4,7 @@ import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { canAddApp } from "@/lib/plan-enforcement";
 import { apiError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
-import { fetchAppMetadata } from "@/services/store-search";
+import { resolveAppMetadata } from "@/services/store-search";
 import { syncWorkspace } from "@/services/review-sync";
 
 // POST triggers a public-store scrape via after() — needs more than the
@@ -87,6 +87,8 @@ interface CreateAppBody {
   platform: "google_play" | "app_store";
   packageName?: string;
   bundleId?: string;
+  /** Storefront hint from search; confirmed server-side before it's stored. */
+  country?: string | null;
 }
 
 export async function POST(request: NextRequest) {
@@ -130,11 +132,12 @@ export async function POST(request: NextRequest) {
   // Fetch lifetime metadata (icon, rating, review count) before insert, same
   // as onboarding — apps added from Settings previously never got any of it.
   // Best-effort — a failed scrape must not block adding the app.
-  let metadata: Awaited<ReturnType<typeof fetchAppMetadata>> = null;
+  let metadata: Awaited<ReturnType<typeof resolveAppMetadata>> = null;
   try {
-    metadata = await fetchAppMetadata(
+    metadata = await resolveAppMetadata(
       body.platform === "google_play" ? "google-play" : "app-store",
       storeId,
+      body.country,
     );
   } catch (err) {
     console.warn("[apps] metadata fetch failed:", err);
@@ -151,6 +154,7 @@ export async function POST(request: NextRequest) {
       developer:              metadata?.developer ?? null,
       lifetime_rating:        metadata?.rating ?? null,
       lifetime_review_count:  metadata?.reviewCount ?? null,
+      store_country:          metadata?.country ?? null,
       metadata_refreshed_at:  metadata ? new Date().toISOString() : null,
     })
     .select()

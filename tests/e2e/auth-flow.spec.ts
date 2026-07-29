@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { clerkKeyIsPlaceholder, SKIP_REASON } from "./clerk-env";
 
 /**
  * Auth-flow e2e tests — verifies the critical paths without requiring
@@ -12,6 +13,11 @@ import { expect, test } from "@playwright/test";
  */
 
 // ── 1. Unauthenticated redirects ──────────────────────────────────────────────
+
+// Without a real Clerk instance the app renders nothing and every
+// assertion below fails for the same irrelevant reason — skip honestly
+// rather than shipping a permanently-red check nobody reads.
+test.skip(clerkKeyIsPlaceholder, SKIP_REASON);
 
 test.describe("unauthenticated redirects", () => {
   const protectedPaths = [

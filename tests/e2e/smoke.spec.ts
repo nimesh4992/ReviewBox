@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { clerkKeyIsPlaceholder, SKIP_REASON } from "./clerk-env";
 
 /**
  * Smoke tests — the bare minimum that proves the site boots and
@@ -7,6 +8,11 @@ import { expect, test } from "@playwright/test";
  *
  * Add new smoke tests sparingly. Each one runs on every PR.
  */
+
+// Without a real Clerk instance the app renders nothing and every
+// assertion below fails for the same irrelevant reason — skip honestly
+// rather than shipping a permanently-red check nobody reads.
+test.skip(clerkKeyIsPlaceholder, SKIP_REASON);
 
 test.describe("smoke", () => {
   test("landing page loads with hero CTA", async ({ page }) => {

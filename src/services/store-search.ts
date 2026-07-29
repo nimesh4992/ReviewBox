@@ -1,15 +1,36 @@
 /**
  * store-search.ts
  *
- * Searches the public App Store and Google Play storefronts for apps by name.
- * Used by the onboarding flow so users can pick their app from a real list
- * instead of having to look up their package name or bundle ID manually.
+ * Finds apps on the public App Store and Google Play storefronts, and reads
+ * their public metadata (icon, lifetime rating, lifetime review count).
+ * Used by onboarding so users pick their app from real results instead of
+ * typing a package name from memory.
  *
- * App Store: iTunes Search API (https://itunes.apple.com/search) — public, no auth.
- * Google Play: HTML scrape of play.google.com/store/search — fragile but works.
+ * Two production failures shaped this file — see the notes at each fix:
+ *
+ * 1. Google Play search was a hand-rolled regex over the search page HTML.
+ *    Google rotated the markup, the `aria-label` pattern stopped matching,
+ *    and the code silently fell through to a "bare package IDs" path — so
+ *    searching "Mumbai One" returned four unrelated apps listed by raw
+ *    package name. Search now goes through google-play-scraper, which tracks
+ *    Google's internal payloads; the HTML scrape survives only as a
+ *    last-resort fallback, and never emits a row without a real app name.
+ *
+ * 2. Every call was hardcoded to the US storefront. Regional apps are simply
+ *    absent there — an India-only app could not be found at all, and even
+ *    when added by package name its reviews came back empty forever. We now
+ *    search several storefronts and remember which one matched.
  */
 
 import { Redis } from "@upstash/redis";
+
+import gplay, { developerName } from "@/services/gplay-client";
+import {
+  DEFAULT_STOREFRONT,
+  looksLikeStoreId,
+  normalizeStorefront,
+  searchStorefronts,
+} from "@/lib/storefronts";
 
 // ── Redis singleton (best-effort — null if env vars not set) ─────────────────
 
@@ -22,6 +43,7 @@ function getRedis(): Redis | null {
   return _redis;
 }
 
+// @assumption A 6-hour-old rating is fresh enough to show as current | risk: after a rating spike the dashboard contradicts the store for up to 6 hours
 const META_TTL = 6 * 60 * 60; // 6 hours in seconds
 
 export interface StoreSearchResult {
@@ -37,10 +59,35 @@ export interface StoreSearchResult {
   rating: number | null;
   /** Direct store URL for the listing */
   url: string;
+  /** Storefront this result came from — persisted so we sync the right one */
+  country: string;
 }
+
+export type StorePlatform = "app-store" | "google-play";
 
 const APP_STORE_SEARCH_URL = "https://itunes.apple.com/search";
 const PLAY_STORE_SEARCH_URL = "https://play.google.com/store/search";
+
+/**
+ * Merge results from several storefronts: first occurrence of a store ID
+ * wins (storefronts are passed in priority order), capped at `limit`.
+ */
+export function mergeStoreResults(
+  groups: Array<StoreSearchResult[] | null | undefined>,
+  limit: number,
+): StoreSearchResult[] {
+  const seen = new Set<string>();
+  const out: StoreSearchResult[] = [];
+  for (const group of groups) {
+    for (const row of group ?? []) {
+      if (!row.storeId || seen.has(row.storeId)) continue;
+      seen.add(row.storeId);
+      out.push(row);
+      if (out.length >= limit) return out;
+    }
+  }
+  return out;
+}
 
 // ── App Store (iTunes Search API) ────────────────────────────────────────────
 
@@ -51,6 +98,7 @@ interface ItunesResult {
   artworkUrl100?: string;
   artworkUrl512?: string;
   averageUserRating?: number;
+  userRatingCount?: number;
   trackViewUrl?: string;
 }
 
@@ -59,10 +107,26 @@ interface ItunesResponse {
   results: ItunesResult[];
 }
 
-export async function searchAppStore(query: string, limit = 10): Promise<StoreSearchResult[]> {
+function itunesToResult(r: ItunesResult, country: string): StoreSearchResult {
+  return {
+    storeId: r.bundleId!,
+    name: r.trackName!,
+    developer: r.artistName ?? "",
+    icon: r.artworkUrl512 ?? r.artworkUrl100 ?? null,
+    rating: typeof r.averageUserRating === "number" ? r.averageUserRating : null,
+    url: r.trackViewUrl ?? `https://apps.apple.com/app/id${r.bundleId}`,
+    country,
+  };
+}
+
+async function searchAppStoreIn(
+  query: string,
+  limit: number,
+  country: string,
+): Promise<StoreSearchResult[]> {
   const params = new URLSearchParams({
     term: query,
-    country: "us",
+    country,
     entity: "software",
     limit: String(Math.min(limit, 25)),
   });
@@ -80,42 +144,77 @@ export async function searchAppStore(query: string, limit = 10): Promise<StoreSe
   const json = (await res.json()) as ItunesResponse;
   return (json.results ?? [])
     .filter((r) => r.bundleId && r.trackName)
-    .map((r) => ({
-      storeId: r.bundleId!,
-      name: r.trackName!,
-      developer: r.artistName ?? "",
-      icon: r.artworkUrl512 ?? r.artworkUrl100 ?? null,
-      rating: typeof r.averageUserRating === "number" ? r.averageUserRating : null,
-      url: r.trackViewUrl ?? `https://apps.apple.com/app/id${r.bundleId}`,
-    }));
+    .map((r) => itunesToResult(r, country));
 }
 
-// ── Google Play (HTML scrape) ────────────────────────────────────────────────
-//
-// There's no public Play Store search API. We fetch the search results page
-// and extract entries from the embedded data. Google rotates the markup so
-// this needs occasional maintenance — the pattern matched here is stable as
-// of late 2025 but could change. The route handler degrades gracefully if
-// scraping fails.
+export async function searchAppStore(
+  query: string,
+  limit = 10,
+  countries: string[] = searchStorefronts(),
+): Promise<StoreSearchResult[]> {
+  const settled = await Promise.allSettled(
+    countries.map((c) => searchAppStoreIn(query, limit, c)),
+  );
 
-interface ScrapedPlayResult {
-  storeId: string;
-  name: string;
-  developer: string;
-  icon: string | null;
-  rating: number | null;
+  const merged = mergeStoreResults(
+    settled.map((s) => (s.status === "fulfilled" ? s.value : null)),
+    limit,
+  );
+  if (merged.length) return merged;
+
+  // Distinguish "no matches anywhere" from "every storefront errored" — the
+  // caller turns the latter into a visible "search unavailable" hint.
+  if (settled.every((s) => s.status === "rejected")) {
+    throw settled[0]?.status === "rejected"
+      ? (settled[0].reason as Error)
+      : new Error("App Store search failed");
+  }
+  return [];
+}
+
+// ── Google Play (google-play-scraper, HTML scrape as fallback) ───────────────
+
+async function searchGooglePlayIn(
+  query: string,
+  limit: number,
+  country: string,
+): Promise<StoreSearchResult[]> {
+  const results = await gplay.search({
+    term: query,
+    num: Math.min(limit, 30),
+    lang: "en",
+    country,
+    throttle: 10,
+  });
+
+  return (results ?? [])
+    .filter((r) => r.appId && r.title)
+    .map((r) => ({
+      storeId: r.appId,
+      name: r.title!,
+      developer: developerName(r.developer),
+      icon: r.icon ?? null,
+      rating: typeof r.score === "number" ? r.score : null,
+      url: r.url ?? `https://play.google.com/store/apps/details?id=${r.appId}`,
+      country,
+    }));
 }
 
 /**
  * Extract apps from a Play Store search HTML page.
  *
- * Google embeds search results as anchors with aria-label="NAME". For
- * icon + rating we look at the surrounding markup near each anchor. The
- * Play Store HTML rotates often — if a pattern stops matching, the row
- * falls back to "name only" instead of disappearing.
+ * Last-resort fallback only — used when google-play-scraper itself fails
+ * (library outage / upstream shape change). Exported for tests.
+ *
+ * Rows without a real app name are DROPPED. The previous version pushed
+ * `name: storeId` for every `/store/apps/details?id=` link on the page,
+ * which is how users ended up staring at a list of unrelated apps labelled
+ * `com.onewaycab`, `rs.webrest.ar` … when the primary pattern broke. An
+ * empty result that says "search unavailable, paste your package ID" is far
+ * better than a confident list of wrong answers.
  */
-function parsePlayHtml(html: string, limit: number): ScrapedPlayResult[] {
-  const out: ScrapedPlayResult[] = [];
+export function parsePlayHtml(html: string, limit: number): StoreSearchResult[] {
+  const out: StoreSearchResult[] = [];
   const seen = new Set<string>();
 
   const anchorRegex =
@@ -145,25 +244,20 @@ function parsePlayHtml(html: string, limit: number): ScrapedPlayResult[] {
       developer: "",
       icon: iconMatch ? iconMatch[0] : null,
       rating: ratingMatch ? parseFloat(ratingMatch[1]) : null,
+      url: `https://play.google.com/store/apps/details?id=${storeId}`,
+      country: DEFAULT_STOREFRONT,
     });
-  }
-
-  // Fallback: just package IDs (in case aria-label changes)
-  if (out.length === 0) {
-    const idRegex = /\/store\/apps\/details\?id=([a-zA-Z0-9._]+)/g;
-    while ((match = idRegex.exec(html)) !== null && out.length < limit) {
-      const storeId = match[1];
-      if (seen.has(storeId)) continue;
-      seen.add(storeId);
-      out.push({ storeId, name: storeId, developer: "", icon: null, rating: null });
-    }
   }
 
   return out;
 }
 
-export async function searchGooglePlay(query: string, limit = 10): Promise<StoreSearchResult[]> {
-  const params = new URLSearchParams({ q: query, c: "apps", hl: "en" });
+async function searchGooglePlayViaHtml(
+  query: string,
+  limit: number,
+  country: string,
+): Promise<StoreSearchResult[]> {
+  const params = new URLSearchParams({ q: query, c: "apps", hl: "en", gl: country });
   const res = await fetch(`${PLAY_STORE_SEARCH_URL}?${params.toString()}`, {
     headers: {
       // Google blocks requests with no/empty UA. Mimic a real browser.
@@ -178,45 +272,89 @@ export async function searchGooglePlay(query: string, limit = 10): Promise<Store
     throw new Error(`Google Play search failed: ${res.status}`);
   }
 
-  const html = await res.text();
-  const parsed = parsePlayHtml(html, limit);
-  return parsed.map((p) => ({
-    storeId: p.storeId,
-    name: p.name,
-    developer: p.developer,
-    icon: p.icon,
-    rating: p.rating,
-    url: `https://play.google.com/store/apps/details?id=${p.storeId}`,
-  }));
+  return parsePlayHtml(await res.text(), limit).map((r) => ({ ...r, country }));
+}
+
+export async function searchGooglePlay(
+  query: string,
+  limit = 10,
+  countries: string[] = searchStorefronts(),
+): Promise<StoreSearchResult[]> {
+  const settled = await Promise.allSettled(
+    countries.map((c) => searchGooglePlayIn(query, limit, c)),
+  );
+
+  const merged = mergeStoreResults(
+    settled.map((s) => (s.status === "fulfilled" ? s.value : null)),
+    limit,
+  );
+  if (merged.length) return merged;
+
+  // Library worked but found nothing — that's a genuine "no matches".
+  if (settled.some((s) => s.status === "fulfilled")) return [];
+
+  for (const s of settled) {
+    if (s.status === "rejected") {
+      console.warn(
+        "[store-search] gplay search failed:",
+        s.reason instanceof Error ? s.reason.message : s.reason,
+      );
+    }
+  }
+
+  // Every storefront errored — try the raw page once before giving up.
+  return searchGooglePlayViaHtml(query, limit, countries[0] ?? DEFAULT_STOREFRONT);
 }
 
 // ── Unified entry point ──────────────────────────────────────────────────────
-
-export type StorePlatform = "app-store" | "google-play";
 
 export async function searchStore(
   platform: StorePlatform,
   query: string,
   limit = 10,
 ): Promise<StoreSearchResult[]> {
-  if (!query.trim()) return [];
-  if (platform === "app-store") return searchAppStore(query, limit);
-  return searchGooglePlay(query, limit);
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+
+  // The search box tells users they can paste a bundle/package ID, but a
+  // pasted ID is not an app NAME and text search finds nothing for it. Look
+  // it up directly across storefronts first.
+  if (looksLikeStoreId(trimmed)) {
+    try {
+      const meta = await findAppAcrossStorefronts(platform, trimmed);
+      if (meta) {
+        return [
+          {
+            storeId: meta.storeId,
+            name: meta.name,
+            developer: meta.developer,
+            icon: meta.icon,
+            rating: meta.rating,
+            url:
+              platform === "google-play"
+                ? `https://play.google.com/store/apps/details?id=${meta.storeId}`
+                : `https://apps.apple.com/app/${meta.storeId}`,
+            country: meta.country,
+          },
+        ];
+      }
+    } catch {
+      // Fall through to text search — a failed direct lookup is not fatal.
+    }
+  }
+
+  if (platform === "app-store") return searchAppStore(trimmed, limit);
+  return searchGooglePlay(trimmed, limit);
 }
 
 // ── Single-app metadata (icon, lifetime rating, lifetime review count) ───────
 //
 // Used after a user picks their app to populate apps.icon_url +
-// apps.lifetime_rating + apps.lifetime_review_count. Search results don't
-// always have the lifetime count — need to fetch the detail page once.
+// apps.lifetime_rating + apps.lifetime_review_count.
 //
-// Results are cached in Redis for 6 hours so:
-//   1. Onboarding search → onboarding/complete → sync route all hit the same
-//      cache entry rather than scraping Play Store / iTunes 3× for one app.
-//   2. Daily sync cron gets a fresh scrape (cache expired after 6h) without
-//      hammering the store on every manual "Sync now" click.
-//
-// Cache is best-effort: if Redis is unavailable the scrape runs uncached.
+// Cached in Redis for 6 hours, keyed by storeId AND country, so onboarding
+// search → onboarding complete → sync share one scrape rather than hitting
+// the store three times for one app.
 
 export interface AppMetadata {
   storeId: string;
@@ -227,24 +365,65 @@ export interface AppMetadata {
   rating: number | null;
   /** Lifetime review count (matches what users see on the store) */
   reviewCount: number | null;
+  /** Storefront this metadata came from */
+  country: string;
 }
 
-/** Fetch a Google Play app's metadata from its detail page. */
-export async function fetchGooglePlayMetadata(
-  packageName: string,
-): Promise<AppMetadata | null> {
-  const cacheKey = `meta:gplay:${packageName}`;
+async function readCache(key: string): Promise<AppMetadata | null> {
   try {
     const redis = getRedis();
-    if (redis) {
-      const cached = await redis.get<AppMetadata>(cacheKey);
-      if (cached) return cached;
-    }
+    if (redis) return await redis.get<AppMetadata>(key);
   } catch {
     // Redis unavailable — proceed uncached
   }
+  return null;
+}
 
-  const url = `https://play.google.com/store/apps/details?id=${encodeURIComponent(packageName)}&hl=en`;
+async function writeCache(key: string, value: AppMetadata): Promise<void> {
+  try {
+    const redis = getRedis();
+    if (redis) await redis.setex(key, META_TTL, value);
+  } catch {
+    // best-effort — a cache miss is fine
+  }
+}
+
+/** Fetch a Google Play app's metadata from its listing. */
+export async function fetchGooglePlayMetadata(
+  packageName: string,
+  country: string = DEFAULT_STOREFRONT,
+): Promise<AppMetadata | null> {
+  const store = normalizeStorefront(country);
+  const cacheKey = `meta:gplay:${store}:${packageName}`;
+  const cached = await readCache(cacheKey);
+  if (cached) return cached;
+
+  // Primary: the maintained scraper library.
+  try {
+    const app = await gplay.app({ appId: packageName, lang: "en", country: store });
+    if (app?.appId) {
+      const result: AppMetadata = {
+        storeId: packageName,
+        name: app.title ?? packageName,
+        developer: developerName(app.developer),
+        icon: app.icon ?? null,
+        rating: typeof app.score === "number" ? app.score : null,
+        reviewCount:
+          typeof app.ratings === "number"
+            ? app.ratings
+            : typeof app.reviews === "number"
+              ? app.reviews
+              : null,
+        country: store,
+      };
+      await writeCache(cacheKey, result);
+      return result;
+    }
+  } catch {
+    // Fall through to the raw listing scrape.
+  }
+
+  const url = `https://play.google.com/store/apps/details?id=${encodeURIComponent(packageName)}&hl=en&gl=${store}`;
   try {
     const res = await fetch(url, {
       headers: {
@@ -273,6 +452,11 @@ export async function fetchGooglePlayMetadata(
       html.match(/"ratingCount":\s*"?(\d+)"?/i) ??
       html.match(/(\d[\d,]*)\s+reviews?\s*<\//i);
 
+    // A listing page that yields no name AND no rating is almost certainly a
+    // "not available in this country" page — report it as a miss so the
+    // caller keeps looking in other storefronts.
+    if (!nameMatch && !ratingMatch) return null;
+
     const result: AppMetadata = {
       storeId: packageName,
       name: nameMatch ? nameMatch[1].trim() : packageName,
@@ -280,15 +464,10 @@ export async function fetchGooglePlayMetadata(
       icon: iconMatch ? iconMatch[0] : null,
       rating: ratingMatch ? parseFloat(ratingMatch[1]) : null,
       reviewCount: countMatch ? parseInt(countMatch[1].replace(/,/g, ""), 10) : null,
+      country: store,
     };
 
-    try {
-      const redis = getRedis();
-      if (redis) await redis.setex(cacheKey, META_TTL, result);
-    } catch {
-      // best-effort — cache miss is fine
-    }
-
+    await writeCache(cacheKey, result);
     return result;
   } catch {
     return null;
@@ -298,37 +477,21 @@ export async function fetchGooglePlayMetadata(
 /** Fetch an App Store app's metadata via iTunes Lookup. */
 export async function fetchAppStoreMetadata(
   bundleId: string,
+  country: string = DEFAULT_STOREFRONT,
 ): Promise<AppMetadata | null> {
-  const cacheKey = `meta:appstore:${bundleId}`;
-  try {
-    const redis = getRedis();
-    if (redis) {
-      const cached = await redis.get<AppMetadata>(cacheKey);
-      if (cached) return cached;
-    }
-  } catch {
-    // Redis unavailable — proceed uncached
-  }
+  const store = normalizeStorefront(country);
+  const cacheKey = `meta:appstore:${store}:${bundleId}`;
+  const cached = await readCache(cacheKey);
+  if (cached) return cached;
 
   try {
-    const url = `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(bundleId)}&country=us`;
+    const url = `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(bundleId)}&country=${store}`;
     const res = await fetch(url, {
       headers: { "User-Agent": "ReviewBox/1.0 (+https://tryreviewbox.com)" },
       signal: AbortSignal.timeout(5000),
     });
     if (!res.ok) return null;
-    const json = (await res.json()) as {
-      resultCount: number;
-      results: Array<{
-        bundleId?: string;
-        trackName?: string;
-        artistName?: string;
-        artworkUrl100?: string;
-        artworkUrl512?: string;
-        averageUserRating?: number;
-        userRatingCount?: number;
-      }>;
-    };
+    const json = (await res.json()) as ItunesResponse;
     const r = json.results?.[0];
     if (!r) return null;
 
@@ -339,15 +502,10 @@ export async function fetchAppStoreMetadata(
       icon: r.artworkUrl512 ?? r.artworkUrl100 ?? null,
       rating: typeof r.averageUserRating === "number" ? r.averageUserRating : null,
       reviewCount: typeof r.userRatingCount === "number" ? r.userRatingCount : null,
+      country: store,
     };
 
-    try {
-      const redis = getRedis();
-      if (redis) await redis.setex(cacheKey, META_TTL, result);
-    } catch {
-      // best-effort — cache miss is fine
-    }
-
+    await writeCache(cacheKey, result);
     return result;
   } catch {
     return null;
@@ -358,7 +516,49 @@ export async function fetchAppStoreMetadata(
 export async function fetchAppMetadata(
   platform: StorePlatform,
   storeId: string,
+  country: string = DEFAULT_STOREFRONT,
 ): Promise<AppMetadata | null> {
-  if (platform === "app-store") return fetchAppStoreMetadata(storeId);
-  return fetchGooglePlayMetadata(storeId);
+  if (platform === "app-store") return fetchAppStoreMetadata(storeId, country);
+  return fetchGooglePlayMetadata(storeId, country);
+}
+
+/**
+ * Find an app in whichever storefront actually carries it.
+ *
+ * Regional apps are absent from the US storefront entirely, so a single
+ * US lookup returns null and the app looks nonexistent. Tries storefronts in
+ * priority order and reports which one matched, so we can persist it on the
+ * app row and sync the right country from then on.
+ */
+export async function findAppAcrossStorefronts(
+  platform: StorePlatform,
+  storeId: string,
+  countries: string[] = searchStorefronts(),
+): Promise<AppMetadata | null> {
+  for (const country of countries) {
+    const meta = await fetchAppMetadata(platform, storeId, country);
+    // A hit with neither a rating nor a real name is a placeholder page;
+    // keep looking rather than locking the app to a dead storefront.
+    if (meta && (meta.rating !== null || meta.name !== storeId)) return meta;
+  }
+  return null;
+}
+
+/**
+ * Metadata for an app we're about to persist.
+ *
+ * `preferred` is the storefront the client observed at search time — cheap to
+ * confirm, and it avoids probing every storefront again. Falls back to a full
+ * probe when it's absent or turns out to be wrong.
+ */
+export async function resolveAppMetadata(
+  platform: StorePlatform,
+  storeId: string,
+  preferred?: string | null,
+): Promise<AppMetadata | null> {
+  if (preferred) {
+    const meta = await fetchAppMetadata(platform, storeId, normalizeStorefront(preferred));
+    if (meta && (meta.rating !== null || meta.name !== storeId)) return meta;
+  }
+  return findAppAcrossStorefronts(platform, storeId);
 }

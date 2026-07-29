@@ -11,7 +11,7 @@ import {
   STARTER_REPLY_TEMPLATES,
   type AppCategory,
 } from "@/lib/brand-voice-stubs";
-import { fetchAppMetadata } from "@/services/store-search";
+import { resolveAppMetadata } from "@/services/store-search";
 import { syncWorkspace } from "@/services/review-sync";
 
 interface OnboardingBody {
@@ -26,6 +26,8 @@ interface OnboardingBody {
   icon?:         string | null;
   developer?:    string | null;
   rating?:       number | null;
+  /** Storefront the client saw this app in (from search) — confirmed server-side. */
+  country?:      string | null;
 }
 
 const TRIAL_DAYS = 14;
@@ -188,14 +190,18 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     let metaDeveloper = body.developer ?? null;
     let metaRating = body.rating ?? null;
     let metaReviewCount: number | null = null;
+    let metaCountry: string | null = null;
     if (storeId) {
       try {
-        const fetched = await fetchAppMetadata(platform, storeId);
+        // Resolves WHICH storefront carries this app — a region-locked app
+        // scraped against the US storefront yields zero reviews forever.
+        const fetched = await resolveAppMetadata(platform, storeId, body.country);
         if (fetched) {
           metaIcon         = fetched.icon ?? metaIcon;
           metaDeveloper    = fetched.developer || metaDeveloper;
           metaRating       = fetched.rating ?? metaRating;
           metaReviewCount  = fetched.reviewCount ?? null;
+          metaCountry      = fetched.country ?? null;
         }
       } catch (err) {
         console.warn("[onboarding] app metadata fetch failed:", err);
@@ -213,6 +219,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         developer:              metaDeveloper,
         lifetime_rating:        metaRating,
         lifetime_review_count:  metaReviewCount,
+        store_country:          metaCountry,
         metadata_refreshed_at:  metaIcon || metaRating ? new Date().toISOString() : null,
       })
       .select("id")
