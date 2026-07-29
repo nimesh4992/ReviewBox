@@ -5,6 +5,7 @@ import { AlarmClock, BarChart3, Bug, Download, Loader2, TrendingUp, type LucideI
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
 import { useApps } from "@/hooks/use-apps";
+import { resolveSelectedApp } from "@/lib/selected-app";
 
 interface Report {
   id:          string;
@@ -255,9 +256,9 @@ function CsvExportCard() {
 
 export function ReportsScreen() {
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
-  // selectedApp is an app ID — printing it raw put a UUID in the header.
+  // Printing selectedApp raw put a UUID in the header. See src/lib/selected-app.ts.
   const { apps } = useApps();
-  const selectedAppName = apps.find((a) => a.id === selectedApp)?.name ?? "All apps";
+  const { appName: selectedAppName } = resolveSelectedApp(apps, selectedApp);
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8 max-w-[1240px] mx-auto">
 
