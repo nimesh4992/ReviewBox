@@ -456,19 +456,29 @@ function Step2App({
     if (searchTimer.current) clearTimeout(searchTimer.current);
     if (query.trim().length < 2) { setResults([]); setSearchFailed(false); return; }
     setSearching(true);
+    // The debounce only cancels the pending timer — a request already in flight
+    // still resolved and overwrote the results. Typing "face" then "facebook"
+    // could leave the slower "face" response on screen under the newer query,
+    // and this is the step where the user picks which app to connect.
+    let stale = false;
     searchTimer.current = setTimeout(async () => {
       try {
         const res = await fetch(
           `/api/onboarding/search-app?query=${encodeURIComponent(query.trim())}&platform=${form.platform}`
         );
+        if (stale) return;
         if (!res.ok) { setSearchFailed(true); setSearching(false); return; }
         const d = (await res.json()) as { results: SearchResult[]; searchFailed?: boolean };
+        if (stale) return;
         setResults(d.results ?? []);
         setSearchFailed(!!d.searchFailed);
-      } catch { setSearchFailed(true); }
-      finally { setSearching(false); }
+      } catch { if (!stale) setSearchFailed(true); }
+      finally { if (!stale) setSearching(false); }
     }, 400);
-    return () => { if (searchTimer.current) clearTimeout(searchTimer.current); };
+    return () => {
+      stale = true;
+      if (searchTimer.current) clearTimeout(searchTimer.current);
+    };
   }, [query, form.platform]);
 
   const selectApp = (r: SearchResult) => {
