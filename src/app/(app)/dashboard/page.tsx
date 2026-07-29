@@ -75,12 +75,8 @@ function formatDelta(value: number | null, suffix = ""): string {
 }
 
 // ── SyncBanners ───────────────────────────────────────────────────────────────
-// Exactly ONE status element, chosen by priority: sync errors beat an
-// in-flight first sync, which beats "connected but quiet", which beats
-// background AI enrichment. The dashboard previously stacked one banner per
-// app plus a separate AI panel — with the trial nudge and the global
-// credentials bar, a fresh workspace could open on four banners and an
-// uninvited modal. One strip, one action, everything else waits its turn.
+// Single authoritative banner section — replaces the two separate loops that
+// existed before and could show duplicate banners for the same app.
 
 function SyncBanners({
   apps,
@@ -416,13 +412,21 @@ export default function DashboardPage() {
   const avgRatingDeltaKind: "positive" | "warning" | "neutral" =
     avgRatingDelta === null ? "neutral" : avgRatingDelta < 0 ? "warning" : "positive";
 
+  const hasGooglePlayApp   = apps.some((a) => a.platform === "google_play");
   const firstGooglePlayApp = apps.find((a) => a.platform === "google_play");
 
-  // The setup modal used to open itself on load whenever a Google Play app
-  // hadn't synced, on top of the status banners — a dialog nobody asked for,
-  // covering the screen it was explaining. It now opens only from the status
-  // strip's "Finish setup" action (and from Settings).
+  const DISMISSED_KEY = "rb_gplay_invite_dismissed";
   const [setupModalOpen, setSetupModalOpen] = useState(false);
+  useEffect(() => {
+    if (!hasGooglePlayApp) return;
+    if (typeof window === "undefined") return;
+    if (localStorage.getItem(DISMISSED_KEY)) return;
+    const hasUnsynced = apps.some(
+      (a) => a.platform === "google_play" && a.last_sync_status !== "success",
+    );
+    if (hasUnsynced) setSetupModalOpen(true);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasGooglePlayApp]);
 
   const kpis = [
     {
@@ -467,7 +471,10 @@ export default function DashboardPage() {
     <div className="flex w-full flex-col gap-5 overflow-auto p-4 sm:p-6 lg:p-8 max-w-[1280px] mx-auto">
       <GooglePlaySetupModal
         open={setupModalOpen}
-        onClose={() => setSetupModalOpen(false)}
+        onClose={() => {
+          localStorage.setItem(DISMISSED_KEY, "1");
+          setSetupModalOpen(false);
+        }}
         app={firstGooglePlayApp
           ? { id: firstGooglePlayApp.id, store_id: firstGooglePlayApp.store_id, name: firstGooglePlayApp.name }
           : undefined}
