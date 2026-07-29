@@ -19,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { useApps, useInvalidateApps, type WorkspaceApp } from "@/hooks/use-apps";
 import { avatarInitials, formatReviewDate } from "@/utils/format";
 import { GooglePlaySetupModal } from "@/components/dashboard/google-play-setup-modal";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 // ── App Store credential form ─────────────────────────────────────────────────
 
@@ -90,7 +91,7 @@ function AppStoreForm({
       });
       if (!res.ok) {
         const body = (await res.json()) as { error?: string };
-        setError(body.error ?? "Save failed.");
+        setError(apiErrorMessage(body, "Save failed."));
         return;
       }
       setKeyId("");
@@ -375,7 +376,7 @@ function AppRow({
       const res = await fetch(`/api/apps/${app.id}`, { method: "DELETE" });
       if (!res.ok) {
         const body = await res.json().catch(() => ({})) as { error?: string };
-        setDeleteError(body.error ?? "Failed to remove app. Please try again.");
+        setDeleteError(apiErrorMessage(body, "Failed to remove app. Please try again."));
         return;
       }
       onDeleted();
@@ -548,8 +549,11 @@ function AddAppForm({ onAdded }: { onAdded: () => void }) {
         }),
       });
       if (!res.ok) {
-        const body = (await res.json()) as { error?: string; message?: string };
-        setError(body.message ?? body.error ?? "Failed to add app.");
+        const body: unknown = await res.json().catch(() => null);
+        // Never render the raw body: the API returns { error: { code, message } }
+        // and passing that object to setError crashed the page (React #31),
+        // hiding the real reason the app could not be added.
+        setError(apiErrorMessage(body, "Failed to add app."));
         return;
       }
       setName("");

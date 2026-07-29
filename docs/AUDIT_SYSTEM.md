@@ -113,6 +113,15 @@ The killer question for this codebase. For every code path ask:
 - Swallowed errors: `catch(() => {})` on user actions with no feedback.
 - Numbers that lie: lifetime store counts next to synced-window counts,
   "automatic"/"real-time" copy vs a daily cron, etc.
+- **Casts over `res.json()` are unchecked claims, not types.** `as { error?:
+  string }` on an API body compiles happily while the API actually returns
+  `{ error: { code, message } }` — TypeScript was told a lie, so it cannot
+  catch one. Two live consequences of exactly this cast: `setError(body.error)`
+  rendered an object and React #31 killed the whole Settings page (hiding the
+  real error), and `data.error === "STORE_RATE_LIMITED"` compared an object to
+  a string so six actionable messages were unreachable dead code. Grep for
+  `as { error` and `.error ===` and check them against `ApiErrorBody`; render
+  through `apiErrorMessage()`, switch on `error.code`.
 
 ---
 

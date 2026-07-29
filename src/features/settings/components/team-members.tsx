@@ -5,6 +5,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { UserPlus, Mail, Clock, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { apiErrorMessage } from "@/lib/api-error-message";
 
 interface Member {
   clerk_user_id: string;
@@ -65,7 +66,7 @@ export function TeamMembers() {
       });
       if (!res.ok) {
         const d = await res.json().catch(() => ({})) as { error?: string; detail?: string };
-        throw new Error(d.detail ?? d.error ?? "Failed to send invite");
+        throw new Error(apiErrorMessage(d, "Failed to send invite"));
       }
     },
     onSuccess: () => {
