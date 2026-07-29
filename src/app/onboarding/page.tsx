@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { useClerk } from "@clerk/nextjs";
 import {
-  ArrowLeft, Check, ChevronRight, Loader2, Plug, Search, Sparkles,
+  Apple, ArrowLeft, Check, ChevronRight, Loader2, Plug, Search, Smartphone, Sparkles,
 } from "lucide-react";
 import { track } from "@/lib/analytics";
 import { Input } from "@/components/ui/input";
@@ -420,7 +420,7 @@ function Step1Workspace({
       <button
         onClick={onNext}
         disabled={!canContinue}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-30"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:bg-white/[0.07] disabled:text-white/45"
       >
         Continue <ChevronRight className="size-4" strokeWidth={2} />
       </button>
@@ -504,7 +504,12 @@ function Step2App({
                 : "border-white/[0.08] bg-white/[0.04] text-white/40 hover:border-white/20 hover:text-white/70",
             )}
           >
-            {p === "google-play" ? "🤖 Google Play" : "🍎 App Store"}
+            <span className="flex items-center justify-center gap-1.5">
+              {p === "google-play"
+                ? <Smartphone className="size-3.5" strokeWidth={1.5} />
+                : <Apple className="size-3.5" strokeWidth={1.5} />}
+              {p === "google-play" ? "Google Play" : "App Store"}
+            </span>
           </button>
         ))}
       </div>
@@ -592,7 +597,7 @@ function Step2App({
       <button
         onClick={onNext}
         disabled={!form.selectedApp}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-30"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:bg-white/[0.07] disabled:text-white/45"
       >
         Continue <ChevronRight className="size-4" strokeWidth={2} />
       </button>
@@ -729,7 +734,7 @@ function Step3BrandVoice({
       <button
         onClick={onNext}
         disabled={saving}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:bg-white/[0.07] disabled:text-white/45"
       >
         {saving ? <><Loader2 className="size-4 animate-spin" strokeWidth={2} /> Setting up…</> : <>Set up my workspace <ChevronRight className="size-4" strokeWidth={2} /></>}
       </button>
@@ -914,7 +919,7 @@ function Step5Ready({
       <button
         onClick={onLaunch}
         disabled={!canLaunch || saving}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-30"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:bg-white/[0.07] disabled:text-white/45"
       >
         {saving
           ? <><Loader2 className="size-4 animate-spin" strokeWidth={2} /> Launching…</>
