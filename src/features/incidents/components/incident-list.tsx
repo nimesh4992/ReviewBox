@@ -11,13 +11,13 @@ const SEVERITY_CONFIG: Record<
 > = {
   critical: { bar: "bg-red-400", icon: ShieldAlert, label: "Critical" },
   high: { bar: "bg-amber-400", icon: TriangleAlert, label: "High" },
-  medium: { bar: "bg-gray-300", icon: TriangleAlert, label: "Medium" },
+  medium: { bar: "bg-[var(--rb-border-3)]", icon: TriangleAlert, label: "Medium" },
 };
 
 const STATUS_CONFIG: Record<IncidentStatus, { label: string; className: string; Icon: typeof Loader2 }> = {
-  active: { label: "Active", className: "text-red-600", Icon: ShieldAlert },
+  active: { label: "Active", className: "text-[var(--rb-red-500)]", Icon: ShieldAlert },
   investigating: { label: "Investigating", className: "text-amber-600", Icon: Loader2 },
-  resolved: { label: "Resolved", className: "text-gray-400", Icon: CheckCircle2 },
+  resolved: { label: "Resolved", className: "text-fg-3", Icon: CheckCircle2 },
 };
 
 export function IncidentList({ incidents }: { incidents: IncidentAlert[] }) {
@@ -43,12 +43,12 @@ export function IncidentList({ incidents }: { incidents: IncidentAlert[] }) {
         </span>
       </div>
 
-      <div className="divide-y divide-gray-100">
+      <div className="divide-y divide-[var(--rb-border-1)]">
         {incidents.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center">
             <ShieldCheck className="size-12 text-emerald-200" strokeWidth={1.5} />
-            <h3 className="mt-4 text-sm font-semibold text-gray-900">All clear</h3>
-            <p className="mt-1 max-w-xs text-xs text-gray-400">
+            <h3 className="mt-4 text-sm font-semibold text-fg-1">All clear</h3>
+            <p className="mt-1 max-w-xs text-xs text-fg-3">
               No active incidents. ReviewBox will automatically detect crash spikes and rating drops once reviews are syncing.
             </p>
           </div>
@@ -69,19 +69,19 @@ export function IncidentList({ incidents }: { incidents: IncidentAlert[] }) {
               <div className="flex flex-1 flex-col gap-2 px-4 py-3.5 sm:flex-row sm:items-start sm:justify-between">
                 <div className="min-w-0">
                   <div className="flex flex-wrap items-center gap-2">
-                    <SevIcon className="size-3.5 shrink-0 text-gray-400" />
-                    <h3 className="text-sm font-semibold text-gray-900">{incident.title}</h3>
-                    <span className="text-[10px] font-medium text-gray-400">{sev.label}</span>
+                    <SevIcon className="size-3.5 shrink-0 text-fg-3" />
+                    <h3 className="text-sm font-semibold text-fg-1">{incident.title}</h3>
+                    <span className="text-[10px] font-medium text-fg-3">{sev.label}</span>
                   </div>
-                  <p className="mt-1 max-w-3xl text-sm leading-5 text-gray-400">
+                  <p className="mt-1 max-w-3xl text-sm leading-5 text-fg-3">
                     {incident.description}
                   </p>
-                  <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-gray-400">
+                  <div className="mt-2 flex flex-wrap items-center gap-3 text-xs text-fg-3">
                     <span className="flex items-center gap-1">
                       <Clock className="size-3" />
                       {incident.detectedAt}
                     </span>
-                    <span className="text-gray-500">{incident.owner}</span>
+                    <span className="text-fg-3">{incident.owner}</span>
                   </div>
                 </div>
 
@@ -93,7 +93,7 @@ export function IncidentList({ incidents }: { incidents: IncidentAlert[] }) {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="h-7 border-0 text-xs text-gray-400 hover:text-gray-600"
+                    className="h-7 border-0 text-xs text-fg-3 hover:text-fg-1"
                     asChild
                   >
                     <Link href={`/incidents/${incident.id}`}>

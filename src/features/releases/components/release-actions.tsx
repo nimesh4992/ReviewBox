@@ -12,8 +12,8 @@ import {
 
 export function ReleaseActions() {
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5">
-      <h2 className="text-sm font-semibold text-gray-900 mb-4">Actions</h2>
+    <div className="rounded-2xl border border-[var(--rb-border-1)] bg-surface shadow-sm p-5">
+      <h2 className="text-sm font-semibold text-fg-1 mb-4">Actions</h2>
       <TooltipProvider>
         <Tooltip>
           <TooltipTrigger asChild>
@@ -22,7 +22,7 @@ export function ReleaseActions() {
                 variant="outline"
                 size="sm"
                 disabled
-                className="h-8 border-gray-200 text-gray-400 cursor-not-allowed"
+                className="h-8 border-[var(--rb-border-1)] text-fg-3 cursor-not-allowed"
               >
                 <PauseCircle className="size-3.5" strokeWidth={1.5} />
                 Pause rollout

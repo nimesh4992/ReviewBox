@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
-import { CheckCircle2, Loader2, ExternalLink, Trash2 } from "lucide-react";
+import { CheckCircle2, CircleAlert, Loader2, ExternalLink, Siren, Trash2, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // When NEXT_PUBLIC_SLACK_CLIENT_ID is not set, the existing paste-URL
@@ -316,7 +316,7 @@ export function SlackIntegration() {
                 <button
                   onClick={handleSave}
                   disabled={saving || !isDirty}
-                  className="h-[30px] rounded-[7px] bg-[#0A84FF] px-4 text-[12px] font-semibold text-white hover:bg-[#006EE0] disabled:opacity-40 transition-colors"
+                  className="h-[30px] rounded-[7px] bg-[#0A84FF] px-4 text-[12px] font-semibold text-white hover:bg-[#006EE0] disabled:bg-[var(--rb-bg-sunken)] disabled:text-fg-3 disabled:border disabled:border-[var(--rb-border-2)] transition-colors"
                 >
                   {saving ? <Loader2 size={12} className="animate-spin" /> : isConnectedViaUrl && !isDirty ? "Saved" : "Save"}
                 </button>
@@ -367,15 +367,15 @@ function AlertTypePills() {
       <p className="text-[12px] font-medium text-fg-2">Sends alerts for</p>
       <div className="flex flex-wrap gap-2">
         {[
-          { icon: "⚠️", label: "Rating spikes" },
-          { icon: "🚨", label: "New incidents" },
-          { icon: "🔴", label: "Urgent reviews" },
+          { icon: TrendingDown, label: "Rating spikes" },
+          { icon: Siren,        label: "New incidents" },
+          { icon: CircleAlert,  label: "Urgent reviews" },
         ].map((e) => (
           <span
             key={e.label}
             className="flex items-center gap-1.5 rounded-full border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-2.5 py-1 text-[11px] font-medium text-fg-2"
           >
-            {e.icon} {e.label}
+            <e.icon size={11} strokeWidth={1.5} className="text-fg-3" /> {e.label}
           </span>
         ))}
       </div>

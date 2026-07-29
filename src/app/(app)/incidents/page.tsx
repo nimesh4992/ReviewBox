@@ -47,7 +47,7 @@ function DeclareDialog({ onClose }: { onClose: () => void }) {
         {/* Header */}
         <div className="flex items-center justify-between border-b border-[var(--rb-border-1)] px-6 py-4">
           <div className="flex items-center gap-2.5">
-            <div className="flex size-7 items-center justify-center rounded-lg bg-red-50 text-red-600">
+            <div className="flex size-7 items-center justify-center rounded-lg bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)]">
               <ShieldAlert size={14} />
             </div>
             <span className="text-[15px] font-semibold text-fg-1">Declare incident</span>
@@ -76,19 +76,19 @@ function DeclareDialog({ onClose }: { onClose: () => void }) {
                     "rounded-[10px] border px-3 py-2.5 text-left transition-all",
                     severity === opt.value
                       ? opt.value === "critical"
-                        ? "border-red-500 bg-red-50"
+                        ? "border-red-500 bg-[var(--rb-red-500)]/10"
                         : opt.value === "high"
                         ? "border-amber-500 bg-amber-50"
-                        : "border-gray-400 bg-gray-50"
+                        : "border-[var(--rb-border-3)] bg-[var(--rb-bg-sunken)]"
                       : "border-[var(--rb-border-2)] bg-surface hover:bg-[var(--rb-bg-hover)]",
                   )}
                 >
                   <div className={cn(
                     "text-[12px] font-semibold",
                     severity === opt.value
-                      ? opt.value === "critical" ? "text-red-600"
+                      ? opt.value === "critical" ? "text-[var(--rb-red-500)]"
                       : opt.value === "high"     ? "text-amber-600"
-                      : "text-gray-700"
+                      : "text-fg-2"
                       : "text-fg-2",
                   )}>
                     {opt.label}
@@ -192,7 +192,7 @@ export default function IncidentsPage() {
               <Loader2 size={20} className="animate-spin" />
             </div>
           ) : error ? (
-            <div className="rounded-xl border border-red-100 bg-red-50 p-6 text-center text-[13px] text-red-600">
+            <div className="rounded-xl border border-[var(--rb-red-500)]/20 bg-[var(--rb-red-500)]/10 p-6 text-center text-[13px] text-[var(--rb-red-500)]">
               Failed to load incidents. Check your connection and refresh.
             </div>
           ) : (

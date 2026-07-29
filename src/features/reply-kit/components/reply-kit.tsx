@@ -20,9 +20,9 @@ export function ReplyKit() {
   const [activeTab, setActiveTab] = useState<TabId>("tags");
 
   return (
-    <div>
+    <div className="mx-auto w-full max-w-[1000px]">
       {/* Tab bar */}
-      <div className="mb-6 flex border-b border-gray-200">
+      <div className="mb-6 flex border-b border-[var(--rb-border-1)]">
         {TABS.map((tab) => (
           <button
             key={tab.id}
@@ -31,7 +31,7 @@ export function ReplyKit() {
               "pb-3 pr-6 text-sm font-medium transition-colors duration-150 outline-none",
               activeTab === tab.id
                 ? "border-b-2 border-[var(--rb-blue-500)] -mb-px text-[var(--rb-blue-500)]"
-                : "text-gray-500 hover:text-gray-700"
+                : "text-fg-3 hover:text-fg-1"
             )}
           >
             {tab.label}

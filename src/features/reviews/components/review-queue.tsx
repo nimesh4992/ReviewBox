@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef, useDeferredValue } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import {
   CheckCheck,
   Inbox,
@@ -1204,11 +1205,14 @@ export function InboxScreen({
   isFetching = false,
   fetchNextPage,
 }: InboxScreenProps) {
+  // Seed search from ?search= so the global header search box actually
+  // filters the inbox when it navigates here.
+  const urlSearch = useSearchParams().get("search") ?? "";
   const [selectedId, setSelectedId]         = useState<string | null>(reviews[0]?.id ?? null);
   const [mobilePane, setMobilePane]         = useState<"list" | "detail">("list");
   const [activeFilter, setActiveFilter]     = useState<InboxFilter>("all");
   const [sort, setSort]                     = useState<InboxSort>("newest");
-  const [search, setSearch]                 = useState("");
+  const [search, setSearch]                 = useState(urlSearch);
   const [versionFilter, setVersionFilter]   = useState<string>("all");
   const [groupMode, setGroupMode]           = useState(false);
   const [selectMode, setSelectMode]           = useState(false);

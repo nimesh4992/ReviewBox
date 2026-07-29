@@ -27,9 +27,9 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
     e.preventDefault();
     const q = searchQuery.trim();
     if (!q) return;
-    // Reviews page reads ?search= as a server-side filter. Until we add a
-    // proper command palette (Cmd+K), this is the search UX.
-    router.push(`/reviews?search=${encodeURIComponent(q)}`);
+    // The inbox seeds its filter from ?search=. (/reviews redirects to /inbox
+    // and would drop the query param, so navigate straight to the inbox.)
+    router.push(`/inbox?search=${encodeURIComponent(q)}`);
   }
 
   return (

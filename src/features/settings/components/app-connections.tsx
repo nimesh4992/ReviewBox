@@ -5,12 +5,10 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronRight,
-  Globe,
   Loader2,
   Plus,
   RefreshCw,
   Settings2,
-  Smartphone,
   Trash2,
   TriangleAlert,
 } from "lucide-react";
@@ -19,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useApps, useInvalidateApps, type WorkspaceApp } from "@/hooks/use-apps";
-import { formatReviewDate } from "@/utils/format";
+import { avatarInitials, formatReviewDate } from "@/utils/format";
 import { GooglePlaySetupModal } from "@/components/dashboard/google-play-setup-modal";
 
 // ── App Store credential form ─────────────────────────────────────────────────
@@ -170,9 +168,9 @@ function AppStoreForm({
       </ol>
 
       {app.has_credentials && !testResult && (
-        <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--rb-border-1)] bg-white px-3 py-2">
+        <div className="flex items-center justify-between gap-3 rounded-md border border-[var(--rb-border-1)] bg-surface px-3 py-2">
           <div className="flex items-center gap-1.5 text-xs text-[var(--rb-fg-2)]">
-            <CheckCircle2 className="size-3.5 text-emerald-500" />
+            <CheckCircle2 className="size-3.5 text-[var(--rb-green-500)]" />
             Credentials saved. Verify they work with Apple:
           </div>
           <Button
@@ -196,20 +194,20 @@ function AppStoreForm({
           className={cn(
             "rounded-md border px-3 py-2.5",
             testResult.ok
-              ? "border-emerald-200 bg-emerald-50"
-              : "border-red-200 bg-red-50",
+              ? "border-[var(--rb-green-500)]/25 bg-[var(--rb-green-500)]/10"
+              : "border-[var(--rb-red-500)]/25 bg-[var(--rb-red-500)]/10",
           )}
         >
           <div className={cn(
             "flex items-center gap-1.5 text-xs font-semibold",
-            testResult.ok ? "text-emerald-700" : "text-red-700",
+            testResult.ok ? "text-[var(--rb-green-500)]" : "text-[var(--rb-red-500)]",
           )}>
             {testResult.ok ? <CheckCircle2 className="size-3.5" /> : <TriangleAlert className="size-3.5" />}
             {testResult.ok ? "Verified" : "Verification failed"}
           </div>
           <p className={cn(
             "mt-1 text-[11px] leading-relaxed",
-            testResult.ok ? "text-emerald-700/90" : "text-red-700/90",
+            testResult.ok ? "text-[var(--rb-green-500)]/90" : "text-[var(--rb-red-500)]/90",
           )}>
             {testResult.message}
           </p>
@@ -224,7 +222,7 @@ function AppStoreForm({
               >
                 Re-test
               </Button>
-              <span className="text-[10px] text-emerald-700/70">
+              <span className="text-[10px] text-[var(--rb-green-500)]/70">
                 Now click <strong>Sync now</strong> above to pull reviews.
               </span>
             </div>
@@ -243,7 +241,7 @@ function AppStoreForm({
           onChange={(e) => setKeyId(e.target.value)}
           placeholder="XXXXXXXXXX (10 chars)"
           className={cn(
-            "mt-1 h-8 bg-white text-sm font-mono",
+            "mt-1 h-8 bg-surface text-sm font-mono",
             keyIdLooksValid ? "border-[var(--rb-border-1)]" : "border-amber-300",
           )}
         />
@@ -261,7 +259,7 @@ function AppStoreForm({
           onChange={(e) => setIssuerId(e.target.value)}
           placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
           className={cn(
-            "mt-1 h-8 bg-white text-sm font-mono",
+            "mt-1 h-8 bg-surface text-sm font-mono",
             issuerIdLooksValid ? "border-[var(--rb-border-1)]" : "border-amber-300",
           )}
         />
@@ -279,7 +277,7 @@ function AppStoreForm({
           onChange={(e) => setP8Key(e.target.value)}
           placeholder={"-----BEGIN PRIVATE KEY-----\nMIGHAgEAM...\n-----END PRIVATE KEY-----"}
           rows={5}
-          className="mt-1 w-full rounded-md border border-[var(--rb-border-1)] bg-white px-3 py-2 font-mono text-xs text-[var(--rb-fg-2)] placeholder:text-[var(--rb-fg-4)] focus:outline-none focus:ring-2 focus:ring-[#0A84FF]/20 resize-none"
+          className="mt-1 w-full rounded-md border border-[var(--rb-border-1)] bg-surface px-3 py-2 font-mono text-xs text-[var(--rb-fg-2)] placeholder:text-[var(--rb-fg-4)] focus:outline-none focus:ring-2 focus:ring-[#0A84FF]/20 resize-none"
         />
       </label>
 
@@ -362,14 +360,13 @@ function AppRow({
   const [setupModalOpen, setSetupModalOpen] = useState(false);
 
   const isAppStore = app.platform === "app_store";
-  const Icon = isAppStore ? Globe : Smartphone;
 
   const statusLabel = app.has_credentials || app.platform === "google_play"
     ? "Connected"
     : "Needs setup";
   const statusClass = app.has_credentials || app.platform === "google_play"
-    ? "bg-emerald-50 text-emerald-700 border-emerald-200"
-    : "bg-amber-50 text-amber-700 border-amber-200";
+    ? "bg-[var(--rb-green-500)]/10 text-[var(--rb-green-500)] border-[var(--rb-green-500)]/25"
+    : "bg-[var(--rb-amber-500)]/10 text-[var(--rb-amber-500)] border-[var(--rb-amber-500)]/25";
 
   async function handleDelete() {
     if (!confirm(`Remove "${app.name}"? This will delete all synced reviews.`)) return;
@@ -408,9 +405,18 @@ function AppRow({
   return (
     <div className="border-b border-[var(--rb-border-1)] last:border-0">
       <div className="flex items-center gap-3 px-4 py-3.5">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)]">
-          <Icon className="size-4 text-[var(--rb-fg-3)]" />
-        </div>
+        {app.icon_url ? (
+          // eslint-disable-next-line @next/next/no-img-element -- store CDN icon, unknown domains
+          <img
+            src={app.icon_url}
+            alt=""
+            className="size-9 shrink-0 rounded-lg border border-[var(--rb-border-1)] object-cover"
+          />
+        ) : (
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-lg bg-[#0A84FF]/10 text-[13px] font-semibold text-[#0A84FF]">
+            {avatarInitials(app.name)}
+          </div>
+        )}
 
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2">
@@ -485,7 +491,7 @@ function AppRow({
       </div>
 
       {deleteError && (
-        <div className="mx-4 mb-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+        <div className="mx-4 mb-2 rounded-lg border border-[var(--rb-red-500)]/25 bg-[var(--rb-red-500)]/10 px-3 py-2 text-xs text-[var(--rb-red-500)]">
           {deleteError}
         </div>
       )}
@@ -586,7 +592,7 @@ function AddAppForm({ onAdded }: { onAdded: () => void }) {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder="My App"
-            className="mt-1 h-8 border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] text-sm focus:bg-white"
+            className="mt-1 h-8 border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] text-sm focus:bg-surface"
           />
         </label>
 
@@ -615,7 +621,7 @@ function AddAppForm({ onAdded }: { onAdded: () => void }) {
               ? "com.yourcompany.app"
               : "com.yourcompany.app"
           }
-          className="mt-1 h-8 border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] font-mono text-sm focus:bg-white"
+          className="mt-1 h-8 border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] font-mono text-sm focus:bg-surface"
         />
       </label>
 
@@ -658,7 +664,7 @@ export function AppConnections() {
   const invalidate = useInvalidateApps();
 
   return (
-    <section className="overflow-hidden rounded-xl border border-[var(--rb-border-1)] bg-white shadow-sm">
+    <section className="overflow-hidden rounded-xl border border-[var(--rb-border-1)] bg-surface shadow-sm">
       <div className="border-b border-[var(--rb-border-1)] px-4 py-3">
         <h2 className="text-sm font-semibold text-[var(--rb-fg-1)]">Connected apps</h2>
         <p className="mt-0.5 text-xs text-[var(--rb-fg-4)]">

@@ -155,7 +155,7 @@ function TemplateForm({ initial, saving, submitLabel, onSubmit, onCancel }: Temp
           onChange={(e) => set("name", e.target.value)}
           placeholder="e.g. Thank you — 5 star"
           required
-          className="rounded-lg border border-[var(--rb-border-1)] bg-white px-3 py-2 text-sm text-[var(--rb-fg-1)] outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30"
+          className="rounded-lg border border-[var(--rb-border-1)] bg-surface px-3 py-2 text-sm text-[var(--rb-fg-1)] outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30"
         />
       </div>
 
@@ -168,7 +168,7 @@ function TemplateForm({ initial, saving, submitLabel, onSubmit, onCancel }: Temp
           placeholder="Write your reply template…"
           required
           rows={4}
-          className="rounded-lg border border-[var(--rb-border-1)] bg-white px-3 py-2 text-sm text-[var(--rb-fg-1)] outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30 resize-none"
+          className="rounded-lg border border-[var(--rb-border-1)] bg-surface px-3 py-2 text-sm text-[var(--rb-fg-1)] outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30 resize-none"
         />
         <div className="flex items-center justify-between">
           <CharCounter count={form.content.length} />
@@ -191,7 +191,7 @@ function TemplateForm({ initial, saving, submitLabel, onSubmit, onCancel }: Temp
           <select
             value={form.ratingMin}
             onChange={(e) => set("ratingMin", Number(e.target.value))}
-            className="rounded-lg border border-[var(--rb-border-1)] bg-white px-3 py-2 text-sm text-[var(--rb-fg-1)] outline-none focus:border-[var(--rb-blue-500)]"
+            className="rounded-lg border border-[var(--rb-border-1)] bg-surface px-3 py-2 text-sm text-[var(--rb-fg-1)] outline-none focus:border-[var(--rb-blue-500)]"
           >
             {[1, 2, 3, 4, 5].map((n) => (
               <option key={n} value={n}>★{n}</option>
@@ -203,7 +203,7 @@ function TemplateForm({ initial, saving, submitLabel, onSubmit, onCancel }: Temp
           <select
             value={form.ratingMax}
             onChange={(e) => set("ratingMax", Number(e.target.value))}
-            className="rounded-lg border border-[var(--rb-border-1)] bg-white px-3 py-2 text-sm text-[var(--rb-fg-1)] outline-none focus:border-[var(--rb-blue-500)]"
+            className="rounded-lg border border-[var(--rb-border-1)] bg-surface px-3 py-2 text-sm text-[var(--rb-fg-1)] outline-none focus:border-[var(--rb-blue-500)]"
           >
             {[1, 2, 3, 4, 5].map((n) => (
               <option key={n} value={n}>★{n}</option>
@@ -215,7 +215,7 @@ function TemplateForm({ initial, saving, submitLabel, onSubmit, onCancel }: Temp
           <select
             value={form.language}
             onChange={(e) => set("language", e.target.value)}
-            className="rounded-lg border border-[var(--rb-border-1)] bg-white px-3 py-2 text-sm text-[var(--rb-fg-1)] outline-none focus:border-[var(--rb-blue-500)]"
+            className="rounded-lg border border-[var(--rb-border-1)] bg-surface px-3 py-2 text-sm text-[var(--rb-fg-1)] outline-none focus:border-[var(--rb-blue-500)]"
           >
             {LANGUAGES.map((l) => (
               <option key={l} value={l}>{l}</option>
@@ -271,7 +271,7 @@ function TemplateCard({
   }
 
   return (
-    <div className="rounded-2xl border border-[var(--rb-border-1)] bg-white p-5 shadow-sm transition-shadow duration-150 hover:shadow-md">
+    <div className="rounded-2xl border border-[var(--rb-border-1)] bg-surface p-5 shadow-sm transition-shadow duration-150 hover:shadow-md">
       {/* Header */}
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm font-semibold text-[var(--rb-fg-1)]">{template.name}</span>

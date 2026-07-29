@@ -52,11 +52,11 @@ export function DangerZone() {
   }
 
   return (
-    <section className="rounded-[14px] border border-red-200/60 bg-white shadow-[var(--rb-shadow-xs)]">
-      <div className="border-b border-red-100 bg-red-50/40 px-5 py-3.5">
+    <section className="rounded-[14px] border border-[var(--rb-red-500)]/25 bg-surface shadow-[var(--rb-shadow-xs)]">
+      <div className="border-b border-[var(--rb-red-500)]/15 bg-[var(--rb-red-500)]/[0.06] px-5 py-3.5">
         <div className="flex items-center gap-2">
-          <AlertTriangle className="size-4 text-red-600" strokeWidth={1.5} />
-          <h2 className="text-[14px] font-semibold tracking-[-0.01em] text-[#1D1D1F]">
+          <AlertTriangle className="size-4 text-[var(--rb-red-500)]" strokeWidth={1.5} />
+          <h2 className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">
             Danger zone
           </h2>
         </div>
@@ -66,7 +66,7 @@ export function DangerZone() {
       </div>
 
       {error && (
-        <div className="mx-5 mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-[13px] text-red-700">
+        <div className="mx-5 mt-4 rounded-md border border-[var(--rb-red-500)]/25 bg-[var(--rb-red-500)]/10 px-3 py-2 text-[13px] text-[var(--rb-red-500)]">
           {error}
         </div>
       )}
@@ -74,7 +74,7 @@ export function DangerZone() {
       {/* Export */}
       <div className="flex items-center justify-between gap-4 border-b border-[var(--rb-border-1)] px-5 py-4">
         <div>
-          <div className="text-[13px] font-semibold text-[#1D1D1F]">Export your data</div>
+          <div className="text-[13px] font-semibold text-fg-1">Export your data</div>
           <div className="mt-0.5 text-[12px] text-[var(--rb-fg-3)]">
             Download all reviews, replies, automations, templates, and audit logs as JSON.
           </div>
@@ -82,7 +82,7 @@ export function DangerZone() {
         <button
           onClick={handleExport}
           disabled={exporting}
-          className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-black/[0.08] bg-white px-3 text-[12px] font-semibold text-[#48484D] transition-colors hover:bg-[#F5F5F7] disabled:opacity-50"
+          className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-2 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50"
         >
           {exporting ? (
             <>
@@ -102,7 +102,7 @@ export function DangerZone() {
       <div className="px-5 py-4">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-[13px] font-semibold text-[#1D1D1F]">Delete account</div>
+            <div className="text-[13px] font-semibold text-fg-1">Delete account</div>
             <div className="mt-0.5 text-[12px] text-[var(--rb-fg-3)]">
               Your workspace will be scheduled for deletion. You have 30 days to restore.
               After that, all data is permanently erased.
@@ -111,7 +111,7 @@ export function DangerZone() {
           {!confirming && (
             <button
               onClick={() => setConfirming(true)}
-              className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-red-200 bg-white px-3 text-[12px] font-semibold text-red-600 transition-colors hover:bg-red-50"
+              className="flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-[var(--rb-red-500)]/30 bg-surface px-3 text-[12px] font-semibold text-[var(--rb-red-500)] transition-colors hover:bg-[var(--rb-red-500)]/10"
             >
               <Trash2 className="size-3.5" strokeWidth={1.5} />
               Delete…
@@ -120,11 +120,11 @@ export function DangerZone() {
         </div>
 
         {confirming && (
-          <div className="mt-4 rounded-md border border-red-200 bg-red-50/60 p-4">
-            <p className="text-[13px] font-semibold text-red-900">
+          <div className="mt-4 rounded-md border border-[var(--rb-red-500)]/25 bg-[var(--rb-red-500)]/[0.07] p-4">
+            <p className="text-[13px] font-semibold text-fg-1">
               Type <span className="font-mono">DELETE</span> to confirm.
             </p>
-            <p className="mt-1 text-[12px] text-red-800">
+            <p className="mt-1 text-[12px] text-fg-2">
               All apps, reviews, replies, automations, templates, knowledge base entries,
               and team members will be removed after 30 days.
             </p>
@@ -133,7 +133,7 @@ export function DangerZone() {
               value={confirmText}
               onChange={(e) => setConfirmText(e.target.value)}
               placeholder="DELETE"
-              className="mt-3 h-9 w-full rounded-md border border-red-200 bg-white px-3 font-mono text-[13px] text-[#1D1D1F] outline-none focus:border-red-400 focus:ring-2 focus:ring-red-100"
+              className="mt-3 h-9 w-full rounded-md border border-[var(--rb-red-500)]/30 bg-surface px-3 font-mono text-[13px] text-fg-1 placeholder:text-fg-3 outline-none focus:border-[var(--rb-red-400)] focus:ring-2 focus:ring-[var(--rb-red-500)]/15"
             />
             <div className="mt-3 flex items-center gap-2">
               <button
@@ -156,7 +156,7 @@ export function DangerZone() {
                   setConfirmText("");
                 }}
                 disabled={canceling}
-                className="h-9 rounded-md border border-black/[0.08] bg-white px-3.5 text-[12px] font-medium text-[#48484D] transition-colors hover:bg-[#F5F5F7]"
+                className="h-9 rounded-md border border-[var(--rb-border-2)] bg-surface px-3.5 text-[12px] font-medium text-fg-2 transition-colors hover:bg-[var(--rb-bg-hover)]"
               >
                 Cancel
               </button>

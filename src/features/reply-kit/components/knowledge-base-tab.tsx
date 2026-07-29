@@ -62,33 +62,33 @@ function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel }: EntryFo
       className="mb-4 rounded-2xl border border-[var(--rb-blue-500)]/30 bg-[var(--rb-blue-500)]/5 p-5 space-y-3"
     >
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-gray-600">Title</label>
+        <label className="text-xs font-medium text-fg-2">Title</label>
         <input
           type="text"
           value={form.title}
           onChange={(e) => set("title", e.target.value)}
           placeholder="e.g. Current known issues"
           required
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30"
+          className="rounded-lg border border-[var(--rb-border-1)] bg-surface px-3 py-2 text-sm text-fg-1 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30"
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-gray-600">Content</label>
+        <label className="text-xs font-medium text-fg-2">Content</label>
         <textarea
           value={form.content}
           onChange={(e) => set("content", e.target.value)}
           placeholder="Describe the product info, known issue, FAQ, or roadmap item…"
           required
           rows={4}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30 resize-none"
+          className="rounded-lg border border-[var(--rb-border-1)] bg-surface px-3 py-2 text-sm text-fg-1 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30 resize-none"
         />
       </div>
       <div className="flex flex-col gap-1">
-        <label className="text-xs font-medium text-gray-600">Category</label>
+        <label className="text-xs font-medium text-fg-2">Category</label>
         <select
           value={form.category}
           onChange={(e) => set("category", e.target.value as KbCategory)}
-          className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-800 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30"
+          className="rounded-lg border border-[var(--rb-border-1)] bg-surface px-3 py-2 text-sm text-fg-1 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30"
         >
           {CATEGORIES.map((c) => (
             <option key={c} value={c}>{CATEGORY_CONFIG[c].label}</option>
@@ -109,7 +109,7 @@ function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel }: EntryFo
           size="sm"
           variant="ghost"
           onClick={onCancel}
-          className="text-gray-500"
+          className="text-fg-3"
         >
           Cancel
         </Button>
@@ -143,10 +143,10 @@ function EntryCard({
   }
 
   return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+    <div className="rounded-2xl border border-[var(--rb-border-1)] bg-surface p-5 shadow-sm">
       {/* Top row: title + category badge */}
       <div className="flex items-start justify-between gap-3">
-        <span className="text-sm font-semibold text-gray-900">{entry.title}</span>
+        <span className="text-sm font-semibold text-fg-1">{entry.title}</span>
         <span
           className={cn(
             "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium",
@@ -158,11 +158,11 @@ function EntryCard({
       </div>
 
       {/* Content */}
-      <p className="mt-2 text-sm text-gray-500">{entry.content}</p>
+      <p className="mt-2 text-sm text-fg-3">{entry.content}</p>
 
       {/* Footer */}
       <div className="mt-3 flex items-center">
-        <span className="text-[11px] text-gray-400">
+        <span className="text-[11px] text-fg-3">
           Added {new Date(entry.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })}
         </span>
         <div className="ml-auto flex items-center gap-1">
@@ -170,7 +170,7 @@ function EntryCard({
             variant="ghost"
             size="icon-sm"
             onClick={() => onEdit(entry)}
-            className="text-gray-400 hover:text-[var(--rb-blue-500)]"
+            className="text-fg-3 hover:text-[var(--rb-blue-500)]"
           >
             <Pencil strokeWidth={1.5} className="size-3.5" />
           </Button>
@@ -179,7 +179,7 @@ function EntryCard({
             size="icon-sm"
             disabled={deleting}
             onClick={handleDelete}
-            className="text-gray-400 hover:text-red-500"
+            className="text-fg-3 hover:text-red-500"
           >
             <Trash2 strokeWidth={1.5} className="size-3.5" />
           </Button>
@@ -270,8 +270,8 @@ export function KnowledgeBaseTab() {
       {/* Header */}
       <div className="mb-4 flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-base font-semibold text-gray-900">Knowledge base</h2>
-          <p className="mt-1 text-sm text-gray-500">
+          <h2 className="text-base font-semibold text-fg-1">Knowledge base</h2>
+          <p className="mt-1 text-sm text-fg-3">
             Add context about your product so AI replies are accurate and specific.
           </p>
         </div>
@@ -322,7 +322,7 @@ export function KnowledgeBaseTab() {
             {[1, 2, 3].map((i) => (
               <div
                 key={i}
-                className="h-28 animate-pulse rounded-2xl border border-gray-200 bg-gray-100"
+                className="h-28 animate-pulse rounded-2xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)]"
               />
             ))}
           </>
@@ -331,7 +331,7 @@ export function KnowledgeBaseTab() {
             <EntryCard key={entry.id} entry={entry} onEdit={openEdit} onDelete={handleDelete} />
           ))
         ) : (
-          <p className="py-8 text-center text-sm text-gray-400">
+          <p className="py-8 text-center text-sm text-fg-3">
             No entries yet. Add your first one above.
           </p>
         )}

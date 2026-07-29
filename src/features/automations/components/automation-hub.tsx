@@ -103,7 +103,7 @@ function Toggle({ enabled, onToggle }: { enabled: boolean; onToggle: () => void 
       )}
     >
       <span className={cn(
-        "inline-block h-3.5 w-3.5 transform rounded-full bg-white shadow-sm transition-transform duration-200",
+        "inline-block h-3.5 w-3.5 transform rounded-full bg-surface shadow-sm transition-transform duration-200",
         enabled ? "translate-x-4" : "translate-x-1",
       )} />
     </button>
@@ -191,7 +191,7 @@ function RuleRow({ rule, onToggle, onEdit, onDelete }: RuleRowProps) {
           type="button"
           onClick={handleDelete}
           disabled={deleting}
-          className="rounded-lg p-1.5 text-[var(--rb-fg-4)] hover:text-red-500 hover:bg-red-50 transition-colors disabled:opacity-40"
+          className="rounded-lg p-1.5 text-[var(--rb-fg-4)] hover:text-red-500 hover:bg-[var(--rb-red-500)]/10 transition-colors disabled:opacity-40"
           aria-label="Delete rule"
         >
           <Trash2 className="size-3.5" strokeWidth={1.5} />
@@ -257,7 +257,7 @@ function RunHistoryPanel() {
       {logs.map((log) => (
         <div
           key={log.id}
-          className="flex items-start gap-3 rounded-xl border border-[var(--rb-border-1)] bg-white px-3 py-2.5"
+          className="flex items-start gap-3 rounded-xl border border-[var(--rb-border-1)] bg-surface px-3 py-2.5"
         >
           {/* Status icon */}
           {log.status === "success" ? (
@@ -305,7 +305,7 @@ const badgeStyles: Record<BadgeVariant, string> = {
   AI:               "bg-blue-50 text-blue-600 border border-blue-200",
   Reply:            "bg-emerald-50 text-emerald-700 border border-emerald-200",
   Tag:              "bg-amber-50 text-amber-600 border border-amber-200",
-  "Report reviews": "bg-red-50 text-red-600 border border-red-200",
+  "Report reviews": "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)] border border-[var(--rb-red-500)]/25",
 };
 
 function BadgePill({ variant }: { variant: BadgeVariant }) {
@@ -337,7 +337,7 @@ function PresetCard({ preset, onInstall }: { preset: AutomationPreset; onInstall
   }
 
   return (
-    <div className="relative rounded-2xl border border-[var(--rb-border-1)] bg-white shadow-sm p-5 hover:shadow-md transition-shadow">
+    <div className="relative rounded-2xl border border-[var(--rb-border-1)] bg-surface shadow-sm p-5 hover:shadow-md transition-shadow">
       {preset.isFree && (
         <span className="absolute top-3 right-3 bg-emerald-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">FREE</span>
       )}
@@ -353,7 +353,7 @@ function PresetCard({ preset, onInstall }: { preset: AutomationPreset; onInstall
         className={cn(
           "mt-4 inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium transition-colors disabled:cursor-not-allowed",
           state === "success" ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-            : state === "error" ? "bg-red-50 text-red-600 border border-red-200"
+            : state === "error" ? "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)] border border-[var(--rb-red-500)]/25"
             : "bg-[var(--rb-blue-500)] text-white hover:bg-[var(--rb-blue-600)]",
         )}
       >
@@ -515,7 +515,7 @@ export function AutomationHub() {
             onClick={() => setActiveTab(tab)}
             className={cn(
               "rounded-lg px-4 py-1.5 text-sm font-medium transition-all duration-150",
-              activeTab === tab ? "bg-white text-[var(--rb-fg-1)] shadow-sm" : "text-[var(--rb-fg-3)] hover:text-[var(--rb-fg-2)]",
+              activeTab === tab ? "bg-surface text-[var(--rb-fg-1)] shadow-sm" : "text-[var(--rb-fg-3)] hover:text-[var(--rb-fg-2)]",
             )}
           >
             {tab === "rules" ? "Added rules" : "Presets"}
@@ -535,7 +535,7 @@ export function AutomationHub() {
               {loading ? (
                 <div className="text-sm text-[var(--rb-fg-4)] py-4 text-center">Loading rules…</div>
               ) : rules.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--rb-border-1)] bg-white py-16 text-center">
+                <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--rb-border-1)] bg-surface py-16 text-center">
                   <Workflow className="size-12 text-[var(--rb-fg-4)]" strokeWidth={1.5} />
                   <h3 className="mt-4 text-sm font-semibold text-[var(--rb-fg-1)]">No automation rules yet</h3>
                   <p className="mt-1 max-w-xs text-xs text-[var(--rb-fg-4)]">

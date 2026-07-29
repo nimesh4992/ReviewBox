@@ -96,7 +96,7 @@ function ColumnBadge({ label, value }: { label: string; value: string | null }) 
     <div className="flex items-center gap-1.5">
       <span className="text-[11px] text-[var(--rb-fg-4)]">{label}:</span>
       {value ? (
-        <span className="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 border border-emerald-200">
+        <span className="rounded bg-[var(--rb-green-500)]/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--rb-green-500)] border border-[var(--rb-green-500)]/25">
           {value}
         </span>
       ) : (
@@ -199,7 +199,7 @@ export function AppFollowImport() {
 
   if (!open) {
     return (
-      <div className="flex items-center justify-between rounded-xl border border-[var(--rb-border-1)] bg-white px-4 py-3 shadow-sm">
+      <div className="flex items-center justify-between rounded-xl border border-[var(--rb-border-1)] bg-surface px-4 py-3 shadow-sm">
         <div>
           <h3 className="text-sm font-semibold text-[var(--rb-fg-1)]">Import from AppFollow</h3>
           <p className="mt-0.5 text-xs text-[var(--rb-fg-4)]">
@@ -220,7 +220,7 @@ export function AppFollowImport() {
   }
 
   return (
-    <section className="overflow-hidden rounded-xl border border-[var(--rb-border-1)] bg-white shadow-sm">
+    <section className="overflow-hidden rounded-xl border border-[var(--rb-border-1)] bg-surface shadow-sm">
       {/* Header */}
       <div className="flex items-center justify-between border-b border-[var(--rb-border-1)] px-4 py-3">
         <div>
@@ -256,7 +256,7 @@ export function AppFollowImport() {
                   className={cn(
                     "rounded-full px-2 py-0.5 font-medium",
                     done
-                      ? "bg-emerald-100 text-emerald-700"
+                      ? "bg-[var(--rb-green-500)]/15 text-[var(--rb-green-500)]"
                       : active
                       ? "bg-[#0A84FF] text-white"
                       : "bg-[var(--rb-bg-hover)] text-[var(--rb-fg-4)]",
@@ -275,9 +275,9 @@ export function AppFollowImport() {
           <>
             <DropZone onFile={handleFile} disabled={false} />
             {errorMsg && (
-              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+              <div className="flex items-start gap-2 rounded-lg border border-[var(--rb-red-500)]/25 bg-[var(--rb-red-500)]/10 px-3 py-2">
                 <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-red-500" />
-                <p className="text-xs text-red-700">{errorMsg}</p>
+                <p className="text-xs text-[var(--rb-red-500)]">{errorMsg}</p>
               </div>
             )}
             <div className="rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2.5 text-[11px] text-[var(--rb-fg-4)] leading-relaxed">
@@ -346,9 +346,9 @@ export function AppFollowImport() {
             )}
 
             {errorMsg && (
-              <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+              <div className="flex items-start gap-2 rounded-lg border border-[var(--rb-red-500)]/25 bg-[var(--rb-red-500)]/10 px-3 py-2">
                 <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-red-500" />
-                <p className="text-xs text-red-700">{errorMsg}</p>
+                <p className="text-xs text-[var(--rb-red-500)]">{errorMsg}</p>
               </div>
             )}
 
@@ -384,7 +384,7 @@ export function AppFollowImport() {
         {/* Done */}
         {step === "done" && result && (
           <div className="flex flex-col items-center gap-3 py-4 text-center">
-            <CheckCircle2 className="size-8 text-emerald-500" />
+            <CheckCircle2 className="size-8 text-[var(--rb-green-500)]" />
             <div>
               <p className="text-sm font-semibold text-[var(--rb-fg-1)]">
                 {result.imported.toLocaleString()} reviews imported
@@ -412,9 +412,9 @@ export function AppFollowImport() {
         {/* Error after preview */}
         {step === "error" && preview && (
           <div className="space-y-3">
-            <div className="flex items-start gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+            <div className="flex items-start gap-2 rounded-lg border border-[var(--rb-red-500)]/25 bg-[var(--rb-red-500)]/10 px-3 py-2">
               <AlertCircle className="mt-0.5 size-3.5 shrink-0 text-red-500" />
-              <p className="text-xs text-red-700">{errorMsg ?? "Import failed."}</p>
+              <p className="text-xs text-[var(--rb-red-500)]">{errorMsg ?? "Import failed."}</p>
             </div>
             <Button
               size="sm"

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Download, Loader2 } from "lucide-react";
+import { AlarmClock, BarChart3, Bug, Download, Loader2, TrendingUp, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
 
@@ -9,12 +9,12 @@ interface Report {
   id:          string;
   title:       string;
   description: string;
-  icon:        string;
+  icon:        LucideIcon;
   schedule:    string;
   format:      string;
   configured:  boolean;
-  /** POST endpoint to trigger immediately; null = coming soon */
-  endpoint:    string | null;
+  /** Can be triggered now via /api/reports/send-now; false = coming soon */
+  sendable:    boolean;
 }
 
 const REPORTS: Report[] = [
@@ -22,70 +22,90 @@ const REPORTS: Report[] = [
     id:          "weekly-digest",
     title:       "Weekly digest",
     description: "Rating trends, top issues, reply performance. Sent to workspace owner every Monday at 9 AM.",
-    icon:        "📊",
+    icon:        BarChart3,
     schedule:    "Weekly · Mon 9 AM",
     format:      "Email + Slack",
     configured:  true,
-    endpoint:    "/api/reports/weekly-digest",
+    sendable:    true,
   },
   {
     id:          "unreplied-alert",
     title:       "Unreplied review alert",
     description: "Notifies when reviews have waited 48+ hours without a reply. Runs daily at 10 AM.",
-    icon:        "⏰",
+    icon:        AlarmClock,
     schedule:    "Daily · 10 AM",
     format:      "Email + Slack",
     configured:  true,
-    endpoint:    "/api/reports/unreplied-alert",
+    sendable:    true,
   },
   {
     id:          "bug-triage",
     title:       "Bug triage export",
     description: "All crash-tagged reviews grouped by version, device, and frequency. CSV for engineering handoff.",
-    icon:        "🐛",
+    icon:        Bug,
     schedule:    "On demand",
     format:      "CSV",
     configured:  false,
-    endpoint:    null,
+    sendable:    false,
   },
   {
     id:          "exec-dashboard",
     title:       "Exec dashboard",
     description: "One-page KPI summary with top action items. Shareable PDF for stakeholders.",
-    icon:        "📈",
+    icon:        TrendingUp,
     schedule:    "Monthly · 1st",
     format:      "PDF",
     configured:  false,
-    endpoint:    null,
+    sendable:    false,
   },
 ];
 
 function ReportCard({ report }: { report: Report }) {
   const [running,    setRunning]    = useState(false);
   const [runResult,  setRunResult]  = useState<"ok" | "err" | null>(null);
+  const [runMessage, setRunMessage] = useState<string | null>(null);
 
   async function handleRun() {
-    if (!report.endpoint) return;
+    if (!report.sendable) return;
     setRunning(true);
     setRunResult(null);
+    setRunMessage(null);
     try {
-      const res = await fetch(report.endpoint, { method: "POST" });
-      setRunResult(res.ok ? "ok" : "err");
+      const res = await fetch("/api/reports/send-now", {
+        method:  "POST",
+        headers: { "Content-Type": "application/json" },
+        body:    JSON.stringify({ report: report.id }),
+      });
+      const data = (await res.json().catch(() => null)) as
+        | { sent?: boolean; message?: string; error?: { message?: string } }
+        | null;
+      if (res.ok && data?.sent) {
+        setRunResult("ok");
+        setRunMessage("Sent — check your inbox");
+      } else if (res.ok && data?.message) {
+        // No data to send is a fine outcome, not an error
+        setRunResult("ok");
+        setRunMessage(data.message);
+      } else {
+        setRunResult("err");
+        setRunMessage(data?.error?.message ?? "Failed — try again");
+      }
     } catch {
       setRunResult("err");
+      setRunMessage("Failed — try again");
     } finally {
       setRunning(false);
-      setTimeout(() => setRunResult(null), 4000);
+      setTimeout(() => { setRunResult(null); setRunMessage(null); }, 6000);
     }
   }
 
-  const canRun = !!report.endpoint;
+  const canRun = report.sendable;
 
   return (
     <div className="flex flex-col gap-4 rounded-[14px] border border-[var(--rb-border-1)] bg-surface p-5 shadow-[var(--rb-shadow-xs)]">
       <div className="flex items-start gap-3">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[var(--rb-bg-sunken)] text-[18px]">
-          {report.icon}
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#0A84FF]/10">
+          <report.icon size={17} strokeWidth={1.5} className="text-[#0A84FF]" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-[14px] font-semibold text-fg-1">{report.title}</div>
@@ -129,11 +149,16 @@ function ReportCard({ report }: { report: Report }) {
           </span>
         )}
 
-        {runResult === "ok" && (
-          <span className="text-[12px] font-semibold text-[#1F8A5B]">✓ Sent!</span>
-        )}
-        {runResult === "err" && (
-          <span className="text-[12px] font-semibold text-red-500">Failed — try again</span>
+        {runMessage && (
+          <span
+            className={cn(
+              "min-w-0 truncate text-[12px] font-semibold",
+              runResult === "ok" ? "text-[var(--rb-green-500)]" : "text-[var(--rb-red-500)]",
+            )}
+            title={runMessage}
+          >
+            {runMessage}
+          </span>
         )}
 
         {report.configured && (
@@ -180,8 +205,8 @@ function CsvExportCard() {
   return (
     <div className="rounded-[14px] border border-[var(--rb-border-1)] bg-surface p-5 shadow-[var(--rb-shadow-xs)]">
       <div className="flex items-center gap-3 mb-4">
-        <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[var(--rb-bg-sunken)] text-[18px]">
-          📥
+        <div className="flex size-9 shrink-0 items-center justify-center rounded-[10px] bg-[#0A84FF]/10">
+          <Download size={17} strokeWidth={1.5} className="text-[#0A84FF]" />
         </div>
         <div>
           <div className="text-[14px] font-semibold text-fg-1">Export reviews</div>
@@ -247,7 +272,7 @@ export function ReportsScreen() {
       </header>
 
       {/* Report cards */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid gap-4 md:grid-cols-2">
         {REPORTS.map((r) => (
           <ReportCard key={r.id} report={r} />
         ))}

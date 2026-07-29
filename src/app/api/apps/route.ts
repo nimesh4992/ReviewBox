@@ -129,6 +129,7 @@ export async function POST(request: NextRequest) {
 
   // Fetch lifetime metadata (icon, rating, review count) before insert, same
   // as onboarding — apps added from Settings previously never got any of it.
+  // Best-effort — a failed scrape must not block adding the app.
   let metadata: Awaited<ReturnType<typeof fetchAppMetadata>> = null;
   try {
     metadata = await fetchAppMetadata(

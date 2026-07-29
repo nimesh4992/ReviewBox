@@ -53,7 +53,7 @@ const SEVERITY_STYLES: Record<
 > = {
   critical: {
     bar:   "bg-red-400",
-    badge: "bg-red-50 text-red-700 border border-red-200",
+    badge: "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)] border border-[var(--rb-red-500)]/25",
     label: "Critical",
   },
   high: {
@@ -62,8 +62,8 @@ const SEVERITY_STYLES: Record<
     label: "High",
   },
   medium: {
-    bar:   "bg-gray-300",
-    badge: "bg-gray-50 text-gray-600 border border-gray-200",
+    bar:   "bg-[var(--rb-border-3)]",
+    badge: "bg-[var(--rb-bg-sunken)] text-fg-2 border border-[var(--rb-border-1)]",
     label: "Medium",
   },
 };
@@ -72,7 +72,7 @@ const STATUS_STYLES: Record<
   IncidentAlert["status"],
   { badge: string; label: string }
 > = {
-  active:       { badge: "bg-red-50 text-red-700 border border-red-200",           label: "Active" },
+  active:       { badge: "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)] border border-[var(--rb-red-500)]/25",           label: "Active" },
   investigating:{ badge: "bg-amber-50 text-amber-700 border border-amber-200",     label: "Investigating" },
   resolved:     { badge: "bg-emerald-50 text-emerald-700 border border-emerald-200", label: "Resolved" },
 };
@@ -145,14 +145,14 @@ export default async function IncidentDetailPage({
         {/* Back link */}
         <Link
           href="/incidents"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+          className="inline-flex items-center gap-1.5 text-sm text-fg-3 hover:text-fg-1 transition-colors"
         >
           <ArrowLeft className="size-3.5" strokeWidth={1.5} />
           Back to incidents
         </Link>
 
         {/* Main card */}
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <div className="overflow-hidden rounded-2xl border border-[var(--rb-border-1)] bg-surface shadow-sm">
           <div className={cn("h-1 w-full", sev.bar)} />
           <div className="p-5 space-y-4">
             {/* Badges */}
@@ -166,10 +166,10 @@ export default async function IncidentDetailPage({
             </div>
 
             {/* Description */}
-            <p className="text-sm leading-6 text-gray-600">{incident.description}</p>
+            <p className="text-sm leading-6 text-fg-2">{incident.description}</p>
 
             {/* Meta */}
-            <div className="flex flex-wrap items-center gap-5 text-xs text-gray-400">
+            <div className="flex flex-wrap items-center gap-5 text-xs text-fg-3">
               <span className="flex items-center gap-1.5">
                 <Clock className="size-3.5" strokeWidth={1.5} />
                 Detected {incident.detectedAt}
@@ -197,26 +197,26 @@ export default async function IncidentDetailPage({
         </div>
 
         {/* Timeline */}
-        <div className="rounded-2xl border border-gray-200 bg-white shadow-sm p-5">
-          <h2 className="text-sm font-semibold text-gray-900 mb-4">Timeline</h2>
-          <ol className="relative border-l border-gray-200 ml-2 space-y-4">
+        <div className="rounded-2xl border border-[var(--rb-border-1)] bg-surface shadow-sm p-5">
+          <h2 className="text-sm font-semibold text-fg-1 mb-4">Timeline</h2>
+          <ol className="relative border-l border-[var(--rb-border-1)] ml-2 space-y-4">
             <li className="ml-4">
-              <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-white bg-gray-300" />
-              <p className="text-xs font-semibold text-gray-700">Incident detected</p>
-              <p className="text-xs text-gray-400 mt-0.5">{incident.detectedAt}</p>
+              <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-[var(--rb-bg-surface)] bg-[var(--rb-border-3)]" />
+              <p className="text-xs font-semibold text-fg-2">Incident detected</p>
+              <p className="text-xs text-fg-3 mt-0.5">{incident.detectedAt}</p>
             </li>
             {incident.status === "investigating" && (
               <li className="ml-4">
                 <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-white bg-amber-400" />
                 <p className="text-xs font-semibold text-amber-700">Investigation started</p>
-                <p className="text-xs text-gray-400 mt-0.5">{incident.owner}</p>
+                <p className="text-xs text-fg-3 mt-0.5">{incident.owner}</p>
               </li>
             )}
             {incident.resolvedAt && (
               <li className="ml-4">
                 <div className="absolute -left-1.5 mt-1.5 h-3 w-3 rounded-full border border-white bg-emerald-400" />
                 <p className="text-xs font-semibold text-emerald-700">Resolved</p>
-                <p className="text-xs text-gray-400 mt-0.5">{incident.resolvedAt}</p>
+                <p className="text-xs text-fg-3 mt-0.5">{incident.resolvedAt}</p>
               </li>
             )}
           </ol>

@@ -83,11 +83,11 @@ export function ReviewFilterPanel({
   onChange: (filters: ReviewFilters) => void;
 }) {
   return (
-    <div className="w-56 rounded-2xl border border-gray-200 bg-white shadow-sm p-4">
+    <div className="w-56 rounded-2xl border border-[var(--rb-border-1)] bg-surface shadow-sm p-4">
       <div className="space-y-5">
         {/* Period */}
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-3 mb-2">
             Period
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -98,8 +98,8 @@ export function ReviewFilterPanel({
                 onClick={() => onChange({ ...filters, period: value })}
                 className={
                   filters.period === value
-                    ? "rounded-full px-2.5 py-1 text-xs font-medium bg-gray-900 text-white transition-colors duration-150"
-                    : "rounded-full px-2.5 py-1 text-xs font-medium bg-gray-100 text-gray-500 hover:bg-gray-200 transition-colors duration-150"
+                    ? "rounded-full px-2.5 py-1 text-xs font-medium bg-[var(--rb-fg-1)] text-[var(--rb-bg-surface)] transition-colors duration-150"
+                    : "rounded-full px-2.5 py-1 text-xs font-medium bg-[var(--rb-bg-sunken)] text-fg-3 hover:bg-[var(--rb-bg-sunken)] transition-colors duration-150"
                 }
               >
                 {label}
@@ -110,14 +110,14 @@ export function ReviewFilterPanel({
 
         {/* Review rating */}
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-3 mb-2">
             Review rating
           </p>
           <div className="space-y-1.5">
             {[5, 4, 3, 2, 1].map((star) => (
               <label
                 key={star}
-                className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer"
+                className="flex items-center gap-2 text-sm text-fg-2 cursor-pointer"
               >
                 <input
                   type="checkbox"
@@ -138,7 +138,7 @@ export function ReviewFilterPanel({
                       className={
                         i < star
                           ? "fill-amber-400 text-amber-400"
-                          : "fill-gray-200 text-gray-200"
+                          : "fill-[var(--rb-border-3)] text-[var(--rb-border-3)]"
                       }
                     />
                   ))}
@@ -153,14 +153,14 @@ export function ReviewFilterPanel({
 
         {/* Reply status */}
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-3 mb-2">
             Reply status
           </p>
           <div className="space-y-1.5">
             {REPLY_STATUS_OPTIONS.map(({ label, value }) => (
               <label
                 key={value}
-                className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer"
+                className="flex items-center gap-2 text-sm text-fg-2 cursor-pointer"
               >
                 <input
                   type="checkbox"
@@ -181,14 +181,14 @@ export function ReviewFilterPanel({
 
         {/* Platform */}
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-3 mb-2">
             Platform
           </p>
           <div className="space-y-1.5">
             {PLATFORM_OPTIONS.map(({ label, value }) => (
               <label
                 key={value}
-                className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer"
+                className="flex items-center gap-2 text-sm text-fg-2 cursor-pointer"
               >
                 <input
                   type="checkbox"
@@ -209,12 +209,12 @@ export function ReviewFilterPanel({
 
         {/* Sentiment */}
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-3 mb-2">
             Sentiment
           </p>
           <div className="space-y-1.5">
             {SENTIMENT_OPTIONS.map(({ label, value }) => (
-              <label key={value} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+              <label key={value} className="flex items-center gap-2 text-sm text-fg-2 cursor-pointer">
                 <input
                   type="checkbox"
                   className="accent-gray-900"
@@ -229,12 +229,12 @@ export function ReviewFilterPanel({
 
         {/* Tags */}
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-3 mb-2">
             Tags
           </p>
           <div className="space-y-1.5">
             {TAG_OPTIONS.map(({ label, value }) => (
-              <label key={value} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+              <label key={value} className="flex items-center gap-2 text-sm text-fg-2 cursor-pointer">
                 <input
                   type="checkbox"
                   className="accent-gray-900"
@@ -249,12 +249,12 @@ export function ReviewFilterPanel({
 
         {/* Version */}
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-3 mb-2">
             Version
           </p>
           <div className="space-y-1.5">
             {VERSION_OPTIONS.map(({ label, value }) => (
-              <label key={value} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+              <label key={value} className="flex items-center gap-2 text-sm text-fg-2 cursor-pointer">
                 <input
                   type="checkbox"
                   className="accent-gray-900"
@@ -269,12 +269,12 @@ export function ReviewFilterPanel({
 
         {/* Country */}
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-400 mb-2">
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-fg-3 mb-2">
             Country
           </p>
           <div className="space-y-1.5">
             {COUNTRY_OPTIONS.map(({ label, value }) => (
-              <label key={value} className="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+              <label key={value} className="flex items-center gap-2 text-sm text-fg-2 cursor-pointer">
                 <input
                   type="checkbox"
                   className="accent-gray-900"

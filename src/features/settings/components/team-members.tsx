@@ -27,8 +27,8 @@ function formatDate(iso: string | null): string {
 
 function RoleBadge({ role }: { role: string }) {
   const map: Record<string, string> = {
-    owner: "bg-[var(--rb-purple-100)] text-[var(--rb-purple-600)]",
-    admin: "bg-[var(--rb-blue-100)]   text-[var(--rb-blue-600)]",
+    owner: "bg-[var(--rb-purple-500)]/12 text-[var(--rb-purple-500)]",
+    admin: "bg-[#0A84FF]/10 text-[#0A84FF]",
     member: "bg-[var(--rb-bg-sunken)] text-fg-3",
   };
   const cls = map[role] ?? map.member;
@@ -153,7 +153,7 @@ export function TeamMembers() {
             size="sm"
             disabled={!email.trim() || invite.isPending}
             onClick={() => invite.mutate()}
-            className="h-8 gap-1.5 text-[12px]"
+            className="h-8 gap-1.5 text-[12px] disabled:bg-[var(--rb-bg-sunken)] disabled:text-fg-3 disabled:opacity-100"
           >
             <UserPlus className="size-3.5" strokeWidth={1.5} />
             {invite.isPending ? "Sending…" : "Send invite"}

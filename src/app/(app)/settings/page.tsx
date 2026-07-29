@@ -14,7 +14,7 @@ export default function SettingsPage() {
         description="Manage integrations, reply workflows, alert routing, and workspace defaults."
       />
 
-      <div className="grid gap-4 p-4 md:p-6 xl:grid-cols-[minmax(0,1fr)_340px]">
+      <div className="mx-auto grid w-full max-w-[1160px] gap-4 p-4 md:p-6 xl:grid-cols-[minmax(0,1fr)_340px]">
         <div className="flex flex-col gap-4">
           <SettingsSections />
           <DangerZone />
