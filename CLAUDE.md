@@ -5,10 +5,16 @@ AI-powered review management platform for Google Play and Apple App Store operat
 **Brand:** ReviewBox · **Domain:** `tryreviewbox.com` · **Email:** `hello@tryreviewbox.com`
 
 > **READ THESE FIRST, EVERY SESSION** (the autopilot relies on them):
-> 1. **`docs/decisions.md`** — IMMUTABLE rules + the non-coder contract. Agents obey D000–D013.
-> 2. **`docs/backlog.md`** — single source of truth for what we build next. ICE-scored.
-> 3. **`docs/today.md`** — what shipped last session, what's queued. Overwritten each session.
-> 4. **`.claude/agents/*.md`** — pm, architect, coder, tester, reviewer roles. Spawn per task.
+> 1. **`docs/PRODUCT_CONTEXT.md`** — who the customer is, what we promise, platform limits, fixture apps. **Read before any code.** Without it an audit can only find inconsistency, never wrongness (this is how the US-storefront bug hid for months).
+> 2. **`docs/decisions.md`** — IMMUTABLE rules + the non-coder contract. Agents obey D000–D018.
+> 3. **`docs/backlog.md`** — single source of truth for what we build next. ICE-scored.
+> 4. **`docs/today.md`** — what shipped last session, what's queued. Overwritten each session.
+> 5. **`docs/specs/`** — the definition of done per feature (Given/When/Then). Touching a feature? Read its spec, and update it in the same PR if behaviour changes.
+> 6. **`docs/AUDIT_SYSTEM.md`** — the six review lenses, the process rules, and the live store probe.
+> 7. **`.claude/agents/*.md`** — pm, architect, coder, tester, reviewer, **triager** roles. Spawn per task.
+
+> **Before shipping anything non-trivial:** does it hold for the region-locked
+> fixture app, not just a US one? Run `GET /api/admin/probe/stores`.
 
 > **Other docs:** `docs/LAUNCH_PLAN.md` · `docs/ZERO_COST_PLAN.md` · `docs/ARCHITECTURE.md` · `docs/FEATURES.md`
 

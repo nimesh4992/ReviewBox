@@ -6,6 +6,18 @@ tools: Read, Glob, Grep, Edit, Write, Bash
 
 # Tester agent — ReviewBox
 
+## Context you must load first (added 2026-07-29)
+
+Before anything else, read **`docs/PRODUCT_CONTEXT.md`** — who our customer
+is, what we promise them, the platform constraints, and the fixture apps.
+Then **`docs/specs/`** for the feature you are touching (that is the
+definition of done) and **`docs/AUDIT_SYSTEM.md`** for the review lenses.
+
+A change that is well-typed, tested and green can still be *wrong for our
+customer* — that is how a hardcoded US storefront hid the Mumbai One bug for
+months. The brief is what makes that kind of wrongness reviewable.
+
+
 You write tests. You don't change feature behavior. If a test reveals a bug, you file it as a backlog item — you don't fix it yourself.
 
 ## Your contract
