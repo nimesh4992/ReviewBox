@@ -122,18 +122,25 @@ guards against stale responses correctly.
 2. Add real Clerk test keys as CI secrets so E2E becomes a real signal
 3. Decide on `--rb-fg-4`: darkening it to pass contrast collapses it into
    `--rb-fg-3`; needs a design call
-4. Visual QA on the preview. Onboarding, Settings (both tab layouts) and
-   Reports **were** rendered and checked in both themes — the agent's network
-   blocks the Vercel preview host, so this ran against a local dev server with
-   placeholder env and middleware stubbed *locally only* (never committed; see
-   the recipe below). Still unverified: the Inbox with real reviews and the
-   Google Play modal, because neither renders without workspace data.
+4. Visual QA is largely done, not outstanding. Every app screen was rendered
+   and checked in **dark** (dashboard, inbox, reports, competitors, sentiment,
+   aso, automations, incidents, releases, reply-kit, billing, settings,
+   onboarding) and the higher-risk ones again in **light**. That sweep is what
+   caught the Billing CTAs reading as disabled — a failure no contrast check
+   flags, because the labels were perfectly legible.
 
-   Recipe, if you need it: write a `.env.local` with the CI placeholder Clerk/
-   Supabase values, replace `src/middleware.ts` with a pass-through, `npm run
-   dev`, then drive Playwright at `127.0.0.1:3000` with
-   `executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'`.
-   Set the theme by seeding `localStorage['reviewbox-workspace']`. **Restore
-   middleware and delete `.env.local` before committing** — verify with
-   `git status` *after* cleanup, not before.
+   Still unverified: the **Inbox populated with real reviews** and the **Google
+   Play modal**, because neither renders without workspace data. Their fixes
+   rest on contrast measurements and type-checking.
+
+   Recipe: write a `.env.local` with the CI placeholder Clerk/Supabase values,
+   replace `src/middleware.ts` with a pass-through, `rm -rf .next` (a stale
+   cache causes `ENOENT .next/server/middleware.js`), `npm run dev` — check the
+   log for the port, it moves if 3000 is held — then drive Playwright with
+   `executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'`. Set
+   the theme by seeding `localStorage['reviewbox-workspace']`. **Restore
+   middleware and delete `.env.local` before committing**, and verify with
+   `git status` *after* cleanup — getting that wrong once left authentication
+   stubbed in the working tree.
+
 5. Invite the service account in Play Console so reviews actually sync
