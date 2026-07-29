@@ -478,12 +478,11 @@ export function ASOScreen() {
   const { mutate: getSuggestions, isPending: suggestLoading, data: asoData } =
     useAsoSuggestions();
 
-  // `selectedApp` is the app NAME (string) from the sidebar selector — resolve
-  // it to the app's id so keyword/suggestion queries actually scope to the app.
-  // (Previously a `typeof selectedApp === "object"` check that was always false,
-  // leaving appId permanently undefined.)
-  const appId = apps.find((a) => a.name === selectedApp)?.id;
-  const appName = selectedApp || "All apps";
+  // `selectedApp` is the app ID — the sidebar sets it with setSelectedApp(app.id).
+  // Resolving it by name here never matched, so keyword/suggestion queries were
+  // never scoped to the selected app.
+  const appId = selectedApp || undefined;
+  const appName = apps.find((a) => a.id === selectedApp)?.name ?? "All apps";
 
   const { data: kwData, isLoading } = useAsoKeywords(appId);
   const { mutate: deleteKw } = useDeleteKeyword();

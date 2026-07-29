@@ -463,11 +463,11 @@ export function SentimentScreen() {
 
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
   const { apps } = useApps();
-  // `selectedApp` is the app NAME (string) — resolve to id so the overview
-  // query scopes to the selected app. (Was a `typeof === "object"` check that
-  // never matched, leaving appId permanently undefined.)
-  const appId = apps.find((a) => a.name === selectedApp)?.id;
-  const appName = selectedApp || "All apps";
+  // `selectedApp` is the app ID — the sidebar sets it with setSelectedApp(app.id).
+  // Resolving it by name here never matched, so appId stayed undefined and this
+  // screen silently ignored the app selector.
+  const appId = selectedApp || undefined;
+  const appName = apps.find((a) => a.id === selectedApp)?.name ?? "All apps";
 
   const { data: overview, isLoading } = useSentimentOverview(appId, range);
   // Pull recent real reviews for the "Re-cluster with AI" button.

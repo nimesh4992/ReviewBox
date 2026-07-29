@@ -4,6 +4,7 @@ import { useState } from "react";
 import { AlarmClock, BarChart3, Bug, Download, Loader2, TrendingUp, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
+import { useApps } from "@/hooks/use-apps";
 
 interface Report {
   id:          string;
@@ -254,6 +255,9 @@ function CsvExportCard() {
 
 export function ReportsScreen() {
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
+  // selectedApp is an app ID — printing it raw put a UUID in the header.
+  const { apps } = useApps();
+  const selectedAppName = apps.find((a) => a.id === selectedApp)?.name ?? "All apps";
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8 max-w-[1240px] mx-auto">
 
@@ -264,7 +268,7 @@ export function ReportsScreen() {
           crash spike). Re-add once that backlog item ships. */}
       <header className="flex items-end justify-between gap-6">
         <div>
-          <div className="text-[12px] font-medium text-fg-3">{selectedApp || "All apps"}</div>
+          <div className="text-[12px] font-medium text-fg-3">{selectedAppName}</div>
           <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.022em] text-fg-1">
             Reports
           </h1>
