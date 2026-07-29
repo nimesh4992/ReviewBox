@@ -50,7 +50,7 @@ export function TagsTab() {
                 <span className="text-rb-xs font-medium uppercase tracking-[0.08em] text-fg-3">
                   {CATEGORY_LABEL[category]}
                 </span>
-                <span className="text-rb-xs tabular-nums text-fg-4">{tags.length}</span>
+                <span className="text-rb-xs tabular-nums text-fg-3">{tags.length}</span>
               </div>
               {tags.map((t) => (
                 <div

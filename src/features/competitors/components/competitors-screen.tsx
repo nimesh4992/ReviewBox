@@ -459,7 +459,7 @@ export function CompetitorsScreen() {
                             </span>
                           )}
                           {c.platform && (
-                            <span className="ml-1.5 text-[10px] font-medium text-fg-4">
+                            <span className="ml-1.5 text-[10px] font-medium text-fg-3">
                               {c.platform === "app_store" ? "App Store" : "Google Play"}
                             </span>
                           )}
@@ -491,7 +491,7 @@ export function CompetitorsScreen() {
                           <span className="text-[12px] tabular-nums text-fg-3">{c.replyRate}%</span>
                         </div>
                       ) : (
-                        <span className="text-[12px] text-fg-4" title="Reply rates aren't public — only your own is measurable">
+                        <span className="text-[12px] text-fg-3" title="Reply rates aren't public — only your own is measurable">
                           —
                         </span>
                       )}

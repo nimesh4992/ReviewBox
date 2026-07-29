@@ -236,7 +236,7 @@ export default function OnboardingPage() {
   if (hydrating) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-canvas">
-        <Loader2 className="size-5 animate-spin text-fg-4" strokeWidth={1.5} />
+        <Loader2 className="size-5 animate-spin text-fg-3" strokeWidth={1.5} />
       </div>
     );
   }
@@ -267,12 +267,12 @@ export default function OnboardingPage() {
                     "flex size-6 items-center justify-center rounded-full text-[10px] font-semibold transition-colors",
                     done   && "bg-[#0A84FF] text-white",
                     active && "bg-[#0A84FF] text-white ring-2 ring-[#0A84FF]/30",
-                    !done && !active && "bg-[var(--rb-bg-sunken)] text-fg-4",
+                    !done && !active && "bg-[var(--rb-bg-sunken)] text-fg-3",
                   )}>
                     {done ? "✓" : n}
                   </div>
                   <span className={cn("text-[9px] font-medium hidden sm:block",
-                    active ? "text-fg-2" : "text-fg-4",
+                    active ? "text-fg-2" : "text-fg-3",
                   )}>{s.label}</span>
                 </div>
               );
@@ -379,21 +379,21 @@ function Step1Workspace({
             value={form.workspaceName}
             onChange={(e) => set("workspaceName", e.target.value)}
             placeholder="Acme Corp"
-            className="border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] text-fg-1 placeholder:text-fg-4 focus-visible:ring-[#0A84FF]"
+            className="border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] text-fg-1 placeholder:text-fg-3 focus-visible:ring-[#0A84FF]"
             autoFocus
           />
         </div>
         <div>
           <label className="mb-1.5 block text-xs font-medium text-fg-3">Workspace URL</label>
           <div className="flex items-center gap-2 rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2">
-            <span className="shrink-0 text-xs text-fg-4">tryreviewbox.com/</span>
+            <span className="shrink-0 text-xs text-fg-3">tryreviewbox.com/</span>
             <input
               value={form.workspaceSlug}
               onChange={(e) => set("workspaceSlug", slugify(e.target.value))}
               placeholder="acme"
-              className="min-w-0 flex-1 bg-transparent text-sm text-fg-1 outline-none placeholder:text-fg-4"
+              className="min-w-0 flex-1 bg-transparent text-sm text-fg-1 outline-none placeholder:text-fg-3"
             />
-            {slugStatus.state === "checking" && <Loader2 className="size-3 animate-spin text-fg-4" strokeWidth={1.5} />}
+            {slugStatus.state === "checking" && <Loader2 className="size-3 animate-spin text-fg-3" strokeWidth={1.5} />}
             {slugStatus.state === "available" && <Check className="size-3 text-[#1F8A5B]" strokeWidth={2} />}
           </div>
           {(slugStatus.state === "taken" || slugStatus.state === "reserved" || slugStatus.state === "invalid" || slugError) && (
@@ -516,15 +516,15 @@ function Step2App({
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-4" strokeWidth={1.5} />
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-fg-3" strokeWidth={1.5} />
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search your app…"
-          className="w-full rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] py-2.5 pl-9 pr-4 text-sm text-fg-1 placeholder:text-fg-4 outline-none focus:border-[#0A84FF]/50"
+          className="w-full rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] py-2.5 pl-9 pr-4 text-sm text-fg-1 placeholder:text-fg-3 outline-none focus:border-[#0A84FF]/50"
           autoFocus
         />
-        {searching && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-fg-4" strokeWidth={1.5} />}
+        {searching && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-fg-3" strokeWidth={1.5} />}
       </div>
 
       {/* Selected app pill */}
@@ -660,7 +660,7 @@ function Step3BrandVoice({
               <div className={cn("text-sm font-semibold", bv.tone === t.id ? "text-[#0A84FF]" : "text-fg-2")}>
                 {t.label}
               </div>
-              <div className="mt-0.5 text-[10px] text-fg-4">{t.desc}</div>
+              <div className="mt-0.5 text-[10px] text-fg-3">{t.desc}</div>
             </button>
           ))}
         </div>
@@ -669,39 +669,39 @@ function Step3BrandVoice({
       {/* Words to use */}
       <div>
         <label className="mb-1.5 block text-xs font-medium text-fg-3">
-          Words we love to use <span className="text-fg-4">(optional)</span>
+          Words we love to use <span className="text-fg-3">(optional)</span>
         </label>
         <input
           value={bv.wordsToUse.join(", ")}
           onChange={(e) => setBv({ wordsToUse: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
           placeholder="thank you, we appreciate, our team…"
-          className="w-full rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2.5 text-sm text-fg-1 placeholder:text-fg-4 outline-none focus:border-[#0A84FF]/50"
+          className="w-full rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2.5 text-sm text-fg-1 placeholder:text-fg-3 outline-none focus:border-[#0A84FF]/50"
         />
       </div>
 
       {/* Words to avoid */}
       <div>
         <label className="mb-1.5 block text-xs font-medium text-fg-3">
-          Words we never use <span className="text-fg-4">(optional)</span>
+          Words we never use <span className="text-fg-3">(optional)</span>
         </label>
         <input
           value={bv.wordsToAvoid.join(", ")}
           onChange={(e) => setBv({ wordsToAvoid: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
           placeholder="unfortunately, can't, won't…"
-          className="w-full rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2.5 text-sm text-fg-1 placeholder:text-fg-4 outline-none focus:border-[#0A84FF]/50"
+          className="w-full rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2.5 text-sm text-fg-1 placeholder:text-fg-3 outline-none focus:border-[#0A84FF]/50"
         />
       </div>
 
       {/* Sign-off */}
       <div>
         <label className="mb-1.5 block text-xs font-medium text-fg-3">
-          Sign off as <span className="text-fg-4">(optional)</span>
+          Sign off as <span className="text-fg-3">(optional)</span>
         </label>
         <input
           value={bv.signOff}
           onChange={(e) => setBv({ signOff: e.target.value })}
           placeholder="The Acme Team"
-          className="w-full rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2.5 text-sm text-fg-1 placeholder:text-fg-4 outline-none focus:border-[#0A84FF]/50"
+          className="w-full rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2.5 text-sm text-fg-1 placeholder:text-fg-3 outline-none focus:border-[#0A84FF]/50"
         />
       </div>
 
@@ -723,7 +723,7 @@ function Step3BrandVoice({
               <div className={cn("text-xs font-semibold", bv.replyLength === l.id ? "text-[#0A84FF]" : "text-fg-2")}>
                 {l.label}
               </div>
-              <div className="mt-0.5 text-[9px] text-fg-4">{l.desc}</div>
+              <div className="mt-0.5 text-[9px] text-fg-3">{l.desc}</div>
             </button>
           ))}
         </div>
@@ -738,7 +738,7 @@ function Step3BrandVoice({
       >
         {saving ? <><Loader2 className="size-4 animate-spin" strokeWidth={2} /> Setting up…</> : <>Set up my workspace <ChevronRight className="size-4" strokeWidth={2} /></>}
       </button>
-      <p className="text-center text-[11px] text-fg-4">
+      <p className="text-center text-[11px] text-fg-3">
         You can edit this later in Settings → Brand Voice
       </p>
     </div>
@@ -767,7 +767,7 @@ function Step4Connect({
         </div>
         <p className="mt-1 text-sm text-fg-3">
           Unlock ongoing sync, rating changes, and reply publishing.
-          <span className="ml-1 text-fg-4">Optional — you already have 14 days of reviews.</span>
+          <span className="ml-1 text-fg-3">Optional — you already have 14 days of reviews.</span>
         </p>
       </div>
 
@@ -797,7 +797,7 @@ function Step4Connect({
         </button>
         <button
           onClick={onSkip}
-          className="w-full py-2 text-sm text-fg-4 hover:text-fg-2"
+          className="w-full py-2 text-sm text-fg-2 hover:text-fg-1"
         >
           I&apos;ll connect later
         </button>
@@ -904,10 +904,10 @@ function Step5Ready({
             )}>
               {c.done
                 ? <Check className="size-3 text-white" strokeWidth={2.5} />
-                : <Loader2 className="size-3 animate-spin text-fg-4" strokeWidth={1.5} />
+                : <Loader2 className="size-3 animate-spin text-fg-3" strokeWidth={1.5} />
               }
             </div>
-            <span className={cn("text-sm", c.done ? "text-fg-2" : "text-fg-4")}>
+            <span className={cn("text-sm", c.done ? "text-fg-2" : "text-fg-3")}>
               {c.label}
             </span>
           </div>

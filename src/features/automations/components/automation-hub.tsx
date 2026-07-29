@@ -116,7 +116,7 @@ function MetaColumn({ value, label }: { value: string; label: string }) {
   return (
     <div className="flex w-24 flex-col items-start">
       <span className="w-full truncate text-rb-sm font-medium tabular-nums text-fg-2">{value}</span>
-      <span className="mt-0.5 text-rb-xs text-fg-4">{label}</span>
+      <span className="mt-0.5 text-rb-xs text-fg-3">{label}</span>
     </div>
   );
 }

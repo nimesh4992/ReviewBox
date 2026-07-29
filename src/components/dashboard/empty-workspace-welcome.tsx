@@ -85,7 +85,7 @@ export function EmptyWorkspaceWelcome() {
 
       {/* What you'll get */}
       <div>
-        <h2 className="text-rb-xs font-medium uppercase tracking-[0.08em] text-fg-4">
+        <h2 className="text-rb-xs font-medium uppercase tracking-[0.08em] text-fg-3">
           What ReviewBox does for you
         </h2>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2">

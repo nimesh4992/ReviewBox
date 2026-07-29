@@ -290,7 +290,7 @@ export default async function ReleaseDetailPage({ params }: ReleaseDetailPagePro
               <p className="text-sm text-fg-3">
                 No reviews synced for version <span className="font-mono">{version}</span> yet.
               </p>
-              <p className="mt-1 text-xs text-fg-4">
+              <p className="mt-1 text-xs text-fg-3">
                 Reviews appear here after the next Google Play sync.
               </p>
             </div>
@@ -311,7 +311,7 @@ export default async function ReleaseDetailPage({ params }: ReleaseDetailPagePro
                           </span>
                         )}
                         {r.country && (
-                          <span className="text-[10px] text-fg-4">{r.country}</span>
+                          <span className="text-[10px] text-fg-3">{r.country}</span>
                         )}
                       </div>
                       <p className="text-xs text-fg-3 leading-5 line-clamp-3">{r.body}</p>

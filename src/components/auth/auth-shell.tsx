@@ -113,7 +113,7 @@ export function AuthShell({ heading, subheading, children, footer }: AuthShellPr
           </ul>
         </div>
 
-        <p className="text-[12px] text-fg-4">
+        <p className="text-[12px] text-fg-3">
           14-day trial · no credit card · cancel from one screen
         </p>
       </aside>
@@ -157,7 +157,7 @@ export function AuthShell({ heading, subheading, children, footer }: AuthShellPr
           <Link href="https://tryreviewbox.com/help" className="hover:text-fg-1">
             Help
           </Link>
-          <span className="text-fg-4">&copy; {new Date().getFullYear()} ReviewBox</span>
+          <span className="text-fg-3">&copy; {new Date().getFullYear()} ReviewBox</span>
         </div>
       </main>
     </div>

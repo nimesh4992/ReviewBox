@@ -24,7 +24,7 @@ export function PageHeader({
     <div className="flex flex-col gap-3 border-b border-[var(--rb-border-1)] bg-surface px-4 py-5 md:px-6 lg:flex-row lg:items-center lg:justify-between">
       <div className="min-w-0">
         {eyebrow ? (
-          <div className="mb-1.5 text-rb-xs font-medium uppercase tracking-[0.08em] text-fg-4">
+          <div className="mb-1.5 text-rb-xs font-medium uppercase tracking-[0.08em] text-fg-3">
             {eyebrow}
           </div>
         ) : null}
