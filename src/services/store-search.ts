@@ -43,6 +43,7 @@ function getRedis(): Redis | null {
   return _redis;
 }
 
+// @assumption A 6-hour-old rating is fresh enough to show as current | risk: after a rating spike the dashboard contradicts the store for up to 6 hours
 const META_TTL = 6 * 60 * 60; // 6 hours in seconds
 
 export interface StoreSearchResult {

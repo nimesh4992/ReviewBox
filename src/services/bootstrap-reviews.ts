@@ -18,6 +18,7 @@ import { DEFAULT_STOREFRONT, normalizeStorefront } from "@/lib/storefronts";
 
 // 200 reviews covers ~14 days for most apps (D016).
 // Public scrapers only — no credentials required.
+// @assumption 200 recent reviews is enough history for a new workspace | risk: a high-volume app shows only a few days of reviews and looks broken to its owner
 const BOOTSTRAP_LIMIT = 200;
 
 /**
@@ -72,6 +73,7 @@ export async function bootstrapGooglePlayReviews(
   // storefront, so the old hardcoded "us" returned an empty list forever
   // and the dashboard stayed blank no matter how often sync ran.
   const store = normalizeStorefront(country);
+  // @assumption Customers only care about English-language reviews | risk: a Hindi/Marathi-heavy app (our ICP) shows a fraction of its real feedback
   const { data } = await withRetry(`gplay ${packageName} (${store})`, () =>
     gplay.reviews({
       appId: packageName,

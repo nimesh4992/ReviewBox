@@ -26,6 +26,7 @@ export const DEFAULT_STOREFRONT = "us";
  * keystroke-batch, and the store rate-limits datacenter IPs.
  */
 export function searchStorefronts(): string[] {
+  // @assumption Our customers' apps live in the US, India or UK storefronts | risk: an app published only in e.g. Brazil or Indonesia is unfindable and syncs zero reviews — exactly the Mumbai One failure, one country over
   const raw = process.env.STORE_SEARCH_COUNTRIES;
   const parsed = (raw ?? "us,in,gb")
     .split(",")
