@@ -22,6 +22,8 @@ interface SelectedApp {
   developer: string;
   icon:      string | null;
   rating:    number | null;
+  /** Storefront the app was found in — reviews must be scraped from it. */
+  country:   string | null;
 }
 
 interface FormState {
@@ -115,6 +117,7 @@ export default function OnboardingPage() {
           selectedApp: data.app ? {
             storeId:   data.app.storeId ?? "",
             name:      data.app.name ?? "",
+            country:   null,
             developer: "",
             icon:      null,
             rating:    null,
@@ -181,6 +184,7 @@ export default function OnboardingPage() {
           icon:          form.selectedApp.icon,
           developer:     form.selectedApp.developer,
           rating:        form.selectedApp.rating,
+          country:       form.selectedApp.country,
           brandVoice:    form.brandVoice,
         }),
       });
@@ -220,6 +224,7 @@ export default function OnboardingPage() {
           icon:          form.selectedApp.icon,
           developer:     form.selectedApp.developer,
           rating:        form.selectedApp.rating,
+          country:       form.selectedApp.country,
         }),
       });
       if (!res.ok && res.status !== 409) {
@@ -436,6 +441,7 @@ interface SearchResult {
   developer: string;
   icon:      string | null;
   rating:    number | null;
+  country:   string | null;
 }
 
 function Step2App({
@@ -476,6 +482,7 @@ function Step2App({
       storeId:   r.storeId,
       name:      r.name,
       developer: r.developer,
+      country:   r.country ?? null,
       icon:      r.icon,
       rating:    r.rating,
     });

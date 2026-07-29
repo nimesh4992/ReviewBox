@@ -24,7 +24,8 @@ import {
   fetchAppStoreId,
   fetchReviews as fetchAppStoreReviews,
 } from "@/services/app-store/connect-api";
-import { fetchGooglePlayMetadata, fetchAppStoreMetadata } from "@/services/store-search";
+import { findAppAcrossStorefronts, fetchAppMetadata } from "@/services/store-search";
+import { DEFAULT_STOREFRONT as DEFAULT_SYNC_STOREFRONT, normalizeStorefront } from "@/lib/storefronts";
 import { buildEnrichedRow } from "@/lib/review-mapper";
 import { bootstrapReviews } from "@/services/bootstrap-reviews";
 import { planSyncWrites, mergeReviewRows, isGpPermissionError } from "@/lib/sync-writes";
@@ -57,6 +58,8 @@ export interface DbApp {
   refresh_token: string | null;       // App Store: .p8 private key
   last_sync_attempted_at: string | null;
   last_synced_at: string | null;      // timestamp of last SUCCESSFUL sync
+  /** Storefront the app lives in. Null until sync discovers it (migration 019). */
+  store_country: string | null;
 }
 
 export interface SyncSummary {
@@ -96,26 +99,48 @@ async function recordPublisherApiState(appId: string, connected: boolean): Promi
 // apps.lifetime_review_count in sync with what users actually see on the
 // store, regardless of how many reviews the API returns per call.
 
-async function refreshAppMetadata(app: DbApp): Promise<void> {
+/**
+ * Refresh public metadata AND resolve which storefront this app lives in.
+ *
+ * Returns the storefront to scrape reviews from. When `apps.store_country`
+ * is already known we use it directly; otherwise we probe the configured
+ * storefronts and persist whichever one actually carries the app. Without
+ * this, a region-locked app was scraped against the US storefront forever
+ * and produced zero reviews on every sync.
+ */
+async function refreshAppMetadata(app: DbApp): Promise<string> {
   const sb = getServiceClient();
+  const platform = app.platform === "google_play" ? "google-play" : "app-store";
+  const known = app.store_country ? normalizeStorefront(app.store_country) : null;
+
   try {
-    const meta =
-      app.platform === "google_play"
-        ? await fetchGooglePlayMetadata(app.store_id)
-        : await fetchAppStoreMetadata(app.store_id);
-    if (!meta) return;
+    const meta = known
+      ? await fetchAppMetadata(platform, app.store_id, known)
+      : await findAppAcrossStorefronts(platform, app.store_id);
+
+    if (!meta) return known ?? DEFAULT_SYNC_STOREFRONT;
 
     const update: Record<string, unknown> = {};
     if (meta.rating      !== null) update.lifetime_rating       = meta.rating;
     if (meta.reviewCount !== null) update.lifetime_review_count = meta.reviewCount;
     if (meta.icon)                 update.icon_url              = meta.icon;
     if (meta.developer)            update.developer             = meta.developer;
-    if (Object.keys(update).length === 0) return;
 
-    await sb.from("apps").update(update).eq("id", app.id);
+    if (Object.keys(update).length) {
+      await sb.from("apps").update(update).eq("id", app.id);
+    }
+
+    // Persist the discovered storefront separately so a pending migration
+    // 019 (42703) can't void the metadata write above.
+    if (!known && meta.country) {
+      await sb.from("apps").update({ store_country: meta.country }).eq("id", app.id);
+    }
+
+    return meta.country || known || DEFAULT_SYNC_STOREFRONT;
   } catch (err) {
     // Non-fatal — review sync still proceeds if the scrape fails
     console.warn(`[sync] metadata refresh failed for app ${app.id}:`, err);
+    return known ?? DEFAULT_SYNC_STOREFRONT;
   }
 }
 
@@ -124,11 +149,14 @@ async function refreshAppMetadata(app: DbApp): Promise<void> {
 async function syncGooglePlayApp(app: DbApp, summary: SyncSummary, isFirstSync: boolean): Promise<AppSyncResult> {
   let apiErrorMsg: string | null = null;
 
-  const [, scraped, apiReviews] = await Promise.all([
-    refreshAppMetadata(app),
+  // Sequential on purpose: the scrape needs to know WHICH storefront carries
+  // this app, and that is what refreshAppMetadata resolves (and persists).
+  const country = await refreshAppMetadata(app);
+
+  const [scraped, apiReviews] = await Promise.all([
     // Public scrape — no credentials. Failure here is fatal only if the API
     // path also produced nothing.
-    bootstrapReviews("google_play", app.id, app.workspace_id, app.store_id).catch((err) => {
+    bootstrapReviews("google_play", app.id, app.workspace_id, app.store_id, country).catch((err) => {
       console.warn(`[sync] gplay scrape failed for ${app.store_id}:`, err instanceof Error ? err.message : err);
       return null;
     }),
@@ -194,13 +222,15 @@ async function syncGooglePlayApp(app: DbApp, summary: SyncSummary, isFirstSync: 
  * are optional and only add developer-reply state.
  */
 async function syncAppStoreApp(app: DbApp, summary: SyncSummary, isFirstSync: boolean): Promise<AppSyncResult> {
-  const [, scraped] = await Promise.all([
-    refreshAppMetadata(app),
-    bootstrapReviews("app_store", app.id, app.workspace_id, app.store_id).catch((err) => {
-      console.warn(`[sync] app store RSS failed for ${app.store_id}:`, err instanceof Error ? err.message : err);
-      return null;
-    }),
-  ]);
+  // Sequential on purpose — see syncGooglePlayApp: the RSS feed is per-country.
+  const country = await refreshAppMetadata(app);
+
+  const scraped = await bootstrapReviews(
+    "app_store", app.id, app.workspace_id, app.store_id, country,
+  ).catch((err) => {
+    console.warn(`[sync] app store RSS failed for ${app.store_id}:`, err instanceof Error ? err.message : err);
+    return null;
+  });
 
   // Official Connect API — optional in Draft Mode. Missing or broken
   // credentials must not fail the sync when the public feed worked.
@@ -567,7 +597,7 @@ async function loadWorkspaceApps(
 
   const full = await sb
     .from("apps")
-    .select("id, workspace_id, name, platform, store_id, access_token, refresh_token, last_sync_attempted_at, last_synced_at")
+    .select("id, workspace_id, name, platform, store_id, access_token, refresh_token, last_sync_attempted_at, last_synced_at, store_country")
     .eq("workspace_id", workspaceId)
     .is("deleted_at", null);
 
@@ -578,7 +608,7 @@ async function loadWorkspaceApps(
   if (full.error.code === "42703") {
     const noFilter = await sb
       .from("apps")
-      .select("id, workspace_id, name, platform, store_id, access_token, refresh_token, last_sync_attempted_at, last_synced_at")
+      .select("id, workspace_id, name, platform, store_id, access_token, refresh_token, last_sync_attempted_at, last_synced_at, store_country")
       .eq("workspace_id", workspaceId);
     if (!noFilter.error) return (noFilter.data ?? []) as DbApp[];
 
@@ -590,6 +620,7 @@ async function loadWorkspaceApps(
       return ((core.data ?? []) as Partial<DbApp>[]).map((a) => ({
         last_sync_attempted_at: null,
         last_synced_at: null,
+        store_country: null,
         ...a,
       })) as DbApp[];
     }

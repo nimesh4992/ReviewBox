@@ -13,30 +13,8 @@
  */
 
 import { buildEnrichedRow } from "@/lib/review-mapper";
-
-// google-play-scraper is a CJS module — use require to avoid ESM interop issues.
-// eslint-disable-next-line @typescript-eslint/no-require-imports
-const gplay = require("google-play-scraper").default as {
-  reviews: (opts: {
-    appId: string;
-    lang?: string;
-    country?: string;
-    sort?: number;
-    num?: number;
-  }) => Promise<{ data: GPlayReview[] }>;
-  sort: { NEWEST: number; RATING: number; HELPFULNESS: number };
-};
-
-interface GPlayReview {
-  id: string;
-  userName: string;
-  date: Date;
-  score: number;
-  text: string;
-  replyDate: Date | null;
-  replyText: string | null;
-  version: string | null;
-}
+import gplay from "@/services/gplay-client";
+import { DEFAULT_STOREFRONT, normalizeStorefront } from "@/lib/storefronts";
 
 // 200 reviews covers ~14 days for most apps (D016).
 // Public scrapers only — no credentials required.
@@ -88,12 +66,17 @@ export async function bootstrapGooglePlayReviews(
   appId: string,
   workspaceId: string,
   packageName: string,
+  country: string = DEFAULT_STOREFRONT,
 ): Promise<ReturnType<typeof buildEnrichedRow>[]> {
-  const { data } = await withRetry(`gplay ${packageName}`, () =>
+  // Storefront matters: a region-locked app has NO reviews on the US
+  // storefront, so the old hardcoded "us" returned an empty list forever
+  // and the dashboard stayed blank no matter how often sync ran.
+  const store = normalizeStorefront(country);
+  const { data } = await withRetry(`gplay ${packageName} (${store})`, () =>
     gplay.reviews({
       appId: packageName,
       lang: "en",
-      country: "us",
+      country: store,
       sort: gplay.sort.NEWEST,
       num: BOOTSTRAP_LIMIT, // 200 — covers ~14 days
     }),
@@ -139,9 +122,12 @@ interface ItunesRssFeed {
   feed: { entry?: ItunesRssEntry[] };
 }
 
-async function resolveItunesTrackId(bundleId: string): Promise<number | null> {
+async function resolveItunesTrackId(
+  bundleId: string,
+  country: string,
+): Promise<number | null> {
   const res = await fetch(
-    `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(bundleId)}&country=us`,
+    `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(bundleId)}&country=${country}`,
     { signal: AbortSignal.timeout(5000) },
   );
   if (!res.ok) return null;
@@ -153,15 +139,18 @@ export async function bootstrapAppStoreReviews(
   appId: string,
   workspaceId: string,
   bundleId: string,
+  country: string = DEFAULT_STOREFRONT,
 ): Promise<ReturnType<typeof buildEnrichedRow>[]> {
-  const trackId = await resolveItunesTrackId(bundleId);
+  const store = normalizeStorefront(country);
+  const trackId = await resolveItunesTrackId(bundleId, store);
   if (!trackId) return [];
 
   const rows: ReturnType<typeof buildEnrichedRow>[] = [];
 
   // iTunes RSS returns 10 reviews per page, up to page 15 = 150 reviews (~14 days).
   for (let page = 1; page <= 15 && rows.length < BOOTSTRAP_LIMIT; page++) {
-    const url = `https://itunes.apple.com/rss/customerreviews/page=${page}/id=${trackId}/sortBy=mostRecent/json`;
+    // The country segment is required — the default feed is US-only.
+    const url = `https://itunes.apple.com/${store}/rss/customerreviews/page=${page}/id=${trackId}/sortBy=mostRecent/json`;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
       if (!res.ok) break;
@@ -214,9 +203,10 @@ export async function bootstrapReviews(
   appId: string,
   workspaceId: string,
   storeId: string,
+  country: string = DEFAULT_STOREFRONT,
 ): Promise<ReturnType<typeof buildEnrichedRow>[]> {
   if (platform === "google_play") {
-    return bootstrapGooglePlayReviews(appId, workspaceId, storeId);
+    return bootstrapGooglePlayReviews(appId, workspaceId, storeId, country);
   }
-  return bootstrapAppStoreReviews(appId, workspaceId, storeId);
+  return bootstrapAppStoreReviews(appId, workspaceId, storeId, country);
 }

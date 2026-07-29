@@ -16,7 +16,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { getServiceClient } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
 import { rateLimit } from "@/lib/api-rate-limit";
-import { fetchAppMetadata } from "@/services/store-search";
+import { resolveAppMetadata } from "@/services/store-search";
 import { syncWorkspace } from "@/services/review-sync";
 import { getBrandVoiceStub, type AppCategory } from "@/lib/brand-voice-stubs";
 
@@ -44,6 +44,8 @@ interface SetupBody {
   icon?:         string | null;
   developer?:    string | null;
   rating?:       number | null;
+  /** Storefront the client saw this app in (from search) — confirmed server-side. */
+  country?:      string | null;
   brandVoice?:   BrandVoiceConfig;
 }
 
@@ -180,15 +182,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     let metaDev      = body.developer ?? null;
     let metaRating   = body.rating ?? null;
     let metaCount: number | null = null;
+    let metaCountry: string | null = null;
 
     if (storeId) {
       try {
-        const meta = await fetchAppMetadata(platform, storeId);
+        // Confirms the storefront the client saw, or probes for the right one.
+        // Persisting it matters: a region-locked app scraped against the US
+        // storefront returns zero reviews on every future sync.
+        const meta = await resolveAppMetadata(platform, storeId, body.country);
         if (meta) {
-          metaIcon   = meta.icon ?? metaIcon;
-          metaDev    = meta.developer || metaDev;
-          metaRating = meta.rating ?? metaRating;
-          metaCount  = meta.reviewCount ?? null;
+          metaIcon    = meta.icon ?? metaIcon;
+          metaDev     = meta.developer || metaDev;
+          metaRating  = meta.rating ?? metaRating;
+          metaCount   = meta.reviewCount ?? null;
+          metaCountry = meta.country ?? null;
         }
       } catch (err) {
         console.warn("[onboarding/setup] metadata fetch failed:", err);
@@ -196,7 +203,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const dbPlatform = platform.replace("-", "_");
-    const appInsert  = await sb
+    let appInsert = await sb
       .from("apps")
       .insert({
         workspace_id:          workspaceId,
@@ -207,9 +214,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         developer:             metaDev,
         lifetime_rating:       metaRating,
         lifetime_review_count: metaCount,
+        store_country:         metaCountry,
       })
       .select("id")
       .single();
+
+    // 42703 = a metadata column doesn't exist yet (migration 012 / 019 not
+    // applied). Retry without them rather than failing onboarding outright.
+    if (appInsert.error?.code === "42703") {
+      appInsert = await sb
+        .from("apps")
+        .insert({
+          workspace_id: workspaceId,
+          name:         appName.trim(),
+          platform:     dbPlatform,
+          store_id:     storeId,
+        })
+        .select("id")
+        .single();
+    }
 
     if (appInsert.error) {
       console.error("[onboarding/setup] app insert:", appInsert.error);
