@@ -126,9 +126,11 @@ interface TemplateFormProps {
   submitLabel: string;
   onSubmit: (form: TemplateFormState) => void;
   onCancel: () => void;
+  /** Surfaced when the save is rejected, so a failure isn't silent. */
+  error?: string | null;
 }
 
-function TemplateForm({ initial, saving, submitLabel, onSubmit, onCancel }: TemplateFormProps) {
+function TemplateForm({ initial, saving, submitLabel, onSubmit, onCancel, error }: TemplateFormProps) {
   const [form, setForm] = useState<TemplateFormState>(initial);
 
   function set<K extends keyof TemplateFormState>(key: K, val: TemplateFormState[K]) {
@@ -225,6 +227,9 @@ function TemplateForm({ initial, saving, submitLabel, onSubmit, onCancel }: Temp
       </div>
 
       <div className="flex items-center gap-2 pt-1">
+        {error && (
+          <p className="mr-auto self-center text-[12px] text-[var(--rb-red-500)]">{error}</p>
+        )}
         <Button
           type="submit"
           size="sm"
@@ -259,12 +264,19 @@ function TemplateCard({
   onDelete: (id: string) => void;
 }) {
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // The row used to disappear whether or not the server accepted the delete,
+  // so a failed request looked like a success until the next page load.
   async function handleDelete() {
     setDeleting(true);
+    setDeleteError(null);
     try {
-      await fetch(`/api/reply-kit/templates/${template.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/reply-kit/templates/${template.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("delete failed");
       onDelete(template.id);
+    } catch {
+      setDeleteError("Couldn't delete — try again.");
     } finally {
       setDeleting(false);
     }
@@ -308,12 +320,16 @@ function TemplateCard({
             size="icon-sm"
             disabled={deleting}
             onClick={handleDelete}
-            className="text-[var(--rb-fg-4)] hover:text-red-500"
+            className="text-fg-3 hover:text-[var(--rb-red-500)]"
+            aria-label="Delete template"
           >
             <Trash2 strokeWidth={1.5} className="size-3.5" />
           </Button>
         </div>
       </div>
+      {deleteError && (
+        <p className="mt-2 text-right text-[12px] text-[var(--rb-red-500)]">{deleteError}</p>
+      )}
     </div>
   );
 }
@@ -330,6 +346,7 @@ export function TemplatesTab() {
   const [editingTemplate, setEditingTemplate] = useState<ApiTemplate | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -365,6 +382,7 @@ export function TemplatesTab() {
 
   async function handleCreate(form: TemplateFormState) {
     setSubmitting(true);
+    setFormError(null);
     try {
       const res = await fetch("/api/reply-kit/templates", {
         method: "POST",
@@ -386,6 +404,7 @@ export function TemplatesTab() {
       setShowCreate(false);
     } catch (err) {
       console.error(err);
+      setFormError("Couldn't save — try again.");
     } finally {
       setSubmitting(false);
     }
@@ -394,8 +413,9 @@ export function TemplatesTab() {
   async function handleEdit(form: TemplateFormState) {
     if (!editingTemplate) return;
     setSubmitting(true);
+    setFormError(null);
     try {
-      await fetch(`/api/reply-kit/templates/${editingTemplate.id}`, {
+      const res = await fetch(`/api/reply-kit/templates/${editingTemplate.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -407,6 +427,9 @@ export function TemplatesTab() {
           language: form.language,
         }),
       });
+      // Applying the edit locally without checking the response meant a
+      // rejected save still looked applied until the page reloaded.
+      if (!res.ok) throw new Error("save failed");
       setTemplates((prev) =>
         prev.map((t) =>
           t.id === editingTemplate.id
@@ -425,6 +448,7 @@ export function TemplatesTab() {
       setEditingTemplate(null);
     } catch (err) {
       console.error(err);
+      setFormError("Couldn't save — try again.");
     } finally {
       setSubmitting(false);
     }
@@ -450,6 +474,7 @@ export function TemplatesTab() {
         <TemplateForm
           initial={EMPTY_FORM}
           saving={submitting}
+          error={formError}
           submitLabel="Save template"
           onSubmit={handleCreate}
           onCancel={() => setShowCreate(false)}
@@ -468,6 +493,7 @@ export function TemplatesTab() {
             language: editingTemplate.language,
           }}
           saving={submitting}
+          error={formError}
           submitLabel="Save changes"
           onSubmit={handleEdit}
           onCancel={() => setEditingTemplate(null)}

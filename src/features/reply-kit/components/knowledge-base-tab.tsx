@@ -131,12 +131,19 @@ function EntryCard({
 }) {
   const config = CATEGORY_CONFIG[entry.category];
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Same as templates: the entry vanished from the list even when the request
+  // failed, so the deletion looked done until a refresh brought it back.
   async function handleDelete() {
     setDeleting(true);
+    setDeleteError(null);
     try {
-      await fetch(`/api/reply-kit/knowledge-base/${entry.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/reply-kit/knowledge-base/${entry.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("delete failed");
       onDelete(entry.id);
+    } catch {
+      setDeleteError("Couldn't delete — try again.");
     } finally {
       setDeleting(false);
     }
@@ -179,12 +186,16 @@ function EntryCard({
             size="icon-sm"
             disabled={deleting}
             onClick={handleDelete}
-            className="text-fg-3 hover:text-red-500"
+            className="text-fg-3 hover:text-[var(--rb-red-500)]"
+            aria-label="Delete entry"
           >
             <Trash2 strokeWidth={1.5} className="size-3.5" />
           </Button>
         </div>
       </div>
+      {deleteError && (
+        <p className="mt-2 text-right text-[12px] text-[var(--rb-red-500)]">{deleteError}</p>
+      )}
     </div>
   );
 }
@@ -245,11 +256,13 @@ export function KnowledgeBaseTab() {
     if (!editingEntry) return;
     setSubmitting(true);
     try {
-      await fetch(`/api/reply-kit/knowledge-base/${editingEntry.id}`, {
+      const res = await fetch(`/api/reply-kit/knowledge-base/${editingEntry.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: form.title, content: form.content, category: form.category }),
       });
+      // Same as templates: a rejected save still looked applied.
+      if (!res.ok) throw new Error("save failed");
       setEntries((prev) =>
         prev.map((e) =>
           e.id === editingEntry.id
