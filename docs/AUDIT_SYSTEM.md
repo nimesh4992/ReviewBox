@@ -97,7 +97,6 @@ The killer question for this codebase. For every code path ask:
 | A3 | 4 | MEDIUM | Dashboard "Set alert →" links to nonexistent `/alerts` | ✅ Fixed (→ /settings) |
 | A4 | 1 | MEDIUM | Concurrent `syncWorkspace` runs possible (self-heal + onboarding + cron); reviews upsert is race-safe (ignoreDuplicates) but alerts/enrichment rely on Redis dedup only — needs a per-workspace sync lock | 🔲 Backlog AS1 |
 | A5 | 2 | OPEN | Deep authz sweep of admin/tickets/competitors routes — agent round interrupted by usage limit, resumes automatically | 🔲 In progress |
-
 | A6 | 1 | HIGH | Every store call was hardcoded to `country: "us"` — region-locked apps were unfindable in search AND their review scrape returned zero rows on every sync, forever. Fixed: multi-storefront search + `apps.store_country` (migration 019) | ✅ Fixed (PR #74) |
 | A7 | 4 | HIGH | Play search fell through to a "bare package IDs" path when Google's markup rotated, presenting unrelated apps as results | ✅ Fixed (library-based search, PR #74) |
 | A8 | 1 | **OPEN RISK** | Google returned **403** to google-play-scraper from this build sandbox (both `search` and `app`). Cannot distinguish sandbox egress-proxy blocking from Google blocking datacenter IPs. If Vercel is also blocked, Draft Mode (zero-credential public scraping, D018) is not viable as the PRIMARY path and connecting Play Console becomes mandatory. Sync now records `store_blocked_scraping` with the raw upstream message so production tells us definitively — check `/api/debug/sync-status` after the next sync. | 🔲 Needs prod evidence |
