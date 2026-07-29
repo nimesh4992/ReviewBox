@@ -148,6 +148,7 @@ async function refreshAppMetadata(app: DbApp): Promise<string> {
 
 async function syncGooglePlayApp(app: DbApp, summary: SyncSummary, isFirstSync: boolean): Promise<AppSyncResult> {
   let apiErrorMsg: string | null = null;
+  let scrapeErrorMsg: string | null = null;
 
   // Sequential on purpose: the scrape needs to know WHICH storefront carries
   // this app, and that is what refreshAppMetadata resolves (and persists).
@@ -157,7 +158,8 @@ async function syncGooglePlayApp(app: DbApp, summary: SyncSummary, isFirstSync: 
     // Public scrape — no credentials. Failure here is fatal only if the API
     // path also produced nothing.
     bootstrapReviews("google_play", app.id, app.workspace_id, app.store_id, country).catch((err) => {
-      console.warn(`[sync] gplay scrape failed for ${app.store_id}:`, err instanceof Error ? err.message : err);
+      scrapeErrorMsg = err instanceof Error ? err.message : String(err);
+      console.warn(`[sync] gplay scrape failed for ${app.store_id}:`, scrapeErrorMsg);
       return null;
     }),
     // Official Publisher API — optional. Absent/unauthorized credentials are
@@ -179,7 +181,17 @@ async function syncGooglePlayApp(app: DbApp, summary: SyncSummary, isFirstSync: 
   }
 
   if (scraped === null && apiReviews === null) {
-    return { reviewCount: 0, error: `Google Play app ${app.id}: both public scrape and Publisher API failed` };
+    // Carry BOTH upstream messages: "both failed" alone told us nothing, and
+    // the difference matters — a 403 on the public scrape means Google is
+    // refusing our servers (Draft Mode is dead for this app and the customer
+    // must connect Play Console), whereas a 403 on the API alone is the
+    // ordinary not-yet-invited state.
+    return {
+      reviewCount: 0,
+      error:
+        `Google Play app ${app.id}: public scrape failed (${scrapeErrorMsg ?? "no data"}); ` +
+        `Publisher API failed (${apiErrorMsg ?? "not connected"})`,
+    };
   }
 
   const apiRows = (apiReviews ?? [])
@@ -225,10 +237,12 @@ async function syncAppStoreApp(app: DbApp, summary: SyncSummary, isFirstSync: bo
   // Sequential on purpose — see syncGooglePlayApp: the RSS feed is per-country.
   const country = await refreshAppMetadata(app);
 
+  let scrapeErrorMsg: string | null = null;
   const scraped = await bootstrapReviews(
     "app_store", app.id, app.workspace_id, app.store_id, country,
   ).catch((err) => {
-    console.warn(`[sync] app store RSS failed for ${app.store_id}:`, err instanceof Error ? err.message : err);
+    scrapeErrorMsg = err instanceof Error ? err.message : String(err);
+    console.warn(`[sync] app store RSS failed for ${app.store_id}:`, scrapeErrorMsg);
     return null;
   });
 
@@ -240,7 +254,10 @@ async function syncAppStoreApp(app: DbApp, summary: SyncSummary, isFirstSync: bo
   });
 
   if (scraped === null && apiRows === null) {
-    return { reviewCount: 0, error: `App Store app ${app.id}: both public feed and Connect API failed` };
+    return {
+      reviewCount: 0,
+      error: `App Store app ${app.id}: public feed failed (${scrapeErrorMsg ?? "no data"}); Connect API unavailable`,
+    };
   }
 
   return upsertAndFinalize(app, mergeReviewRows(scraped, apiRows), summary, isFirstSync);
@@ -485,6 +502,17 @@ function classifySyncError(
   const lower = errMsg.toLowerCase();
 
   if (platform === "google_play") {
+    // Distinguish "Google refuses our servers" from "customer hasn't invited
+    // us yet". Both surface as 403, but only the first means the zero-setup
+    // public path is unavailable — and the remedy (connect Play Console) is
+    // then mandatory rather than optional.
+    if (lower.includes("public scrape failed") && (lower.includes("403") || lower.includes("forbidden"))) {
+      return {
+        status: "store_blocked_scraping",
+        message:
+          "Google is blocking ReviewBox's servers from reading this app's public listing. Connect your Play Console (Settings → Apps) — that path uses the official API and isn't affected.",
+      };
+    }
     if (lower.includes("403") || lower.includes("permission") || lower.includes("forbidden")) {
       return {
         status: "needs_play_console_access",
