@@ -17,9 +17,9 @@ interface ApiKbEntry {
 }
 
 const CATEGORY_CONFIG: Record<KbCategory, { label: string; className: string }> = {
-  product: { label: "Product", className: "bg-blue-50 text-blue-600" },
-  known_issue: { label: "Known issue", className: "bg-red-50 text-red-600" },
-  faq: { label: "FAQ", className: "bg-amber-50 text-amber-600" },
+  product: { label: "Product", className: "bg-[#0A84FF]/10 text-[#0A84FF]" },
+  known_issue: { label: "Known issue", className: "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)]" },
+  faq: { label: "FAQ", className: "bg-[var(--rb-amber-500)]/10 text-[var(--rb-amber-500)]" },
   roadmap: { label: "Roadmap", className: "bg-[var(--rb-purple-100)] text-[var(--rb-purple-600)]" },
 };
 
@@ -69,7 +69,7 @@ function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel }: EntryFo
           onChange={(e) => set("title", e.target.value)}
           placeholder="e.g. Current known issues"
           required
-          className="rounded-lg border border-[var(--rb-border-1)] bg-surface px-3 py-2 text-sm text-fg-1 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30"
+          className="rounded-lg border border-[var(--rb-border-2)] bg-surface px-3 py-2 text-sm text-fg-1 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30"
         />
       </div>
       <div className="flex flex-col gap-1">
@@ -80,7 +80,7 @@ function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel }: EntryFo
           placeholder="Describe the product info, known issue, FAQ, or roadmap item…"
           required
           rows={4}
-          className="rounded-lg border border-[var(--rb-border-1)] bg-surface px-3 py-2 text-sm text-fg-1 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30 resize-none"
+          className="rounded-lg border border-[var(--rb-border-2)] bg-surface px-3 py-2 text-sm text-fg-1 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30 resize-none"
         />
       </div>
       <div className="flex flex-col gap-1">
@@ -88,7 +88,7 @@ function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel }: EntryFo
         <select
           value={form.category}
           onChange={(e) => set("category", e.target.value as KbCategory)}
-          className="rounded-lg border border-[var(--rb-border-1)] bg-surface px-3 py-2 text-sm text-fg-1 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30"
+          className="rounded-lg border border-[var(--rb-border-2)] bg-surface px-3 py-2 text-sm text-fg-1 outline-none focus:border-[var(--rb-blue-500)] focus:ring-1 focus:ring-[var(--rb-blue-500)]/30"
         >
           {CATEGORIES.map((c) => (
             <option key={c} value={c}>{CATEGORY_CONFIG[c].label}</option>
@@ -131,12 +131,19 @@ function EntryCard({
 }) {
   const config = CATEGORY_CONFIG[entry.category];
   const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
 
+  // Same as templates: the entry vanished from the list even when the request
+  // failed, so the deletion looked done until a refresh brought it back.
   async function handleDelete() {
     setDeleting(true);
+    setDeleteError(null);
     try {
-      await fetch(`/api/reply-kit/knowledge-base/${entry.id}`, { method: "DELETE" });
+      const res = await fetch(`/api/reply-kit/knowledge-base/${entry.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error("delete failed");
       onDelete(entry.id);
+    } catch {
+      setDeleteError("Couldn't delete — try again.");
     } finally {
       setDeleting(false);
     }
@@ -179,12 +186,16 @@ function EntryCard({
             size="icon-sm"
             disabled={deleting}
             onClick={handleDelete}
-            className="text-fg-3 hover:text-red-500"
+            className="text-fg-3 hover:text-[var(--rb-red-500)]"
+            aria-label="Delete entry"
           >
             <Trash2 strokeWidth={1.5} className="size-3.5" />
           </Button>
         </div>
       </div>
+      {deleteError && (
+        <p className="mt-2 text-right text-[12px] text-[var(--rb-red-500)]">{deleteError}</p>
+      )}
     </div>
   );
 }
@@ -245,11 +256,13 @@ export function KnowledgeBaseTab() {
     if (!editingEntry) return;
     setSubmitting(true);
     try {
-      await fetch(`/api/reply-kit/knowledge-base/${editingEntry.id}`, {
+      const res = await fetch(`/api/reply-kit/knowledge-base/${editingEntry.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ title: form.title, content: form.content, category: form.category }),
       });
+      // Same as templates: a rejected save still looked applied.
+      if (!res.ok) throw new Error("save failed");
       setEntries((prev) =>
         prev.map((e) =>
           e.id === editingEntry.id

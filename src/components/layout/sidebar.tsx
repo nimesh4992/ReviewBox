@@ -273,7 +273,7 @@ export function Sidebar({ className }: { className?: string }) {
         {navGroups.map((group, i) => (
           <div key={i}>
             {group.label && (
-              <div className="px-2 pb-1 text-rb-xs font-medium uppercase tracking-[0.08em] text-fg-4">
+              <div className="px-2 pb-1 text-rb-xs font-medium uppercase tracking-[0.08em] text-fg-3">
                 {group.label}
               </div>
             )}

@@ -3,25 +3,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AlertPreferences } from "./alert-preferences";
-import { AppConnections } from "./app-connections";
-import { SlackIntegration } from "./slack-integration";
-import { SupportSection } from "./support-section";
-import { TeamMembers } from "./team-members";
-import { AppFollowImport } from "./appfollow-import";
-
-export function SettingsSections() {
-  return (
-    <div className="flex flex-col gap-4">
-      <AlertPreferences />
-      <SlackIntegration />
-      <TeamMembers />
-      <AppConnections />
-      <AppFollowImport />
-      <SupportSection />
-    </div>
-  );
-}
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -71,7 +52,7 @@ export function WorkspaceDefaults() {
   }
 
   return (
-    <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+    <div className="space-y-4">
       {/* Workspace defaults card */}
       <div className="rounded-xl border border-[var(--rb-border-1)] bg-surface p-4 shadow-[var(--rb-shadow-xs)]">
         <h2 className="text-sm font-semibold text-fg-1">Workspace defaults</h2>
@@ -140,6 +121,6 @@ export function WorkspaceDefaults() {
           {saveButtonLabel(voiceSave, "Save brand voice")}
         </Button>
       </div>
-    </aside>
+    </div>
   );
 }

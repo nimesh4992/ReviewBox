@@ -62,8 +62,8 @@ function DropZone({
       className={cn(
         "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed px-6 py-8 text-center transition-colors",
         dragOver
-          ? "border-[#0A84FF] bg-blue-50"
-          : "border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] hover:border-[#0A84FF]/40 hover:bg-blue-50/30",
+          ? "border-[#0A84FF] bg-[#0A84FF]/10"
+          : "border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] hover:border-[#0A84FF]/40 hover:bg-[#0A84FF]/[0.06]",
         disabled && "pointer-events-none opacity-50",
       )}
     >
@@ -322,7 +322,7 @@ export function AppFollowImport() {
                 ))}
               </div>
               {!preview.detected.rating && (
-                <p className="mt-2 text-[11px] text-amber-600">
+                <p className="mt-2 text-[11px] text-[var(--rb-amber-500)]">
                   Rating column not found — all imported reviews will default to 3★.
                 </p>
               )}

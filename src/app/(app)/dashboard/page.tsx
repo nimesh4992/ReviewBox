@@ -74,23 +74,17 @@ function formatDelta(value: number | null, suffix = ""): string {
   return `${sign}${value}${suffix}`;
 }
 
-// ── WorkspaceStatusStrip ──────────────────────────────────────────────────────
-// Exactly ONE status element, chosen by priority: sync errors beat an
-// in-flight first sync, which beats "connected but quiet", which beats
-// background AI enrichment. The dashboard previously stacked one banner per
-// app plus a separate AI panel — with the trial nudge and the global
-// credentials bar, a fresh workspace could open on four banners and an
-// uninvited modal. One strip, one action, everything else waits its turn.
+// ── SyncBanners ───────────────────────────────────────────────────────────────
+// Single authoritative banner section — one status banner per app, chosen by
+// priority: sync errors beat an in-flight first sync, which beats "connected
+// but quiet". Replaces the two separate loops that could double-banner an app.
 
-function WorkspaceStatusStrip({
+function SyncBanners({
   apps,
-  aiEnriching,
   onRetry,
   onConnectPlayConsole,
-  onOpenSetup,
 }: {
   apps: ReturnType<typeof useApps>["apps"];
-  aiEnriching: boolean;
   onRetry: () => void;
   onConnectPlayConsole: () => void;
   onOpenSetup: () => void;
@@ -241,6 +235,171 @@ function WorkspaceStatusStrip({
   }
 
   return null;
+}) {
+  return (
+    <>
+      {apps.map((app) => {
+        const succeeded = app.last_sync_status === "success";
+        const emptySuccess = succeeded && (app.last_sync_review_count ?? 0) === 0;
+
+        // Synced from PUBLIC data only — the customer hasn't granted Play
+        // Console access yet. Reviews and rating are real (scraped from the
+        // public listing), so this is informational, not an error: explain
+        // what connecting unlocks.
+        if (
+          succeeded && !emptySuccess &&
+          app.platform === "google_play" &&
+          app.publisher_api_connected !== true
+        ) {
+          return (
+            <div
+              key={app.id}
+              className="flex items-start gap-3 rounded-xl border border-[#0A84FF]/20 bg-[#0A84FF]/[0.04] px-4 py-3"
+            >
+              <Sparkles className="mt-0.5 size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
+              <div className="flex-1">
+                <div className="text-[13px] font-semibold text-fg-1">
+                  {app.name} is showing public Play Store data
+                </div>
+                <div className="mt-0.5 text-[11px] leading-relaxed text-fg-3">
+                  Your rating and latest reviews are synced from the public store listing.
+                  Connect your Play Console to reply to reviews from ReviewBox, see device
+                  details, and sync everything automatically.
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    onClick={onConnectPlayConsole}
+                    className="rounded-md bg-[#0A84FF] px-3 py-1 text-[11px] font-semibold text-white hover:bg-[#0070e0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
+                  >
+                    Connect Play Console
+                  </button>
+                  <Link
+                    href="/help/connect-google-play"
+                    className="text-[11px] font-medium text-fg-3 hover:text-fg-2"
+                  >
+                    How it works →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Fully synced with reviews — no banner
+        if (succeeded && !emptySuccess) return null;
+
+        const hasError = app.last_sync_status && app.last_sync_status !== "success";
+        const isPending = !app.last_synced_at && !hasError && !emptySuccess;
+
+        if (isPending) {
+          return (
+            <div
+              key={app.id}
+              className="flex items-start gap-3 rounded-xl border border-[#0A84FF]/20 bg-[#0A84FF]/[0.04] px-4 py-3"
+            >
+              <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-[#0A84FF]" strokeWidth={2} />
+              <div className="flex-1">
+                <div className="text-[13px] font-semibold text-fg-1">
+                  Syncing {app.name} from {app.platform === "google_play" ? "Google Play" : "App Store"}…
+                </div>
+                <div className="mt-0.5 text-[11px] text-fg-3">
+                  First sync usually takes 10–30 seconds. Reviews will appear automatically.
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    onClick={onRetry}
+                    className="rounded-md border border-[#0A84FF]/30 bg-surface px-3 py-1 text-[11px] font-semibold text-[#0A84FF] hover:bg-[#0A84FF]/[0.06] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
+                  >
+                    Sync now
+                  </button>
+                  <Link
+                    href={app.platform === "google_play" ? "/help/connect-google-play" : "/help/connect-app-store"}
+                    className="text-[11px] font-medium text-fg-3 hover:text-fg-2"
+                  >
+                    Troubleshooting →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        if (emptySuccess) {
+          return (
+            <div
+              key={app.id}
+              className="flex items-start gap-3 rounded-xl border border-[var(--rb-border-1)] bg-surface px-4 py-3 shadow-[var(--rb-shadow-xs)]"
+            >
+              <Sparkles className="mt-0.5 size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
+              <div className="flex-1">
+                <div className="text-[13px] font-semibold text-fg-1">
+                  {app.name} is connected — no recent reviews yet
+                </div>
+                <div className="mt-0.5 text-[11px] leading-relaxed text-fg-3">
+                  {app.platform === "google_play"
+                    ? "Google Play only exposes reviews from the last 7 days. New reviews will appear here as customers leave them."
+                    : "App Store reviews appear once customers leave them. We'll keep checking daily."}
+                </div>
+                <div className="mt-2 flex items-center gap-2">
+                  <button
+                    onClick={onRetry}
+                    className="rounded-md border border-[var(--rb-border-2)] bg-surface px-3 py-1 text-[11px] font-semibold text-fg-2 hover:bg-[var(--rb-bg-hover)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
+                  >
+                    Check again
+                  </button>
+                  <Link
+                    href={app.platform === "google_play" ? "/help/connect-google-play" : "/help/connect-app-store"}
+                    className="text-[11px] font-medium text-fg-3 hover:text-fg-2"
+                  >
+                    Why no reviews? →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          );
+        }
+
+        // Error state
+        return (
+          <div
+            key={app.id}
+            className="flex items-start gap-3 rounded-xl border border-[var(--rb-amber-500)]/30 bg-[var(--rb-amber-500)]/10 px-4 py-3"
+          >
+            <AlertOctagon className="mt-0.5 size-4 shrink-0 text-[#D97706]" strokeWidth={2} />
+            <div className="flex-1">
+              <div className="text-[13px] font-semibold text-fg-1">
+                {app.name} hasn&apos;t synced yet — action needed
+              </div>
+              <div className="mt-1 text-[12px] leading-relaxed text-fg-2">
+                {app.last_sync_error ?? "Unknown sync error. Try Settings → Integrations → Sync now."}
+              </div>
+              <div className="mt-2 flex items-center gap-2">
+                <Link
+                  href={app.platform === "google_play" ? "/help/connect-google-play" : "/help/connect-app-store"}
+                  target="_blank"
+                  className="rounded-md bg-[#D97706] px-3 py-1 text-[11px] font-semibold text-white hover:bg-[#B45309] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#D97706]"
+                >
+                  Step-by-step guide
+                </Link>
+                <Link
+                  href="/settings?tab=integrations"
+                  className="rounded-md border border-[var(--rb-amber-500)]/40 bg-surface px-3 py-1 text-[11px] font-semibold text-[var(--rb-amber-600)] hover:bg-[var(--rb-amber-500)]/10"
+                >
+                  Open Settings
+                </Link>
+                <button
+                  onClick={onRetry}
+                  className="rounded-md border border-[var(--rb-amber-500)]/40 bg-surface px-3 py-1 text-[11px] font-semibold text-[var(--rb-amber-600)] hover:bg-[var(--rb-amber-500)]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--rb-amber-600)]"
+                >
+                  Retry sync
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
 }
 
 // ── KpiCard ───────────────────────────────────────────────────────────────────
@@ -474,7 +633,7 @@ export default function DashboardPage() {
         <button
           onClick={handleExport}
           disabled={exporting}
-          className="flex h-9 w-fit items-center gap-1.5 rounded-lg border border-[var(--rb-border-1)] bg-surface px-4 text-[13px] font-medium text-fg-2 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
+          className="flex h-9 w-fit items-center gap-1.5 rounded-lg border border-[var(--rb-border-3)] bg-surface px-4 text-[13px] font-medium text-fg-2 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
         >
           <Download className="size-3.5" strokeWidth={2} />
           {exporting ? "Exporting…" : "Export CSV"}
@@ -488,6 +647,29 @@ export default function DashboardPage() {
         onConnectPlayConsole={() => setSetupModalOpen(true)}
         onOpenSetup={() => setSetupModalOpen(true)}
       />
+
+      {/* ── Sync banners (single, merged) ── */}
+      <SyncBanners
+        apps={apps}
+        onRetry={handleRetry}
+        onConnectPlayConsole={() => setSetupModalOpen(true)}
+      />
+
+      {/* ── AI enrichment banner ── */}
+      {aiEnriching === true && (
+        <div className="flex items-start gap-3 rounded-xl border border-[#0A84FF]/20 bg-[#0A84FF]/[0.04] px-4 py-3">
+          <Bot className="mt-0.5 size-4 shrink-0 animate-pulse text-[#0A84FF]" strokeWidth={2} />
+          <div className="flex-1">
+            <div className="text-[13px] font-semibold text-fg-1">
+              AI is preparing your workspace…
+            </div>
+            <div className="mt-0.5 text-[11px] text-fg-3">
+              Gemini is reading your reviews and generating your Knowledge Base and reply templates. This takes about 10 seconds.
+            </div>
+          </div>
+          <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-[#0A84FF]" strokeWidth={2} />
+        </div>
+      )}
 
       {/* ── Hero — portfolio rating ── */}
       <section className="grid grid-cols-1 gap-6 rounded-2xl border border-[var(--rb-border-1)] bg-surface px-5 py-5 shadow-[var(--rb-shadow-xs)] sm:grid-cols-[minmax(0,260px)_1fr] sm:items-center sm:gap-8 sm:px-8 sm:py-7">
@@ -519,7 +701,9 @@ export default function DashboardPage() {
               <span
                 className={cn(
                   "rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums",
-                  avgRatingDelta >= 0 ? "bg-green-50 text-green-700" : "bg-red-50 text-red-700",
+                  avgRatingDelta >= 0
+                    ? "bg-[var(--rb-green-500)]/10 text-[var(--rb-green-500)]"
+                    : "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)]",
                 )}
               >
                 {formatDelta(avgRatingDelta)}
@@ -532,9 +716,13 @@ export default function DashboardPage() {
             </div>
           )}
           <p className="mt-4 max-w-[240px] text-[13px] leading-relaxed text-fg-3">
-            {unreplied > 0
-              ? `${unreplied} reviews awaiting reply.${urgent > 0 ? ` ${urgent} marked urgent.` : ""}`
-              : "All reviews replied to. Great work!"}
+            {/* An empty workspace is not an inbox-zero achievement — congratulating
+                someone for replying to reviews they don't have reads as broken. */}
+            {totalReviews === 0
+              ? "No reviews synced yet. Connect your store to start tracking."
+              : unreplied > 0
+                ? `${unreplied} reviews awaiting reply.${urgent > 0 ? ` ${urgent} marked urgent.` : ""}`
+                : "All reviews replied to. Great work!"}
           </p>
         </div>
         <div className="min-w-0">
@@ -623,7 +811,7 @@ export default function DashboardPage() {
               <div className="text-[15px] font-semibold text-fg-1">Apps</div>
               <div className="mt-0.5 text-xs text-fg-3">Portfolio overview</div>
             </div>
-            <Link href="/settings" className="ml-auto text-xs font-semibold text-[#0A84FF] hover:underline">
+            <Link href="/settings?tab=integrations" className="ml-auto text-xs font-semibold text-[#0A84FF] hover:underline">
               Manage →
             </Link>
           </div>
@@ -635,7 +823,7 @@ export default function DashboardPage() {
           ) : apps.length === 0 ? (
             <div className="px-5 py-8 text-center text-xs text-fg-3">
               No apps connected yet.{" "}
-              <Link href="/settings" className="text-[#0A84FF] hover:underline">Add one →</Link>
+              <Link href="/settings?tab=integrations" className="text-[#0A84FF] hover:underline">Add one →</Link>
             </div>
           ) : (
             apps.map((a, i) => (

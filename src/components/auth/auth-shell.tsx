@@ -74,7 +74,14 @@ function DemoCard() {
 
 export function AuthShell({ heading, subheading, children, footer }: AuthShellProps) {
   return (
-    <div className="flex min-h-screen flex-col lg:flex-row">
+    // data-theme="light" pins the auth screens to the light palette they were
+    // designed for. The shell reads --rb-* tokens, but Clerk's form is styled
+    // with fixed light colours on a transparent card (CLERK_APPEARANCE) — so a
+    // signed-out user with dark mode on got a dark shell under near-black field
+    // labels, i.e. an invisible "Email address" / "Password" on the first
+    // screen of the product. Re-declaring the tokens here keeps the two halves
+    // in agreement without touching Clerk's own styling.
+    <div data-theme="light" className="flex min-h-screen flex-col bg-canvas lg:flex-row">
       {/* ── Left: product panel ─────────────────────────────────────────────── */}
       <aside className="hidden flex-col justify-between border-r border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-12 lg:flex lg:w-[52%] xl:p-16">
         <Link href="/" className="flex w-fit items-center gap-2.5">
@@ -106,7 +113,7 @@ export function AuthShell({ heading, subheading, children, footer }: AuthShellPr
           </ul>
         </div>
 
-        <p className="text-[12px] text-fg-4">
+        <p className="text-[12px] text-fg-3">
           14-day trial · no credit card · cancel from one screen
         </p>
       </aside>
@@ -150,7 +157,7 @@ export function AuthShell({ heading, subheading, children, footer }: AuthShellPr
           <Link href="https://tryreviewbox.com/help" className="hover:text-fg-1">
             Help
           </Link>
-          <span className="text-fg-4">&copy; {new Date().getFullYear()} ReviewBox</span>
+          <span className="text-fg-3">&copy; {new Date().getFullYear()} ReviewBox</span>
         </div>
       </main>
     </div>

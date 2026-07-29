@@ -99,16 +99,16 @@ function deriveStats(version: string, rows: DbReview[]): ReleaseStats {
 // ── Styling ───────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<DerivedStatus, { badge: string; bar: string; label: string }> = {
-  degraded:   { badge: "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)] border border-[var(--rb-red-500)]/25",               bar: "bg-red-400",    label: "Degraded" },
-  monitoring: { badge: "bg-amber-50 text-amber-700 border border-amber-200",         bar: "bg-amber-400",  label: "Monitoring" },
-  healthy:    { badge: "bg-emerald-50 text-emerald-700 border border-emerald-200",   bar: "bg-emerald-400", label: "Healthy" },
+  degraded:   { badge: "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)] border border-[var(--rb-red-500)]/25",               bar: "bg-[var(--rb-red-400)]",    label: "Degraded" },
+  monitoring: { badge: "bg-[var(--rb-amber-500)]/10 text-[var(--rb-amber-500)] border border-[var(--rb-amber-500)]/25",         bar: "bg-[var(--rb-amber-500)]",  label: "Monitoring" },
+  healthy:    { badge: "bg-[var(--rb-green-500)]/10 text-[var(--rb-green-500)] border border-[var(--rb-green-500)]/25",   bar: "bg-[var(--rb-green-500)]", label: "Healthy" },
 };
 
 const SENTIMENT_BADGE: Record<string, string> = {
   critical: "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)]",
   negative: "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)]",
-  mixed:    "bg-amber-50 text-amber-700",
-  positive: "bg-emerald-50 text-emerald-700",
+  mixed:    "bg-[var(--rb-amber-500)]/10 text-[var(--rb-amber-500)]",
+  positive: "bg-[var(--rb-green-500)]/10 text-[var(--rb-green-500)]",
 };
 
 const TAG_LABELS: Record<string, string> = {
@@ -128,7 +128,7 @@ function StatCard({
       <p className="text-xs text-fg-3 font-medium">{label}</p>
       <p className={cn(
         "mt-1 text-xl font-semibold",
-        positive && "text-emerald-600",
+        positive && "text-[var(--rb-green-500)]",
         negative && "text-red-500",
         !positive && !negative && "text-fg-1",
       )}>
@@ -290,7 +290,7 @@ export default async function ReleaseDetailPage({ params }: ReleaseDetailPagePro
               <p className="text-sm text-fg-3">
                 No reviews synced for version <span className="font-mono">{version}</span> yet.
               </p>
-              <p className="mt-1 text-xs text-fg-4">
+              <p className="mt-1 text-xs text-fg-3">
                 Reviews appear here after the next Google Play sync.
               </p>
             </div>
@@ -311,7 +311,7 @@ export default async function ReleaseDetailPage({ params }: ReleaseDetailPagePro
                           </span>
                         )}
                         {r.country && (
-                          <span className="text-[10px] text-fg-4">{r.country}</span>
+                          <span className="text-[10px] text-fg-3">{r.country}</span>
                         )}
                       </div>
                       <p className="text-xs text-fg-3 leading-5 line-clamp-3">{r.body}</p>

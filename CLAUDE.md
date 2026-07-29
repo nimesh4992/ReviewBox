@@ -375,10 +375,10 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 | Release health table — rollout bars | ✅ Done |
 | Release detail — rating dist, issue tags, reviews per version | ✅ Done (real data) |
 | Sentiment screen — trend chart + topic breakdown + AI recluster | ✅ Done (real data) |
-| Competitors screen — benchmark table + sparklines | ✅ Done (mock) |
+| Competitors screen — benchmark table + sparklines | ✅ Done (real data via `/api/competitors`) |
 | ASO screen — keyword rank tracker + AI suggestions panel | ✅ Done (real data) |
-| Reports screen — report cards + run/configure | ✅ Done (mock) |
-| Onboarding wizard — 4-step (workspace → app search → connect → done), AppFollow-style live app search | ✅ Done (search-first) |
+| Reports screen — report cards + Send now | ✅ Done — `/api/reports/send-now` (user-scoped, rate-limited) |
+| Onboarding wizard — 5-step (workspace → app search → brand voice → connect → ready) | ✅ Done — theme-aware light/dark |
 | Settings UI — alerts, profile, billing | ✅ Done |
 | Landing page — Apple-style light design | ✅ Done |
 | Sign-in / Sign-up — light theme, Clerk appearance API | ✅ Done |
@@ -420,7 +420,7 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 | Admin panel wired to real customer data | ✅ Done — overview KPIs, customer detail, support tickets (needs migration 017) |
 | Security audit + RLS verification | ✅ Done (3 passes: 2026-05-21 + 2026-05-25 round-1/2 + 2026-05-26 cross-verify — 44+ fixes) |
 | Next.js 15 → 16 upgrade | 🔲 When stable |
-| Unit test suite (Vitest) | ✅ Done — 70 tests across 9 files, CI-gated |
+| Unit test suite (Vitest) | ✅ Done — 136 tests across 15 files, CI-gated. Node env, pure functions only (no React Testing Library) |
 | CI pipeline (tsc, lint, vitest, e2e, audit) | ✅ Done — `.github/workflows/ci.yml` |
 | Launch checklist | ✅ `docs/LAUNCH_CHECKLIST.md` (80+ items) |
 | App Store / Google Play search during onboarding | ✅ Done — `/api/onboarding/search-app` |
@@ -537,7 +537,7 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 - [ ] Map App Store review fields to `AppReview` type
 
 #### Sprint S3.4 — Product Polish
-- [ ] Competitors screen — real data (manual competitor add → fetch public store rating)
+- [x] Competitors screen — real data (manual competitor add → fetch public store rating)
 - [ ] Reports — scheduled PDF/email export (weekly/monthly)
 - [ ] Status page live on BetterStack, linked in app footer + settings
 
@@ -585,23 +585,57 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 
 ## Current Sprint
 
-**Active: UX polish + design system audit**
-Last updated: 2026-05-29
+**Active: UI + wiring repair**
+Last updated: 2026-07-29
 
-### PRs awaiting founder merge
+### ⚠️ Read this before touching the dashboard
 
-| Branch | What | Priority |
+`src/app/(app)/dashboard/page.tsx` has been corrupted by overlapping merges
+**three times** (PR #68's merge, PR #69's merge, and the manual resolution just
+before #72 merged). Every time it is the same damage: `SyncBanners`' JSX runs
+into an orphaned `WorkspaceStatusStrip` fragment, which fails `tsc` and takes
+the whole production deploy down with it — master shipped nothing for hours
+because of this. The canonical shape is ONE component,
+`SyncBanners({ apps, onRetry, onConnectPlayConsole })`, per-app banners, and
+**no `WorkspaceStatusStrip` anywhere in the file**. If you resolve a conflict
+here, run `npx tsc --noEmit` before pushing — every time.
+
+### Open PR
+
+| PR | What | Priority |
 |---|---|---|
-| `fix/sync-openssl-metadata` | OpenSSL 3 private key fix + sync parallelisation + metadata refresh | 🔴 HIGH — merge first |
-| `fix/dashboard-lifetime-rating` | Lifetime rating/review count from store (fixes 2.46★ vs 3.3★ discrepancy) | 🔴 HIGH — merge second |
-| `feat/google-play-setup-modal` | AppFollow-style GP connection modal with verify flow | 🟡 MEDIUM |
-| `fix/query-cache-retention` | React Query `gcTime` 30 min + `keepPreviousData` — fixes data vanishing on return | 🟡 MEDIUM |
-| `fix/metadata-scrape-cache` | Redis 6h TTL for Play Store / App Store metadata scrapes | 🟡 MEDIUM |
-| `fix/reply-ux-and-onboarding-skip` | Draft save feedback, credential error CTAs, onboarding step 3 skip path | 🟡 MEDIUM |
+| #73 `claude/saas-ui-design-review-tt435y` | Master build repair + dark-mode/wiring fixes | 🔴 Merge — master does not compile without it |
 
-Check: https://github.com/nimesh4992/ReviewBox/pulls
+### Known false alarm: "E2E tests (advisory)"
 
-**After `fix/sync-openssl-metadata` + `fix/dashboard-lifetime-rating` merge:** trigger a manual sync via Settings → Apps → Sync now to populate `apps.lifetime_rating` with real store values.
+This check fails on **every** commit on every branch, including ones that only
+touch documentation. CI runs with placeholder Clerk keys (`pk_test_ci-placeholder…`)
+which Clerk now rejects outright with `"Invalid host"`, so the error page is
+served for every route and even public smoke tests (landing, pricing, legal)
+fail. It is not a signal about your change. Fixing it needs a real Clerk test
+instance and its keys added as repo secrets — founder action, ~10 min. Do not
+silence the check to make it green.
+
+### Design-system notes
+
+- `--rb-fg-4` measures **2.15:1** on a light surface — below the 3.0 floor even
+  for large text. Use it for decoration only (icons, dashes, ghost affordances),
+  never for content. Darkening the token enough to pass collapses it into
+  `--rb-fg-3`, so the value is left alone pending a founder call.
+- The dangerous pattern to watch for is a **hardcoded colour paired with a token
+  colour** — e.g. `bg-[#F5F5F7]` with `text-[var(--rb-fg-1)]`. That reads fine in
+  light mode and renders invisible text in dark (this is exactly how the Google
+  Play modal's service-account email disappeared).
+- The sidebar app selector stores the app **ID**. Resolve it with
+  `resolveSelectedApp()` from `src/lib/selected-app.ts` — never by name.
+- **Border weights are semantic, not decorative.** `--rb-border-1` (6% white in
+  dark) is a *divider* — card edges, row separators. Putting it on something
+  interactive makes the element vanish on a dark surface: a form field stops
+  reading as a field, an outline button stops reading as a button. Use
+  `--rb-border-2` for inputs and `--rb-border-3` for interactive elements. Two
+  of the three plan CTAs on Billing looked disabled because of this, and it
+  passed every contrast check — the failure was affordance, not legibility, so
+  only rendering the screen caught it.
 
 ### What shipped 2026-05-29
 

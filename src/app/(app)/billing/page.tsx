@@ -200,7 +200,7 @@ function BillingContent() {
               variant="outline"
               onClick={() => void handleManageSubscription()}
               disabled={portalLoading}
-              className="shrink-0 border-[var(--rb-border-1)] text-fg-2 hover:bg-[var(--rb-bg-hover)]"
+              className="shrink-0 border-[var(--rb-border-3)] text-fg-1 hover:bg-[var(--rb-bg-hover)]"
             >
               {portalLoading ? (
                 <>
@@ -300,7 +300,7 @@ function PlanCard({ plan, isLoading, isDisabled, onChoose }: PlanCardProps) {
           "w-full",
           plan.highlight
             ? "bg-[#0A84FF] text-white hover:bg-[#006EE0]"
-            : "border-[var(--rb-border-1)] text-fg-2 hover:bg-[var(--rb-bg-hover)]",
+            : "border-[var(--rb-border-3)] text-fg-1 hover:border-[#0A84FF]/50 hover:bg-[var(--rb-bg-hover)]",
         )}
         onClick={onChoose}
         disabled={isDisabled}

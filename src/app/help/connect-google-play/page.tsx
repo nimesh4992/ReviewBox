@@ -12,13 +12,13 @@ export const metadata = {
 // The actual production service account email lives in GOOGLE_CLIENT_EMAIL.
 // Surface it server-side at request time — never hardcode.
 function getServiceAccountEmail(): string {
-  return process.env.GOOGLE_CLIENT_EMAIL ?? "(check Settings → Apps for your email)";
+  return process.env.GOOGLE_CLIENT_EMAIL ?? "(check Settings → Integrations for your email)";
 }
 
 const TROUBLESHOOTING = [
   {
     q: "I added the email but reviews still aren't appearing",
-    a: "Permission propagation in Google Play can take 5–60 minutes. Click 'Sync now' in Settings → Apps after waiting. If you still see the amber error banner after an hour, double-check that 'Reply to reviews' is enabled in the permissions.",
+    a: "Permission propagation in Google Play can take 5–60 minutes. Click 'Sync now' in Settings → Integrations after waiting. If you still see the amber error banner after an hour, double-check that 'Reply to reviews' is enabled in the permissions.",
   },
   {
     q: "I see 'Service account not authorized' even after granting access",
@@ -78,7 +78,7 @@ export default async function ConnectGooglePlayPage() {
           <p>Paste this email address:</p>
           <div className="mt-3 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-sm">
             <code className="flex-1 truncate font-mono text-[12px] text-gray-800">{email}</code>
-            <span className="text-[10px] font-medium text-gray-400">Copy from Settings → Apps in-product</span>
+            <span className="text-[10px] font-medium text-gray-400">Copy from Settings → Integrations in-product</span>
           </div>
           <p className="mt-3 text-sm text-gray-500">
             This is our service account. It&apos;s not a human — Google Play treats it as a teammate so it can read your reviews and post replies through their API.
@@ -146,8 +146,8 @@ export default async function ConnectGooglePlayPage() {
         <>
           <p>
             Back in ReviewBox, go to{" "}
-            <Link href="/settings" className="text-[#0A84FF] hover:underline">
-              Settings → Apps
+            <Link href="/settings?tab=integrations" className="text-[#0A84FF] hover:underline">
+              Settings → Integrations
             </Link>{" "}
             and click <strong>Sync now</strong> next to your app.
           </p>
@@ -224,7 +224,7 @@ export default async function ConnectGooglePlayPage() {
                 <p className="mt-1 text-sm text-emerald-800 leading-relaxed">
                   Reviews sync automatically each day. Click{" "}
                   <strong>Sync now</strong> in{" "}
-                  <Link href="/settings" className="underline">Settings → Apps</Link>{" "}
+                  <Link href="/settings?tab=integrations" className="underline">Settings → Integrations</Link>{" "}
                   any time you want fresh data.
                 </p>
               </div>

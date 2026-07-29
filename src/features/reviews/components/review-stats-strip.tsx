@@ -12,7 +12,7 @@ export function ReviewStatsStrip({ reviews }: { reviews: AppReview[] }) {
 
   const replyRateColor =
     replyRate >= 70
-      ? "text-emerald-600"
+      ? "text-[var(--rb-green-500)]"
       : replyRate >= 50
       ? "text-amber-600"
       : "text-red-600";
