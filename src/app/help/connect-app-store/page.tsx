@@ -75,7 +75,7 @@ const STEPS = [
     content: (
       <>
         <p>
-          In ReviewBox, go to <strong>Settings → Apps → Add app → App Store</strong>.
+          In ReviewBox, go to <strong>Settings → Integrations → Add app → App Store</strong>.
         </p>
         <ol className="mt-3 space-y-2 text-sm list-decimal list-inside text-gray-600">
           <li>Enter your <strong>Bundle ID</strong> (e.g. <code className="rounded bg-gray-100 px-1.5 py-0.5 text-xs">com.yourcompany.yourapp</code>)</li>
@@ -154,7 +154,7 @@ export default function ConnectAppStorePage() {
               <div>
                 <h3 className="font-semibold text-emerald-900">You&apos;re connected!</h3>
                 <p className="mt-1 text-sm text-emerald-800 leading-relaxed">
-                  Reviews will sync every 4 hours. Trigger a manual sync any time from <strong>Settings → Apps</strong>.
+                  Reviews will sync every 4 hours. Trigger a manual sync any time from <strong>Settings → Integrations</strong>.
                 </p>
               </div>
             </div>

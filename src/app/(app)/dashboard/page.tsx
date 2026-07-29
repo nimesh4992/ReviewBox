@@ -223,7 +223,7 @@ function SyncBanners({
                 {app.name} hasn&apos;t synced yet — action needed
               </div>
               <div className="mt-1 text-[12px] leading-relaxed text-fg-2">
-                {app.last_sync_error ?? "Unknown sync error. Try Settings → Apps → Sync now."}
+                {app.last_sync_error ?? "Unknown sync error. Try Settings → Integrations → Sync now."}
               </div>
               <div className="mt-2 flex items-center gap-2">
                 <Link
@@ -234,7 +234,7 @@ function SyncBanners({
                   Step-by-step guide
                 </Link>
                 <Link
-                  href="/settings"
+                  href="/settings?tab=integrations"
                   className="rounded-md border border-[var(--rb-amber-500)]/40 bg-surface px-3 py-1 text-[11px] font-semibold text-[var(--rb-amber-600)] hover:bg-[var(--rb-amber-500)]/10"
                 >
                   Open Settings
@@ -655,7 +655,7 @@ export default function DashboardPage() {
               <div className="text-[15px] font-semibold text-fg-1">Apps</div>
               <div className="mt-0.5 text-xs text-fg-3">Portfolio overview</div>
             </div>
-            <Link href="/settings" className="ml-auto text-xs font-semibold text-[#0A84FF] hover:underline">
+            <Link href="/settings?tab=integrations" className="ml-auto text-xs font-semibold text-[#0A84FF] hover:underline">
               Manage →
             </Link>
           </div>
@@ -667,7 +667,7 @@ export default function DashboardPage() {
           ) : apps.length === 0 ? (
             <div className="px-5 py-8 text-center text-xs text-fg-3">
               No apps connected yet.{" "}
-              <Link href="/settings" className="text-[#0A84FF] hover:underline">Add one →</Link>
+              <Link href="/settings?tab=integrations" className="text-[#0A84FF] hover:underline">Add one →</Link>
             </div>
           ) : (
             apps.map((a, i) => (

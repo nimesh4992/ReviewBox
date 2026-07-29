@@ -1,9 +1,5 @@
 import { PageHeader } from "@/components/layout/page-header";
-import {
-  SettingsSections,
-  WorkspaceDefaults,
-} from "@/features/settings/components/settings-sections";
-import { DangerZone } from "@/components/settings/danger-zone";
+import { SettingsTabs } from "@/features/settings/components/settings-tabs";
 
 export default function SettingsPage() {
   return (
@@ -14,14 +10,8 @@ export default function SettingsPage() {
         description="Manage integrations, reply workflows, alert routing, and workspace defaults."
       />
 
-      <div className="mx-auto grid w-full max-w-[1160px] gap-4 p-4 md:p-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-        <div className="flex flex-col gap-4">
-          <SettingsSections />
-          <section id="danger-zone" className="scroll-mt-20">
-            <DangerZone />
-          </section>
-        </div>
-        <WorkspaceDefaults />
+      <div className="mx-auto w-full max-w-[1000px] p-4 md:p-6">
+        <SettingsTabs />
       </div>
     </div>
   );

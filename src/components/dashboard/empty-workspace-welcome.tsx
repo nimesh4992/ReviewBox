@@ -70,7 +70,7 @@ export function EmptyWorkspaceWelcome() {
               <ArrowRight className="size-4" strokeWidth={2} />
             </Link>
             <Link
-              href="/settings"
+              href="/settings?tab=integrations"
               className="flex h-10 items-center gap-2 rounded-xl border border-[var(--rb-border-2)] bg-surface px-5 text-rb-md font-medium text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)]"
             >
               Open Settings

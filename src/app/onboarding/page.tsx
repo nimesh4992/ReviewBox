@@ -794,7 +794,7 @@ function Step4Connect({
       ) : (
         <div className="rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-4 space-y-3">
           <p className="text-xs font-semibold text-fg-2 uppercase tracking-widest">App Store Connect setup</p>
-          <p className="text-sm text-fg-2">Generate an API key in App Store Connect and paste it in <span className="font-medium text-fg-2">Settings → Apps</span> after launching.</p>
+          <p className="text-sm text-fg-2">Generate an API key in App Store Connect and paste it in <span className="font-medium text-fg-2">Settings → Integrations</span> after launching.</p>
         </div>
       )}
 

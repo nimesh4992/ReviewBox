@@ -280,7 +280,7 @@ function TroubleshootTab() {
     },
     {
       q: "I see 'Package not found'",
-      a: "Verify the package name in Settings → Apps matches exactly what's in your Play Console (e.g. com.yourcompany.app). No spaces, no trailing slash.",
+      a: "Verify the package name in Settings → Integrations matches exactly what's in your Play Console (e.g. com.yourcompany.app). No spaces, no trailing slash.",
     },
   ];
 

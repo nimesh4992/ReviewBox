@@ -126,7 +126,7 @@ export function UserMenu({
         <DropdownMenuSeparator className="bg-[var(--rb-border-1)]" />
 
         <DropdownMenuItem
-          onClick={() => router.push("/settings")}
+          onClick={() => router.push("/settings?tab=team")}
           className="cursor-pointer gap-2 text-[13px] text-fg-2 focus:bg-[var(--rb-bg-hover)] focus:text-fg-1"
         >
           <UserIcon className="size-3.5" strokeWidth={1.5} />

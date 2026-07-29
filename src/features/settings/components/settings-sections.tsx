@@ -3,69 +3,6 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { AlertPreferences } from "./alert-preferences";
-import { AppConnections } from "./app-connections";
-import { SlackIntegration } from "./slack-integration";
-import { SupportSection } from "./support-section";
-import { TeamMembers } from "./team-members";
-import { AppFollowImport } from "./appfollow-import";
-
-/**
- * Anchor nav for the settings page. Nine stacked cards is a scroll wall with
- * no way to tell what's below the fold — these jump links give the page a
- * table of contents without restructuring it into tabs.
- */
-const SECTIONS = [
-  { id: "alerts",      label: "Alerts"      },
-  { id: "slack",       label: "Slack"       },
-  { id: "team",        label: "Team"        },
-  { id: "apps",        label: "Apps"        },
-  { id: "import",      label: "Import"      },
-  { id: "support",     label: "Support"     },
-  { id: "danger-zone", label: "Danger zone" },
-] as const;
-
-function SectionNav() {
-  return (
-    <nav
-      aria-label="Settings sections"
-      className="sticky top-0 z-10 -mx-1 mb-1 flex flex-wrap gap-1 bg-canvas/85 px-1 py-2 backdrop-blur"
-    >
-      {SECTIONS.map((s) => (
-        <a
-          key={s.id}
-          href={`#${s.id}`}
-          className="rounded-full border border-[var(--rb-border-1)] bg-surface px-3 py-1 text-[12px] font-medium text-fg-2 transition-colors hover:border-[#0A84FF]/40 hover:text-[#0A84FF]"
-        >
-          {s.label}
-        </a>
-      ))}
-    </nav>
-  );
-}
-
-/** scroll-mt keeps a jumped-to card clear of the sticky nav above it. */
-function Section({ id, children }: { id: string; children: React.ReactNode }) {
-  return (
-    <section id={id} className="scroll-mt-20">
-      {children}
-    </section>
-  );
-}
-
-export function SettingsSections() {
-  return (
-    <div className="flex flex-col gap-4">
-      <SectionNav />
-      <Section id="alerts"><AlertPreferences /></Section>
-      <Section id="slack"><SlackIntegration /></Section>
-      <Section id="team"><TeamMembers /></Section>
-      <Section id="apps"><AppConnections /></Section>
-      <Section id="import"><AppFollowImport /></Section>
-      <Section id="support"><SupportSection /></Section>
-    </div>
-  );
-}
 
 type SaveState = "idle" | "saving" | "saved" | "error";
 
@@ -115,7 +52,7 @@ export function WorkspaceDefaults() {
   }
 
   return (
-    <aside className="space-y-4 xl:sticky xl:top-6 xl:self-start">
+    <div className="space-y-4">
       {/* Workspace defaults card */}
       <div className="rounded-xl border border-[var(--rb-border-1)] bg-surface p-4 shadow-[var(--rb-shadow-xs)]">
         <h2 className="text-sm font-semibold text-fg-1">Workspace defaults</h2>
@@ -184,6 +121,6 @@ export function WorkspaceDefaults() {
           {saveButtonLabel(voiceSave, "Save brand voice")}
         </Button>
       </div>
-    </aside>
+    </div>
   );
 }
