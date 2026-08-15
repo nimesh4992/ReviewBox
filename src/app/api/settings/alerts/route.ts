@@ -77,7 +77,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       label:        typeof item.label === "string" ? item.label.slice(0, LABEL_MAX) : "",
       description:  typeof item.description === "string" ? item.description.slice(0, DESC_MAX) : "",
       enabled:      item.enabled,
-      channels:     { email: channels.email, slack: channels.slack },
+      // slackWebhookUrl was dropped here while the UI collected it in a
+      // dedicated field and reported "Preferences saved" — the URL went
+      // nowhere and the box was empty again on reload. Only https://hooks.slack
+      // URLs are stored, so a typo can't turn this into an open redirect for
+      // alert payloads.
+      channels: {
+        email: channels.email,
+        slack: channels.slack,
+        ...(typeof channels.slackWebhookUrl === "string" &&
+        channels.slackWebhookUrl.startsWith("https://hooks.slack.com/")
+          ? { slackWebhookUrl: channels.slackWebhookUrl.slice(0, 500) }
+          : {}),
+      },
       schedule_time: typeof item.scheduleTime === "string" ? item.scheduleTime.slice(0, 10) : null,
       schedule_day_of_week:  typeof item.scheduleDayOfWeek === "number" ? Math.max(0, Math.min(6, item.scheduleDayOfWeek)) : null,
       schedule_day_of_month: typeof item.scheduleDayOfMonth === "number" ? Math.max(1, Math.min(31, item.scheduleDayOfMonth)) : null,

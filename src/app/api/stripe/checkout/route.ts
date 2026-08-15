@@ -23,12 +23,18 @@ export async function POST(request: NextRequest) {
     const body = (await request.json()) as { plan: Plan };
     const { plan } = body;
 
-    if (!plan || !PRICE_IDS[plan]) {
-      return apiError("INVALID_INPUT", 400, "Invalid plan.");
-    }
-
+    // Configuration is checked BEFORE the price lookup. PRICE_IDS values are
+    // "" when the Stripe env vars are unset, so checking the price first meant
+    // an unconfigured deployment answered every plan with "Invalid plan." —
+    // a dead end with no next action, and it made the billing page's
+    // STRIPE_NOT_CONFIGURED branch unreachable. That is the screen a customer
+    // hits the day their trial expires.
     if (!process.env.STRIPE_SECRET_KEY) {
       return apiError("STRIPE_NOT_CONFIGURED", 503);
+    }
+
+    if (!plan || !PRICE_IDS[plan]) {
+      return apiError("INVALID_INPUT", 400, "Invalid plan.");
     }
 
     const user = await currentUser();

@@ -12,6 +12,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
 import type { AutomationExecutionLog, AutomationPreset, AutomationRule } from "@/types/review";
 import { featuredPresets, automationPresets } from "@/features/automations/data/mock-automations";
@@ -382,6 +383,7 @@ export function AutomationHub() {
   const [showBuilder, setShowBuilder]   = useState(false);
   const [editingRule, setEditingRule]   = useState<AutomationRule | null>(null);
   const [loading, setLoading]           = useState(false);
+  const [actionError, setActionError]   = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -399,17 +401,38 @@ export function AutomationHub() {
     return () => { cancelled = true; };
   }, []);
 
+  /** Read the canonical { error: { code, message } } envelope off a failed response. */
+  async function failureMessage(res: Response, fallback: string): Promise<string> {
+    const body = await res.json().catch(() => null);
+    return apiErrorMessage(body, fallback);
+  }
+
+  // These two used to update local state without looking at the response, so a
+  // rejected PATCH/DELETE still flipped the switch or removed the row — the
+  // rule was untouched on the server and reappeared on the next reload.
   async function handleToggle(id: string, enabled: boolean) {
-    await fetch(`/api/automations/rules/${id}`, {
+    setActionError(null);
+    const res = await fetch(`/api/automations/rules/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ enabled }),
     });
+
+    if (!res.ok) {
+      setActionError(await failureMessage(res, "Could not update that rule."));
+      throw new Error("toggle failed");   // lets RuleRow revert its own switch
+    }
     setRules((prev) => prev.map((r) => (r.id === id ? { ...r, enabled } : r)));
   }
 
   async function handleDeleteRule(id: string) {
-    await fetch(`/api/automations/rules/${id}`, { method: "DELETE" });
+    setActionError(null);
+    const res = await fetch(`/api/automations/rules/${id}`, { method: "DELETE" });
+
+    if (!res.ok) {
+      setActionError(await failureMessage(res, "Could not delete that rule."));
+      throw new Error("delete failed");
+    }
     setRules((prev) => prev.filter((r) => r.id !== id));
   }
 
@@ -442,70 +465,73 @@ export function AutomationHub() {
       }),
     });
 
-    const newRule: AutomationRule = res.ok
-      ? ((await res.json()) as { rule: AutomationRule }).rule
-      : {
-          id:          `temp-${Date.now()}`,
-          name:        ruleDefaults.name ?? preset.name,
-          description: ruleDefaults.description ?? preset.description ?? "",
-          enabled:     true,
-          conditions:  ruleDefaults.conditions ?? [],
-          action:      ruleDefaults.action ?? "ai_reply",
-          actionLabel: ruleDefaults.actionLabel ?? "AI reply",
-          actionConfig: ruleDefaults.actionConfig,
-          appsScope:   "all",
-          priority:    0,
-          timesRun:    0,
-          lastRunAt:   null,
-          createdAt:   new Date().toISOString(),
-        };
+    // A failed POST used to insert a fabricated `temp-…` rule, so the preset
+    // card showed the green "Installed" state for a rule that does not exist
+    // server-side: it never fires, and it vanishes on reload. Throw instead —
+    // PresetCard renders its own error state from this.
+    if (!res.ok) {
+      const message = await failureMessage(res, "Could not install that automation.");
+      setActionError(message);
+      throw new Error(message);
+    }
 
+    const newRule = ((await res.json()) as { rule: AutomationRule }).rule;
     setRules((prev) => [newRule, ...prev]);
   }
 
+  // Both branches previously fell back to writing the user's unsaved edit into
+  // local state (`makeTemp`), so a rejected save looked identical to a
+  // successful one until the page was reloaded and the rule was gone.
   async function handleSaveRule(rule: Partial<AutomationRule>, editId?: string) {
-    if (editId) {
-      try {
-        const res = await fetch(`/api/automations/rules/${editId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(rule),
-        });
-        if (res.ok) {
-          const json = (await res.json()) as { rule: AutomationRule };
-          setRules((prev) => prev.map((r) => (r.id === editId ? json.rule : r)));
-        } else {
-          setRules((prev) => prev.map((r) =>
-            r.id === editId ? { ...r, ...rule, actionLabel: rule.actionLabel ?? r.actionLabel } : r,
-          ));
-        }
-      } catch {
-        setRules((prev) => prev.map((r) =>
-          r.id === editId ? { ...r, ...rule, actionLabel: rule.actionLabel ?? r.actionLabel } : r,
-        ));
+    setActionError(null);
+    try {
+      const res = editId
+        ? await fetch(`/api/automations/rules/${editId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(rule),
+          })
+        : await fetch("/api/automations/rules", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(rule),
+          });
+
+      if (!res.ok) {
+        setActionError(await failureMessage(res, "Could not save that rule."));
+        return;   // keep the builder open so the edit isn't lost
       }
-    } else {
-      try {
-        const res = await fetch("/api/automations/rules", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(rule),
-        });
-        if (res.ok) {
-          const json = (await res.json()) as { rule: AutomationRule };
-          setRules((prev) => [json.rule, ...prev]);
-        } else {
-          setRules((prev) => [makeTemp(rule), ...prev]);
-        }
-      } catch {
-        setRules((prev) => [makeTemp(rule), ...prev]);
-      }
+
+      const json = (await res.json()) as { rule: AutomationRule };
+      setRules((prev) =>
+        editId
+          ? prev.map((r) => (r.id === editId ? json.rule : r))
+          : [json.rule, ...prev],
+      );
+      handleCloseBuilder();
+    } catch {
+      setActionError("Could not reach the server. Check your connection and try again.");
     }
-    handleCloseBuilder();
   }
 
   return (
     <div className="space-y-4">
+      {actionError !== null && (
+        <div
+          role="alert"
+          className="flex items-start justify-between gap-3 rounded-lg border border-[var(--rb-red-500)]/25 bg-[var(--rb-red-500)]/10 px-4 py-2 text-sm font-medium text-[var(--rb-red-500)]"
+        >
+          <span>{actionError}</span>
+          <button
+            type="button"
+            onClick={() => setActionError(null)}
+            className="shrink-0 underline underline-offset-2"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Tab bar */}
       <div className="inline-flex items-center gap-1 rounded-xl bg-[var(--rb-bg-hover)] p-1">
         {(["rules", "presets"] as ActiveTab[]).map((tab) => (
@@ -604,22 +630,7 @@ export function AutomationHub() {
   );
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function makeTemp(rule: Partial<AutomationRule>): AutomationRule {
-  return {
-    id:          `temp-${Date.now()}`,
-    name:        rule.name ?? "Untitled rule",
-    description: rule.description ?? "",
-    enabled:     true,
-    conditions:  rule.conditions ?? [],
-    action:      rule.action ?? "ai_reply",
-    actionLabel: rule.actionLabel ?? "AI reply",
-    actionConfig: rule.actionConfig,
-    appsScope:   rule.appsScope ?? "all",
-    priority:    rule.priority ?? 0,
-    timesRun:    0,
-    lastRunAt:   null,
-    createdAt:   new Date().toISOString(),
-  };
-}
+// makeTemp() lived here: it minted a client-only `temp-…` rule whenever a save
+// failed, which is what made a rejected save look successful. Removed with the
+// handlers that called it — a rule now exists in this list only if the server
+// returned it.

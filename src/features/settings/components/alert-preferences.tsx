@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { Hash, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
 import type { AlertPreference, AlertType } from "@/types/review";
 import { mockAlertPreferences } from "@/features/settings/data/mock-alerts";
@@ -37,6 +38,7 @@ export function AlertPreferences() {
   const [prefs, setPrefs] = useState<AlertPreference[]>(mockAlertPreferences);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
     fetch("/api/settings/alerts")
@@ -67,18 +69,28 @@ export function AlertPreferences() {
 
   async function savePreferences() {
     setSaving(true);
+    setSaveError(null);
     try {
-      await fetch("/api/settings/alerts", {
+      // The response was previously never inspected, so a rejected save still
+      // showed "Preferences saved" and the user only found out on reload.
+      const res = await fetch("/api/settings/alerts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(prefs),
       });
+
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setSaveError(apiErrorMessage(body, "Could not save your alert preferences."));
+        return;
+      }
+
       const ts = Date.now();
       setSavedAt(ts);
       // Clear the success message after 2 seconds
       setTimeout(() => setSavedAt((prev) => (prev === ts ? null : prev)), 2000);
-    } catch (err) {
-      console.error("Failed to save alert preferences:", err);
+    } catch {
+      setSaveError("Could not reach the server. Check your connection and try again.");
     } finally {
       setSaving(false);
     }
@@ -131,6 +143,16 @@ export function AlertPreferences() {
           className="mx-5 mt-4 rounded-lg border border-[var(--rb-green-500)]/25 bg-[var(--rb-green-500)]/10 px-4 py-2 text-sm font-medium text-[var(--rb-green-500)] animate-in fade-in duration-200"
         >
           Preferences saved
+        </div>
+      )}
+
+      {/* Save failure — stays until the next attempt, so it can't be missed */}
+      {saveError !== null && (
+        <div
+          role="alert"
+          className="mx-5 mt-4 rounded-lg border border-[var(--rb-red-500)]/25 bg-[var(--rb-red-500)]/10 px-4 py-2 text-sm font-medium text-[var(--rb-red-500)]"
+        >
+          {saveError}
         </div>
       )}
 

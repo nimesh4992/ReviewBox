@@ -1,4 +1,5 @@
 import { enrichReview } from "@/lib/rules-engine";
+import { toAlpha2 } from "@/lib/country-codes";
 import type { AppReview } from "@/types/review";
 
 /**
@@ -47,7 +48,10 @@ export function buildEnrichedRow(
     body,
     app_version:       appVersion,
     device,
-    country,
+    // `country` is char(2). App Store Connect sends alpha-3 territories
+    // ("IND"), which raise 22001 and fail the entire insert batch — one
+    // bad field would otherwise break sync for the whole app.
+    country:           toAlpha2(country),
     store_created_at:  storeCreatedAt,
     sentiment:         enriched.sentiment,
     priority:          enriched.priority,

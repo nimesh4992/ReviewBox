@@ -30,6 +30,21 @@ These are the next items to ship. Don't skip; don't reorder without thinking.
 ### [ ] CM4 · Competitors screen on real data · ICE 24 (6×8÷2)
 **Added 2026-07-29. Table already exists (migration 016) — this is UI + scrape wiring only.**
 
+### [ ] AU2 · Resolve the `aso_keywords` schema ambiguity · ICE 90 (9×10÷1) — HUMAN-REQUIRED
+**Added 2026-08-15 by the audit round.** **Effort:** 2 min (founder runs one query).
+**Done when:** we know which shape prod has, `pending_combined.sql` is deleted, and — if prod matches pending_combined — a migration reconciles it.
+**Why now:** `007_aso_keywords.sql` and `pending_combined.sql` create the SAME table with DIFFERENT columns, both `IF NOT EXISTS`. Whichever was pasted first won, silently. If prod got pending_combined's shape, **every ASO keyword route is 500ing right now** and we have no way to know from the repo. Query is in `docs/today.md`.
+
+### [ ] AU3 · `ai_usage` is read everywhere, written nowhere · ICE 45 (5×9÷1)
+**Added 2026-08-15 by the audit round.** **Effort:** 2h.
+**Done when:** `/api/reply/draft` (and the automation executor's `generateReply` path) insert an `ai_usage` row per call, so the dashboard "AI drafts this week", admin overview, customer detail, and analytics stop reporting a hardcoded-looking 0.
+**Why now:** four surfaces currently show a number that is structurally always zero — including the founder's only view of AI cost and abuse.
+
+### [ ] AU4 · Finish the swallowed-error sweep (ASO / Sentiment / Reply Kit / Competitors) · ICE 40 (8×5÷1)
+**Added 2026-08-15 by the audit round.** **Effort:** 3h.
+**Done when:** these screens distinguish "failed to load" from "no data", and their mutations report failure. Same shape as the dashboard/inbox/automations fixes already shipped in AU1: hooks stop casting `{ error?: string }` over the `{ error: { code, message } }` envelope, and each screen gets one error branch.
+**Why now:** on these screens a 500 still reads as "you have no keywords / no tags / this feature isn't shipped yet" — Competitors literally shows "coming soon" on a transient failure.
+
 ### [ ] AS1 · Per-workspace sync lock · ICE 40 (6×10÷1.5)
 **Added 2026-07-28 by audit round 1 (`docs/AUDIT_SYSTEM.md` A4).**
 **Effort:** 2h.
@@ -40,11 +55,11 @@ These are the next items to ship. Don't skip; don't reorder without thinking.
 **Added 2026-07-28. The four-lens agent sweep (`docs/AUDIT_SYSTEM.md`) was cut off by a usage limit; a scheduled resume is armed.**
 **Done when:** all four lenses report, findings verified + appended to AUDIT_SYSTEM.md, BLOCKER/HIGH fixes shipped or ICE-scored here.
 
-### [ ] R1 · Middleware matcher gaps — features broken on prod app host · ICE 85 (9×9.5÷1)
-**Added 2026-07-27 by role audit (`docs/ROLE_AUDIT.md` P0-5).**
-**Effort:** 0.5h.
-**Done when:** `/api/import(.*)`, `/api/competitors(.*)`, `/api/auth/slack(.*)`, `/api/cron(.*)` are added to the middleware app-route matcher so `app.tryreviewbox.com` stops redirecting them to /dashboard. Verify AppFollow import, Slack OAuth, Competitors add, and the trial-nudge cron end-to-end after.
-**Why now:** These are shipped features that appear silently broken in production — not a role issue, a routing bug the audit surfaced.
+### [x] AU1 · Five-lens audit round + 25 fixes · ICE 100 — SHIPPED 2026-08-15
+*Branch `claude/product-audit-testing-toum42`. 27 verified defects (2 BLOCKER, 12 HIGH), 25 fixed. Every automation rule was a silent no-op; onboarding abandonment stranded users with 0 AI drafts; GDPR export leaked App Store .p8 signing keys to any member; App Store Connect territory codes broke sync entirely; CSV re-import erased drafts. Full table in `docs/AUDIT_SYSTEM.md`. Remaining: `ai_usage` never written, swallowed-error UI on ASO/Sentiment/Reply-Kit/Competitors, `pending_combined.sql` schema ambiguity (needs founder SQL check — see `docs/today.md`).*
+
+### [x] R1 · Middleware matcher gaps · ICE 85 — VERIFIED DONE 2026-08-15
+*Re-checked during the audit round: `/api/import`, `/api/competitors`, `/api/auth/slack`, `/api/cron` are all present in `src/middleware.ts:36, 89-91`. The item was stale. `/api/reports/send-now` was the one route genuinely missing and has been added.*
 
 ### [ ] R2 · Role-enforcement P0 pack · ICE 48 (8×9÷1.5)
 **Added 2026-07-27 by role audit (`docs/ROLE_AUDIT.md` P0-1..4, P0-6).**

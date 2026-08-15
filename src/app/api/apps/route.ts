@@ -59,6 +59,17 @@ export async function GET() {
       .eq("workspace_id", workspaceId)
       .order("created_at");
     apps = (minimal.data as Record<string, unknown>[] | null) ?? [];
+    full.error = minimal.error;
+  }
+
+  // Only 42703 (missing column, pre-migration) is a degrade-and-continue case.
+  // Any other error used to fall through to `apps = []` and a 200, so a
+  // timeout or permission failure was reported to the client as "this
+  // workspace has no apps" — which the dashboard renders as the first-run
+  // "connect your first app" screen to an established customer.
+  if (full.error) {
+    console.error("[api/apps GET]", full.error);
+    return apiError("INTERNAL_SERVER_ERROR", 500);
   }
 
   const mapped = apps.map((r) => ({
@@ -101,7 +112,10 @@ export async function POST(request: NextRequest) {
   if (!workspaceId) return apiError("NO_WORKSPACE", 404);
 
   // 3. Get plan from session claims (set via Clerk metadata)
-  const plan = (sessionClaims?.metadata as { plan?: string } | undefined)?.plan ?? "free";
+  // A missing plan means Clerk's cached claims haven't caught up with
+  // onboarding yet, not that the user is on a free tier — see the same
+  // default in middleware.ts:151 and /api/reply/draft.
+  const plan = (sessionClaims?.metadata as { plan?: string } | undefined)?.plan ?? "trial";
 
   // 4. Plan gate — check if workspace can add another app
   const allowed = await canAddApp(workspaceId, plan);

@@ -773,6 +773,34 @@ function Step4Connect({
   onDone:   () => void;
 }) {
   const isGP = platform === "google-play";
+
+  // The address to invite is read from the server, never guessed. This used to
+  // render `NEXT_PUBLIC_GOOGLE_CLIENT_EMAIL ?? "reviews@reviewbox.iam.gserviceaccount.com"`
+  // — a variable that is set nowhere, so every customer was told to invite a
+  // made-up address. They'd invite it, wait the instructed ten minutes, click
+  // "I've done this", and the connection would silently never work.
+  const [serviceAccount, setServiceAccount] = useState<string | null>(null);
+  const [serviceAccountState, setServiceAccountState] =
+    useState<"loading" | "ready" | "missing">("loading");
+
+  useEffect(() => {
+    if (!isGP) return;
+    let cancelled = false;
+    fetch("/api/google-play/service-account")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: { email?: string | null } | null) => {
+        if (cancelled) return;
+        if (data?.email) {
+          setServiceAccount(data.email);
+          setServiceAccountState("ready");
+        } else {
+          setServiceAccountState("missing");
+        }
+      })
+      .catch(() => { if (!cancelled) setServiceAccountState("missing"); });
+    return () => { cancelled = true; };
+  }, [isGP]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -793,7 +821,26 @@ function Step4Connect({
           <p className="text-xs font-semibold text-fg-2 uppercase tracking-widest">Google Play setup</p>
           <ol className="space-y-2 text-sm text-fg-2">
             <li className="flex gap-2"><span className="shrink-0 font-mono text-[#0A84FF]">1.</span>Open <span className="font-medium text-fg-2">Google Play Console</span> → Users & Permissions</li>
-            <li className="flex gap-2"><span className="shrink-0 font-mono text-[#0A84FF]">2.</span>Invite <span className="font-mono text-xs text-[#0A84FF] bg-[#0A84FF]/10 px-1 rounded">{process.env.NEXT_PUBLIC_GOOGLE_CLIENT_EMAIL ?? "reviews@reviewbox.iam.gserviceaccount.com"}</span></li>
+            <li className="flex gap-2">
+              <span className="shrink-0 font-mono text-[#0A84FF]">2.</span>
+              {serviceAccountState === "ready" ? (
+                <span>
+                  Invite{" "}
+                  <span className="font-mono text-xs text-[#0A84FF] bg-[#0A84FF]/10 px-1 rounded break-all">
+                    {serviceAccount}
+                  </span>
+                </span>
+              ) : serviceAccountState === "loading" ? (
+                <span className="text-fg-3">Loading the address to invite…</span>
+              ) : (
+                <span>
+                  Invite our service account — the address isn&apos;t available right now.
+                  You can finish this later from{" "}
+                  <span className="font-medium text-fg-2">Settings → Integrations</span>,
+                  which always shows the current one.
+                </span>
+              )}
+            </li>
             <li className="flex gap-2"><span className="shrink-0 font-mono text-[#0A84FF]">3.</span>Set role to <span className="font-medium text-fg-2">Release Manager</span> with View+Reply permissions</li>
             <li className="flex gap-2"><span className="shrink-0 font-mono text-[#0A84FF]">4.</span>Wait ~10 minutes for permissions to propagate, then click Done</li>
           </ol>

@@ -54,7 +54,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return apiError("INVALID_INPUT", 400, "title and severity are required");
   }
 
-  const VALID_SEVERITIES = ["low", "medium", "high", "critical"];
+  // Must match the DB check constraint in 001_initial_schema.sql. "low" was
+  // accepted here and then rejected by Postgres (23514), so declaring a low
+  // incident failed with a generic 500 and no explanation.
+  const VALID_SEVERITIES = ["medium", "high", "critical"];
   if (!VALID_SEVERITIES.includes(body.severity)) {
     return apiError("INVALID_INPUT", 400, `severity must be one of: ${VALID_SEVERITIES.join(", ")}`);
   }

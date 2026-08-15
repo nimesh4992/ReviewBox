@@ -100,6 +100,22 @@ async function executeAction(
 ): Promise<void> {
   const sb = getServiceClient();
 
+  /**
+   * Apply a write to the review this rule matched, and throw if it did not
+   * land. Without this the run history recorded "success" for updates that
+   * never happened — a silent no-op is the one outcome this log must never
+   * report as a win.
+   */
+  const updateReview = async (patch: Record<string, unknown>): Promise<void> => {
+    const { error, count } = await sb
+      .from("reviews")
+      .update(patch, { count: "exact" })
+      .eq("id", review.id);
+
+    if (error) throw new Error(`review update failed: ${error.message}`);
+    if (!count) throw new Error(`review ${review.id} not found — nothing updated`);
+  };
+
   switch (rule.action) {
     case "ai_reply": {
       // Call generateReply() directly — HTTP call to /api/reply/draft always 401
@@ -109,10 +125,7 @@ async function executeAction(
         rating:     review.rating,
         tone:       "professional",
       });
-      await sb
-        .from("reviews")
-        .update({ reply_text: reply, reply_status: "draft_ready", has_ai_suggestion: true })
-        .eq("id", review.id);
+      await updateReview({ reply_text: reply, reply_status: "draft_ready", has_ai_suggestion: true });
       break;
     }
 
@@ -151,15 +164,12 @@ async function executeAction(
       }
 
       // 4) Mark as replied in DB
-      await sb
-        .from("reviews")
-        .update({
-          reply_text:   replyText,
-          reply_status: "replied",
-          replied_at:   new Date().toISOString(),
-          draft_source: "automation",
-        })
-        .eq("id", review.id);
+      await updateReview({
+        reply_text:   replyText,
+        reply_status: "replied",
+        replied_at:   new Date().toISOString(),
+        draft_source: "automation",
+      });
       break;
     }
 
@@ -181,10 +191,7 @@ async function executeAction(
       const { data: templates } = await query.limit(1);
       const best = templates?.[0];
       if (best) {
-        await sb
-          .from("reviews")
-          .update({ reply_text: best.content, reply_status: "draft_ready" })
-          .eq("id", review.id);
+        await updateReview({ reply_text: best.content, reply_status: "draft_ready" });
       } else {
         throw new Error("template_reply: no matching template found");
       }
@@ -196,19 +203,13 @@ async function executeAction(
       if (!tagToAdd) throw new Error("apply_tag: no actionConfig (tag name) set on rule");
       const existing = review.issueTags ?? [];
       if (!existing.includes(tagToAdd as AppReview["issueTags"][number])) {
-        await sb
-          .from("reviews")
-          .update({ issue_tags: [...existing, tagToAdd] })
-          .eq("id", review.id);
+        await updateReview({ issue_tags: [...existing, tagToAdd] });
       }
       break;
     }
 
     case "escalate": {
-      await sb
-        .from("reviews")
-        .update({ escalation_state: "engineering", priority: "urgent" })
-        .eq("id", review.id);
+      await updateReview({ escalation_state: "engineering", priority: "urgent" });
       break;
     }
 
@@ -221,10 +222,7 @@ async function executeAction(
       if (!existing.includes("support-delay" as AppReview["issueTags"][number])) {
         updatePayload.issue_tags = [...existing, "support-delay"];
       }
-      await sb
-        .from("reviews")
-        .update(updatePayload)
-        .eq("id", review.id);
+      await updateReview(updatePayload);
       break;
     }
   }

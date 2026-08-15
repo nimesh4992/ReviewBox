@@ -28,13 +28,19 @@ export interface WorkspaceApp {
 
 async function fetchApps(): Promise<WorkspaceApp[]> {
   const res = await fetch("/api/apps");
-  if (!res.ok) return [];
+  // Throw rather than returning []. A swallowed error here is indistinguishable
+  // from a genuinely empty workspace, and the dashboard reacts to "zero apps"
+  // by replacing itself with the first-run "connect your first app" screen —
+  // so one transient 500 told a fully set-up customer their workspace was gone.
+  if (!res.ok) {
+    throw new Error(`Failed to load apps (${res.status})`);
+  }
   const data = (await res.json()) as { apps: WorkspaceApp[] };
   return data.apps ?? [];
 }
 
 export function useApps() {
-  const { data, isLoading, refetch } = useQuery({
+  const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ["apps"],
     queryFn: fetchApps,
     staleTime: 5 * 60 * 1000,
@@ -45,7 +51,7 @@ export function useApps() {
   // object from a stale CredentialsBanner queryFn), fall back to empty array
   // rather than propagating a non-array to callers who do `.some()` / `.map()`.
   const apps = Array.isArray(data) ? data : [];
-  return { apps, isLoading, refetch };
+  return { apps, isLoading, isError, refetch };
 }
 
 export function useInvalidateApps() {

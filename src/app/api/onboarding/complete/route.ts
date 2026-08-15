@@ -100,11 +100,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     let wsInsert = await sb
       .from("workspaces")
       .insert({
-        name:         workspaceName,
-        slug:         cleanSlug,
-        plan:         "trial",
-        app_category: appCategory ?? null,
-        brand_voice:  brandVoice ?? null,
+        name:          workspaceName,
+        slug:          cleanSlug,
+        plan:          "trial",
+        // Mirrors the Clerk trialEndsAt stamped below. The trial-nudge cron
+        // and the admin customer pages read this column, so leaving it null
+        // meant the day-5 and day-12 emails matched no workspace and silently
+        // never sent, while admin showed a blank trial end date.
+        trial_ends_at: new Date(Date.now() + TRIAL_DAYS * 86400000).toISOString(),
+        app_category:  appCategory ?? null,
+        brand_voice:   brandVoice ?? null,
       })
       .select("id")
       .single();

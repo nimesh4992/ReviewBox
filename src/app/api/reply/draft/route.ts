@@ -131,9 +131,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     if (!userId) return apiError("UNAUTHORIZED", 401);
 
     // ── Plan + rate limit ─────────────────────────────────────────────────
+    // Absent metadata means "not stamped yet", not "free tier". Clerk caches
+    // session claims for up to 60s after onboarding writes them, so defaulting
+    // to `free` here gave brand-new users 0 AI drafts a day and the misleading
+    // "AI draft limit reached for your plan". middleware.ts:151 already treats
+    // a missing plan as `trial`; match it. (`free` remains the fail-closed
+    // default for an *unknown* plan string — see plans.ts.)
     const plan =
       (session.sessionClaims?.metadata as Record<string, string> | undefined)
-        ?.plan ?? "free";
+        ?.plan ?? "trial";
     const { allowed } = await checkAiRateLimit(userId, plan);
     if (!allowed) return apiError("RATE_LIMITED", 429, "AI draft limit reached for your plan");
 

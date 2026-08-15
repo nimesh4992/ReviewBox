@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 
-import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { getServiceClient, getWorkspaceId, getWorkspaceRole } from "@/lib/supabase-server";
 import { audit } from "@/lib/audit";
 import { rateLimit } from "@/lib/api-rate-limit";
 import { apiError, captureAndError } from "@/lib/api-response";
@@ -26,8 +26,21 @@ async function handler(req: NextRequest): Promise<NextResponse> {
       return apiError("NO_WORKSPACE", 404);
     }
 
+    // Only the owner may export the whole workspace. A full export is every
+    // tenant's data in one file; an invited member should not be able to walk
+    // away with it. Mirrors the owner gate in /api/gdpr/delete.
+    const role = await getWorkspaceRole(userId, workspaceId);
+    if (role !== "owner") {
+      return apiError("FORBIDDEN", 403, "Only the workspace owner can export workspace data.");
+    }
+
     const sb = getServiceClient();
 
+    // Columns are listed explicitly rather than "*" because apps.access_token
+    // and apps.refresh_token hold live store credentials — for App Store
+    // Connect that is the .p8 signing key and its keyId/issuerId. Exporting
+    // them hands over the ability to post replies as the customer, forever,
+    // outside ReviewBox. /api/debug/sync-status already excludes them.
     const [
       workspaceRes,
       membersRes,
@@ -42,7 +55,12 @@ async function handler(req: NextRequest): Promise<NextResponse> {
     ] = await Promise.all([
       sb.from("workspaces").select("*").eq("id", workspaceId).single(),
       sb.from("workspace_members").select("*").eq("workspace_id", workspaceId),
-      sb.from("apps").select("*").eq("workspace_id", workspaceId),
+      sb
+        .from("apps")
+        .select(
+          "id, workspace_id, name, platform, store_id, icon_url, token_expires_at, last_synced_at, created_at",
+        )
+        .eq("workspace_id", workspaceId),
       sb.from("reviews").select("*").eq("workspace_id", workspaceId).limit(50000),
       sb.from("reply_templates").select("*").eq("workspace_id", workspaceId),
       sb.from("knowledge_base").select("*").eq("workspace_id", workspaceId),
