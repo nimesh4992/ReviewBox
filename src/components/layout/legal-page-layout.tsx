@@ -1,15 +1,20 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { COMPANY, companyLine } from "@/lib/legal/company";
 
 // ── Cross-link navigation ─────────────────────────────────────────────────────
 
+// /refund is a permanent redirect to /refund-policy — linking it here sent
+// every legal page's sidebar through a redirect hop to reach the policy.
 const ALL_POLICIES = [
-  { label: "Terms of Service",  href: "/terms" },
-  { label: "Privacy Policy",    href: "/privacy" },
-  { label: "Refund Policy",     href: "/refund" },
-  { label: "DPA",               href: "/dpa" },
-  { label: "Acceptable Use",    href: "/acceptable-use" },
-  { label: "Cookie Policy",     href: "/cookies" },
+  { label: "Terms of Service",     href: "/terms" },
+  { label: "Privacy Policy",       href: "/privacy" },
+  { label: "Refund & Cancellation", href: "/refund-policy" },
+  { label: "DPA",                  href: "/dpa" },
+  { label: "Sub-processors",       href: "/sub-processors" },
+  { label: "Acceptable Use",       href: "/acceptable-use" },
+  { label: "Cookie Policy",        href: "/cookies" },
+  { label: "Grievance Redressal",  href: "/grievance" },
 ];
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -145,12 +150,16 @@ export function LegalPageLayout({
               <p className="mt-1 text-xs text-gray-500">
                 Email{" "}
                 <a
-                  href="mailto:legal@tryreviewbox.com"
+                  href={`mailto:${COMPANY.emails.legal}`}
                   className="text-[#0A84FF] hover:underline"
                 >
-                  legal@tryreviewbox.com
-                </a>{" "}
-                — a real lawyer reads these.
+                  {COMPANY.emails.legal}
+                </a>
+                . For complaints, see{" "}
+                <a href="/grievance" className="text-[#0A84FF] hover:underline">
+                  grievance redressal
+                </a>
+                .
               </p>
             </div>
           </div>
@@ -207,9 +216,9 @@ export function LegalPageLayout({
 
           {/* Footer note */}
           <div className="mt-16 border-t border-gray-100 pt-6 text-xs text-gray-400">
-            AT Work Inc. (ReviewBox) ·{" "}
-            <a href="mailto:legal@tryreviewbox.com" className="hover:text-gray-600">
-              legal@tryreviewbox.com
+            {companyLine()} · Registered in {COMPANY.country} ·{" "}
+            <a href={`mailto:${COMPANY.emails.legal}`} className="hover:text-gray-600">
+              {COMPANY.emails.legal}
             </a>
           </div>
         </article>

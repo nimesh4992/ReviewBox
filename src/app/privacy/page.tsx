@@ -1,4 +1,5 @@
 ﻿import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
+import { COMPANY, companyLine } from "@/lib/legal/company";
 
 export const metadata = {
   title: "Privacy Policy",
@@ -15,6 +16,8 @@ const SECTIONS = [
   { id: "cookies",      title: "Cookies" },
   { id: "children",     title: "Children's privacy" },
   { id: "changes",      title: "Changes to this policy" },
+  { id: "india",        title: "If you are in India" },
+  { id: "ai",           title: "AI processing and review content" },
   { id: "contact",      title: "Contact" },
 ];
 
@@ -25,13 +28,13 @@ export default function PrivacyPage() {
       breadcrumbLabel="Privacy Policy"
       currentHref="/privacy"
       effectiveDate="2026-05-10"
-      jurisdiction="Global"
+      jurisdiction="India"
       version="2.0"
       plainLanguage={[
         "We collect your account info, review data, and usage events. Nothing more.",
         "We don't sell your data. Ever.",
         "GDPR rights apply: export or delete your data any time.",
-        "AES-256 at rest. TLS in transit. Row-level security per workspace.",
+        "Encrypted in transit and at rest, with row-level security per workspace.",
       ]}
       sections={SECTIONS}
     >
@@ -85,40 +88,22 @@ export default function PrivacyPage() {
 
       <LegalSection id="data-sharing" number={3} title="Data sharing">
         <p>
-          We do not sell your personal data. We share data only with the following trusted
-          sub-processors to operate the Service:
+          We do not sell your personal data, and we do not use it to train our own models. We share
+          data only with the third parties needed to run the service. The complete, current list —
+          what each provider receives and where it operates — is published at{" "}
+          <a href="/sub-processors" className="text-[#0A84FF] hover:underline">
+            Sub-processors
+          </a>
+          , which is updated whenever that list changes.
         </p>
-        <ul className="mt-2 list-disc space-y-1.5 pl-5">
-          <li>
-            <strong>Supabase</strong> — PostgreSQL database and file storage (EU region). Your
-            review data and account data are stored here.
-          </li>
-          <li>
-            <strong>Clerk</strong> — Authentication and user management. Handles sign-up,
-            sign-in, and session tokens.
-          </li>
-          <li>
-            <strong>Stripe</strong> — Payment processing. Receives billing details to manage
-            subscriptions.
-          </li>
-          <li>
-            <strong>Groq / Google (Gemini)</strong> — AI inference for generating reply drafts
-            and sentiment analysis. Review text is sent for processing and is not retained beyond
-            the request lifecycle.
-          </li>
-          <li>
-            <strong>PostHog</strong> — Product analytics. Receives anonymized usage events.
-          </li>
-          <li>
-            <strong>Resend</strong> — Transactional email delivery.
-          </li>
-          <li>
-            <strong>Upstash</strong> — Redis rate limiting and caching.
-          </li>
-        </ul>
         <p>
-          We may also disclose data if required by law, court order, or to protect the rights and
-          safety of AT Work Inc. (ReviewBox) or its users.
+          In summary, those providers host the application, store your review and account data,
+          authenticate you, process payments, generate AI drafts, send email, cache results, and
+          give us error and usage diagnostics.
+        </p>
+        <p>
+          We may also disclose data if required by law or court order, or to protect the rights and
+          safety of {companyLine()} or its users.
         </p>
       </LegalSection>
 
@@ -173,18 +158,23 @@ export default function PrivacyPage() {
       </LegalSection>
 
       <LegalSection id="security" number={6} title="Security">
-        <p>We implement industry-standard security measures to protect your data:</p>
+        <p>The measures we actually operate today are:</p>
         <ul className="mt-2 list-disc space-y-1.5 pl-5">
-          <li>All data is encrypted at rest using AES-256 and in transit using TLS 1.3.</li>
+          <li>Data is encrypted in transit using TLS, and at rest by our database provider.</li>
           <li>
-            Database access is enforced with Row-Level Security (RLS) policies so that each
-            workspace can only access its own data.
+            Database access is enforced with row-level security policies, so a workspace can only
+            read its own data.
           </li>
           <li>
-            Production access requires MFA, is logged, and is restricted to authorised personnel.
+            Access to production systems is limited to people who need it, and authentication to
+            our own accounts uses multi-factor authentication.
           </li>
-          <li>Quarterly penetration tests and annual security training for all engineers.</li>
+          <li>Secrets and API credentials are held in environment configuration, never in source code.</li>
         </ul>
+        <p>
+          We do not currently hold SOC 2, ISO 27001, or any comparable certification, and we do not
+          claim one. If that changes, this page will say so and name the auditor.
+        </p>
         <p>
           Despite these measures, no system is completely secure. Please notify us immediately at{" "}
           <a href="mailto:security@tryreviewbox.com" className="text-[#0A84FF] hover:underline">
@@ -227,7 +217,55 @@ export default function PrivacyPage() {
         </p>
       </LegalSection>
 
-      <LegalSection id="contact" number={10} title="Contact">
+      <LegalSection id="india" number={10} title="If you are in India">
+        <p>
+          {companyLine()} is registered in {COMPANY.country}, and we handle personal data in
+          accordance with Indian data protection law, including the Digital Personal Data
+          Protection Act, 2023 as it comes into force, alongside the obligations described
+          elsewhere in this policy.
+        </p>
+        <p>
+          You may ask us to give you access to your personal data, to correct or complete it, or to
+          erase it, and you may withdraw a consent you previously gave. You can also nominate
+          another person to exercise these rights on your behalf if you are unable to.
+        </p>
+        <p>
+          Requests and complaints go to{" "}
+          <a href={`mailto:${COMPANY.emails.privacy}`} className="text-[#0A84FF] hover:underline">
+            {COMPANY.emails.privacy}
+          </a>
+          . If you are not satisfied with our response, escalate it through our{" "}
+          <a href="/grievance" className="text-[#0A84FF] hover:underline">
+            grievance redressal process
+          </a>
+          , which names the officer responsible and the timelines we work to. You retain the right
+          to complain to the relevant data protection authority.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="ai" number={11} title="AI processing and review content">
+        <p>
+          ReviewBox drafts replies, classifies sentiment, and suggests keywords using third-party
+          AI providers. When you use one of those features, the review text and the templates and
+          knowledge-base entries you have configured are sent to that provider so the output can be
+          generated. No review text is sent to an AI provider except to perform one of those
+          actions.
+        </p>
+        <p>
+          Reviews published on an app store are public, but they still describe identifiable people
+          and can contain personal data about the reviewer. Our{" "}
+          <a href="/sub-processors" className="text-[#0A84FF] hover:underline">
+            Sub-processors
+          </a>{" "}
+          page names each AI provider and where it operates.
+        </p>
+        <p>
+          Drafts are suggestions. Nothing is published to an app store until a person at your
+          organisation reviews it and chooses to post it.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="contact" number={12} title="Contact">
         <p>
           If you have questions about this Privacy Policy or our data practices, please contact
           us at{" "}

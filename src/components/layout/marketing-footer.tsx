@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { LogoMark } from "@/components/layout/logo-mark";
+import { COMPANY, companyLine, formatRegisteredOffice, orPending } from "@/lib/legal/company";
 
 /**
  * Columns reflect the approved post-cut sitemap — no links to /customers,
@@ -29,12 +30,21 @@ const FOOTER_COLS = [
     ],
   },
   {
+    heading: "Legal",
+    links: [
+      { label: "Terms", href: "/terms" },
+      { label: "Privacy", href: "/privacy" },
+      { label: "Refund & Cancellation", href: "/refund-policy" },
+      { label: "Grievance Redressal", href: "/grievance" },
+    ],
+  },
+  {
     heading: "Company",
     links: [
       { label: "About", href: "/about" },
-      { label: "Privacy", href: "/privacy" },
-      { label: "Terms", href: "/terms" },
       { label: "DPA", href: "/dpa" },
+      { label: "Sub-processors", href: "/sub-processors" },
+      { label: "Acceptable Use", href: "/acceptable-use" },
     ],
   },
 ];
@@ -84,8 +94,30 @@ export function MarketingFooter() {
           ))}
         </div>
 
-        <div className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t border-[var(--rb-border-1)] pt-6 text-[12px] text-fg-4">
-          <span>&copy; {new Date().getFullYear()} ReviewBox</span>
+        <div className="mt-14 border-t border-[var(--rb-border-1)] pt-6 text-[12px] text-fg-4">
+          <p className="max-w-[70ch] leading-relaxed">
+            {companyLine()} · Registered in {COMPANY.country}
+            {COMPANY.cin ? ` · CIN ${COMPANY.cin}` : ""}
+            {COMPANY.gstin ? ` · GSTIN ${COMPANY.gstin}` : ""}
+          </p>
+          <p className="mt-1 max-w-[70ch] leading-relaxed">
+            Registered office: {formatRegisteredOffice()}
+          </p>
+          <p className="mt-1">
+            Support:{" "}
+            <a href={`mailto:${COMPANY.emails.support}`} className="transition-colors hover:text-fg-2">
+              {COMPANY.emails.support}
+            </a>
+            {" · "}
+            Grievances:{" "}
+            <a href={`mailto:${COMPANY.emails.grievance}`} className="transition-colors hover:text-fg-2">
+              {COMPANY.emails.grievance}
+            </a>
+          </p>
+        </div>
+
+        <div className="mt-6 flex flex-wrap items-center justify-between gap-3 text-[12px] text-fg-4">
+          <span>&copy; {new Date().getFullYear()} {COMPANY.tradingAs}</span>
           <div className="flex items-center gap-5">
             <Link href="/privacy" className="transition-colors hover:text-fg-2">
               Privacy
@@ -93,8 +125,11 @@ export function MarketingFooter() {
             <Link href="/terms" className="transition-colors hover:text-fg-2">
               Terms
             </Link>
-            <Link href="/dpa" className="transition-colors hover:text-fg-2">
-              DPA
+            <Link href="/refund-policy" className="transition-colors hover:text-fg-2">
+              Refunds
+            </Link>
+            <Link href="/contact" className="transition-colors hover:text-fg-2">
+              Contact
             </Link>
           </div>
         </div>

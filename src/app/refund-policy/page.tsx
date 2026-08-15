@@ -1,67 +1,195 @@
-﻿import Link from "next/link";
+import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
+import { COMPANY, companyLine } from "@/lib/legal/company";
 
 export const metadata = {
   title: "Refund & Cancellation Policy",
+  description:
+    "ReviewBox refund and cancellation policy — subscription payments are non-refundable; cancel any time to stop future renewals.",
 };
+
+const SECTIONS = [
+  { id: "summary", title: "The policy in one line" },
+  { id: "trial", title: "Free trial" },
+  { id: "no-refunds", title: "Subscription payments are non-refundable" },
+  { id: "no-proration", title: "No prorated or partial refunds" },
+  { id: "cancellation", title: "How to cancel" },
+  { id: "exceptions", title: "Limited exceptions" },
+  { id: "failed-payments", title: "Failed payments and downgrades" },
+  { id: "price-changes", title: "Price changes" },
+  { id: "disputes", title: "Before you file a chargeback" },
+  { id: "contact", title: "How to reach us" },
+];
 
 export default function RefundPolicyPage() {
   return (
-    <div className="min-h-screen bg-gray-50 py-16 px-6">
-      <div className="mx-auto max-w-3xl">
-        <Link
-          href="/"
-          className="inline-flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-800"
-        >
-          ← Back to ReviewBox
-        </Link>
+    <LegalPageLayout
+      title="Refund & Cancellation Policy"
+      breadcrumbLabel="Refund & Cancellation"
+      currentHref="/refund-policy"
+      effectiveDate="2026-08-15"
+      jurisdiction="India"
+      version="3.0"
+      plainLanguage={[
+        "Every plan starts with a 14-day free trial that needs no card. That trial is how you evaluate ReviewBox — use it.",
+        "Once a subscription payment goes through, it is not refundable.",
+        "Cancel any time. Cancelling stops future renewals; it does not refund the period you already paid for, and there is no prorated refund for unused days.",
+        "You keep full access until the end of the period you have paid for.",
+        "The only refunds we issue are for duplicate charges or a billing error on our side.",
+      ]}
+      sections={SECTIONS}
+    >
+      <LegalSection id="summary" number={1} title="The policy in one line">
+        <p>
+          Subscription fees paid to {companyLine()} are final and non-refundable. You may cancel
+          at any time to prevent future charges, and your access continues until the end of the
+          billing period you have already paid for.
+        </p>
+        <p>
+          We know that is a strict policy, so we have built the alternative into the product:
+          every plan begins with a <strong>14-day free trial that does not ask for a card</strong>.
+          You can connect your apps, sync real reviews, generate drafts, and decide whether
+          ReviewBox is worth paying for before any money changes hands.
+        </p>
+      </LegalSection>
 
-        <div className="mt-8 rounded-2xl bg-white px-8 py-10 shadow-sm ring-1 ring-gray-200 sm:px-12">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900">
-            Refund & Cancellation Policy
-          </h1>
-          <p className="mt-2 text-sm text-gray-500">
-            Last updated: May 15, 2026. ReviewBox is operated by AT Work Inc.
-          </p>
+      <LegalSection id="trial" number={2} title="Free trial">
+        <p>
+          New accounts receive a 14-day free trial of the full product. No payment method is
+          required to start it, and no charge is made when it ends — if you do nothing, the trial
+          simply expires and the account becomes read-only.
+        </p>
+        <p>
+          You only pay when you actively choose a plan and enter payment details. There is no
+          automatic conversion from trial to paid.
+        </p>
+      </LegalSection>
 
-          <div className="mt-10 space-y-10 text-sm leading-relaxed text-gray-700">
-            <section>
-              <h2 className="text-base font-semibold text-gray-900">
-                1. Free Trial
-              </h2>
-              <p className="mt-3">
-                ReviewBox offers a 14-day free trial for all new accounts. No credit card is required to start the trial. You can explore all features during this period.
-              </p>
-            </section>
+      <LegalSection id="no-refunds" number={3} title="Subscription payments are non-refundable">
+        <p>
+          Once a subscription payment has been processed, it is non-refundable. This applies to
+          monthly and annual plans alike, and applies whether or not you used the service during
+          the period covered by that payment.
+        </p>
+        <p>
+          Reasons that do not qualify for a refund include, without limitation: deciding the
+          product is not a fit after purchasing; forgetting to cancel before a renewal date; not
+          using the service during a paid period; a change in your business circumstances; or
+          dissatisfaction with output generated by the AI drafting features, which are assistive
+          and always require your review before anything is published.
+        </p>
+      </LegalSection>
 
-            <section>
-              <h2 className="text-base font-semibold text-gray-900">
-                2. Subscription Cancellation
-              </h2>
-              <p className="mt-3">
-                You may cancel your subscription at any time through your dashboard settings or by contacting us at hello@tryreviewbox.com. Upon cancellation, your subscription will remain active until the end of the current billing cycle. No further charges will be made after cancellation.
-              </p>
-            </section>
+      <LegalSection id="no-proration" number={4} title="No prorated or partial refunds">
+        <p>
+          We do not issue prorated or partial refunds. If you cancel in the middle of a billing
+          period, you are not refunded for the remaining unused days of that period, and no credit
+          is carried forward.
+        </p>
+        <p>
+          The same applies if you downgrade to a cheaper plan mid-period: the change takes effect
+          at your next renewal, and the difference for the current period is not refunded.
+        </p>
+      </LegalSection>
 
-            <section>
-              <h2 className="text-base font-semibold text-gray-900">
-                3. Refunds
-              </h2>
-              <p className="mt-3">
-                Since we offer a fully featured 14-day free trial, we generally do not issue refunds for subscription payments once they have been processed. However, if you believe there has been a billing error or have exceptional circumstances, please reach out to our support team.
-              </p>
-            </section>
+      <LegalSection id="cancellation" number={5} title="How to cancel">
+        <p>
+          You can cancel at any time, without contacting us, from{" "}
+          <strong>Settings → Billing</strong> inside the app. Cancellation takes effect at the end
+          of the current billing period.
+        </p>
+        <p>
+          After cancelling you keep full access for the remainder of the period you have paid for.
+          When that period ends, the subscription stops, no further charges are made, and the
+          account moves to a read-only state from which you can still export your data.
+        </p>
+        <p>
+          If you would rather cancel by email, write to{" "}
+          <a href={`mailto:${COMPANY.emails.billing}`} className="text-[#0A84FF] hover:underline">
+            {COMPANY.emails.billing}
+          </a>{" "}
+          from the address on the account and we will action it.
+        </p>
+      </LegalSection>
 
-            <section>
-              <h2 className="text-base font-semibold text-gray-900">
-                4. Contact Us
-              </h2>
-              <p className="mt-3">
-                For any questions regarding billing, cancellations, or refunds, please email us at hello@tryreviewbox.com.
-              </p>
-            </section>
-          </div>
-        </div>
-      </div>
-    </div>
+      <LegalSection id="exceptions" number={6} title="Limited exceptions">
+        <p>We refund in two situations, and we do so without argument:</p>
+        <ul className="list-disc space-y-2 pl-5">
+          <li>
+            <strong>Duplicate charges.</strong> If you were charged more than once for the same
+            subscription period, the surplus charges are refunded in full.
+          </li>
+          <li>
+            <strong>Billing errors on our side.</strong> If we charged the wrong amount, charged an
+            account that had already been cancelled, or charged you for a plan you did not select,
+            we refund the difference or the full amount as appropriate.
+          </li>
+        </ul>
+        <p>
+          Report either by emailing{" "}
+          <a href={`mailto:${COMPANY.emails.billing}`} className="text-[#0A84FF] hover:underline">
+            {COMPANY.emails.billing}
+          </a>{" "}
+          with the charge date and amount. We aim to acknowledge within two business days. Approved
+          refunds are returned to the original payment method through our payment processor and
+          typically appear within 5–10 business days, depending on your bank.
+        </p>
+        <p>
+          Nothing in this policy limits any right you have that cannot be excluded under applicable
+          law, including the Consumer Protection Act, 2019 where it applies to you.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="failed-payments" number={7} title="Failed payments and downgrades">
+        <p>
+          If a renewal payment fails, we retry it and notify you by email. If payment is not
+          resolved within a reasonable grace period, the subscription is suspended and the account
+          becomes read-only. Data is retained during this period so nothing is lost by a temporary
+          card problem.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="price-changes" number={8} title="Price changes">
+        <p>
+          We may change subscription prices. Any change is announced by email to the address on the
+          account before it takes effect, and it applies from your next renewal — never
+          retroactively to a period you have already paid for. If you do not accept a new price,
+          cancel before the renewal date.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="disputes" number={9} title="Before you file a chargeback">
+        <p>
+          If you believe a charge is wrong, please email us first. Almost every disputed charge we
+          see is a duplicate or a billing error, and both are covered by the exceptions above — we
+          can usually resolve it faster than a bank dispute can.
+        </p>
+        <p>
+          Filing a chargeback for a charge that is valid under this policy may result in the
+          account being suspended, since the payment processor reverses the funds and applies a fee
+          regardless of the outcome.
+        </p>
+      </LegalSection>
+
+      <LegalSection id="contact" number={10} title="How to reach us">
+        <p>
+          Billing questions:{" "}
+          <a href={`mailto:${COMPANY.emails.billing}`} className="text-[#0A84FF] hover:underline">
+            {COMPANY.emails.billing}
+          </a>
+          . General support:{" "}
+          <a href={`mailto:${COMPANY.emails.support}`} className="text-[#0A84FF] hover:underline">
+            {COMPANY.emails.support}
+          </a>
+          .
+        </p>
+        <p>
+          If a complaint is not resolved to your satisfaction, you can escalate it through our{" "}
+          <a href="/grievance" className="text-[#0A84FF] hover:underline">
+            grievance redressal process
+          </a>
+          .
+        </p>
+      </LegalSection>
+    </LegalPageLayout>
   );
 }

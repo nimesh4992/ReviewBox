@@ -1,4 +1,5 @@
 ﻿import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
+import { COMPANY, companyLine, formatRegisteredOffice, orPending } from "@/lib/legal/company";
 
 export const metadata = {
   title: "Terms of Service",
@@ -27,13 +28,13 @@ export default function TermsPage() {
       breadcrumbLabel="Terms of Service"
       currentHref="/terms"
       effectiveDate="2026-05-10"
-      jurisdiction="Global"
+      jurisdiction="India"
       version="2.0"
       plainLanguage={[
         "By using ReviewBox you agree to these Terms. Read them — they matter.",
         "14-day free trial, no card required. Three paid tiers: Starter, Pro, Team.",
         "You own your review data. We process it only to provide the service.",
-        "Questions? Email legal@tryreviewbox.com — a real lawyer reads these.",
+        "Questions? Email legal@tryreviewbox.com and we will answer.",
       ]}
       sections={SECTIONS}
     >
@@ -42,7 +43,9 @@ export default function TermsPage() {
           By accessing or using ReviewBox (&ldquo;the Service&rdquo;), you agree to be bound by
           these Terms of Service (&ldquo;Terms&rdquo;). If you do not agree to these Terms, you
           may not access or use the Service. These Terms constitute a legally binding agreement
-          between you and AT Work Inc., trading as ReviewBox (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or &ldquo;our&rdquo;).
+          between you and {companyLine()}, a company registered in {COMPANY.country} with its
+          registered office at {formatRegisteredOffice()} (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or
+          &ldquo;our&rdquo;).
         </p>
       </LegalSection>
 
@@ -169,7 +172,7 @@ export default function TermsPage() {
 
       <LegalSection id="liability" number={10} title="Limitation of liability">
         <p>
-          TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, REVIEWBOX, INC. AND ITS OFFICERS,
+          TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, {COMPANY.legalName.toUpperCase()} AND ITS OFFICERS,
           DIRECTORS, EMPLOYEES, AND AGENTS SHALL NOT BE LIABLE FOR ANY INDIRECT, INCIDENTAL,
           SPECIAL, CONSEQUENTIAL, OR PUNITIVE DAMAGES, OR ANY LOSS OF PROFITS, REVENUE, DATA, OR
           GOODWILL, ARISING OUT OF OR IN CONNECTION WITH YOUR USE OF THE SERVICE, EVEN IF ADVISED
@@ -181,10 +184,22 @@ export default function TermsPage() {
 
       <LegalSection id="governing-law" number={11} title="Governing law">
         <p>
-          These Terms are governed by and construed in accordance with the laws of the State of
-          Delaware, United States, without regard to its conflict-of-law provisions. Any disputes
-          arising from these Terms shall be resolved exclusively in the state or federal courts
-          located in Delaware.
+          These Terms are governed by and construed in accordance with the laws of India, without
+          regard to conflict-of-law principles. Subject to the paragraph below, the courts at{" "}
+          {orPending(COMPANY.jurisdiction.courts)}, India shall have exclusive jurisdiction over any
+          dispute arising out of or in connection with these Terms.
+        </p>
+        <p>
+          Nothing in this clause removes any protection available to you as a consumer under the
+          law of the country in which you live, including any right to bring proceedings in your
+          local courts where that right cannot be excluded by agreement.
+        </p>
+        <p>
+          Before commencing proceedings, we ask that you raise the matter through our{" "}
+          <a href="/grievance" className="text-[#0A84FF] hover:underline">
+            grievance redressal process
+          </a>
+          , which commits us to acknowledge within 48 hours and to aim to resolve within 7 days.
         </p>
       </LegalSection>
 

@@ -83,8 +83,20 @@ export async function POST(request: NextRequest) {
       success_url: `${appUrl}/dashboard?upgraded=1&plan=${plan}`,
       cancel_url: `${appUrl}/billing`,
       metadata: { clerkUserId: userId, plan },
-      subscription_data: { metadata: { clerkUserId: userId, plan } },
+      subscription_data: {
+        metadata: { clerkUserId: userId, plan },
+        // Export charges also require a description of the service sold; this
+        // appears on the invoice.
+        description: `ReviewBox ${plan[0].toUpperCase()}${plan.slice(1)} plan — app review management software subscription`,
+      },
       allow_promotion_codes: true,
+      // An India-registered Stripe account selling to customers abroad must
+      // supply the buyer's name and billing address on the charge — without
+      // them the payment is rejected outright rather than declining gracefully.
+      // Collect both at checkout and write them back onto the Customer so
+      // renewals carry the same details.
+      billing_address_collection: "required",
+      customer_update: { name: "auto", address: "auto" },
     });
 
     return NextResponse.json({ url: session.url }, { status: 200 });
