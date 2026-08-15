@@ -118,6 +118,40 @@ effects inside `syncWorkspace` that Vercel freezes; `/api/apps` returning 200
 with an empty list on DB errors; brand voice stored as raw JSON in the AI
 prompt; the day-15 Stripe dead-end ("Invalid plan." on every plan).
 
+## Signup-path probe — answers to "how many reviews, and do they get sentiment?"
+
+Probed search → bootstrap → sentiment against the fixture apps.
+
+**Sentiment at signup works, and covers every review.** The rules engine tags
+each bootstrapped review at write time with sentiment, priority, issue tags and
+escalation — no network, no tokens, no Gemini needed. Verified: a 1★ crash
+review comes out `critical` / `urgent` / `["crash","release-regression"]` /
+escalated to engineering; a billing complaint routes to support. Gemini only
+refines ambiguous 3★ reviews later, when someone opens the Sentiment screen.
+
+**Why a customer sees ~50-60 reviews and not 200.** `BOOTSTRAP_LIMIT` is 200,
+but the Google Play scrape is filtered to `lang: "en"`. An app whose reviews
+are mostly Hindi/Marathi returns only its English subset. For our India-first
+ICP that is the normal case, not an edge case — this is backlog **CM1**, and it
+is the single highest-value thing left for the core promise.
+
+**Three defects found and fixed here** (details in AUDIT_SYSTEM.md, S1-S3):
+App Store bootstrap reported "sync succeeded, 0 reviews" on *every* upstream
+failure instead of erroring; Google Play reviews were stored with no country
+despite the storefront being known; the dashboard's "Reviews" number was the
+store's global lifetime count with no label, which is what makes a healthy sync
+look like data loss.
+
+## ⚠️ The build sandbox cannot test the live store calls
+
+Its egress proxy refuses `CONNECT` to `play.google.com` and `itunes.apple.com`
+with **403 before any request leaves the box**
+(`curl: (56) CONNECT tunnel failed, response 403`). Every store 403 seen from a
+Claude session — including the one recorded as finding **A8** — is the sandbox,
+**not** Google blocking us. Only `GET /api/admin/probe/stores` against
+production can answer whether scraping actually works. Please don't let a
+future session record a sandbox 403 as a store block again.
+
 ## Verified stale — close, don't re-fix
 
 **Backlog R1** says four API namespaces are missing from the middleware

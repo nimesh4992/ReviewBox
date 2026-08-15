@@ -223,9 +223,42 @@ confirmed rendering in a real browser.
   (`src/middleware.ts:36, 89-91`). R1 is done; `send-now` (M9) was the one
   genuinely missing route.
 
+### Signup-path probe (same round) — 3 further fixes
+
+Probed the real signup data path (search → bootstrap → sentiment) against the
+PRODUCT_CONTEXT fixtures.
+
+| # | Lens | Severity | Finding | Status |
+|---|------|----------|---------|--------|
+| S1 | 1/4 | HIGH | App Store bootstrap swallowed every upstream failure into `[]`: `resolveItunesTrackId` returned null on a refused lookup and the caller did `return []`, so `scraped === null` never fired and sync recorded **success with 0 reviews**. Blocked request / Apple outage / wrong bundle ID / app-not-on-this-storefront were all indistinguishable from "no reviews", forever. The storefront case is the App Store twin of Mumbai One | ✅ Fixed — throws with the storefront named; later-page failures still keep partial results; 4 regression tests |
+| S2 | 0 | MEDIUM | Google Play bootstrap wrote `country: null` on every review despite knowing the storefront it had just scraped — silently breaking the inbox country filter and any automation `country` condition, on the platform most reviews come from | ✅ Fixed |
+| S3 | 4 | MEDIUM | BUG-020 confirmed: dashboard "Reviews" card printed the store's lifetime **global** count unlabelled, above per-country synced counts, linking to an inbox holding only the synced subset | ✅ Fixed — labelled "all-time (store)", synced count shown beside it |
+
+**Verified healthy:** the rules engine assigns sentiment/priority/tags/escalation
+to **every** bootstrapped review at write time, with no network and no tokens —
+1★ crash text → `critical`/`urgent`/`["crash","release-regression"]`/engineering;
+billing text → `support`. Gemini only refines ambiguous 3★ reviews later, on
+demand. The Sentiment screen's KPIs and topics come from a **server-side
+aggregate over the whole range** (`/api/sentiment/overview`), not from the
+20-row page the screen also loads — that page feeds only the "Re-cluster with
+AI" button.
+
+**How many reviews a new signup actually gets:** `BOOTSTRAP_LIMIT` is 200, but
+the Play scrape is filtered to `lang: "en"`, so an app whose reviews are mostly
+in another language returns only its English subset. For the India-first ICP
+that is the common case — the most likely explanation for a customer seeing
+~50-60 reviews rather than 200. Tracked as CM1.
+
 ### Still open
 
-- **A8 (Google 403)** — unchanged; still needs production evidence.
+- **A8 (Google 403) — the sandbox cannot answer this.** This build sandbox's
+  egress proxy refuses `CONNECT` to `play.google.com`, `itunes.apple.com` and
+  `apps.apple.com` with **403 before any traffic leaves the box**
+  (`curl: (56) CONNECT tunnel failed, response 403`). So the 403s seen from
+  here — in the original A8 note and in this round's probe — are **not
+  evidence about production**. Only `GET /api/admin/probe/stores` run against
+  production can settle whether Google blocks Vercel's IPs. Do not treat a
+  sandbox 403 as a store block again.
 - **Migration numbering**: `007_aso_keywords.sql` and `007a_workspace_brand_voice.sql`
   share a number — the third occurrence of this. Cannot be renamed (D006), so
   the next number is **021**.
