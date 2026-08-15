@@ -13,6 +13,7 @@ import {
   MessageSquareOff,
   PenLine,
   Send,
+  Star,
   Timer,
   Workflow,
 } from "lucide-react";
@@ -287,7 +288,7 @@ function SectionHeading({
   return (
     <div className={cn("max-w-2xl", align === "center" && "mx-auto text-center")}>
       <Eyebrow>{eyebrow}</Eyebrow>
-      <h2 className="mt-3 text-[30px] leading-tight font-bold tracking-[-0.025em] text-fg-1 text-balance sm:text-[40px]">
+      <h2 className="mt-3 text-[30px] leading-tight font-bold tracking-[-0.025em] text-fg-1 text-balance sm:text-[38px]">
         {title}
       </h2>
       {lede && <p className="mt-4 text-[16px] leading-relaxed text-fg-2 sm:text-[17px]">{lede}</p>}
@@ -295,15 +296,28 @@ function SectionHeading({
   );
 }
 
-function Stars({ rating, size = 11 }: { rating: number; size?: number }) {
+/**
+ * Real icons, not the "★" glyph. A text star resolves through whatever the OS
+ * ships, so the core data type of a review product rendered at a different
+ * weight and baseline on Windows than on the Mac it was designed on. `role`
+ * is required for the label to be exposed — a bare <span> is `generic`.
+ */
+function Stars({ rating, size = 12 }: { rating: number; size?: number }) {
   return (
     <span
+      role="img"
       aria-label={`${rating} out of 5 stars`}
-      className="leading-none"
-      style={{ fontSize: size }}
+      className="inline-flex items-center gap-px"
     >
-      <span className="text-[var(--rb-amber-500)]">{"★".repeat(rating)}</span>
-      <span className="text-fg-4">{"★".repeat(5 - rating)}</span>
+      {Array.from({ length: 5 }, (_, i) => (
+        <Star
+          key={i}
+          style={{ width: size, height: size }}
+          className={i < rating ? "text-[var(--rb-amber-500)]" : "text-fg-3"}
+          fill={i < rating ? "currentColor" : "none"}
+          strokeWidth={i < rating ? 0 : 1.5}
+        />
+      ))}
     </span>
   );
 }
@@ -314,11 +328,11 @@ function Stars({ rating, size = 11 }: { rating: number; size?: number }) {
 function FloatCardTrend() {
   return (
     <div className="w-[190px] rounded-xl border border-[var(--rb-border-1)] bg-surface p-3.5 shadow-[var(--rb-shadow-lg)]">
-      <p className="font-[family-name:var(--rb-font-mono)] text-[10px] tracking-wide text-fg-3 uppercase">
+      <p className="rb-eyebrow text-fg-3">
         Avg rating · 30 days
       </p>
       <div className="mt-1.5 flex items-baseline gap-1.5">
-        <span className="text-[22px] font-bold tracking-[-0.02em] text-fg-1">4.6</span>
+        <span className="text-[20px] font-bold tracking-[-0.02em] text-fg-1">4.6</span>
         <span className="text-[11px] font-medium text-[var(--rb-green-500)]">+0.3</span>
       </div>
       <svg viewBox="0 0 160 36" className="mt-2 h-9 w-full" aria-hidden="true">
@@ -391,7 +405,7 @@ function Hero() {
 
       <div className="relative mx-auto w-full max-w-6xl px-5 pt-16 pb-10 text-center sm:px-6 sm:pt-24">
         {/* Factual capability badge, not fake social proof */}
-        <p className="mx-auto flex w-fit items-center gap-2 rounded-full border border-[var(--rb-border-1)] bg-surface px-3.5 py-1.5 text-[12.5px] font-medium text-fg-2 shadow-[var(--rb-shadow-xs)]">
+        <p className="mx-auto flex w-fit items-center gap-2 rounded-full border border-[var(--rb-border-1)] bg-surface px-3.5 py-1.5 text-[12px] font-medium text-fg-2 shadow-[var(--rb-shadow-xs)]">
           <span className="size-2 rounded-full bg-[var(--rb-green-500)]" />
           Syncing the App Store and Google Play
         </p>
@@ -401,7 +415,7 @@ function Hero() {
           <span className="text-[var(--rb-blue-500)]">In your voice.</span>
         </h1>
 
-        <p className="mx-auto mt-6 max-w-[54ch] text-[17px] leading-relaxed text-fg-2 sm:text-[19px]">
+        <p className="mx-auto mt-6 max-w-[54ch] text-[17px] leading-relaxed text-fg-2 sm:text-[17px]">
           ReviewBox pulls your App Store and Google Play reviews into one inbox,
           drafts replies you&apos;d actually send, and posts them back to the
           store before a bad week becomes a bad rating.
@@ -429,13 +443,17 @@ function Hero() {
           />
           <div className="relative">
             <ProductFrame id="see-it-work" />
-            <div aria-hidden="true" className="absolute -left-10 top-16 hidden -rotate-3 xl:block">
+            {/* These sit in the page gutter, not on top of the screenshot.
+                At xl the gutter is only ~64px, so a 190px card covered the
+                review list it was meant to advertise — they appear from 2xl,
+                where there is real margin, and overlap the frame edge only. */}
+            <div aria-hidden="true" className="absolute -left-44 top-24 hidden -rotate-3 2xl:block">
               <FloatCardTrend />
             </div>
-            <div aria-hidden="true" className="absolute -right-12 top-8 hidden rotate-2 xl:block">
+            <div aria-hidden="true" className="absolute -right-48 top-12 hidden rotate-2 2xl:block">
               <FloatCardAlert />
             </div>
-            <div aria-hidden="true" className="absolute -right-8 bottom-14 hidden rotate-1 xl:block">
+            <div aria-hidden="true" className="absolute -right-40 bottom-16 hidden rotate-1 2xl:block">
               <FloatCardPosted />
             </div>
           </div>
@@ -456,10 +474,10 @@ function StatStrip() {
             <div key={s.value} className="px-6 py-5 text-center">
               <dt className="sr-only">{s.label}</dt>
               <dd>
-                <span className="block text-[24px] font-bold tracking-[-0.02em] text-fg-1">
+                <span className="block text-[22px] font-bold tracking-[-0.02em] text-fg-1">
                   {s.value}
                 </span>
-                <span className="mt-1 block text-[12.5px] leading-snug text-fg-3">{s.label}</span>
+                <span className="mt-1 block text-[12px] leading-snug text-fg-3">{s.label}</span>
               </dd>
             </div>
           ))}
@@ -555,14 +573,14 @@ function VizInbox() {
           className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3.5 py-2.5 last:border-b-0"
         >
           <span className="size-1.5 shrink-0 rounded-full" style={{ background: r.dot }} />
-          <span className="min-w-0 truncate text-[12.5px] font-medium text-fg-1">{r.title}</span>
-          <span className="ml-auto hidden shrink-0 rounded bg-surface px-1.5 py-px font-[family-name:var(--rb-font-mono)] text-[9.5px] text-fg-3 sm:block">
+          <span className="min-w-0 truncate text-[12px] font-medium text-fg-1">{r.title}</span>
+          <span className="ml-auto hidden shrink-0 rounded bg-surface px-1.5 py-px text-[10px] font-medium text-fg-3 sm:block">
             {r.tag}
           </span>
           <span className="shrink-0">
             <Stars rating={r.rating} size={10} />
           </span>
-          <span className="hidden shrink-0 font-[family-name:var(--rb-font-mono)] text-[9.5px] text-fg-4 md:block">
+          <span className="hidden shrink-0 text-[10px] font-medium text-fg-4 md:block">
             {r.store}
           </span>
         </div>
@@ -598,7 +616,7 @@ function VizSpike() {
       </div>
       <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-2.5 py-1.5">
         <AlertTriangle className="size-3.5 shrink-0 text-[var(--rb-red-600)]" strokeWidth={2} />
-        <span className="truncate text-[11.5px] font-medium text-fg-1">
+        <span className="truncate text-[12px] font-medium text-fg-1">
           Rating spike · v4.2.1 · alert sent
         </span>
       </div>
@@ -618,14 +636,14 @@ function VizTopics() {
     <div aria-hidden="true" className="space-y-2.5">
       {topics.map((t) => (
         <div key={t.label} className="flex items-center gap-3">
-          <span className="w-[110px] shrink-0 truncate text-[11.5px] text-fg-2">{t.label}</span>
+          <span className="w-[110px] shrink-0 truncate text-[12px] text-fg-2">{t.label}</span>
           <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--rb-bg-sunken)]">
             <div
               className="h-full rounded-full bg-[var(--rb-blue-500)]"
               style={{ width: `${t.pct * 2.4}%` }}
             />
           </div>
-          <span className="w-8 shrink-0 text-right font-[family-name:var(--rb-font-mono)] text-[10.5px] text-fg-3">
+          <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-fg-3">
             {t.pct}%
           </span>
         </div>
@@ -637,7 +655,7 @@ function VizTopics() {
 /** Mini automation rule — reads like the real rule builder. */
 function VizRule() {
   const chip =
-    "rounded-md border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-2 py-1 font-[family-name:var(--rb-font-mono)] text-[10.5px] text-fg-2";
+    "rounded-md border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-2 py-1 text-[11px] font-medium text-fg-2";
   return (
     <div aria-hidden="true" className="flex flex-wrap items-center gap-1.5 text-[11px] text-fg-3">
       <span className="font-medium text-fg-2">When</span>
@@ -662,7 +680,7 @@ function VizPost() {
         <span className="inline-flex h-6.5 items-center rounded-md bg-[var(--rb-blue-500)] px-2.5 text-[11px] font-semibold text-white">
           Post reply
         </span>
-        <span className="text-[10.5px] text-fg-4">→ App Store Connect</span>
+        <span className="text-[11px] text-fg-4">→ App Store Connect</span>
       </div>
     </div>
   );
@@ -819,19 +837,19 @@ function ReplyDemoCard() {
     <div className="overflow-hidden rounded-2xl border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-md)]">
       <div className="border-b border-[var(--rb-border-1)] p-5">
         <div className="flex items-center justify-between gap-3">
-          <span className="font-[family-name:var(--rb-font-mono)] text-[10.5px] tracking-wide text-fg-3 uppercase">
+          <span className="rb-eyebrow text-fg-3">
             {DEMO_REVIEW.meta}
           </span>
           <Stars rating={1} size={12} />
         </div>
         <p className="mt-2.5 text-[14px] font-semibold text-fg-1">{DEMO_REVIEW.title}</p>
-        <p className="mt-1 text-[13.5px] leading-relaxed text-fg-2">{DEMO_REVIEW.body}</p>
+        <p className="mt-1 text-[13px] leading-relaxed text-fg-2">{DEMO_REVIEW.body}</p>
       </div>
       <div className="bg-[var(--rb-bg-sunken)] p-5">
-        <span className="font-[family-name:var(--rb-font-mono)] text-[10.5px] tracking-wide text-fg-3 uppercase">
+        <span className="rb-eyebrow text-fg-3">
           Suggested reply · your voice
         </span>
-        <p className="mt-2 min-h-[4.2rem] text-[13.5px] leading-relaxed text-fg-1">
+        <p className="mt-2 min-h-[4.2rem] text-[13px] leading-relaxed text-fg-1">
           {typed}
           {typed.length < DEMO_DRAFT.length && (
             <span className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[0.15em] bg-[var(--rb-blue-500)] align-baseline" />
@@ -874,7 +892,7 @@ function ReplyDeepDive() {
                   "Translate and reply across languages",
                   "Nothing posts without your click",
                 ].map((li) => (
-                  <li key={li} className="flex items-start gap-2.5 text-[14.5px] text-fg-2">
+                  <li key={li} className="flex items-start gap-2.5 text-[14px] text-fg-2">
                     <Check
                       className="mt-0.5 size-4 shrink-0 text-[var(--rb-blue-500)]"
                       strokeWidth={2.25}
@@ -898,9 +916,9 @@ function ReplyDeepDive() {
 
 function ReleaseHealthCard() {
   const releases = [
-    { v: "4.2.1", status: "Regressing", delta: "−0.8★", rollout: 46, alert: true },
-    { v: "4.2.0", status: "Healthy", delta: "+0.1★", rollout: 100, alert: false },
-    { v: "4.1.9", status: "Healthy", delta: "+0.2★", rollout: 100, alert: false },
+    { v: "4.2.1", status: "Regressing", delta: "−0.8", rollout: 46, alert: true },
+    { v: "4.2.0", status: "Healthy", delta: "+0.1", rollout: 100, alert: false },
+    { v: "4.1.9", status: "Healthy", delta: "+0.2", rollout: 100, alert: false },
   ];
   return (
     <div
@@ -909,7 +927,7 @@ function ReleaseHealthCard() {
     >
       <div className="flex items-center justify-between border-b border-[var(--rb-border-1)] px-5 py-3.5">
         <span className="text-[13px] font-semibold text-fg-1">Release health</span>
-        <span className="font-[family-name:var(--rb-font-mono)] text-[10.5px] text-fg-3">
+        <span className="text-[11px] font-medium text-fg-3">
           last 3 versions
         </span>
       </div>
@@ -919,12 +937,12 @@ function ReleaseHealthCard() {
             key={r.v}
             className="flex items-center gap-3 border-b border-[var(--rb-border-1)] px-5 py-3.5 last:border-b-0"
           >
-            <span className="w-12 shrink-0 font-[family-name:var(--rb-font-mono)] text-[12px] font-medium text-fg-1">
+            <span className="w-12 shrink-0 text-[12px] font-semibold tabular-nums text-fg-1">
               {r.v}
             </span>
             <span
               className={cn(
-                "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-medium",
+                "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
                 r.alert
                   ? "bg-[var(--rb-red-100)] text-[var(--rb-red-600)]"
                   : "bg-[var(--rb-green-100)] text-[var(--rb-green-600)]",
@@ -937,8 +955,9 @@ function ReleaseHealthCard() {
               )}
               {r.status}
             </span>
-            <span className="ml-1 shrink-0 font-[family-name:var(--rb-font-mono)] text-[11.5px] text-fg-2">
+            <span className="ml-1 flex shrink-0 items-center gap-0.5 text-[12px] font-medium tabular-nums text-fg-2">
               {r.delta}
+              <Star className="size-2.5 text-fg-3" fill="currentColor" strokeWidth={0} />
             </span>
             <div className="ml-auto hidden h-1.5 w-20 overflow-hidden rounded-full bg-[var(--rb-bg-sunken)] sm:block">
               <div
@@ -946,7 +965,7 @@ function ReleaseHealthCard() {
                 style={{ width: `${r.rollout}%` }}
               />
             </div>
-            <span className="hidden w-9 shrink-0 text-right font-[family-name:var(--rb-font-mono)] text-[10.5px] text-fg-3 sm:block">
+            <span className="hidden w-9 shrink-0 text-right text-[11px] tabular-nums text-fg-3 sm:block">
               {r.rollout}%
             </span>
           </div>
@@ -985,7 +1004,7 @@ function ReleaseDeepDive() {
                 "Email alerts the moment a release starts regressing",
                 "Release health at a glance: rating and complaint deltas",
               ].map((li) => (
-                <li key={li} className="flex items-start gap-2.5 text-[14.5px] text-fg-2">
+                <li key={li} className="flex items-start gap-2.5 text-[14px] text-fg-2">
                   <Check
                     className="mt-0.5 size-4 shrink-0 text-[var(--rb-blue-500)]"
                     strokeWidth={2.25}
@@ -1041,10 +1060,10 @@ function Pricing() {
                   </span>
                   <span className="ml-1.5 text-[14px] text-fg-3">/ month</span>
                 </p>
-                <p className="mt-2 text-[13.5px] leading-relaxed text-fg-2">{plan.body}</p>
+                <p className="mt-2 text-[13px] leading-relaxed text-fg-2">{plan.body}</p>
                 <ul className="mt-5 flex-1 space-y-2 border-t border-[var(--rb-border-1)] pt-5">
                   {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-[13.5px] text-fg-2">
+                    <li key={f} className="flex items-center gap-2 text-[13px] text-fg-2">
                       <Check
                         className="size-3.5 shrink-0 text-[var(--rb-green-500)]"
                         strokeWidth={2.5}
@@ -1165,7 +1184,7 @@ function Closing() {
           <h2 className="relative mx-auto max-w-[24ch] text-[28px] leading-tight font-bold tracking-[-0.025em] text-white text-balance sm:text-[38px]">
             Your reviews are already waiting. Answer them today.
           </h2>
-          <p className="relative mx-auto mt-4 max-w-[44ch] text-[15.5px] leading-relaxed text-white/85">
+          <p className="relative mx-auto mt-4 max-w-[44ch] text-[15px] leading-relaxed text-white/85">
             Connect an app and see your real reviews in about a minute. Free for
             14 days on every plan. No credit card, no sales call.
           </p>

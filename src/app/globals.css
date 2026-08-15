@@ -208,6 +208,22 @@
   --ring: oklch(0.590 0.196 254);
 }
 
+/* Marketing dark surfaces need a visible edge.
+   `* { border-color: var(--border) }` below is unlayered author CSS, so it
+   outranks every Tailwind `border-*` utility and all borders resolve to
+   --border regardless of the class applied. In dark that value is
+   oklch(0.22 0.01 260) ≈ #181B1F against a #161618 surface — about 1.05:1,
+   i.e. no visible edge at all on cards, rows and inputs.
+   Correcting the inherited value (rather than the utilities) fixes marketing
+   without touching src/app/(app)/**: .rb-marketing exists only on the
+   marketing shell, and (0,2,0) beats .dark's (0,1,0).
+   The underlying layering bug is tracked separately — fixing it activates
+   ~613 border utilities app-wide and needs its own visual review. */
+.rb-marketing.dark {
+  --border: rgba(255, 255, 255, 0.12);
+  --input:  rgba(255, 255, 255, 0.12);
+}
+
 @theme inline {
   --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--rb-font-mono);
@@ -278,21 +294,35 @@ html {
 
 body {
   /* Font family tokens live here (not :root) because they substitute
-     var(--font-inter) / var(--font-newsreader), which next/font defines on
+     var(--font-inter) / var(--font-brand), which next/font defines on
      <body>. See the note in the :root block. */
-  --rb-font-display: -apple-system, "SF Pro Display", var(--font-inter, Inter), "Inter", BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
-  --rb-font-text:    -apple-system, "SF Pro Text",    var(--font-inter, Inter), "Inter", BlinkMacSystemFont, "Helvetica Neue", system-ui, sans-serif;
+
+  /* Brand face (marketing). The loaded webfont must come FIRST: with
+     -apple-system leading the stack the site rendered in San Francisco on
+     macOS/iOS and in the webfont everywhere else, so ReviewBox had no
+     consistent brand type — and shipped a font Apple visitors never saw. */
+  --rb-font-brand:   var(--font-brand), "Schibsted Grotesk", var(--font-inter), Inter, system-ui, sans-serif;
+  /* Product UI face — byte-identical to the previous body declaration, so the
+     authenticated app renders exactly as before. */
+  --rb-font-ui:      var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+
+  /* Both names kept so a separate display cut can land later without touching
+     call sites. Today they resolve to the same brand face, differentiated by
+     weight and tracking rather than by family. */
+  --rb-font-display: var(--rb-font-brand);
+  --rb-font-text:    var(--rb-font-brand);
 
   min-height: 100vh;
   background: var(--rb-bg-canvas);
   color: var(--rb-fg-1);
-  font-family: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
+  font-family: var(--rb-font-ui);
 }
 
-/* Lucide icons — thinner strokes, Apple feel */
-.lucide {
-  stroke-width: 1.5px;
-}
+/* Lucide icons default to a 1.5 stroke (thin, Apple feel) via <LucideProvider>
+   in app/layout.tsx — NOT via CSS. An unlayered `.lucide { stroke-width }`
+   rule outranks the SVG presentation attribute lucide emits, so it silently
+   overrode every strokeWidth prop in the codebase and forced checkmarks,
+   arrows and small glyphs to render as hairlines. */
 
 button,
 a,
@@ -315,6 +345,23 @@ textarea {
 .scrollbar-quiet {
   scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
   scrollbar-width: thin;
+}
+
+@layer components {
+  /* Marketing micro-labels ("APP STORE · IOS · V4.2.1", footer column heads).
+     These were set in --rb-font-mono, which has no webfont behind it, so they
+     rendered in SF Mono / Consolas / Droid Sans Mono depending on the visitor's
+     OS. Reaching for a monospace to signal "technical" is a template tic —
+     Apple's own marketing micro-labels are set in its text face. 0.08em at 11px
+     is the tracking all-caps needs at this size; the old 0.025em was too tight
+     and 0.1em fragments the word. */
+  .rb-eyebrow {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    line-height: 1.2;
+  }
 }
 
 /* ─────────────────────────────────────────────────────────────────────

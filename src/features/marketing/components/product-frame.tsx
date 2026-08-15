@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { Star } from "lucide-react";
 
 /**
  * The product as the hero image: a hand-built rendering of the review inbox
@@ -56,11 +57,29 @@ const LIST = [
   },
 ];
 
+/**
+ * Real icons, not the "★" glyph. A text star resolves through whatever the OS
+ * ships, so the core data type of a review product rendered at a different
+ * weight and baseline on Windows than on the Mac it was designed on. `role`
+ * is required for the label to be exposed — a bare <span> is `generic`.
+ */
 function Stars({ rating }: { rating: number }) {
   return (
-    <span aria-label={`${rating} out of 5 stars`} className="text-[11px] leading-none">
-      <span className="text-[var(--rb-amber-500)]">{"★".repeat(rating)}</span>
-      <span className="text-fg-4">{"★".repeat(5 - rating)}</span>
+    <span
+      role="img"
+      aria-label={`${rating} out of 5 stars`}
+      className="inline-flex items-center gap-px"
+    >
+      {Array.from({ length: 5 }, (_, i) => (
+        <Star
+          key={i}
+          className={
+            i < rating ? "size-3 text-[var(--rb-amber-500)]" : "size-3 text-fg-3"
+          }
+          fill={i < rating ? "currentColor" : "none"}
+          strokeWidth={i < rating ? 0 : 1.5}
+        />
+      ))}
     </span>
   );
 }
@@ -106,7 +125,8 @@ export function ProductFrame({ id }: { id?: string }) {
           <span className="size-2.5 rounded-full bg-[var(--rb-border-3)]" />
           <span className="size-2.5 rounded-full bg-[var(--rb-border-3)]" />
         </span>
-        <span className="mx-auto flex h-6 w-full max-w-[320px] items-center justify-center rounded-md border border-[var(--rb-border-1)] bg-surface font-[family-name:var(--rb-font-mono)] text-[10.5px] text-fg-3">
+        {/* The one legitimate monospace on the marketing site: an actual URL. */}
+        <span className="mx-auto flex h-6 w-full max-w-[320px] items-center justify-center rounded-md border border-[var(--rb-border-1)] bg-surface font-[family-name:var(--rb-font-mono)] text-[11px] text-fg-3">
           app.tryreviewbox.com/reviews
         </span>
         <span className="w-[52px]" aria-hidden="true" />
@@ -128,7 +148,7 @@ export function ProductFrame({ id }: { id?: string }) {
                 {f}
               </span>
             ))}
-            <span className="ml-auto font-[family-name:var(--rb-font-mono)] text-[10.5px] text-fg-3">
+            <span className="ml-auto text-[11px] font-medium tabular-nums text-fg-3">
               23 open
             </span>
           </div>
@@ -154,7 +174,7 @@ export function ProductFrame({ id }: { id?: string }) {
                 <p className="mt-1 truncate pl-3.5 text-[12px] text-fg-3">{r.snippet}</p>
                 <div className="mt-1.5 flex items-center gap-2 pl-3.5">
                   <Stars rating={r.rating} />
-                  <span className="rounded bg-[var(--rb-bg-sunken)] px-1.5 py-px font-[family-name:var(--rb-font-mono)] text-[10px] text-fg-3">
+                  <span className="rounded bg-[var(--rb-bg-sunken)] px-1.5 py-px text-[10px] font-medium text-fg-3">
                     {r.tag}
                   </span>
                 </div>
@@ -166,10 +186,10 @@ export function ProductFrame({ id }: { id?: string }) {
         {/* Detail pane */}
         <div className="p-5 sm:p-6">
           <div className="flex items-center justify-between gap-4">
-            <span className="font-[family-name:var(--rb-font-mono)] text-[10.5px] tracking-wide text-fg-3 uppercase">
+            <span className="rb-eyebrow text-fg-3">
               App Store · iOS · v4.2.1
             </span>
-            <span className="rounded-full bg-[var(--rb-red-100)] px-2 py-0.5 text-[10.5px] font-medium text-[var(--rb-red-600)]">
+            <span className="rounded-full bg-[var(--rb-red-100)] px-2 py-0.5 text-[11px] font-medium text-[var(--rb-red-600)]">
               Urgent
             </span>
           </div>
@@ -180,14 +200,14 @@ export function ProductFrame({ id }: { id?: string }) {
           <div className="mt-1">
             <Stars rating={1} />
           </div>
-          <p className="mt-2 text-[13.5px] leading-relaxed text-fg-2">
+          <p className="mt-2 text-[13px] leading-relaxed text-fg-2">
             Every time I open the budgets tab on iPad it freezes for five to ten
             seconds. Started after the last update. I use this daily for my small
             business.
           </p>
 
           <div className="mt-5 rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-4">
-            <span className="font-[family-name:var(--rb-font-mono)] text-[10.5px] tracking-wide text-fg-3 uppercase">
+            <span className="rb-eyebrow text-fg-3">
               Suggested reply · your voice
             </span>
             <TypedDraft />

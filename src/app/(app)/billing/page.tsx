@@ -286,7 +286,7 @@ function PlanCard({ plan, isLoading, isDisabled, onChoose }: PlanCardProps) {
                   : "bg-[var(--rb-bg-sunken)] text-fg-3",
               )}
             >
-              <Check className="size-2.5" strokeWidth={2.5} />
+              <Check className="size-2.5" />
             </div>
             <span className="text-fg-2">{feature}</span>
           </li>

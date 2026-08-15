@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Search, BookOpen, Zap, CreditCard, Shield, ArrowRight } from "lucide-react";
+import { Search, BookOpen, Workflow, CreditCard, Shield, ChevronRight } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
@@ -24,7 +24,7 @@ const CATEGORIES = [
     ],
   },
   {
-    icon: Zap,
+    icon: Workflow,
     title: "AI replies & automation",
     description: "Configure tones, templates, caches, and auto-publish rules.",
     color: "text-purple-600",
@@ -124,7 +124,7 @@ export default function HelpPage() {
                   <p className="text-sm font-medium text-gray-900">{a.title}</p>
                   <p className="text-xs text-gray-400 mt-0.5">{a.category}</p>
                 </div>
-                <ArrowRight className="h-4 w-4 text-gray-300 shrink-0 ml-3" />
+                <ChevronRight className="size-4 shrink-0 ml-3 text-fg-3" />
               </Link>
             ))}
           </div>

@@ -67,7 +67,7 @@ export function EmptyWorkspaceWelcome() {
               className="flex h-10 items-center gap-2 rounded-xl bg-[var(--rb-blue-500)] px-5 text-rb-md font-medium text-white transition-colors hover:bg-[var(--rb-blue-600)]"
             >
               Connect your first app
-              <ArrowRight className="size-4" strokeWidth={2} />
+              <ArrowRight className="size-4" />
             </Link>
             <Link
               href="/settings?tab=integrations"

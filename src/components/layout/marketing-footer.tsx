@@ -65,7 +65,7 @@ export function MarketingFooter() {
 
           {FOOTER_COLS.map((col) => (
             <div key={col.heading}>
-              <div className="font-[family-name:var(--rb-font-mono)] text-[11px] font-semibold tracking-[0.08em] text-fg-3 uppercase">
+              <div className="rb-eyebrow text-fg-3">
                 {col.heading}
               </div>
               <ul className="mt-4 space-y-2.5">

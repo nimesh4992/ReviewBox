@@ -1,5 +1,5 @@
 ﻿import Link from "next/link";
-import { Mail, MessageSquare, Clock, MapPin } from "lucide-react";
+import { Mail, Handshake, Clock, Scale } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
@@ -21,7 +21,7 @@ const CHANNELS = [
     bg: "bg-blue-50",
   },
   {
-    icon: MessageSquare,
+    icon: Handshake,
     title: "Sales",
     description: "Team plan, volume pricing, custom contracts, or procurement.",
     cta: "sales@tryreviewbox.com",
@@ -30,7 +30,7 @@ const CHANNELS = [
     bg: "bg-emerald-50",
   },
   {
-    icon: MapPin,
+    icon: Scale,
     title: "Legal & privacy",
     description: "DPA requests, GDPR queries, data deletion, subpoenas.",
     cta: "legal@tryreviewbox.com",

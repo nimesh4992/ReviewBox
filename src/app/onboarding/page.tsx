@@ -399,7 +399,7 @@ function Step1Workspace({
               className="min-w-0 flex-1 bg-transparent text-sm text-fg-1 outline-none placeholder:text-fg-3"
             />
             {slugStatus.state === "checking" && <Loader2 className="size-3 animate-spin text-fg-3" strokeWidth={1.5} />}
-            {slugStatus.state === "available" && <Check className="size-3 text-[#1F8A5B]" strokeWidth={2} />}
+            {slugStatus.state === "available" && <Check className="size-3 text-[#1F8A5B]" />}
           </div>
           {(slugStatus.state === "taken" || slugStatus.state === "reserved" || slugStatus.state === "invalid" || slugError) && (
             <p className="mt-1 text-xs text-red-400">
@@ -427,7 +427,7 @@ function Step1Workspace({
         disabled={!canContinue}
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:bg-[var(--rb-bg-hover)] disabled:text-fg-3"
       >
-        Continue <ChevronRight className="size-4" strokeWidth={2} />
+        Continue <ChevronRight className="size-4" />
       </button>
     </div>
   );
@@ -502,7 +502,7 @@ function Step2App({
     <div className="space-y-6">
       <div>
         <button onClick={onBack} className="mb-3 flex items-center gap-1 text-xs text-fg-3 hover:text-fg-2">
-          <ArrowLeft className="size-3" strokeWidth={2} /> Back
+          <ArrowLeft className="size-3" /> Back
         </button>
         <h2 className="text-xl font-semibold text-fg-1">Find your app</h2>
         <p className="mt-1 text-sm text-fg-3">Search by name or paste the bundle/package ID.</p>
@@ -555,7 +555,7 @@ function Step2App({
             <div className="truncate text-sm font-semibold text-fg-1">{form.selectedApp.name}</div>
             <div className="text-xs text-fg-3">{form.selectedApp.developer} {form.selectedApp.rating ? `· ${form.selectedApp.rating.toFixed(1)}★` : ""}</div>
           </div>
-          <Check className="size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
+          <Check className="size-4 shrink-0 text-[#0A84FF]" />
         </div>
       )}
 
@@ -616,7 +616,7 @@ function Step2App({
         disabled={!form.selectedApp}
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:bg-[var(--rb-bg-hover)] disabled:text-fg-3"
       >
-        Continue <ChevronRight className="size-4" strokeWidth={2} />
+        Continue <ChevronRight className="size-4" />
       </button>
     </div>
   );
@@ -650,7 +650,7 @@ function Step3BrandVoice({
     <div className="space-y-6">
       <div>
         <button onClick={onBack} className="mb-3 flex items-center gap-1 text-xs text-fg-3 hover:text-fg-2">
-          <ArrowLeft className="size-3" strokeWidth={2} /> Back
+          <ArrowLeft className="size-3" /> Back
         </button>
         <div className="flex items-center gap-2">
           <Sparkles className="size-4 text-[#0A84FF]" strokeWidth={1.5} />
@@ -753,7 +753,7 @@ function Step3BrandVoice({
         disabled={saving}
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:bg-[var(--rb-bg-hover)] disabled:text-fg-3"
       >
-        {saving ? <><Loader2 className="size-4 animate-spin" strokeWidth={2} /> Setting up…</> : <>Set up my workspace <ChevronRight className="size-4" strokeWidth={2} /></>}
+        {saving ? <><Loader2 className="size-4 animate-spin" /> Setting up…</> : <>Set up my workspace <ChevronRight className="size-4" /></>}
       </button>
       <p className="text-center text-[11px] text-fg-3">
         You can edit this later in Settings → Brand Voice
@@ -810,7 +810,7 @@ function Step4Connect({
           onClick={onDone}
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white hover:opacity-90"
         >
-          I&apos;ve done this — continue <ChevronRight className="size-4" strokeWidth={2} />
+          I&apos;ve done this — continue <ChevronRight className="size-4" />
         </button>
         <button
           onClick={onSkip}
@@ -920,7 +920,7 @@ function Step5Ready({
               c.done ? "bg-[#0A84FF]" : "bg-[var(--rb-bg-hover)]",
             )}>
               {c.done
-                ? <Check className="size-3 text-white" strokeWidth={2.5} />
+                ? <Check className="size-3 text-white" />
                 : <Loader2 className="size-3 animate-spin text-fg-3" strokeWidth={1.5} />
               }
             </div>
@@ -939,9 +939,9 @@ function Step5Ready({
         className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:bg-[var(--rb-bg-hover)] disabled:text-fg-3"
       >
         {saving
-          ? <><Loader2 className="size-4 animate-spin" strokeWidth={2} /> Launching…</>
+          ? <><Loader2 className="size-4 animate-spin" /> Launching…</>
           : canLaunch
-            ? <>Launch my workspace <ChevronRight className="size-4" strokeWidth={2} /></>
+            ? <>Launch my workspace <ChevronRight className="size-4" /></>
             : <><Loader2 className="size-4 animate-spin" strokeWidth={1.5} /> Preparing… ({elapsed}s)</>
         }
       </button>
