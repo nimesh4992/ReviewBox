@@ -113,7 +113,11 @@ async function executeAction(
       .eq("id", review.id);
 
     if (error) throw new Error(`review update failed: ${error.message}`);
-    if (!count) throw new Error(`review ${review.id} not found — nothing updated`);
+    // Strictly `=== 0`, not falsy: a null count means PostgREST didn't report
+    // one, which is not evidence the write missed. Treating that as a failure
+    // would turn working automations into errors — the opposite mistake to the
+    // one this guard exists to catch.
+    if (count === 0) throw new Error(`review ${review.id} not found — nothing updated`);
   };
 
   switch (rule.action) {
