@@ -1,9 +1,15 @@
 /**
  * bootstrap-reviews.ts
  *
- * Fetches up to 50 public reviews for a newly added app using free public
- * APIs — no Play Console credentials required. Called once on first sync so
- * users see real data immediately after onboarding.
+ * Fetches up to BOOTSTRAP_LIMIT (200) public reviews for a newly added app
+ * using free public APIs — no Play Console credentials required. Called once
+ * on first sync so users see real data immediately after onboarding.
+ *
+ * How many reviews a customer actually gets is usually well below 200: the
+ * Google Play scrape is filtered to `lang: "en"`, so an app whose reviews are
+ * mostly in another language returns only its English subset. For the
+ * India-first ICP in docs/PRODUCT_CONTEXT.md that is the common case, not the
+ * edge case — see backlog CM1.
  *
  * Google Play: google-play-scraper (public Play Store pages)
  * App Store:   iTunes RSS feed (public, no auth)
@@ -95,7 +101,11 @@ export async function bootstrapGooglePlayReviews(
       r.text || "",
       r.version ?? null,
       null,
-      null,
+      // The storefront we actually scraped. This was hardcoded null, so every
+      // Google Play review landed with no country — which silently broke the
+      // inbox country filter and any automation rule with a `country`
+      // condition, for the one platform most of our reviews come from.
+      store,
       safeIso(r.date),
       !!r.replyText,
       r.replyText ?? null,
@@ -124,17 +134,39 @@ interface ItunesRssFeed {
   feed: { entry?: ItunesRssEntry[] };
 }
 
+/**
+ * Resolve a bundle ID to an iTunes track ID.
+ *
+ * Throws rather than returning null on failure. This used to swallow every
+ * error into `null`, which the caller turned into an empty review list — so a
+ * blocked request, an Apple outage, or a wrong bundle ID all produced
+ * "sync succeeded, 0 reviews" forever, and the dashboard showed the friendly
+ * "no reviews yet" empty state. A failure the customer can't see is the one
+ * outcome this path must never produce (AUDIT_SYSTEM process rule 4).
+ */
 async function resolveItunesTrackId(
   bundleId: string,
   country: string,
-): Promise<number | null> {
+): Promise<number> {
   const res = await fetch(
     `https://itunes.apple.com/lookup?bundleId=${encodeURIComponent(bundleId)}&country=${country}`,
     { signal: AbortSignal.timeout(5000) },
   );
-  if (!res.ok) return null;
+  if (!res.ok) {
+    throw new Error(`iTunes lookup failed for ${bundleId} (${country}): HTTP ${res.status}`);
+  }
   const json = (await res.json()) as ItunesLookupResult;
-  return json.results?.[0]?.trackId ?? null;
+  const trackId = json.results?.[0]?.trackId;
+  if (!trackId) {
+    // Not an outage — the app genuinely isn't on this storefront. Still an
+    // error: it's the App Store twin of the Mumbai One region-lock bug, and
+    // silently returning zero reviews is how that hid for months.
+    throw new Error(
+      `App ${bundleId} not found on the "${country}" App Store storefront — ` +
+      `check the bundle ID and the app's country availability.`,
+    );
+  }
+  return trackId;
 }
 
 export async function bootstrapAppStoreReviews(
@@ -145,9 +177,9 @@ export async function bootstrapAppStoreReviews(
 ): Promise<ReturnType<typeof buildEnrichedRow>[]> {
   const store = normalizeStorefront(country);
   const trackId = await resolveItunesTrackId(bundleId, store);
-  if (!trackId) return [];
 
   const rows: ReturnType<typeof buildEnrichedRow>[] = [];
+  let firstPageError: string | null = null;
 
   // iTunes RSS returns 10 reviews per page, up to page 15 = 150 reviews (~14 days).
   for (let page = 1; page <= 15 && rows.length < BOOTSTRAP_LIMIT; page++) {
@@ -155,7 +187,10 @@ export async function bootstrapAppStoreReviews(
     const url = `https://itunes.apple.com/${store}/rss/customerreviews/page=${page}/id=${trackId}/sortBy=mostRecent/json`;
     try {
       const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
-      if (!res.ok) break;
+      if (!res.ok) {
+        if (page === 1) firstPageError = `review feed returned HTTP ${res.status}`;
+        break;
+      }
       const json = (await res.json()) as ItunesRssFeed;
 
       // First entry on page 1 is app metadata, not a review — skip it.
@@ -190,9 +225,20 @@ export async function bootstrapAppStoreReviews(
           ),
         );
       }
-    } catch {
+    } catch (err) {
+      // Losing page 7 of 15 is a partial result worth keeping; losing page 1
+      // means we have nothing and must say so rather than report zero reviews.
+      if (page === 1) {
+        firstPageError = err instanceof Error ? err.message : String(err);
+      }
       break;
     }
+  }
+
+  if (!rows.length && firstPageError) {
+    throw new Error(
+      `App Store review feed unavailable for ${bundleId} (${store}): ${firstPageError}`,
+    );
   }
 
   return rows.slice(0, BOOTSTRAP_LIMIT);

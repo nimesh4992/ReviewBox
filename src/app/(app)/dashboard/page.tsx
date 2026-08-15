@@ -402,6 +402,10 @@ export default function DashboardPage() {
   const avgRating      = metrics?.avgRating ?? null;
   const displayRating  = metrics?.lifetimeRating ?? avgRating;
   const displayReviews = metrics?.lifetimeReviewCount ?? metrics?.totalReviews ?? 0;
+  // What we hold in the DB for this storefront, as opposed to the store's
+  // global lifetime figure above.
+  const syncedReviews  = metrics?.totalReviews ?? 0;
+  const reviewsAreLifetime = metrics?.lifetimeReviewCount != null;
   const unreplied      = metrics?.unrepliedCount ?? 0;
   const urgent         = metrics?.urgentCount ?? 0;
   const reviewsToday   = metrics?.reviewsToday ?? 0;
@@ -797,7 +801,17 @@ export default function DashboardPage() {
               {displayReviews.toLocaleString()}
             </span>
           </div>
+          {/* The big number is the store's lifetime, global count; everything
+              below it (and the inbox behind "View all") is the subset we have
+              actually synced for this storefront. Printing them together with
+              no qualifier made an app with 12,400 lifetime reviews and 40
+              synced rows look like the sync had lost data. */}
+          {reviewsAreLifetime && (
+            <div className="text-[11px] text-fg-3">all-time (store)</div>
+          )}
           <div className="flex gap-3 text-[11px] text-fg-3">
+            <span>{syncedReviews.toLocaleString()} synced</span>
+            <span>·</span>
             <span>{unreplied} unreplied</span>
             <span>·</span>
             <span>{urgent} urgent</span>
