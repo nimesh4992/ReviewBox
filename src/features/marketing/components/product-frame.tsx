@@ -15,7 +15,7 @@ import { useEffect, useState } from "react";
  */
 
 const DRAFT =
-  "Thanks for flagging the iPad freeze on 4.2.1 — we reproduced it this morning and a fix is rolling out this week. In the meantime, force-quitting and reopening restores the session. I'll follow up here the moment 4.2.2 lands.";
+  "Thanks for flagging the iPad freeze on 4.2.1. We reproduced it this morning and a fix is rolling out this week. In the meantime, force-quitting and reopening restores the session. I'll follow up here the moment 4.2.2 lands.";
 
 const LIST = [
   {
@@ -37,7 +37,7 @@ const LIST = [
     selected: false,
   },
   {
-    title: "Great app — needs dark mode",
+    title: "Great app, but needs dark mode",
     snippet: "Been using it for three months. One request…",
     rating: 4,
     tag: "feature-request",

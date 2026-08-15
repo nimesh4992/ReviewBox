@@ -11,8 +11,8 @@ import {
   Inbox,
   Layers,
   MessageSquareOff,
+  PenLine,
   Send,
-  Sparkles,
   Timer,
   Workflow,
 } from "lucide-react";
@@ -60,7 +60,7 @@ const PAINS = [
   {
     icon: MessageSquareOff,
     title: "Replies users can smell",
-    body: "“Thanks for your feedback” pasted forty times. Generic replies read as no reply at all — and reviewers know it.",
+    body: "“Thanks for your feedback” pasted forty times. Generic replies read as no reply at all, and reviewers know it.",
   },
 ];
 
@@ -73,7 +73,7 @@ const STEPS = [
   {
     n: "2",
     title: "Triage the queue",
-    body: "Reviews arrive tagged and ranked — crashes and billing complaints float to the top, praise sorts itself.",
+    body: "Reviews arrive tagged and ranked. Crashes and billing complaints float to the top, praise sorts itself.",
   },
   {
     n: "3",
@@ -123,15 +123,15 @@ const FAQS = [
   },
   {
     q: "How do replies actually get posted?",
-    a: "Through the official APIs — App Store Connect for iOS and the Play Console API for Android, using credentials you connect in Settings. No browser extensions, no copy-paste.",
+    a: "Through the official APIs: App Store Connect for iOS and the Play Console API for Android, using credentials you connect in Settings. No browser extensions, no copy-paste.",
   },
   {
     q: "Will AI post anything without my approval?",
-    a: "No. Drafts wait for you — nothing goes to the store until you click Post. Automations tag, prioritize, and pre-draft; they don't publish.",
+    a: "No. Drafts wait for you, and nothing goes to the store until you click Post. Automations tag, prioritize, and pre-draft; they don't publish.",
   },
   {
     q: "What makes the drafts sound like us?",
-    a: "They're grounded in your own reply templates and knowledge base — refund policy, known issues, tone — instead of a generic model guess. You choose from four tones and edit anything before it posts.",
+    a: "They're grounded in your own reply templates and knowledge base (refund policy, known issues, tone) instead of a generic model guess. You choose from four tones and edit anything before it posts.",
   },
   {
     q: "Which platforms are supported?",
@@ -146,7 +146,7 @@ const DEMO_REVIEW = {
 };
 
 const DEMO_DRAFT =
-  "Thanks for flagging the iPad freeze on 4.2.1 — we reproduced it this morning and a fix is rolling out this week. I'll follow up here the moment it lands.";
+  "Thanks for flagging the iPad freeze on 4.2.1. We reproduced it this morning and a fix is rolling out this week. I'll follow up here the moment it lands.";
 
 // ─── Shared bits ──────────────────────────────────────────────────────────────
 
@@ -392,30 +392,19 @@ function Hero() {
       <div className="relative mx-auto w-full max-w-6xl px-5 pt-16 pb-10 text-center sm:px-6 sm:pt-24">
         {/* Factual capability badge, not fake social proof */}
         <p className="mx-auto flex w-fit items-center gap-2 rounded-full border border-[var(--rb-border-1)] bg-surface px-3.5 py-1.5 text-[12.5px] font-medium text-fg-2 shadow-[var(--rb-shadow-xs)]">
-          <span className="relative flex size-2">
-            <span className="absolute inline-flex size-full animate-ping rounded-full bg-[var(--rb-green-500)] opacity-60" />
-            <span className="relative inline-flex size-2 rounded-full bg-[var(--rb-green-500)]" />
-          </span>
+          <span className="size-2 rounded-full bg-[var(--rb-green-500)]" />
           Syncing the App Store and Google Play
         </p>
 
         <h1 className="mx-auto mt-7 max-w-[22ch] text-[clamp(40px,6vw,68px)] leading-[1.05] font-bold tracking-[-0.035em] text-fg-1 text-balance">
           Every app review answered.{" "}
-          <span
-            className="bg-clip-text text-transparent"
-            style={{
-              backgroundImage:
-                "linear-gradient(100deg, var(--rb-blue-500) 0%, var(--rb-blue-400) 55%, var(--rb-purple-500) 110%)",
-            }}
-          >
-            In your voice.
-          </span>
+          <span className="text-[var(--rb-blue-500)]">In your voice.</span>
         </h1>
 
         <p className="mx-auto mt-6 max-w-[54ch] text-[17px] leading-relaxed text-fg-2 sm:text-[19px]">
           ReviewBox pulls your App Store and Google Play reviews into one inbox,
           drafts replies you&apos;d actually send, and posts them back to the
-          store — before a bad week becomes a bad rating.
+          store before a bad week becomes a bad rating.
         </p>
 
         <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
@@ -489,7 +478,7 @@ function Problem() {
         <SectionHeading
           eyebrow="The problem"
           title="Reviews are a product signal. Most teams treat them like a chore."
-          lede="Your users are already telling you what's broken, what's confusing, and what to build next — in two consoles nobody wants to open."
+          lede="Your users are already telling you what's broken, what's confusing, and what to build next. It's just buried in two consoles nobody wants to open."
         />
       </Reveal>
 
@@ -509,7 +498,7 @@ function Problem() {
 
       <Reveal delay={200}>
         <p className="mx-auto mt-10 max-w-[46ch] text-center text-[17px] font-medium text-fg-1">
-          ReviewBox turns that pile into a queue you can actually finish —{" "}
+          ReviewBox turns that pile into a queue you can actually finish:{" "}
           <span className="text-[var(--rb-blue-500)]">tagged, prioritized, and pre-drafted.</span>
         </p>
       </Reveal>
@@ -556,7 +545,7 @@ function VizInbox() {
   const rows = [
     { store: "App Store", title: "Crashes on iPad after 4.2.1", rating: 1, tag: "crash", dot: "var(--rb-red-500)" },
     { store: "Google Play", title: "Charged twice for annual plan", rating: 2, tag: "billing", dot: "var(--rb-amber-500)" },
-    { store: "App Store", title: "Great app — needs dark mode", rating: 4, tag: "feature-request", dot: "var(--rb-green-500)" },
+    { store: "App Store", title: "Great app, but needs dark mode", rating: 4, tag: "feature-request", dot: "var(--rb-green-500)" },
   ];
   return (
     <div aria-hidden="true" className="overflow-hidden rounded-xl border border-[var(--rb-border-1)]">
@@ -667,7 +656,7 @@ function VizPost() {
   return (
     <div aria-hidden="true" className="rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-3.5">
       <p className="text-[12px] leading-relaxed text-fg-2">
-        Thanks for flagging this — a fix ships this week…
+        Thanks for flagging this! A fix ships this week…
       </p>
       <div className="mt-3 flex items-center gap-2">
         <span className="inline-flex h-6.5 items-center rounded-md bg-[var(--rb-blue-500)] px-2.5 text-[11px] font-semibold text-white">
@@ -708,7 +697,7 @@ function Features() {
           <SectionHeading
             eyebrow="Everything reviews touch"
             title="Built for the team that answers"
-            lede="From the 1-star crash report to the feature request you'll ship next quarter — one place to see it, understand it, and respond."
+            lede="From the 1-star crash report to the feature request you'll ship next quarter: one place to see it, understand it, and respond."
           />
         </Reveal>
 
@@ -717,7 +706,7 @@ function Features() {
             <BentoCard
               icon={Inbox}
               title="One inbox, both stores"
-              body="App Store and Google Play reviews in a single queue — tagged, prioritized, searchable."
+              body="App Store and Google Play reviews in a single queue that's tagged, prioritized, and searchable."
             >
               <VizInbox />
             </BentoCard>
@@ -733,7 +722,7 @@ function Features() {
           </Reveal>
           <Reveal className="md:col-span-2" delay={0}>
             <BentoCard
-              icon={Sparkles}
+              icon={PenLine}
               title="Replies in your voice"
               body="Four tones, grounded in your templates and knowledge base. You edit, you approve."
             >
@@ -762,7 +751,7 @@ function Features() {
             <BentoCard
               icon={Workflow}
               title="Automations that do the boring half"
-              body="Rules that tag, prioritize, and pre-draft replies for new reviews as they sync — so the queue is half-done before you open it."
+              body="Rules that tag, prioritize, and pre-draft replies for new reviews as they sync, so the queue is half-done before you open it."
             >
               <VizRule />
             </BentoCard>
@@ -874,8 +863,8 @@ function ReplyDeepDive() {
               </h2>
               <p className="mt-4 max-w-[50ch] text-[16px] leading-relaxed text-fg-2">
                 Every draft is grounded in your own reply templates and knowledge
-                base — refund policy, known issues, tone — so it answers the
-                actual complaint instead of apologizing generically. You always
+                base: refund policy, known issues, tone. It answers the actual
+                complaint instead of apologizing generically, and you always
                 review before anything posts.
               </p>
               <ul className="mt-6 space-y-3">
@@ -986,7 +975,7 @@ function ReleaseDeepDive() {
             <p className="mt-4 max-w-[50ch] text-[16px] leading-relaxed text-fg-2">
               Every review is tied to the app version it arrived on. When
               one-star reviews cluster on a new release, ReviewBox raises an
-              alert while the rollout is still small enough to pause — not after
+              alert while the rollout is still small enough to pause, not after
               the store average has taken the hit.
             </p>
             <ul className="mt-6 space-y-3">
@@ -1112,8 +1101,8 @@ function Faq() {
               More in the{" "}
               <Link href="/faq" className="font-medium text-[var(--rb-blue-500)] hover:underline">
                 full FAQ
-              </Link>{" "}
-              — or email{" "}
+              </Link>
+              , or email{" "}
               <a
                 href="mailto:hello@tryreviewbox.com"
                 className="font-medium text-[var(--rb-blue-500)] hover:underline"
@@ -1178,7 +1167,7 @@ function Closing() {
           </h2>
           <p className="relative mx-auto mt-4 max-w-[44ch] text-[15.5px] leading-relaxed text-white/85">
             Connect an app and see your real reviews in about a minute. Free for
-            14 days on every plan — no credit card, no sales call.
+            14 days on every plan. No credit card, no sales call.
           </p>
           <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
