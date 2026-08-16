@@ -419,10 +419,10 @@ function ReplyComposer({
   const markReplied = useMarkReplied();
   const markDraft   = useMarkDraft();
 
-  // Credential-aware action hierarchy. When the review's app can post to the
-  // store, one-click "Post reply" is the hero action — that's the whole
-  // promise of the product. Draft Mode's copy-and-paste flow stays the hero
-  // only where it's genuinely the best available path (no connection).
+  // Credential-aware action hierarchy. A connected app publishes from one
+  // button; an unconnected one is sent to connect. Copy-and-paste is never the
+  // hero — asking the customer to paste the reply themselves is the work they
+  // bought the product to remove.
   //
   // This asked `has_credentials` for both stores, which is the App Store's
   // per-app key pair. A Google Play app never has one — its auth is the
@@ -821,51 +821,65 @@ function ReplyComposer({
             <div className="flex flex-col gap-2">
               {canPostViaApi ? (
                 <>
-                  {/* Connected account: one-click post is the hero action —
-                      this is the product's core promise. */}
+                  {/* One button, and it publishes. D018 made copy-and-paste
+                      the launch path only because the API write-back could not
+                      be verified without store admin access; it sequenced
+                      one-click posting for "when a customer (or we) hold store
+                      admin/API access". That condition is met, so a connected
+                      app gets the thing the product is for. */}
                   <button
                     onClick={handleSend}
                     disabled={isSending || !text.trim() || overLimit}
                     className="h-10 w-full rounded-[8px] bg-[var(--rb-blue-500)] text-[13px] font-semibold text-white transition-colors hover:bg-[var(--rb-blue-600)] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF] focus-visible:ring-offset-1"
                   >
-                    {isSending
-                      ? "Posting…"
-                      : `Post reply to ${review.source === "App Store" ? "App Store" : "Google Play"}`}
+                    {isSending ? "Publishing…" : "Publish reply"}
                   </button>
                   <p className="text-[10px] leading-relaxed text-[var(--rb-fg-3)]">
-                    Posts via the connected store account — the review page updates in minutes.
+                    Publishes to {review.source === "App Store" ? "the App Store" : "Google Play"} under your developer name — the review page updates in minutes.
                     {overLimit && <span className="ml-1 text-[var(--rb-red-500)]">Reply is over the {limit}-char store limit.</span>}
                   </p>
                 </>
               ) : (
                 <>
-                  {/* Draft Mode (D018): Copy → user pastes into store → Mark
-                      replied. Hero only when no store credentials exist. */}
-                  <button
-                    onClick={handleCopy}
-                    disabled={!text.trim()}
-                    className={cn(
-                      "h-10 w-full rounded-[8px] text-[13px] font-semibold text-white transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF] focus-visible:ring-offset-1",
-                      copied ? "bg-[var(--rb-green-500)]" : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
-                    )}
+                  {/* Not connected yet. The primary action still points at
+                      publishing — it just routes to the two-minute connection
+                      instead of promising something we can't do. Offering
+                      "Copy reply" as the hero here is what made the product
+                      feel pointless: it asks the customer to do by hand the
+                      exact work they bought it to remove. */}
+                  <Link
+                    href="/settings"
+                    className="flex h-10 w-full items-center justify-center rounded-[8px] bg-[var(--rb-blue-500)] text-[13px] font-semibold text-white transition-colors hover:bg-[var(--rb-blue-600)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF] focus-visible:ring-offset-1"
                   >
-                    {copied ? <><Check className="size-3.5" strokeWidth={3} />Copied, now paste it on the store</> : "Copy reply"}
-                  </button>
-
-                  {/* Confirm step — record it as replied in our DB (no store API call) */}
-                  <button
-                    onClick={handleMarkReplied}
-                    disabled={!text.trim() || overLimit || isMarking}
-                    className="h-9 w-full rounded-[8px] border border-[var(--rb-border-2)] bg-surface text-[12px] font-semibold text-[var(--rb-fg-1)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
-                  >
-                    {isMarking ? "Saving…" : alreadyReplied ? "Update reply" : "Mark as replied"}
-                  </button>
-
-                  {/* Where to paste + char warning */}
+                    Connect {review.source === "App Store" ? "App Store Connect" : "Google Play"} to publish
+                  </Link>
                   <p className="text-[10px] leading-relaxed text-[var(--rb-fg-3)]">
-                    Paste into {review.source === "App Store" ? "App Store Connect" : "Google Play Console"}, then mark it replied here.
+                    Takes about two minutes. Until then you can copy the reply and paste it into {review.source === "App Store" ? "App Store Connect" : "Play Console"} yourself.
                     {overLimit && <span className="ml-1 text-[var(--rb-red-500)]">Reply is over the {limit}-char store limit.</span>}
                   </p>
+
+                  {/* Draft Mode stays reachable, demoted: copy, then record it. */}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={handleCopy}
+                      disabled={!text.trim()}
+                      className={cn(
+                        "h-9 flex-1 rounded-[8px] border border-[var(--rb-border-2)] text-[12px] font-semibold transition-colors disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]",
+                        copied
+                          ? "border-[var(--rb-green-500)]/30 bg-[var(--rb-green-500)]/10 text-[var(--rb-green-500)]"
+                          : "bg-surface text-[var(--rb-fg-1)] hover:bg-[var(--rb-bg-hover)]",
+                      )}
+                    >
+                      {copied ? <><Check className="size-3.5" strokeWidth={3} />Copied</> : "Copy reply"}
+                    </button>
+                    <button
+                      onClick={handleMarkReplied}
+                      disabled={!text.trim() || overLimit || isMarking}
+                      className="h-9 flex-1 rounded-[8px] border border-[var(--rb-border-2)] bg-surface text-[12px] font-semibold text-[var(--rb-fg-1)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
+                    >
+                      {isMarking ? "Saving…" : alreadyReplied ? "Update reply" : "Mark as replied"}
+                    </button>
+                  </div>
                 </>
               )}
 
@@ -887,27 +901,11 @@ function ReplyComposer({
                     Regenerate
                   </button>
                 )}
-                {canPostViaApi ? (
-                  /* Connected flow: copy stays available as an escape hatch */
-                  <button
-                    onClick={handleCopy}
-                    disabled={!text.trim()}
-                    className="ml-auto text-[11px] font-medium text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-fg-2)] disabled:opacity-40"
-                  >
-                    {copied ? <><Check className="size-3.5" strokeWidth={3} />Copied</> : "Copy reply"}
-                  </button>
-                ) : (
-                  /* Draft Mode: API posting stays reachable for the curious —
-                     its error path links to Settings to connect the account */
-                  <button
-                    onClick={handleSend}
-                    disabled={isSending || !text.trim() || overLimit}
-                    className="ml-auto text-[10px] font-medium text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-blue-500)] disabled:opacity-40"
-                    title="Post directly via the store API (requires a connected store account)"
-                  >
-                    {isSending ? "Posting…" : "Post via API"}
-                  </button>
-                )}
+                {/* No "Post via API" escape hatch. It was a tertiary link that
+                    posted for real, sitting under a hero that told you to copy
+                    and paste — two contradictory answers to "how do I reply?"
+                    on one screen. Connected apps publish from the button
+                    above; unconnected ones connect first. */}
               </div>
             </div>
           </div>
@@ -1263,12 +1261,16 @@ function GroupReplyPanel({
               {isSending ? (
                 <>
                   <Loader2 className="size-3 animate-spin" />
-                  Posting…
+                  Publishing…
                 </>
               ) : (
                 <>
                   <CheckCheck className="size-3" />
-                  Post {selectedCount} {selectedCount === 1 ? "reply" : "replies"}
+                  {/* Same verb as the single composer. This path has always
+                      published straight to the store; calling it "Post" while
+                      the single-review pane said "Copy reply" is part of why
+                      it was unclear what the product actually does. */}
+                  Publish {selectedCount} {selectedCount === 1 ? "reply" : "replies"}
                 </>
               )}
             </button>
