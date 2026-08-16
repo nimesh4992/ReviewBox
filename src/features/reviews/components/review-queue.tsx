@@ -657,8 +657,6 @@ function ReplyComposer({
     <div className={cn("flex w-full sm:w-[420px] shrink-0 flex-col border-l border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)]", className)}>
       {/* Header */}
       <div className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-5 py-4">
-        <AppIconAvatar source={review.source} size="xs" />
-      <div className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-[18px] py-[14px]">
         <ReviewerAvatar author={review.author} source={review.source} size="xs" />
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-semibold text-[var(--rb-fg-1)]">{review.author}</div>
