@@ -7,10 +7,11 @@ import {
   Check,
   CheckCheck,
   Inbox,
+  Languages,
   Loader2,
   MessageSquareDiff,
+  PenLine,
   Search,
-  Sparkles,
   X,
 } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
@@ -272,7 +273,7 @@ function ReviewRow({ review, selected, onClick, selectMode, isChecked, onCheck, 
         }
       }}
       className={cn(
-        "group relative flex cursor-pointer gap-3 border-b border-[var(--rb-border-1)] px-4 py-2.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--rb-blue-400)]",
+        "group relative flex cursor-pointer gap-3 border-b border-[var(--rb-border-1)] px-5 py-3.5 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--rb-blue-400)]",
         selected && !selectMode ? "bg-[var(--rb-bg-selected)]" : "hover:bg-[var(--rb-bg-hover)]",
         isChecked && "bg-[var(--rb-blue-50)]",
       )}
@@ -300,10 +301,10 @@ function ReviewRow({ review, selected, onClick, selectMode, isChecked, onCheck, 
             <span className="size-[7px] shrink-0 rounded-full bg-[var(--rb-blue-500)]" />
           )}
         </div>
-        <div className="mt-0.5 line-clamp-1 text-[12px] leading-snug text-[var(--rb-fg-2)]">
+        <div className="mt-1 line-clamp-1 text-[12px] leading-snug text-[var(--rb-fg-2)]">
           {review.text}
         </div>
-        <div className="mt-1 flex min-w-0 items-center gap-2 text-[11px] text-[var(--rb-fg-3)]">
+        <div className="mt-1.5 flex min-w-0 items-center gap-2 text-[11px] text-[var(--rb-fg-3)]">
           <span className="flex items-center gap-1">
             <span className={cn("size-1.5 shrink-0 rounded-full", SENTIMENT_DOT[review.sentiment])} />
             <span className="capitalize">{review.sentiment}</span>
@@ -334,7 +335,7 @@ function ReviewRow({ review, selected, onClick, selectMode, isChecked, onCheck, 
             {isDrafting ? (
               <Loader2 className="size-3 animate-spin" strokeWidth={1.5} />
             ) : (
-              <Sparkles className="size-3" />
+              <PenLine className="size-3" />
             )}
             {isDrafting ? "Drafting…" : "Draft"}
           </button>
@@ -655,6 +656,8 @@ function ReplyComposer({
   return (
     <div className={cn("flex w-full sm:w-[420px] shrink-0 flex-col border-l border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)]", className)}>
       {/* Header */}
+      <div className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-5 py-4">
+        <AppIconAvatar source={review.source} size="xs" />
       <div className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-[18px] py-[14px]">
         <ReviewerAvatar author={review.author} source={review.source} size="xs" />
         <div className="min-w-0 flex-1">
@@ -672,7 +675,7 @@ function ReplyComposer({
       </div>
 
       {/* Review detail */}
-      <div className="border-b border-[var(--rb-border-1)] px-[18px] py-[14px]">
+      <div className="border-b border-[var(--rb-border-1)] px-5 py-4">
         <div className="flex items-center gap-2">
           <Stars rating={review.rating} size={14} />
           <span className="text-[12px] text-[var(--rb-fg-3)]">{formatReviewDate(review.createdAt)}</span>
@@ -692,9 +695,8 @@ function ReplyComposer({
           {review.issueTags.slice(0, 3).map((tag) => (
             <span
               key={tag}
-              className="inline-flex items-center gap-1 rounded-full bg-[var(--rb-bg-accent-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--rb-blue-500)]"
+              className="inline-flex items-center rounded-full bg-[var(--rb-bg-accent-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--rb-blue-500)]"
             >
-              <Sparkles className="size-2.5" />
               {humanizeToken(tag)}
             </span>
           ))}
@@ -707,10 +709,29 @@ function ReplyComposer({
             {isTranslating ? (
               <Loader2 className="size-2.5 animate-spin" />
             ) : (
-              <span className="text-[10px]">🌐</span>
+              <Languages className="size-3" strokeWidth={1.75} />
             )}
             {showTranslation ? "Original" : "Translate"}
           </button>
+        </div>
+
+        {/* Review metadata — the facts a support person actually cross-checks
+            against the store console: device, country, app version, platform.
+            Labeled like the store consoles so the two screens read the same. */}
+        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)] px-3.5 py-3">
+          {[
+            { label: "Device",      value: review.device || "—" },
+            { label: "Country",     value: review.country || "—" },
+            { label: "App version", value: `v${review.appVersion}` },
+            { label: "Platform",    value: review.source === "App Store" ? "iOS" : "Android" },
+          ].map((m) => (
+            <div key={m.label} className="min-w-0">
+              <div className="text-[10.5px] font-medium uppercase tracking-[0.04em] text-[var(--rb-fg-3)]">
+                {m.label}
+              </div>
+              <div className="mt-0.5 truncate text-[12.5px] font-medium text-[var(--rb-fg-1)]">{m.value}</div>
+            </div>
+          ))}
         </div>
 
         {/* Translated text */}
@@ -729,14 +750,14 @@ function ReplyComposer({
 
       {/* Existing reply banner */}
       {alreadyReplied && review.replyText && (
-        <div className="border-b border-[var(--rb-border-1)] bg-[var(--rb-green-50)] px-[18px] py-3">
+        <div className="border-b border-[var(--rb-border-1)] bg-[var(--rb-green-50)] px-5 py-3.5">
           <div className="mb-1 text-[11px] font-semibold text-[var(--rb-green-600)]">Your reply</div>
           <p className="text-[12px] leading-relaxed text-[var(--rb-fg-2)]">{review.replyText}</p>
         </div>
       )}
 
       {/* Composer */}
-      <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-[18px] py-[14px]">
+      <div className="flex flex-1 flex-col gap-3 overflow-y-auto px-5 py-4">
 
         {/* AI tone bar — shows while generating or after AI text is ready */}
         {!alreadyReplied && (
@@ -745,10 +766,10 @@ function ReplyComposer({
               {isGenerating ? (
                 <Loader2 className="size-3 animate-spin text-[var(--rb-blue-500)]" strokeWidth={1.5} />
               ) : (
-                <Sparkles className="size-3 text-[var(--rb-blue-500)]" />
+                <PenLine className="size-3 text-[var(--rb-blue-500)]" />
               )}
               <span className="text-[11px] font-semibold text-[var(--rb-blue-500)]">
-                {isGenerating ? "Generating…" : aiSuggestion ? "AI draft — edit or post" : "AI reply"}
+                {isGenerating ? "Generating…" : aiSuggestion ? "AI draft" : "AI reply"}
               </span>
             </div>
             <ToneSelector tone={tone} onChange={setTone} />
@@ -777,7 +798,7 @@ function ReplyComposer({
             placeholder={alreadyReplied ? "Edit your reply…" : "Write a reply…"}
             rows={5}
             className={cn(
-              "w-full resize-none rounded-lg border bg-[var(--rb-bg-surface)] p-2.5 text-[13px] leading-relaxed text-[var(--rb-fg-1)] placeholder:text-[var(--rb-fg-3)] outline-none transition-colors",
+              "w-full resize-none rounded-lg border bg-[var(--rb-bg-surface)] p-3 text-[13px] leading-relaxed text-[var(--rb-fg-1)] placeholder:text-[var(--rb-fg-3)] outline-none transition-colors",
               overLimit
                 ? "border-[var(--rb-red-400)] focus:border-[var(--rb-red-400)]"
                 : "border-[var(--rb-border-2)] focus:border-[var(--rb-blue-400)]",
@@ -841,25 +862,29 @@ function ReplyComposer({
                 <>
                   {/* Draft Mode (D018): Copy → user pastes into store → Mark
                       replied. Hero only when no store credentials exist. */}
-                  <button
-                    onClick={handleCopy}
-                    disabled={!text.trim()}
-                    className={cn(
-                      "h-10 w-full rounded-[8px] text-[13px] font-semibold text-white transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF] focus-visible:ring-offset-1",
-                      copied ? "bg-[var(--rb-green-500)]" : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
-                    )}
-                  >
-                    {copied ? <><Check className="size-3.5" strokeWidth={3} />Copied, now paste it on the store</> : "Copy reply"}
-                  </button>
+                  {/* Two-up: the hero keeps its weight, but the pair stops
+                      stacking into a wall of full-width bars. */}
+                  <div className="grid grid-cols-[1.4fr_1fr] gap-2">
+                    <button
+                      onClick={handleCopy}
+                      disabled={!text.trim()}
+                      className={cn(
+                        "flex h-10 items-center justify-center gap-1.5 rounded-[8px] text-[13px] font-semibold text-white transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF] focus-visible:ring-offset-1",
+                        copied ? "bg-[var(--rb-green-500)]" : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
+                      )}
+                    >
+                      {copied ? <><Check className="size-3.5" strokeWidth={3} />Copied</> : "Copy reply"}
+                    </button>
 
-                  {/* Confirm step — record it as replied in our DB (no store API call) */}
-                  <button
-                    onClick={handleMarkReplied}
-                    disabled={!text.trim() || overLimit || isMarking}
-                    className="h-9 w-full rounded-[8px] border border-[var(--rb-border-2)] bg-surface text-[12px] font-semibold text-[var(--rb-fg-1)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
-                  >
-                    {isMarking ? "Saving…" : alreadyReplied ? "Update reply" : "Mark as replied"}
-                  </button>
+                    {/* Confirm step — record it as replied in our DB (no store API call) */}
+                    <button
+                      onClick={handleMarkReplied}
+                      disabled={!text.trim() || overLimit || isMarking}
+                      className="h-10 rounded-[8px] border border-[var(--rb-border-3)] bg-surface text-[12px] font-semibold text-[var(--rb-fg-1)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
+                    >
+                      {isMarking ? "Saving…" : alreadyReplied ? "Update reply" : "Mark as replied"}
+                    </button>
+                  </div>
 
                   {/* Where to paste + char warning */}
                   <p className="text-[10px] leading-relaxed text-[var(--rb-fg-3)]">
@@ -1068,7 +1093,7 @@ function GroupReplyPanel({
     <div className="flex w-[480px] shrink-0 flex-col border-l border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)]">
 
       {/* Header */}
-      <div className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-[18px] py-[14px]">
+      <div className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-5 py-4">
         <div className="flex size-7 shrink-0 items-center justify-center rounded-[7px] bg-[var(--rb-bg-accent-soft)]">
           <MessageSquareDiff className="size-3.5 text-[var(--rb-blue-500)]" />
         </div>
@@ -1095,7 +1120,7 @@ function GroupReplyPanel({
               key={t}
               className="inline-flex items-center gap-1 rounded-full bg-[var(--rb-bg-accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--rb-blue-500)]"
             >
-              <Sparkles className="size-2" />
+              <PenLine className="size-2" />
               {humanizeToken(t)}
             </span>
           ))}
@@ -1138,13 +1163,13 @@ function GroupReplyPanel({
       </div>
 
       {/* Composer area */}
-      <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-[18px] py-[14px]">
+      <div className="flex flex-1 flex-col gap-2.5 overflow-y-auto px-5 py-4">
 
         {/* AI suggestion */}
         <div className="rounded-[10px] border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--rb-blue-500)]">
-              <Sparkles className="size-2.5" />
+              <PenLine className="size-2.5" />
               AI draft · based on top issue
             </div>
             <ToneSelector tone={tone} onChange={setTone} />
@@ -1185,7 +1210,7 @@ function GroupReplyPanel({
             rows={6}
             disabled={isSending || allDone}
             className={cn(
-              "w-full resize-none rounded-lg border bg-[var(--rb-bg-surface)] p-2.5 text-[13px] leading-relaxed text-[var(--rb-fg-1)] placeholder:text-[var(--rb-fg-3)] outline-none transition-colors disabled:opacity-60",
+              "w-full resize-none rounded-lg border bg-[var(--rb-bg-surface)] p-3 text-[13px] leading-relaxed text-[var(--rb-fg-1)] placeholder:text-[var(--rb-fg-3)] outline-none transition-colors disabled:opacity-60",
               overLimit
                 ? "border-[var(--rb-red-400)] focus:border-[var(--rb-red-400)]"
                 : "border-[var(--rb-border-2)] focus:border-[var(--rb-blue-400)]",
@@ -1563,8 +1588,8 @@ export function InboxScreen({
       <div className={cn("relative min-w-0 flex-1 flex-col overflow-hidden", mobilePane === "detail" ? "hidden sm:flex" : "flex")}>
 
         {/* Header */}
-        <div className="shrink-0 border-b border-[var(--rb-border-1)] px-7 pb-3.5 pt-5">
-          <div className="mb-3.5 flex items-end justify-between gap-4">
+        <div className="shrink-0 border-b border-[var(--rb-border-1)] px-5 pb-4 pt-5">
+          <div className="mb-4 flex items-end justify-between gap-4">
             <div>
               <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--rb-fg-3)]">
                 <span>
@@ -1599,10 +1624,11 @@ export function InboxScreen({
                   )} />
                   Live
                 </span>
-                {/* Keyboard affordance — shown where the eye already reads meta */}
-                <span className="hidden text-[11px] font-normal text-[var(--rb-fg-4)] lg:inline">
-                  · j/k navigate · ↵ reply · / search
-                </span>
+                {sorted.length > 0 && (
+                  <span className="font-normal text-[var(--rb-fg-4)]">
+                    · {(sorted.reduce((sum, r) => sum + r.rating, 0) / sorted.length).toFixed(1)}★ avg in view
+                  </span>
+                )}
               </div>
               <h1
                 className="mt-1 text-[24px] font-semibold leading-tight tracking-[-0.022em] text-[var(--rb-fg-1)]"
@@ -1646,7 +1672,7 @@ export function InboxScreen({
                         : "text-[var(--rb-fg-3)] hover:text-[var(--rb-fg-2)]",
                     )}
                   >
-                    {s === "newest" ? "Newest" : "Lowest ★"}
+                    {s === "newest" ? "Newest" : "Lowest rated"}
                   </button>
                 ))}
               </div>
@@ -1654,8 +1680,8 @@ export function InboxScreen({
           </div>
 
           {/* Search */}
-          <div className="relative mb-2.5">
-            <Search className="absolute left-2.5 top-1/2 size-3.5 -translate-y-1/2 text-[var(--rb-fg-3)]" strokeWidth={1.5} />
+          <div className="relative mb-3">
+            <Search className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-[var(--rb-fg-3)]" strokeWidth={1.5} />
             <input
               data-inbox-search
               value={search}
@@ -1664,7 +1690,7 @@ export function InboxScreen({
                 if (e.key === "Escape") (e.target as HTMLInputElement).blur();
               }}
               placeholder="Search reviews…   ( / )"
-              className="h-8 w-full rounded-[8px] border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] pl-7 pr-7 text-[12px] text-[var(--rb-fg-1)] placeholder:text-[var(--rb-fg-3)] outline-none transition-colors focus:border-[var(--rb-border-2)]"
+              className="h-9 w-full rounded-[8px] border border-[var(--rb-border-2)] bg-[var(--rb-bg-sunken)] pl-8 pr-7 text-[13px] text-[var(--rb-fg-1)] placeholder:text-[var(--rb-fg-3)] outline-none transition-colors focus:border-[var(--rb-border-2)]"
             />
             {search && (
               <button
@@ -1676,8 +1702,9 @@ export function InboxScreen({
             )}
           </div>
 
-          {/* Filter chips */}
-          <div className="flex flex-wrap gap-2">
+          {/* Filter chips — status and version share one wrapping row, so the
+              header spends one band on filtering instead of two. */}
+          <div className="flex flex-wrap items-center gap-2">
             {FILTERS.map((f) => (
               <button
                 key={f.value}
@@ -1685,65 +1712,39 @@ export function InboxScreen({
                 className={cn(
                   "inline-flex h-7 items-center gap-1.5 rounded-[7px] border px-3 text-[12px] font-semibold transition-colors",
                   activeFilter === f.value
-                    ? "border-[var(--rb-border-3)] bg-[var(--rb-bg-sunken)] text-[var(--rb-fg-1)]"
+                    ? "border-[var(--rb-blue-500)] bg-[var(--rb-bg-accent-soft)] text-[var(--rb-blue-500)]"
                     : "border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)]",
                 )}
               >
                 {f.label}
               </button>
             ))}
-          </div>
-
-          {/* Version filter chips */}
-          {uniqueVersions.length > 1 && (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              <span className="flex items-center text-[11px] text-[var(--rb-fg-3)] mr-0.5">v:</span>
-              {["all", ...uniqueVersions].map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setVersionFilter(v)}
+            {uniqueVersions.length > 1 && (
+              <label className="ml-auto flex h-7 shrink-0 items-center gap-1.5 text-[11px] font-medium text-[var(--rb-fg-3)]">
+                Version
+                <select
+                  value={versionFilter}
+                  onChange={(e) => setVersionFilter(e.target.value)}
                   className={cn(
-                    "inline-flex h-6 items-center rounded-[6px] border px-2.5 text-[11px] font-semibold font-mono transition-colors",
-                    versionFilter === v
-                      ? "border-[var(--rb-border-3)] bg-[var(--rb-bg-sunken)] text-[var(--rb-fg-1)]"
-                      : "border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)]",
+                    "h-7 cursor-pointer rounded-[7px] border bg-[var(--rb-bg-surface)] pl-2 pr-1.5 text-[12px] font-semibold tabular-nums transition-colors",
+                    versionFilter !== "all"
+                      ? "border-[var(--rb-blue-500)] bg-[var(--rb-bg-accent-soft)] text-[var(--rb-blue-500)]"
+                      : "border-[var(--rb-border-2)] text-[var(--rb-fg-1)] hover:bg-[var(--rb-bg-hover)]",
                   )}
                 >
-                  {v === "all" ? "All" : v}
-                </button>
-              ))}
-            </div>
-          )}
+                  <option value="all">All</option>
+                  {uniqueVersions.map((v) => (
+                    <option key={v} value={v}>v{v}</option>
+                  ))}
+                </select>
+              </label>
+            )}
+          </div>
 
-          {/* KPI metrics strip — derived from currently filtered set */}
-          {sorted.length > 0 && (() => {
-            const sortedReplied   = sorted.filter((r) => r.replyStatus === "replied").length;
-            const sortedUnreplied = sorted.filter((r) => r.replyStatus === "needs_reply").length;
-            const avgRating       = sorted.reduce((s, r) => s + r.rating, 0) / sorted.length;
-            const replyRate       = sorted.length > 0 ? Math.round((sortedReplied / sorted.length) * 100) : 0;
-            const stats = [
-              { label: "Shown",        value: String(sorted.length)             },
-              { label: "Avg ★",        value: avgRating.toFixed(1)              },
-              { label: "Needs reply",  value: String(sortedUnreplied),  alert: sortedUnreplied > 0 },
-              { label: "Replied",      value: String(sortedReplied)             },
-              { label: "Reply rate",   value: replyRate + "%"                   },
-            ];
-            return (
-              <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 border-t border-[var(--rb-border-1)] pt-2.5">
-                {stats.map((s) => (
-                  <div key={s.label} className="flex items-baseline gap-1.5">
-                    <span className={cn(
-                      "text-[13px] font-semibold tabular-nums leading-none",
-                      s.alert ? "text-[var(--rb-blue-500)]" : "text-[var(--rb-fg-1)]",
-                    )}>
-                      {s.value}
-                    </span>
-                    <span className="text-[11px] text-[var(--rb-fg-3)]">{s.label}</span>
-                  </div>
-                ))}
-              </div>
-            );
-          })()}
+          {/* The old five-stat KPI strip lived here. Four of its numbers were
+              noise on this screen (total/shown sit in the meta line, unreplied
+              is the filter chip, replied/reply-rate were zeros) — the one
+              unique signal, average rating in view, now rides the meta line. */}
         </div>
 
         {/* Review rows */}
