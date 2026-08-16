@@ -29,6 +29,7 @@ import { DEFAULT_STOREFRONT as DEFAULT_SYNC_STOREFRONT, normalizeStorefront } fr
 import { buildEnrichedRow } from "@/lib/review-mapper";
 import { bootstrapReviews } from "@/services/bootstrap-reviews";
 import { planSyncWrites, mergeReviewRows, isGpPermissionError } from "@/lib/sync-writes";
+import { buildMetadataUpdate, needsStorefrontReprobe } from "@/lib/app-metadata";
 import { isMissingColumnError, writeWithOptionalColumns } from "@/lib/db-errors";
 import { formatDeviceName } from "@/lib/device-name";
 import { seedStarterTemplates } from "@/lib/seed-templates";
@@ -118,28 +119,45 @@ async function refreshAppMetadata(app: DbApp): Promise<string> {
   const known = app.store_country ? normalizeStorefront(app.store_country) : null;
 
   try {
-    const meta = known
+    let meta = known
       ? await fetchAppMetadata(platform, app.store_id, known)
       : await findAppAcrossStorefronts(platform, app.store_id);
 
+    // A persisted storefront that returns nothing (or a placeholder with
+    // neither rating nor review count) must not pin the app forever. Rows
+    // that predate multi-storefront support were effectively locked to "us",
+    // so a region-locked app's metadata fetch failed on every sync and
+    // `lifetime_rating` stayed null — while reviews kept arriving through the
+    // Publisher API, which made everything LOOK healthy. The dashboard then
+    // showed a 30-day synced average where the store's own rating belongs.
+    if (needsStorefrontReprobe(known, meta)) {
+      const reprobed = await findAppAcrossStorefronts(platform, app.store_id);
+      if (reprobed) meta = reprobed;
+    }
+
     if (!meta) return known ?? DEFAULT_SYNC_STOREFRONT;
 
-    const update: Record<string, unknown> = {};
-    if (meta.rating      !== null) update.lifetime_rating       = meta.rating;
-    if (meta.reviewCount !== null) update.lifetime_review_count = meta.reviewCount;
-    if (meta.icon)                 update.icon_url              = meta.icon;
-    if (meta.developer)            update.developer             = meta.developer;
+    const update = buildMetadataUpdate(meta);
 
     if (Object.keys(update).length) {
-      const { error } = await sb.from("apps").update(update).eq("id", app.id);
+      // Column-tolerant on purpose (the LT1 class): this payload spans
+      // migrations 012/022, and a bare update meant one absent column voided
+      // the WHOLE write with PGRST204 — `lifetime_rating` included. The hero
+      // then silently fell back to a 30-day average of synced reviews, a
+      // different and much lower number than the store's own rating. The
+      // customer sees 2.53 where the Play listing says 3.1 and has no way
+      // to tell why.
+      const { error, droppedColumns } = await writeWithOptionalColumns<null>(
+        (payload) => sb.from("apps").update(payload).eq("id", app.id),
+        {},
+        { ...update, metadata_refreshed_at: new Date().toISOString() },
+      );
       if (error) {
-        // Swallowed before. `lifetime_rating` is what the dashboard shows as
-        // the all-time "Portfolio rating"; when it stays null the hero
-        // silently falls back to a 30-day average of synced reviews, which is
-        // a different and much lower number than the store's own rating. The
-        // customer sees 2.47 where the Play listing says 3.1 and has no way
-        // to tell why.
         console.error(`[sync] metadata write failed for app ${app.id}:`, error);
+      } else if (droppedColumns.length) {
+        console.warn(
+          `[sync] metadata for app ${app.id} written without: ${droppedColumns.join(", ")} (migration pending)`,
+        );
       }
     } else {
       // Nothing to write means the scrape returned no rating, count, icon or
@@ -150,9 +168,10 @@ async function refreshAppMetadata(app: DbApp): Promise<string> {
       );
     }
 
-    // Persist the discovered storefront separately so a pending migration
+    // Persist the storefront when first discovered — or when the re-probe
+    // just corrected a stale value. Separate write so a pending migration
     // 019 can't void the metadata write above.
-    if (!known && meta.country) {
+    if (meta.country && meta.country !== known) {
       await sb.from("apps").update({ store_country: meta.country }).eq("id", app.id);
     }
 
