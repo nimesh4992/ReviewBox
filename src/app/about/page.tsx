@@ -97,12 +97,6 @@ export default function AboutPage() {
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
             <Link
-              href="/careers"
-              className="rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-700"
-            >
-              See open roles
-            </Link>
-            <Link
               href="/contact"
               className="rounded-xl border border-gray-200 dark:border-white/10 px-5 py-2.5 text-sm font-semibold text-gray-700 dark:text-[#C7C7CC] hover:bg-gray-50 dark:hover:bg-white/5"
             >
