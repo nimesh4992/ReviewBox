@@ -607,9 +607,16 @@ because of this. The canonical shape is ONE component,
 **no `WorkspaceStatusStrip` anywhere in the file**. If you resolve a conflict
 here, run `npx tsc --noEmit` before pushing — every time.
 
+**2026-08-16: `src/features/reviews/components/review-queue.tsx` joined the
+club.** PR #87 was merged with red checks after a GitHub "Update branch"
+auto-merge mangled a one-line conflict into ~40 JSX syntax errors, breaking
+master. If two branches touch this file, do the three-way merge locally
+(`git merge-file --diff3`), resolve by hand, and never merge a PR whose
+Build + type-check is red — the check being red IS the conflict detector.
+
 ### Open PRs
 
-None. #73, #76–#85 are all merged.
+#86 (docs + reply/AI fixes). #73, #76–#85, #87, #88 are merged.
 
 ### ⚠️ Two error codes mean "column missing", not one
 
