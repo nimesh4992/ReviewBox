@@ -17,6 +17,7 @@ import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
 import { isSyncFailureStatus } from "@/lib/sync-status";
 import { resolveSelectedApp } from "@/lib/selected-app";
+import { exportFileName } from "@/lib/export-filename";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
 import { useApps } from "@/hooks/use-apps";
@@ -367,7 +368,7 @@ export default function DashboardPage() {
   // rating (dominated by whichever app has the bigger store review count) and
   // switching apps changed nothing.
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
-  const { appId: selectedAppId } = resolveSelectedApp(apps, selectedApp);
+  const { appId: selectedAppId, appName: selectedAppName } = resolveSelectedApp(apps, selectedApp);
   const { data: metrics, isLoading, refetch: refetchMetrics } = useDashboardMetrics(selectedAppId);
   const { data: incidents, isError: incidentsError } = useIncidents();
   const [exporting, setExporting] = useState(false);
@@ -459,7 +460,12 @@ export default function DashboardPage() {
     setExporting(true);
     setExportError(null);
     try {
-      const res  = await fetch("/api/reports/export?days=30");
+      // Export what the screen is showing. Every KPI above this button is
+      // scoped to the selected app; the CSV was not, so a user looking at
+      // app B's numbers downloaded a file containing app A as well.
+      const res  = await fetch(
+        `/api/reports/export?days=30${selectedAppId ? `&appId=${encodeURIComponent(selectedAppId)}` : ""}`,
+      );
       // On failure this route returns a JSON error envelope. Without this
       // check it was blobbed and saved as `reviews-<date>.csv`, so the user
       // got a file full of {"error":…} and believed the export had worked.
@@ -472,7 +478,9 @@ export default function DashboardPage() {
       const href = URL.createObjectURL(blob);
       const a    = document.createElement("a");
       a.href     = href;
-      a.download = `reviews-${new Date().toISOString().split("T")[0]}.csv`;
+      // Name the scope in the filename — the file outlives the screen that
+      // produced it, and no column inside says which app it covers.
+      a.download = exportFileName(selectedAppName, selectedAppId);
       a.click();
       URL.revokeObjectURL(href);
     } finally {

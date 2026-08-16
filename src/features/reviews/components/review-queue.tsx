@@ -1405,6 +1405,13 @@ interface InboxScreenProps {
   /** True when the reviews fetch failed — distinguishes it from an empty inbox. */
   loadError?: boolean;
   fetchNextPage?: () => void;
+  /**
+   * App the inbox is scoped to (undefined = all apps). The server-side search
+   * below MUST carry it: without it, typing three characters replaced an
+   * app-scoped list with workspace-wide results, and every count, filter pill
+   * and version chip derived from the leaked set.
+   */
+  appId?: string;
 }
 
 export function InboxScreen({
@@ -1414,6 +1421,7 @@ export function InboxScreen({
   isFetching = false,
   loadError = false,
   fetchNextPage,
+  appId,
 }: InboxScreenProps) {
   // Seed search from ?search= so the global header search box actually
   // filters the inbox when it navigates here.
@@ -1470,6 +1478,7 @@ export function InboxScreen({
     let cancelled = false;
     setIsSearching(true);
     const params = new URLSearchParams({ search: deferredSearch.trim(), limit: "50" });
+    if (appId) params.set("appId", appId);
     fetch(`/api/reviews?${params.toString()}`)
       .then((r) => r.json() as Promise<{ reviews: AppReview[] }>)
       .then((data) => {
@@ -1478,7 +1487,9 @@ export function InboxScreen({
       .catch(() => { if (!cancelled) setServerResults(null); })
       .finally(() => { if (!cancelled) setIsSearching(false); });
     return () => { cancelled = true; };
-  }, [deferredSearch]);
+    // appId in deps: switching apps must re-run an active search rather than
+    // leaving the previous app's results on screen.
+  }, [deferredSearch, appId]);
 
   // When server search is active, replace the reviews set
   const effectiveReviews = serverResults !== null ? serverResults : reviews;

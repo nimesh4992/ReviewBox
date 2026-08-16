@@ -18,6 +18,8 @@ import { useRouter, usePathname } from "next/navigation";
 
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
 import { useApps } from "@/hooks/use-apps";
+import { useWorkspaceStore } from "@/store/use-workspace-store";
+import { resolveSelectedApp } from "@/lib/selected-app";
 
 const SESSION_KEY = "rb_inbox_routed";
 
@@ -26,8 +28,13 @@ export function InboxRouter() {
   const pathname = usePathname();
   const fired    = useRef(false);
 
-  const { data: metrics, isLoading: metricsLoading } = useDashboardMetrics();
   const { apps,          isLoading: appsLoading     } = useApps();
+  // Same scope as the inbox we'd redirect to: with app B selected and only
+  // app A holding unreplied reviews, the workspace-wide count bounced the
+  // user to an inbox that reads empty.
+  const selectedApp = useWorkspaceStore((s) => s.selectedApp);
+  const { appId: selectedAppId } = resolveSelectedApp(apps, selectedApp);
+  const { data: metrics, isLoading: metricsLoading } = useDashboardMetrics(selectedAppId);
 
   useEffect(() => {
     // Only act on /dashboard
