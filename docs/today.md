@@ -1,12 +1,8 @@
-# Today — 2026-08-16 (session 3)
+# Today — 2026-08-16 (session 3, updated after the #91 merge broke master)
 
-Everything below is on `claude/dashboard-rating-bug-lf7pkl` (draft PR).
-Build clean, 336 unit tests passing, lint 0 errors.
-
-**The bug:** the dashboard showed 2.53 ("30-day average of synced reviews")
-where the Play listing shows Mumbai One's own all-time rating, 3.1. Spec
-`review-sync.md` AC-6 — "shown numbers match the store" — was failing, again,
-for the region-locked fixture app.
+Work landed in **PR #91** (merged) and the follow-up PR from
+`claude/dashboard-rating-bug-lf7pkl` (repair + deploy-process change).
+Build clean, 344 unit tests passing, lint 0 errors.
 
 ---
 
@@ -14,78 +10,68 @@ for the region-locked fixture app.
 
 | # | Action | What breaks without it |
 |---|---|---|
-| 1 | After merging this PR: **Settings → Apps → Sync now**, then reload the dashboard | The stale `store_country` / null `lifetime_rating` on the existing app row only heals when a sync runs (or wait for the 8am UTC cron) |
-| 2 | If the rating STILL doesn't appear: run `GET /api/admin/probe/stores` and read `google-metadata-regional` | Tells apart "our bug" from "Google refusing our servers" (audit finding A8) — the one cause code cannot fix |
-| 3 | Check Vercel is deploying `master` of this repo | The production screenshot shows hero copy ("We haven't read your store listing yet") that does not exist at ANY commit in this repository's history — production may be serving an old or foreign build |
-| 4 | Set `NEXT_PUBLIC_APP_URL=https://app.tryreviewbox.com` in Vercel (carried from session 2) | Every link in every email points at the marketing site |
-| 5 | Run `supabase/migrations/024_tag_labels.sql`, `023_trial_lifecycle.sql`, `021_orphaned_review_cleanup.sql` (carried) | Tag editing answers MIGRATION_PENDING; trial cron dead; ~250 orphaned reviews linger |
+| 1 | **Merge the open PR** (master repair + previews-off) — production deploys are FAILING until it lands | Every merge to master since #91 ships nothing; production serves the last good build |
+| 2 | After it deploys: **Settings → Apps → Sync now**, then reload the dashboard | The store rating (3.1★ for Mumbai One) only appears after a sync heals `lifetime_rating` |
+| 3 | If the rating still doesn't appear: `GET /api/admin/probe/stores` → `google-metadata-regional` | Distinguishes "our bug" from "Google refusing our servers" (A8) |
+| 4 | From now on: **merge only when Build + type-check are green** | With previews disabled, CI is the only gate left; merging red is how master broke twice today (#87, #91) |
+| 5 | Set `NEXT_PUBLIC_APP_URL=https://app.tryreviewbox.com` in Vercel (carried) | Every link in every email points at the marketing site |
+| 6 | Run migrations `024`, `023`, `021` (carried) | Tag editing answers MIGRATION_PENDING; trial cron dead; orphaned reviews linger |
 
 ---
 
-## What shipped this session — store rating pipeline + chart
+## What happened today (session 3)
 
-### Why the store rating was null (three stacked defects)
+### 1. Store-rating pipeline fixed (PR #91, merged)
+`apps.lifetime_rating` could never heal for a region-locked app:
+- sync only ever queried the persisted `store_country` — wrong/stale value =
+  null result on every sync, forever, while reviews kept flowing via the
+  Publisher API. Now re-probes all storefronts and persists the correction.
+- the metadata write was all-or-nothing (PGRST204 class, LT1) — now
+  `writeWithOptionalColumns()` + finally stamps `metadata_refreshed_at`.
+- failure-shaped scrapes (no rating AND no count) were cached 6h — no longer.
+Logic extracted to `src/lib/app-metadata.ts` with tests.
 
-1. **A persisted storefront could never heal** (`review-sync.ts`).
-   `refreshAppMetadata()` only ever queried `apps.store_country` once it was
-   set. For a region-locked app pinned to the wrong storefront ("us"), the
-   listing fetch returned null on every sync, nothing was written, and
-   `lifetime_rating` stayed null forever — while reviews kept arriving via the
-   Publisher API, which made the sync look healthy. Now: a known storefront
-   that returns nothing (or a placeholder page with neither rating nor review
-   count) triggers a full re-probe of all storefronts, and a corrected
-   country is persisted (previously only a first-discovered one was).
+### 2. Master broken by the FIFTH dashboard mangling — repaired
+PR #90 (parallel session) and PR #91 both rewrote `PortfolioSparkline`.
+GitHub's "Update branch" auto-merge fused the two bodies; #91 was merged
+~1 min after opening, before CI could turn red; every production deploy then
+failed ("Deployment failed"). Repair keeps #90's architecture (hero = store
+rating only, HTML axis labels, non-scaling stroke) + #91's fixed 1–5 star
+axis with integer ticks. Mystery solved along the way: the "STORE RATING /
+We haven't read your store listing yet" copy the founder screenshotted was
+#90's hero, already live on production.
 
-2. **The metadata write was all-or-nothing** (LT1 class). A bare
-   `.update({lifetime_rating, lifetime_review_count, icon_url, developer})`
-   dies whole on the first missing/uncached column (PGRST204) — rating
-   included. Converted to `writeWithOptionalColumns()`; also finally writes
-   `metadata_refreshed_at` (existed since migration 012, never written), so
-   "has a refresh ever succeeded" is now answerable from the DB.
-
-3. **Failure-shaped scrapes were cached 6 hours** (`store-search.ts`).
-   A consent/placeholder page parse (rating null AND count null) was cached,
-   so onboarding + every sync retry inside the TTL read the poisoned entry.
-   Such results are no longer cached.
-
-Decision logic extracted to `src/lib/app-metadata.ts`
-(`buildMetadataUpdate`, `needsStorefrontReprobe`) with unit tests.
-
-### Dashboard chart + labels
-
-- **Y-axis is now the fixed 1–5 star scale** with integer ticks. It used to
-  auto-zoom to the data, so a rough month rendered as a 1.4–2.5 window that
-  read as "the rating axis ends at 2.5".
-- **Axis text is no longer distorted.** The SVG was drawn at fixed 560 units
-  and stretched with `preserveAspectRatio="none"`, which squeezes/smears the
-  tick glyphs. It now renders at the container's measured pixel width
-  (ResizeObserver), and gridlines use `--rb-border-1` instead of a
-  light-only rgba black.
-- **The two ratings are named.** Hero: "Store rating · all-time" vs
-  "Synced reviews · 30-day average". KPI card: "Store rating / all-time
-  (store)" vs "Avg. rating / last 30 days · synced". The store's own figure
-  and our synced-window average must never be presentable as the same thing.
+### 3. Branch previews disabled (founder decision, this session)
+`vercel.json` `ignoreCommand` skips every git ref except `master`: nothing
+deploys until code merges to master, which then deploys straight to
+production. Rationale + consequences recorded in CLAUDE.md → Known Issues
+("Branch/preview deployments are intentionally DISABLED"). PR template,
+agent docs and the non-coder contract line in `docs/decisions.md` updated to
+match: test plans now run on production right after merge; CI green is the
+only pre-merge gate. Re-enabling previews later = remove `ignoreCommand`
+AND do LT2 (Clerk preview keys) first.
 
 ---
 
 ## Still open (code, no founder dependency)
 
-1. **A8** — if Google refuses the public scrape from Vercel's IPs, no code
-   path can read the listing rating; the dashboard now at least *says* which
-   number it is showing. A Play Developer Reporting API integration would be
-   the credentialed, unblockable source — needs an ADR.
-2. **LT1** — four writes now on `writeWithOptionalColumns()`; the rest of the
-   `PGRST204` class is still latent.
-3. **CM1 multi-language**, **AU4** error surfacing, **CM2 remainder** — carried
-   from session 2.
+1. **A8** — if Google refuses the public scrape from Vercel's IPs, nothing
+   can read the listing rating; probe tells you. Play Developer Reporting
+   API would be the credentialed source — needs an ADR.
+2. **AS1** — no per-workspace sync lock (spec AC-5 gap).
+3. **LT1** — remaining all-or-nothing DB writes (4 converted so far).
+4. **CM1 multi-language**, **AU4** error surfacing, **CM2 remainder** — carried.
 
 ---
 
 ## Notes for the next session
 
-- `src/app/(app)/dashboard/page.tsx` edited this session (sparkline + labels).
-  It is one of the two files repeatedly mangled by auto-merges — if another
-  branch touches it, merge locally and run `npx tsc --noEmit` before pushing.
-- The connected Supabase/Vercel MCP accounts belong to other products
-  (fieldlog etc.), NOT ReviewBox — prod DB/deploys can't be inspected from
-  here. Diagnosis above is from code + the founder's screenshots.
+- `dashboard/page.tsx` and `review-queue.tsx` are the two auto-merge
+  casualties. Before touching the dashboard hero/sparkline, check open PRs
+  for a competing rewrite (that's what bit today), merge three-way locally,
+  and run `npx tsc --noEmit` before pushing.
+- With previews off, a PR's "How to test" section describes production
+  right after merge; keep the rollback line in every PR.
+- The Supabase/Vercel MCP accounts connected to Claude sessions belong to
+  the founder's other products, NOT ReviewBox — prod DB/deploys cannot be
+  inspected from a session.
