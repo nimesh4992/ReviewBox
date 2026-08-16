@@ -20,10 +20,13 @@ import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 import { useApps } from "@/hooks/use-apps";
 import { AppReview, ReviewSentiment, AIReplyTone } from "@/types/review";
-import { avatarInitials, humanizeToken, formatReviewDate } from "@/utils/format";
+import { avatarInitials, formatReviewDate } from "@/utils/format";
 import { avatarColorVar } from "@/lib/avatar-color";
 import { canPostRepliesViaApi } from "@/lib/sync-status";
 import { isLikelyEnglish } from "@/lib/language";
+import { tagLabel } from "@/lib/tag-labels";
+import { useTagLabels } from "@/hooks/use-tag-labels";
+import { ReviewTagEditor } from "./review-tag-editor";
 import { apiErrorMessage } from "@/lib/api-error-message";
 
 // Helper — stamp a review as replied in the infinite query cache
@@ -464,6 +467,12 @@ function ReplyComposer({
   // review that is already in English.
   const needsTranslation = useMemo(() => !isLikelyEnglish(review.text), [review.text]);
 
+  // Tags are editable, so the pane holds its own copy: the list query behind it
+  // is invalidated on save, but waiting for that refetch would make the chips
+  // flicker back to their old values for a beat.
+  const [localTags, setLocalTags] = useState<string[]>(review.issueTags);
+  useEffect(() => { setLocalTags(review.issueTags); }, [review.id, review.issueTags]);
+
   async function handleTranslate() {
     if (translatedText) { setShowTranslation((v) => !v); return; }
     setIsTranslating(true);
@@ -727,14 +736,16 @@ function ReplyComposer({
             <span className={cn("size-1.5 rounded-full", SENTIMENT_DOT[review.sentiment])} />
             {badge.label}
           </span>
-          {review.issueTags.slice(0, 3).map((tag) => (
-            <span
-              key={tag}
-              className="inline-flex items-center rounded-full bg-[var(--rb-bg-accent-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--rb-blue-500)]"
-            >
-              {humanizeToken(tag)}
-            </span>
-          ))}
+          {/* Not sliced to 3 any more. The cap made sense when tags were
+              automatic and decorative; once they are a thing you edit, a
+              hidden fourth tag is a tag you cannot remove. */}
+          <ReviewTagEditor
+            reviewId={review.id}
+            tags={localTags}
+            autoTags={review.autoIssueTags}
+            edited={review.tagsEdited}
+            onSaved={setLocalTags}
+          />
           {/* Translate button. Hidden when the review is already English —
               clicking it there spent a Groq call and an hourly rate-limit slot
               to render the words "Already in English." */}
@@ -1017,6 +1028,10 @@ function GroupReplyPanel({
   onClose: () => void;
 }) {
   // Only unreplied reviews are candidates
+  // Same names the inbox and the digests use — a tag renamed in Settings
+  // must not still read as its raw token here.
+  const { labels: tagLabels } = useTagLabels();
+
   const candidates = reviews.filter((r) => r.replyStatus === "needs_reply");
   const [selected, setSelected] = useState<Set<string>>(
     new Set(candidates.map((r) => r.id)),
@@ -1171,7 +1186,7 @@ function GroupReplyPanel({
               className="inline-flex items-center gap-1 rounded-full bg-[var(--rb-bg-accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--rb-blue-500)]"
             >
               <PenLine className="size-2" />
-              {humanizeToken(t)}
+              {tagLabel(t, tagLabels)}
             </span>
           ))}
         </div>

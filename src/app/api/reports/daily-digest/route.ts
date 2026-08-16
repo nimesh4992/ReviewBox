@@ -29,6 +29,7 @@ import {
   topThemes,
   replyRateOf,
 } from "@/lib/digest-stats";
+import { readTagLabels } from "@/services/tag-label-service";
 
 export const maxDuration = 60;
 
@@ -226,7 +227,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
       totalReviews: monthReviews.length,
       repliesPublished: publishedRes.count ?? 0,
       replyRate: replyRateOf(monthReviews),
-      topThemes: topThemes(monthReviews),
+      topThemes: topThemes(monthReviews, 5, await readTagLabels(app.workspace_id)),
       unsubscribeUrl: `${EMAIL_APP_URL}/settings`,
     });
 

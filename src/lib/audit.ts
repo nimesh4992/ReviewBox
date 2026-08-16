@@ -7,6 +7,7 @@ export type AuditAction =
   | "reply.publish"
   | "reply.mark_replied"
   | "reply.draft.generate"
+  | "review.retag"
   // Automations
   | "rule.create"
   | "rule.update"
@@ -16,6 +17,8 @@ export type AuditAction =
   | "template.create"
   | "template.update"
   | "template.delete"
+  // Tags
+  | "tag.rename"
   // Knowledge base
   | "kb.create"
   | "kb.update"
@@ -60,7 +63,7 @@ export type AuditAction =
   | "ticket.update"
   | "ticket.message";
 
-export type AuditTargetType = "review" | "rule" | "template" | "kb" | "app" | "workspace" | "member" | "subscription" | "competitor" | "ticket";
+export type AuditTargetType = "review" | "rule" | "template" | "kb" | "app" | "workspace" | "member" | "subscription" | "competitor" | "ticket" | "tag";
 
 export interface AuditEvent {
   workspaceId: string | null;

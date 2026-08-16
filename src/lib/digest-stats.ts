@@ -5,7 +5,7 @@
  * every morning is testable without a database or a mail provider.
  */
 
-import { humanizeToken } from "@/utils/format";
+import { tagLabel, type TagLabelMap } from "@/lib/tag-labels";
 
 export interface DigestReview {
   rating: number;
@@ -63,7 +63,12 @@ export function reviewMeta(review: DigestReview): string | undefined {
  * not a problem to flag, and calling it one would send the reader chasing
  * something that is not there.
  */
-export function topThemes(reviews: DigestReview[], limit = 5): DigestTheme[] {
+export function topThemes(
+  reviews: DigestReview[],
+  limit = 5,
+  /** The workspace's own names, so a tag renamed in Settings reads the same in email. */
+  labels?: TagLabelMap | null,
+): DigestTheme[] {
   const byTag = new Map<string, { count: number; negative: number; positive: number }>();
 
   for (const r of reviews) {
@@ -82,7 +87,7 @@ export function topThemes(reviews: DigestReview[], limit = 5): DigestTheme[] {
     .sort((a, b) => b[1].count - a[1].count || a[0].localeCompare(b[0]))
     .slice(0, limit)
     .map(([tag, e]) => ({
-      label: humanizeToken(tag),
+      label: tagLabel(tag, labels),
       count: e.count,
       sentiment:
         e.negative > e.positive ? ("negative" as const)

@@ -3,6 +3,8 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { apiError, captureAndError } from "@/lib/api-response";
+import { isMissingColumnError } from "@/lib/db-errors";
+import { effectiveTags } from "@/lib/tag-labels";
 import type { AppReview } from "@/types/review";
 
 const DEFAULT_LIMIT = 20;
@@ -25,11 +27,18 @@ interface DbReview {
   sentiment: string | null;
   priority: string | null;
   issue_tags: string[] | null;
+  /** Human correction (migration 024). Null = untouched; empty = tags deliberately cleared. */
+  issue_tags_override?: string[] | null;
   reply_status: string;
   escalation_state: string;
   has_ai_suggestion: boolean;
   reply_text: string | null;
 }
+
+const REVIEW_COLUMNS =
+  "id,external_id,app_id,source,author,rating,body,app_version,device,country," +
+  "store_created_at,sentiment,priority,issue_tags,reply_status,escalation_state," +
+  "has_ai_suggestion,reply_text";
 
 function mapDbReview(row: DbReview): AppReview {
   return {
@@ -43,7 +52,11 @@ function mapDbReview(row: DbReview): AppReview {
     appVersion:      row.app_version ?? "",
     device:          row.device ?? "",
     country:         row.country ?? "",
-    issueTags:       (row.issue_tags ?? []) as AppReview["issueTags"],
+    issueTags:       effectiveTags(row.issue_tags, row.issue_tags_override) as AppReview["issueTags"],
+    // The engine's own answer, kept alongside so the editor can show what was
+    // changed and offer a reset without a second request.
+    autoIssueTags:   (row.issue_tags ?? []) as AppReview["issueTags"],
+    tagsEdited:      row.issue_tags_override != null,
     sentiment:       (row.sentiment ?? "mixed") as AppReview["sentiment"],
     priority:        (row.priority ?? "normal") as AppReview["priority"],
     replyStatus:     (row.reply_status ?? "needs_reply") as AppReview["replyStatus"],
@@ -108,9 +121,10 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ reviews: [], nextCursor: null, hasMore: false });
     }
 
+    const buildQuery = (columns: string) => {
     let query = sb
       .from("reviews")
-      .select("id,external_id,app_id,source,author,rating,body,app_version,device,country,store_created_at,sentiment,priority,issue_tags,reply_status,escalation_state,has_ai_suggestion,reply_text")
+      .select(columns)
       .eq("workspace_id", workspaceId)
       .in("app_id", liveAppIds)
       // `id` is the tiebreaker for both ordering and the cursor below. Ordering
@@ -154,11 +168,21 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       query = query.or(`body.ilike.${pattern},author.ilike.${pattern}`);
     }
 
-    const { data, error } = await query;
+    return query;
+    };
+
+    // `issue_tags_override` arrives with migration 024. Naming a column that
+    // does not exist fails the whole select with 42703, which would empty the
+    // inbox for every customer until the migration ran — so the optional column
+    // is asked for once and dropped if the database has not caught up.
+    let { data, error } = await buildQuery(`${REVIEW_COLUMNS},issue_tags_override`);
+    if (isMissingColumnError(error)) {
+      ({ data, error } = await buildQuery(REVIEW_COLUMNS));
+    }
 
     if (error) return captureAndError(error, "GET /api/reviews");
 
-    const rows = (data ?? []) as DbReview[];
+    const rows = (data ?? []) as unknown as DbReview[];
     const hasMore = rows.length > limit;
     const page    = hasMore ? rows.slice(0, limit) : rows;
     const reviews = page.map(mapDbReview);

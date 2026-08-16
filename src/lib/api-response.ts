@@ -25,6 +25,8 @@ export type ApiErrorCode =
   | "QUOTA_EXCEEDED"
   | "RATE_LIMITED"
   | "WORKSPACE_DELETED"
+  // Feature is coded but its migration has not been applied to this database
+  | "MIGRATION_PENDING"
   // External
   | "STORE_RATE_LIMITED"
   | "STORE_SUBMIT_FAILED"
@@ -84,6 +86,7 @@ function defaultMessage(code: ApiErrorCode): string {
     case "QUOTA_EXCEEDED":        return "You've hit your plan quota for this period.";
     case "RATE_LIMITED":          return "Too many requests. Please slow down.";
     case "WORKSPACE_DELETED":     return "This workspace has been deleted.";
+    case "MIGRATION_PENDING":     return "This feature needs a database update that hasn't been applied yet.";
     case "STORE_RATE_LIMITED":    return "The app store is rate-limiting us. Try again in a minute.";
     case "STORE_SUBMIT_FAILED":   return "Couldn't submit your reply to the store.";
     case "REPLY_TOO_LONG":        return "Reply exceeds the store's character limit.";
