@@ -1,4 +1,4 @@
-import { Sparkles } from "lucide-react";
+import { Wand2 } from "lucide-react";
 import type { ReviewIssueTag, TagCategory } from "@/types/review";
 
 const CATEGORY_LABEL: Record<TagCategory, string> = {
@@ -74,8 +74,8 @@ export function TagsTab() {
 
       {/* Honest capability note — the rules engine really does this, at zero AI cost */}
       <p className="mt-3 flex items-center gap-1.5 text-rb-sm text-fg-3">
-        <Sparkles strokeWidth={1.5} className="size-3.5" />
-        Tagging runs automatically on every sync — no setup, no AI cost. Custom tags are on the
+        <Wand2 strokeWidth={1.75} className="size-3.5 shrink-0" />
+        Tagging runs automatically on every sync: no setup, no AI cost. Custom tags are on the
         roadmap.
       </p>
     </div>

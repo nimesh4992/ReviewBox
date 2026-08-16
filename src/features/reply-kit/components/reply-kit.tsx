@@ -10,7 +10,7 @@ import { KnowledgeBaseTab } from "./knowledge-base-tab";
 const TABS = [
   { id: "tags", label: "Tags" },
   { id: "templates", label: "Templates" },
-  { id: "ai_styles", label: "AI Reply styles" },
+  { id: "ai_styles", label: "AI reply styles" },
   { id: "knowledge", label: "Knowledge base" },
 ] as const;
 
