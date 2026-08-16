@@ -2,14 +2,27 @@
 
 import { InboxScreen } from "@/features/reviews/components/review-queue";
 import { useReviewQueue } from "@/hooks/use-review-queue";
+import { useApps } from "@/hooks/use-apps";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
+import { resolveSelectedApp } from "@/lib/selected-app";
 
 export default function InboxPage() {
-  // Scope the inbox to the app picked in the sidebar. "" = all apps.
+  // Scope the inbox to the app picked in the sidebar.
+  //
+  // This must go through resolveSelectedApp — passing the stored value
+  // straight to the API is the bug it exists to prevent. `selectedApp` is
+  // persisted, so it can outlive the app it points at: disconnect an app and
+  // the id stays in localStorage. The sidebar resolves that dangling id back
+  // to "All apps" and looks fine, while the inbox kept sending it as a filter.
+  // The API refuses an appId that isn't a live app of the workspace and
+  // returns nothing — so the inbox read empty, under a heading that said "All
+  // apps", with reviews that reappeared the moment you picked an app by hand.
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
+  const { apps } = useApps();
+  const { appId } = resolveSelectedApp(apps, selectedApp);
 
   const { reviews, fetchNextPage, hasNextPage, isFetchingNextPage, isFetching, isLoading, isError } =
-    useReviewQueue(selectedApp ? { appId: selectedApp } : {});
+    useReviewQueue(appId ? { appId } : {});
 
   return (
     <div className="flex h-[calc(100vh-52px)] flex-col overflow-hidden">

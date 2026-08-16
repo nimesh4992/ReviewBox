@@ -243,10 +243,17 @@ export async function GET(req: Request): Promise<NextResponse> {
       .select("source")
       .gte("store_created_at", windowStart.toISOString());
 
+    // `reviews.source` is a DB enum — 'google_play' / 'app_store' (the check
+    // constraint in 001). This compared against the *display* strings
+    // ("Google Play" / "App Store"), so neither branch ever matched: both
+    // counters stayed 0 and the panel rendered "Google Play 0 · 0%" beside
+    // "App Store 0 · 100%" for a workspace whose only app is on Google Play.
+    // The display strings only exist after /api/reviews maps the row for the
+    // client; this route reads the raw column.
     let gpCount = 0, asCount = 0;
     for (const r of (platformRows.data ?? []) as { source: string }[]) {
-      if (r.source === "Google Play") gpCount++;
-      else if (r.source === "App Store") asCount++;
+      if (r.source === "google_play") gpCount++;
+      else if (r.source === "app_store") asCount++;
     }
     const platformSplit = { googlePlay: gpCount, appStore: asCount };
 

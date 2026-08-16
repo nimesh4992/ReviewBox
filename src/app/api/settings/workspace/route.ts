@@ -23,14 +23,35 @@ const VALID_APP_CATEGORIES = [
 const SLACK_URL_PREFIX = "https://hooks.slack.com/";
 const SLACK_URL_MAX    = 500;
 
-// Invalidate persona cache on save so next draft picks up changes immediately
+// Invalidate persona cache on save so next draft picks up changes immediately.
+//
+// The persona is cached per (workspace, app) now that replies are signed with
+// the app's name rather than the workspace's, so deleting one fixed key would
+// leave every per-app entry stale for up to an hour — the customer changes
+// their support email in Settings, and drafts keep publishing the old one.
+// SCAN over this workspace's keys instead; there is one per app plus the
+// workspace-level fallback, so the set is tiny.
 async function bustPersonaCache(workspaceId: string) {
   const url   = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return;
   try {
     const redis = new Redis({ url, token });
-    await redis.del(`persona:${workspaceId}`);
+    const keys: string[] = [];
+    let cursor = "0";
+    do {
+      const [next, batch] = await redis.scan(cursor, {
+        match: `persona:${workspaceId}:*`,
+        count: 100,
+      });
+      keys.push(...batch);
+      cursor = String(next);
+      // Guard against an unexpectedly large keyspace holding the request open.
+    } while (cursor !== "0" && keys.length < 500);
+
+    // The pre-per-app key, for personas cached before this shape existed.
+    keys.push(`persona:${workspaceId}`);
+    if (keys.length) await redis.del(...keys);
   } catch { /* best-effort */ }
 }
 

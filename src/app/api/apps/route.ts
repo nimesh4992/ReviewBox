@@ -6,6 +6,7 @@ import { apiError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
 import { resolveAppMetadata, resolvePastedStoreUrl } from "@/services/store-search";
 import { parseStoreUrl } from "@/lib/store-urls";
+import { isMissingColumnError, writeWithOptionalColumns } from "@/lib/db-errors";
 import { looksLikeStoreId } from "@/lib/storefronts";
 import { syncWorkspace } from "@/services/review-sync";
 
@@ -36,7 +37,7 @@ export async function GET() {
 
   let apps: Record<string, unknown>[] = (full.data as Record<string, unknown>[] | null) ?? [];
 
-  if (full.error?.code === "42703") {
+  if (isMissingColumnError(full.error)) {
     // publisher_api_connected missing (migration 016 pending) — retry without
     // it before dropping all the way to the minimal column set.
     const mid = await sb
@@ -51,7 +52,7 @@ export async function GET() {
     full.error = mid.error;
   }
 
-  if (full.error?.code === "42703") {
+  if (isMissingColumnError(full.error)) {
     // One or more columns missing (pre-migration state). Try without the newer
     // metadata columns. Also drop deleted_at filter — if 015 isn't applied yet
     // no apps have been soft-deleted so returning all is equivalent and safe.
@@ -64,7 +65,7 @@ export async function GET() {
     full.error = minimal.error;
   }
 
-  // Only 42703 (missing column, pre-migration) is a degrade-and-continue case.
+  // Only a missing column (pre-migration) is a degrade-and-continue case.
   // Any other error used to fall through to `apps = []` and a 200, so a
   // timeout or permission failure was reported to the client as "this
   // workspace has no apps" — which the dashboard renders as the first-run
@@ -222,36 +223,32 @@ export async function POST(request: NextRequest) {
     console.warn("[apps] metadata fetch failed:", err);
   }
 
-  let insert = await sb
-    .from("apps")
-    .insert({
-      workspace_id:           workspaceId,
-      name:                   body.name,
-      platform:               body.platform,
-      store_id:               storeId,
+  // Metadata columns sit behind migrations 012 and 019 — drop only the ones
+  // this database is missing rather than failing the add entirely, or throwing
+  // away the icon and developer name because one other column is absent.
+  const insert = await writeWithOptionalColumns<Record<string, unknown>>(
+    (payload) => sb.from("apps").insert(payload).select().single(),
+    {
+      workspace_id: workspaceId,
+      name:         body.name,
+      platform:     body.platform,
+      store_id:     storeId,
+    },
+    {
       icon_url:               metadata?.icon ?? null,
       developer:              metadata?.developer ?? null,
       lifetime_rating:        metadata?.rating ?? null,
       lifetime_review_count:  metadata?.reviewCount ?? null,
       store_country:          metadata?.country ?? storeCountry,
       metadata_refreshed_at:  metadata ? new Date().toISOString() : null,
-    })
-    .select()
-    .single();
+    },
+  );
 
-  // 42703 = metadata columns missing (migration 012 not applied) — insert
-  // without them rather than failing the add entirely.
-  if (insert.error?.code === "42703") {
-    insert = await sb
-      .from("apps")
-      .insert({
-        workspace_id: workspaceId,
-        name: body.name,
-        platform: body.platform,
-        store_id: storeId,
-      })
-      .select()
-      .single();
+  if (insert.droppedColumns.length) {
+    console.warn(
+      "[apps] columns not in this database — inserted without:",
+      insert.droppedColumns.join(", "),
+    );
   }
 
   const { data: app, error } = insert;

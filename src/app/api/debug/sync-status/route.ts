@@ -30,6 +30,7 @@ export async function GET(): Promise<NextResponse> {
   const { data: apps } = await sb
     .from("apps")
     .select("id, name, platform, store_id, created_at, last_synced_at, last_sync_attempted_at, last_sync_status, last_sync_error, last_sync_review_count")
+    .is("deleted_at", null)
     .eq("workspace_id", workspaceId);
 
   const { count: reviewCount } = await sb

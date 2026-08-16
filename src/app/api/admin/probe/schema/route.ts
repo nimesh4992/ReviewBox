@@ -24,6 +24,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAdminUser } from "@/lib/admin-auth";
 import { getServiceClient } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
+import { isMissingColumnError, isMissingTableError } from "@/lib/db-errors";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 30;
@@ -85,6 +86,43 @@ const EXPECTED: ReadonlyArray<{
   { table: "webhook_events",  column: "id",              migration: "004",  breaks: "Stripe webhook dedup" },
 ];
 
+/**
+ * PostgREST's own view of the schema, read from the OpenAPI document it serves
+ * at the API root. This is the cache that INSERT and UPDATE payloads are
+ * validated against — the one that answered PGRST204 for `apps.store_country`
+ * while the read path was perfectly happy.
+ *
+ * Returns null if the document can't be read (older PostgREST, `openapi-mode`
+ * disabled); the caller then reports read-path results alone rather than
+ * guessing.
+ */
+async function readSchemaCache(): Promise<Map<string, Set<string>> | null> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) return null;
+
+  try {
+    const res = await fetch(`${url}/rest/v1/`, {
+      headers: { apikey: key, Authorization: `Bearer ${key}`, Accept: "application/openapi+json" },
+      cache: "no-store",
+    });
+    if (!res.ok) return null;
+
+    const doc = (await res.json()) as {
+      definitions?: Record<string, { properties?: Record<string, unknown> }>;
+    };
+    if (!doc.definitions) return null;
+
+    const cache = new Map<string, Set<string>>();
+    for (const [table, def] of Object.entries(doc.definitions)) {
+      cache.set(table, new Set(Object.keys(def.properties ?? {})));
+    }
+    return cache;
+  } catch {
+    return null;
+  }
+}
+
 export async function GET(req: NextRequest): Promise<NextResponse> {
   const isAdmin = await requireAdminUser();
   if (!isAdmin && !cronAuthorized(req)) {
@@ -93,29 +131,67 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const sb = getServiceClient();
 
-  // `limit(0)` asks PostgREST to resolve the column without returning rows —
-  // a missing column answers 42703, a missing table 42P01.
+  // Two independent probes, because a column can be absent from either side:
+  //
+  //   read  — `limit(0)` asks Postgres to resolve the column without returning
+  //           rows. A missing column answers 42703, a missing table 42P01.
+  //   cache — PostgREST's schema cache, which every write payload is checked
+  //           against first. A column present in Postgres but absent here
+  //           still fails every INSERT with PGRST204.
+  //
+  // Checking only the read side is why this endpoint reported a clean bill of
+  // health while onboarding 500'd on `apps.store_country` for every signup.
+  const schemaCache = await readSchemaCache();
+
   const results = await Promise.all(
     EXPECTED.map(async (entry) => {
       const { error } = await sb.from(entry.table).select(entry.column).limit(0);
-      if (!error) return { ...entry, present: true as const, problem: null };
-      return {
-        ...entry,
-        present: false as const,
-        problem: error.code === "42P01" ? "table missing" : error.code === "42703" ? "column missing" : error.message,
-      };
+
+      if (error) {
+        return {
+          ...entry,
+          present: false as const,
+          problem: isMissingTableError(error)
+            ? "table missing — run the migration"
+            : isMissingColumnError(error)
+              ? "column missing — run the migration"
+              : error.message,
+        };
+      }
+
+      // Readable, but can it be written? Only the schema cache knows.
+      const cachedColumns = schemaCache?.get(entry.table);
+      if (cachedColumns && !cachedColumns.has(entry.column)) {
+        return {
+          ...entry,
+          present: false as const,
+          problem:
+            "column exists in Postgres but is NOT in PostgREST's schema cache — " +
+            "every INSERT/UPDATE touching it fails with PGRST204. " +
+            "Fix: run `notify pgrst, 'reload schema';` in the SQL editor.",
+        };
+      }
+
+      return { ...entry, present: true as const, problem: null };
     }),
   );
 
   const missing = results.filter((r) => !r.present);
+  const staleCache = missing.filter((m) => m.problem?.includes("PGRST204"));
 
   return NextResponse.json({
     checkedAt: new Date().toISOString(),
     ok: missing.length === 0,
     checked: results.length,
     missingCount: missing.length,
-    // The actionable part: which migrations to run, in order.
-    migrationsToApply: [...new Set(missing.map((m) => m.migration))].sort(),
+    // Null means the OpenAPI document wasn't readable, so write-path problems
+    // could not be checked — say so rather than implying an all-clear.
+    schemaCacheChecked: schemaCache !== null,
+    // The actionable parts, in the order to do them.
+    migrationsToApply: [
+      ...new Set(missing.filter((m) => !m.problem?.includes("PGRST204")).map((m) => m.migration)),
+    ].sort(),
+    reloadSchemaCache: staleCache.length > 0,
     missing: missing.map((m) => ({
       table: m.table,
       column: m.column,

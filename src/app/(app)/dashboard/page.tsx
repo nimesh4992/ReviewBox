@@ -15,6 +15,7 @@ import {
 
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
+import { isSyncFailureStatus } from "@/lib/sync-status";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
 import { useApps } from "@/hooks/use-apps";
 import { useIncidents } from "@/hooks/use-incidents";
@@ -78,8 +79,9 @@ function formatDelta(value: number | null, suffix = ""): string {
 
 // ── WorkspaceStatusStrip ──────────────────────────────────────────────────────
 // Exactly ONE status element, chosen by priority: sync errors beat an
-// in-flight first sync, which beats "connected but quiet", which beats
-// background AI prep, which beats the "connect Play Console" nudge.
+// in-flight first sync, which beats "connected but quiet", which beats the
+// "connect Play Console" nudge. AI enrichment is NOT one of these — it has its
+// own banner in the page body, and having it here too rendered both at once.
 //
 // FOURTH repair of this component. Every occurrence has the same shape: a
 // merge keeps both the old per-app SyncBanners body and this strip, splicing
@@ -88,22 +90,22 @@ function formatDelta(value: number | null, suffix = ""): string {
 
 function WorkspaceStatusStrip({
   apps,
-  aiEnriching,
   onRetry,
   onConnectPlayConsole,
   onOpenSetup,
 }: {
   apps: ReturnType<typeof useApps>["apps"];
-  aiEnriching: boolean;
   onRetry: () => void;
   onConnectPlayConsole: () => void;
   onOpenSetup: () => void;
 }) {
-  const errored = apps.filter(
-    (a) => a.last_sync_status && a.last_sync_status !== "success",
-  );
+  // `isSyncFailureStatus` rather than `status !== "success"`: the latter
+  // treated `credentials_verified` — written by the connection test the user
+  // had just passed — as a broken app, so finishing setup made the "can't sync
+  // yet" banner appear rather than disappear.
+  const errored = apps.filter((a) => isSyncFailureStatus(a.last_sync_status));
   const pending = apps.filter(
-    (a) => !a.last_synced_at && !(a.last_sync_status && a.last_sync_status !== "success"),
+    (a) => !a.last_synced_at && !isSyncFailureStatus(a.last_sync_status),
   );
   const quietOk = apps.filter(
     (a) => a.last_sync_status === "success" && (a.last_sync_review_count ?? 0) === 0,
@@ -190,17 +192,11 @@ function WorkspaceStatusStrip({
     );
   }
 
-  if (aiEnriching) {
-    return (
-      <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-border-1)] bg-surface px-4 py-2.5">
-        <Bot className="size-4 shrink-0 text-[#0A84FF]" />
-        <span className="min-w-0 flex-1 text-rb-base text-fg-2">
-          Preparing reply templates from your reviews — about 10 seconds.
-        </span>
-        <Loader2 className="size-4 shrink-0 animate-spin text-fg-3" />
-      </div>
-    );
-  }
+  // NOTE: no `aiEnriching` branch here. The dashboard renders its own, richer
+  // enrichment banner below the strip, and this one duplicated it — two
+  // spinners saying the same thing, stacked, which is most of why the screen
+  // read as "stuck in a loop". The strip is for app/sync state; enrichment is
+  // workspace state and belongs to the one banner.
 
   // Synced from PUBLIC data only — the customer hasn't granted Play Console
   // access yet. Reviews and rating are real (scraped from the public store
@@ -341,17 +337,35 @@ export default function DashboardPage() {
   const firstSyncDone = apps.some((a) => a.last_synced_at !== null);
   const totalReviews  = metrics?.totalReviews ?? 0;
 
+  // "Enrichment is running" was inferred purely from the Knowledge Base being
+  // empty — a condition that is also true when enrichment finished and simply
+  // produced nothing (Gemini returns no entries, or the call failed and was
+  // swallowed). Nothing ever cleared it, so the banner promised "about 10
+  // seconds" indefinitely and polled every 8s forever. It has to be bounded by
+  // something that ends.
+  //
+  // Enrichment runs as part of a sync, so it can only be in flight shortly
+  // after one. Outside that window an empty Knowledge Base means "no Knowledge
+  // Base", not "still working".
+  const ENRICH_WINDOW_MS = 5 * 60 * 1000;
+  const lastSyncedAt = apps.reduce<number | null>((latest, a) => {
+    if (!a.last_synced_at) return latest;
+    const t = new Date(a.last_synced_at).getTime();
+    return latest === null || t > latest ? t : latest;
+  }, null);
+  const syncedRecently = lastSyncedAt !== null && Date.now() - lastSyncedAt < ENRICH_WINDOW_MS;
+
   const checkEnrichment = useCallback(async () => {
     try {
       const res = await fetch("/api/reply-kit/knowledge-base");
       if (!res.ok) return;
       const data = (await res.json()) as { entries?: unknown[] };
       const hasEntries = Array.isArray(data.entries) && data.entries.length > 0;
-      setAiEnriching(!hasEntries);
+      setAiEnriching(!hasEntries && syncedRecently);
     } catch {
       setAiEnriching(false);
     }
-  }, []);
+  }, [syncedRecently]);
 
   useEffect(() => {
     if (!firstSyncDone || totalReviews === 0) return;
@@ -360,7 +374,19 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (!aiEnriching) return;
-    const id = setInterval(() => void checkEnrichment(), 8_000);
+    // Second bound, belt and braces: stop after ~2 minutes even if the sync
+    // timestamp keeps looking fresh. A spinner with no end state is worse than
+    // no spinner — it reads as the whole product being stuck.
+    let polls = 0;
+    const id = setInterval(() => {
+      polls += 1;
+      if (polls > 15) {
+        setAiEnriching(false);
+        clearInterval(id);
+        return;
+      }
+      void checkEnrichment();
+    }, 8_000);
     return () => clearInterval(id);
   }, [aiEnriching, checkEnrichment]);
 
@@ -526,7 +552,6 @@ export default function DashboardPage() {
       {/* ── One status strip: errors > syncing > quiet > AI prep > connect nudge ── */}
       <WorkspaceStatusStrip
         apps={apps}
-        aiEnriching={aiEnriching === true}
         onRetry={handleRetry}
         onConnectPlayConsole={() => setSetupModalOpen(true)}
         onOpenSetup={() => setSetupModalOpen(true)}
@@ -589,7 +614,15 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="mt-3 text-xs text-fg-3">
-              {avgRating !== null ? "No prior data to compare" : "Sync reviews to see your rating"}
+              {/* Say where the number came from. A big confident 4.60 sitting
+                  directly above "No reviews synced yet" reads as invented
+                  data — the figure is real, it's just the store's own
+                  all-time average rather than anything we computed. */}
+              {avgRating !== null
+                ? "No prior data to compare"
+                : ratingIsLifetime
+                  ? "Your store's all-time average — synced reviews will track changes"
+                  : "Sync reviews to see your rating"}
             </div>
           )}
           <p className="mt-4 max-w-[240px] text-[13px] leading-relaxed text-fg-3">

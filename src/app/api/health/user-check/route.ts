@@ -21,6 +21,7 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { Redis } from "@upstash/redis";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { isSyncFailureStatus } from "@/lib/sync-status";
 import {
   sendNeverSyncedNudge,
   sendSyncFailingNudge,
@@ -193,11 +194,11 @@ async function handler(req: NextRequest): Promise<NextResponse> {
 
   // ── Signal 2: Sync failing 2+ days ───────────────────────────────────────
 
-  const successStatuses = new Set(["success", "credentials_verified", null]);
-
   for (const app of apps) {
     if (!isLiveWorkspace(app.workspace_id as string)) continue;
-    if (successStatuses.has(app.last_sync_status as string | null)) continue;
+    // Shared with the dashboard banner so the two can't disagree about what
+    // counts as a broken connection — they did, and the banner lost.
+    if (!isSyncFailureStatus(app.last_sync_status as string | null)) continue;
     if (!app.last_sync_attempted_at) continue;
     if ((app.last_sync_attempted_at as string) > fortyEightHoursAgo) continue; // only if failing for 48h+
 
