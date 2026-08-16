@@ -30,10 +30,23 @@ These are the next items to ship. Don't skip; don't reorder without thinking.
 ### [ ] CM4 · Competitors screen on real data · ICE 24 (6×8÷2)
 **Added 2026-07-29. Table already exists (migration 016) — this is UI + scrape wiring only.**
 
-### [ ] AU2 · Resolve the `aso_keywords` schema ambiguity · ICE 90 (9×10÷1) — HUMAN-REQUIRED
-**Added 2026-08-15 by the audit round.** **Effort:** 2 min (founder runs one query).
-**Done when:** we know which shape prod has, `pending_combined.sql` is deleted, and — if prod matches pending_combined — a migration reconciles it.
-**Why now:** `007_aso_keywords.sql` and `pending_combined.sql` create the SAME table with DIFFERENT columns, both `IF NOT EXISTS`. Whichever was pasted first won, silently. If prod got pending_combined's shape, **every ASO keyword route is 500ing right now** and we have no way to know from the repo. Query is in `docs/today.md`.
+### [x] AU2 · Resolve the `aso_keywords` schema ambiguity — CLOSED 2026-08-16
+Production has `volume_estimate` / `trend_data` / `added_at` / `updated_at`, matching `007_aso_keywords.sql` and the code. `pending_combined.sql` deleted.
+
+### [ ] LT1 · Sweep every write for the PGRST204 class · ICE 72 (8×9÷1) 
+**Added 2026-08-16 after PR #85.** **Effort:** 3h.
+**Done when:** every `.insert(` / `.update(` whose payload contains a column from migration 012 or later either goes through `writeWithOptionalColumns()` or is confirmed to need no fallback, with a test for each.
+**Why now:** this class took onboarding down for **every** signup and nothing in the repo could see it. PostgREST answers `PGRST204` (not `42703`) when a write names a column missing from its schema cache, so every fallback written against 42703 alone is unreachable on the write path. `db-errors.ts` and `writeWithOptionalColumns()` now exist; onboarding, `/api/apps` and the sync status write are converted. Everything else is still latent — it just hasn't met a database missing that particular column yet.
+
+### [ ] LT2 · Founder: Clerk dev keys scoped to Preview · ICE 60 (6×10÷1) — HUMAN-REQUIRED
+**Added 2026-08-16.** **Effort:** ~10 min (founder, Vercel env vars).
+**Done when:** preview deployments can be signed into, so a fix can be verified before it reaches production.
+**Why now:** CI runs with placeholder Clerk keys (`pk_test_ci-placeholder…`) that Clerk rejects with `"Invalid host"`. Every one of the 13 fixes in PR #85 had to be verified on **production** because the founder could not sign in to the preview. This is the single change that most shortens the feedback loop, and it is pure config.
+
+### [ ] LT3 · Decide whether app deletion is recoverable · ICE 40 (4×10÷1) — HUMAN-REQUIRED
+**Added 2026-08-16. Asked twice, unanswered.** **Effort:** 30 min once decided.
+**Done when:** either the current behaviour is confirmed and documented in `decisions.md`, or reviews get a `deleted_at` and a restore window.
+**Why now:** deleting an app permanently deletes its reviews (D015 sanctions it). That is defensible, but it must be a decision on the record before a paying customer does it by accident — after the fact there is nothing to restore, and the store only returns ~90 days on re-add.
 
 ### [ ] AU3 · `ai_usage` is read everywhere, written nowhere · ICE 45 (5×9÷1)
 **Added 2026-08-15 by the audit round.** **Effort:** 2h.

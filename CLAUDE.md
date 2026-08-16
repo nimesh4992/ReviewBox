@@ -585,8 +585,15 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 
 ## Current Sprint
 
-**Active: UI + wiring repair**
-Last updated: 2026-07-29
+**Active: live-testing repair loop**
+Last updated: 2026-08-16
+
+PR #85 merged — 13 defects from a founder testing round on production. Read
+`docs/today.md` first; it has the full narrative and the founder actions still
+outstanding. Three of the thirteen were **whole-population** failures (no
+signup could complete; no Android customer could post a reply; the inbox was
+empty for anyone who had disconnected an app) and none were findable by
+reading code — see `docs/AUDIT_SYSTEM.md` → "2026-08-16 round".
 
 ### ⚠️ Read this before touching the dashboard
 
@@ -600,11 +607,39 @@ because of this. The canonical shape is ONE component,
 **no `WorkspaceStatusStrip` anywhere in the file**. If you resolve a conflict
 here, run `npx tsc --noEmit` before pushing — every time.
 
-### Open PR
+### Open PRs
 
-| PR | What | Priority |
+None. #73, #76–#85 are all merged.
+
+### ⚠️ Two error codes mean "column missing", not one
+
+PostgREST reports it differently depending on direction:
+
+| | error | raised by |
 |---|---|---|
-| #73 `claude/saas-ui-design-review-tt435y` | Master build repair + dark-mode/wiring fixes | 🔴 Merge — master does not compile without it |
+| **read** — `.select("col")`, `.eq("col", …)` | `42703` | Postgres |
+| **write** — `.insert({col})`, `.update({col})` | `PGRST204` | PostgREST, before Postgres sees it |
+
+Every pending-migration fallback in this repo was originally written against
+`42703` alone, so on the write path **none of them had ever been reachable** —
+which is how onboarding 500'd for every new signup on 2026-08-16.
+
+Never compare the code directly. Use `isMissingColumnError()` from
+`@/lib/db-errors`, and `writeWithOptionalColumns()` for a write whose payload
+contains columns behind a migration. Backlog **LT1** tracks the remaining sweep.
+
+### ⚠️ The two stores authenticate differently — don't conflate them
+
+`apps.has_credentials` is `!!(access_token && refresh_token)`: the **App
+Store's** per-app `.p8` key pair. Google Play never writes those columns — its
+auth is the workspace service account, recorded in `publisher_api_connected`.
+Asking `has_credentials` about a Play app is permanently false, which is how
+every Android customer was denied one-click reply posting while the server
+happily supported it. Use `canPostRepliesViaApi()` from `@/lib/sync-status`.
+
+Likewise `last_sync_status`: `credentials_verified` is a **healthy** value, not
+a failure. `status !== "success"` marked an app broken the moment its
+connection was verified. Use `isSyncFailureStatus()`.
 
 ### Known false alarm: "E2E tests (advisory)"
 
