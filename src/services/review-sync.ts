@@ -29,6 +29,7 @@ import { DEFAULT_STOREFRONT as DEFAULT_SYNC_STOREFRONT, normalizeStorefront } fr
 import { buildEnrichedRow } from "@/lib/review-mapper";
 import { bootstrapReviews } from "@/services/bootstrap-reviews";
 import { planSyncWrites, mergeReviewRows, isGpPermissionError } from "@/lib/sync-writes";
+import { isMissingColumnError, writeWithOptionalColumns } from "@/lib/db-errors";
 import { sendRatingSpikeAlert } from "@/lib/email/send-rating-spike-alert";
 import { notifyRatingSpike, notifyUrgentReview } from "@/lib/slack";
 import { runAutomationRules } from "@/lib/automation-executor";
@@ -131,7 +132,7 @@ async function refreshAppMetadata(app: DbApp): Promise<string> {
     }
 
     // Persist the discovered storefront separately so a pending migration
-    // 019 (42703) can't void the metadata write above.
+    // 019 can't void the metadata write above.
     if (!known && meta.country) {
       await sb.from("apps").update({ store_country: meta.country }).eq("id", app.id);
     }
@@ -619,29 +620,34 @@ async function recordSyncResult(
   const sb = getServiceClient();
   const now = new Date().toISOString();
 
+  // The sync-status columns come from migration 013. On a database without
+  // them the whole update failed — including `last_synced_at`, which is from
+  // 001 — so a sync that worked perfectly still left the app reading "never
+  // synced" and the banner asking the customer to connect again.
   if (result.ok) {
-    await sb
-      .from("apps")
-      .update({
-        last_synced_at:         now,
+    await writeWithOptionalColumns<null>(
+      (payload) => sb.from("apps").update(payload).eq("id", appId),
+      { last_synced_at: now },
+      {
         // last_sync_attempted_at already written at sync start — don't overwrite
         last_sync_status:       "success",
         last_sync_error:        null,
         last_sync_review_count: result.reviewCount,
-      })
-      .eq("id", appId);
+      },
+    );
     return;
   }
 
   const classified = classifySyncError(result.platform, result.errMsg);
-  await sb
-    .from("apps")
-    .update({
+  await writeWithOptionalColumns<null>(
+    (payload) => sb.from("apps").update(payload).eq("id", appId),
+    {},
+    {
       // last_sync_attempted_at already written at sync start — don't overwrite
       last_sync_status: classified.status,
       last_sync_error:  classified.message,
-    })
-    .eq("id", appId);
+    },
+  );
 }
 
 /**
@@ -665,9 +671,9 @@ async function loadWorkspaceApps(
 
   if (!full.error) return (full.data ?? []) as DbApp[];
 
-  // 42703 = a selected/filtered column doesn't exist yet (migration pending).
+  // A selected/filtered column doesn't exist yet (migration pending).
   // Retry without the deleted_at filter, then with core columns only.
-  if (full.error.code === "42703") {
+  if (isMissingColumnError(full.error)) {
     const noFilter = await sb
       .from("apps")
       .select("id, workspace_id, name, platform, store_id, access_token, refresh_token, last_sync_attempted_at, last_synced_at, store_country")

@@ -5,6 +5,7 @@ import { clerkClient } from "@clerk/nextjs/server";
 import { StatCard } from "@/features/admin/components/stat-card";
 import { isMissingTableError, mapTicketRow } from "@/lib/support-tickets";
 import { getServiceClient } from "@/lib/supabase-server";
+import { isMissingColumnError } from "@/lib/db-errors";
 import { cn } from "@/lib/utils";
 import type { SupportTicket } from "@/types/review";
 
@@ -84,7 +85,7 @@ export default async function AdminCustomerDetailPage({
 
   // Sync-metadata columns arrived in later migrations; retry without them.
   let apps = (appsFullRes.data ?? []) as Record<string, unknown>[];
-  if (appsFullRes.error?.code === "42703") {
+  if (isMissingColumnError(appsFullRes.error)) {
     const minimal = await sb
       .from("apps")
       .select("id, name, platform, store_id, last_synced_at")

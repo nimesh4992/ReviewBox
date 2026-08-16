@@ -143,13 +143,16 @@ export function parseTicketMessageInput(raw: unknown): ParseResult<TicketMessage
 }
 
 /**
- * True when a Postgres error means migration 017 hasn't been applied yet
- * (42P01 = undefined_table). Callers degrade gracefully instead of 500ing —
- * same pattern the Competitors screen uses for migration 016.
+ * True when the error means migration 017 hasn't been applied yet. Callers
+ * degrade gracefully instead of 500ing — same pattern the Competitors screen
+ * uses for migration 016.
+ *
+ * Lives in `@/lib/db-errors` now, alongside the missing-COLUMN check: both
+ * have a Postgres form and a PostgREST schema-cache form, and checking only
+ * one of the two is what took onboarding down. Re-exported here so the ticket
+ * call sites keep reading naturally.
  */
-export function isMissingTableError(error: { code?: string } | null | undefined): boolean {
-  return error?.code === "42P01";
-}
+export { isMissingTableError } from "./db-errors";
 
 /** Map a support_tickets row (snake_case, optionally with embedded workspace). */
 export function mapTicketRow(row: Record<string, unknown>): SupportTicket {

@@ -16,6 +16,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { getServiceClient } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
 import { rateLimit } from "@/lib/api-rate-limit";
+import { writeWithOptionalColumns } from "@/lib/db-errors";
 import { resolveAppMetadata } from "@/services/store-search";
 import { syncWorkspace } from "@/services/review-sync";
 import { getBrandVoiceStub, type AppCategory } from "@/lib/brand-voice-stubs";
@@ -158,36 +159,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // on a database missing either column the whole insert failed and
     // onboarding dead-ended at "Set up my workspace" with a 500. Nobody could
     // create a workspace at all.
-    const optionalColumns = {
-      trial_ends_at: new Date(Date.now() + TRIAL_DAYS * 86400000).toISOString(),
-      app_category:  appCategory ?? null,
-      brand_voice:   brandVoiceValue ?? null,
-    };
-    const requiredColumns = {
-      name: workspaceName.trim(),
-      slug: cleanSlug,
-      plan: "trial",
-    };
+    const wsInsert = await writeWithOptionalColumns<{ id: string }>(
+      (payload) => sb.from("workspaces").insert(payload).select("id").single(),
+      {
+        name: workspaceName.trim(),
+        slug: cleanSlug,
+        plan: "trial",
+      },
+      {
+        trial_ends_at: new Date(Date.now() + TRIAL_DAYS * 86400000).toISOString(),
+        app_category:  appCategory ?? null,
+        brand_voice:   brandVoiceValue ?? null,
+      },
+    );
 
-    let wsInsert = await sb
-      .from("workspaces")
-      .insert({ ...requiredColumns, ...optionalColumns })
-      .select("id")
-      .single();
-
-    // 42703 = column does not exist. Retry with only the columns 001
-    // guarantees, so a pending migration degrades the brand-voice pre-fill
-    // rather than blocking signup entirely.
-    if (wsInsert.error?.code === "42703") {
+    if (wsInsert.droppedColumns.length) {
       console.warn(
-        "[onboarding/setup] optional workspace columns missing — retrying without them:",
-        wsInsert.error.message,
+        "[onboarding/setup] workspace columns not in this database — inserted without:",
+        wsInsert.droppedColumns.join(", "),
       );
-      wsInsert = await sb
-        .from("workspaces")
-        .insert(requiredColumns)
-        .select("id")
-        .single();
     }
 
     if (wsInsert.error?.code === "23505") return apiError("SLUG_TAKEN", 409);
@@ -262,35 +252,35 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
 
     const dbPlatform = platform.replace("-", "_");
-    let appInsert = await sb
-      .from("apps")
-      .insert({
-        workspace_id:          workspaceId,
-        name:                  appName.trim(),
-        platform:              dbPlatform,
-        store_id:              storeId,
+
+    // The metadata columns sit behind migrations 012 and 019. On a database
+    // missing any of them the insert fails — with PGRST204, not 42703, because
+    // PostgREST checks a write payload against its schema cache before it ever
+    // reaches Postgres. This is the failure that dead-ended every signup on
+    // production: `store_country` wasn't there, and the old 42703-only retry
+    // could not fire.
+    const appInsert = await writeWithOptionalColumns<{ id: string }>(
+      (payload) => sb.from("apps").insert(payload).select("id").single(),
+      {
+        workspace_id: workspaceId,
+        name:         appName.trim(),
+        platform:     dbPlatform,
+        store_id:     storeId,
+      },
+      {
         icon_url:              metaIcon,
         developer:             metaDev,
         lifetime_rating:       metaRating,
         lifetime_review_count: metaCount,
         store_country:         metaCountry,
-      })
-      .select("id")
-      .single();
+      },
+    );
 
-    // 42703 = a metadata column doesn't exist yet (migration 012 / 019 not
-    // applied). Retry without them rather than failing onboarding outright.
-    if (appInsert.error?.code === "42703") {
-      appInsert = await sb
-        .from("apps")
-        .insert({
-          workspace_id: workspaceId,
-          name:         appName.trim(),
-          platform:     dbPlatform,
-          store_id:     storeId,
-        })
-        .select("id")
-        .single();
+    if (appInsert.droppedColumns.length) {
+      console.warn(
+        "[onboarding/setup] app columns not in this database — inserted without:",
+        appInsert.droppedColumns.join(", "),
+      );
     }
 
     if (appInsert.error) {
