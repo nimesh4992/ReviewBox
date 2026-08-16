@@ -53,7 +53,7 @@ const SAMPLE_REVIEWS = [
 
 const TEMPLATES: Record<string, () => RenderedEmail> = {
   welcome: () =>
-    welcomeEmail({ appName: "Mumbai One", reviewCount: 20, needsReply: 14, rating: 3.1 }),
+    welcomeEmail({ appName: "Mumbai One", platform: "Google Play", reviewCount: 20, needsReply: 14, rating: 3.1 }),
 
   "welcome-empty": () =>
     welcomeEmail({ appName: "Mumbai One", reviewCount: 0, needsReply: 0, rating: null }),
@@ -97,6 +97,8 @@ const TEMPLATES: Record<string, () => RenderedEmail> = {
   "daily-digest": () =>
     dailyDigestEmail({
       appName: "Mumbai One",
+      platform: "Google Play",
+      distribution: [9, 1, 3, 4, 3],
       newReviews: 3,
       needsReply: 12,
       rating: 3.1,
@@ -121,6 +123,8 @@ const TEMPLATES: Record<string, () => RenderedEmail> = {
   "monthly-digest": () =>
     monthlyDigestEmail({
       appName: "Mumbai One",
+      platform: "Google Play",
+      distribution: [18, 4, 6, 9, 10],
       monthLabel: "August",
       rating: 3.1,
       ratingDelta: 0.14,

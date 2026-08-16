@@ -32,6 +32,18 @@
 
 export type EmailBlock =
   | { kind: "text"; text: string; muted?: boolean }
+  /** App icon + name. Makes the message theirs in the first 40px. */
+  | { kind: "appHeader"; appName: string; iconUrl: string | null; platform: string }
+  /** The one number that matters, with its movement coloured. */
+  | {
+      kind: "heroStat";
+      value: string;
+      label: string;
+      delta?: { value: string; direction: "up" | "down" | "flat" };
+      tone?: "neutral" | "good" | "bad";
+    }
+  /** Star distribution as a stacked bar. Five numbers say more than an average. */
+  | { kind: "ratingBars"; distribution: [number, number, number, number, number] }
   | { kind: "button"; label: string; href: string }
   | { kind: "stats"; items: Array<{ value: string; label: string }> }
   | {
@@ -73,6 +85,14 @@ const C = {
   blueDark: "#0060DF",
   amber: "#C97A00",
   star: "#F5A623",
+  good: "#1F8A5B",
+  goodSoft: "#E8F6EF",
+  bad: "#D14343",
+  badSoft: "#FDEDED",
+  tint: "#F0F6FF",
+  // Star-rating ramp, 1 to 5. Red through amber to green, so a distribution
+  // bar can be read at a glance without a legend.
+  ramp: ["#D14343", "#E8833A", "#E5B02E", "#8CBF3F", "#1F8A5B"],
 };
 
 const FONT =
@@ -102,6 +122,78 @@ function stars(rating: number): string {
 
 function renderBlock(b: EmailBlock): string {
   switch (b.kind) {
+    case "appHeader": {
+      // Images are blocked by default in a lot of clients, so the icon is
+      // decoration and the name beside it carries the meaning. Never put
+      // information only in an image.
+      const icon = b.iconUrl
+        ? `<img src="${b.iconUrl}" width="40" height="40" alt="" style="display:block;width:40px;height:40px;border-radius:9px;border:1px solid ${C.border};" />`
+        : "";
+      return `<tr><td style="padding:0 0 18px;">
+        <table cellpadding="0" cellspacing="0" border="0"><tr>
+          ${icon ? `<td valign="middle" style="padding-right:12px;">${icon}</td>` : ""}
+          <td valign="middle">
+            <div style="font-family:${FONT};font-size:15px;font-weight:700;color:${C.fg1};line-height:1.3;">${esc(b.appName)}</div>
+            <div style="font-family:${FONT};font-size:12px;color:${C.fg3};padding-top:1px;">${esc(b.platform)}</div>
+          </td>
+        </tr></table>
+      </td></tr>`;
+    }
+
+    case "heroStat": {
+      // One number, given room. A rating that fell should look like it fell,
+      // so the delta is coloured rather than left as grey text.
+      const bg = b.tone === "good" ? C.goodSoft : b.tone === "bad" ? C.badSoft : C.tint;
+      const deltaColor =
+        b.delta?.direction === "up" ? C.good : b.delta?.direction === "down" ? C.bad : C.fg3;
+      const arrow =
+        b.delta?.direction === "up" ? "&#9650;" : b.delta?.direction === "down" ? "&#9660;" : "";
+      return `<tr><td style="padding:0 0 20px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="background:${bg};border-radius:12px;">
+          <tr><td style="padding:18px 20px;">
+            <table cellpadding="0" cellspacing="0" border="0"><tr>
+              <td valign="bottom" style="font-family:${FONT};font-size:38px;line-height:1;font-weight:700;color:${C.fg1};letter-spacing:-1px;">${b.value}</td>
+              ${
+                b.delta
+                  ? `<td valign="bottom" style="padding:0 0 4px 10px;font-family:${FONT};font-size:14px;font-weight:700;color:${deltaColor};">${arrow} ${b.delta.value}</td>`
+                  : ""
+              }
+            </tr></table>
+            <div style="font-family:${FONT};font-size:13px;color:${C.fg2};padding-top:6px;">${b.label}</div>
+          </td></tr>
+        </table>
+      </td></tr>`;
+    }
+
+    case "ratingBars": {
+      const total = b.distribution.reduce((a, n) => a + n, 0);
+      if (total === 0) return "";
+      // One stacked bar, 1 star to 5, plus the counts underneath. Five numbers
+      // tell you something an average hides: whether 3.1 means "everyone is
+      // lukewarm" or "half love it and half are furious".
+      const segments = b.distribution
+        .map((n, i) => {
+          if (n === 0) return "";
+          const pct = Math.max(2, Math.round((n / total) * 100));
+          return `<td width="${pct}%" style="background:${C.ramp[i]};height:10px;line-height:10px;font-size:0;">&nbsp;</td>`;
+        })
+        .join("");
+      const legend = b.distribution
+        .map(
+          (n, i) =>
+            `<td align="left" style="font-family:${FONT};font-size:11px;color:${C.fg3};padding-top:8px;">
+               <span style="color:${C.ramp[i]};font-size:12px;">&#9632;</span>&nbsp;${i + 1}&#9733; ${n}
+             </td>`,
+        )
+        .join("");
+      return `<tr><td style="padding:0 0 22px;">
+        <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border-radius:6px;overflow:hidden;">
+          <tr>${segments}</tr>
+        </table>
+        <table width="100%" cellpadding="0" cellspacing="0" border="0"><tr>${legend}</tr></table>
+      </td></tr>`;
+    }
+
     case "text":
       return `<tr><td style="padding:0 0 16px;font-family:${FONT};font-size:15px;line-height:1.6;color:${
         b.muted ? C.fg3 : C.fg2
@@ -145,10 +237,16 @@ function renderBlock(b: EmailBlock): string {
         </tr></table>
       </td></tr>`;
 
-    case "review":
+    case "review": {
+      // A 1-star crisis and a 4-star compliment rendered identically before
+      // this. The accent bar down the left is the same signal the inbox uses,
+      // so the shape of the day is readable without reading a word.
+      const accent = b.rating <= 2 ? C.bad : b.rating === 3 ? C.ramp[2] : C.good;
       return `<tr><td style="padding:0 0 12px;">
         <table width="100%" cellpadding="0" cellspacing="0" border="0" style="border:1px solid ${C.border};border-radius:10px;">
-          <tr><td style="padding:14px 16px;">
+          <tr>
+          <td width="4" style="background:${accent};width:4px;font-size:0;line-height:0;border-radius:10px 0 0 10px;">&nbsp;</td>
+          <td style="padding:14px 16px;">
             <div style="font-family:${FONT};font-size:13px;color:${C.fg3};padding-bottom:6px;">
               ${stars(b.rating)}&nbsp;&nbsp;<span style="color:${C.fg2};font-weight:600;">${esc(b.author)}</span>${
                 b.meta ? `&nbsp;&nbsp;·&nbsp;&nbsp;${esc(b.meta)}` : ""
@@ -163,6 +261,7 @@ function renderBlock(b: EmailBlock): string {
           </td></tr>
         </table>
       </td></tr>`;
+    }
 
     case "divider":
       return `<tr><td style="padding:8px 0 24px;"><div style="height:1px;background:${C.border};line-height:1px;font-size:0;">&nbsp;</div></td></tr>`;
@@ -217,8 +316,13 @@ export function renderEmail(opts: EmailOptions): string {
 
     <tr><td style="background:${C.surface};border:1px solid ${C.border};border-radius:14px;padding:28px 28px 12px;">
       <table width="100%" cellpadding="0" cellspacing="0" border="0">
+        ${/* The app identity sits ABOVE the heading, so the heading never has
+             to repeat the app name to say whose reviews these are. "Mumbai
+             One / Google Play" then "3 new reviews yesterday" reads as one
+             thought; the other order says the name twice. */ ""}
+        ${blocks.filter((b) => b.kind === "appHeader").map(renderBlock).join("")}
         <tr><td style="padding:0 0 14px;font-family:${FONT};font-size:21px;line-height:1.3;font-weight:700;color:${C.fg1};letter-spacing:-0.3px;">${heading}</td></tr>
-        ${blocks.map(renderBlock).join("\n")}
+        ${blocks.filter((b) => b.kind !== "appHeader").map(renderBlock).join("\n")}
       </table>
     </td></tr>
 
@@ -265,6 +369,18 @@ export function renderEmailText(opts: EmailOptions): string {
         break;
       case "stats":
         lines.push(b.items.map((s) => `${s.value} ${s.label}`).join("   |   "), "");
+        break;
+      case "appHeader":
+        lines.push(`${b.appName} (${b.platform})`, "");
+        break;
+      case "heroStat":
+        lines.push(`${b.value}${b.delta ? ` (${b.delta.value})` : ""} ${b.label}`, "");
+        break;
+      case "ratingBars":
+        lines.push(
+          b.distribution.map((n, i) => `${i + 1} star: ${n}`).join("   |   "),
+          "",
+        );
         break;
       case "review":
         lines.push(

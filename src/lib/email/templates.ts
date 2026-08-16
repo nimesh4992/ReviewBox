@@ -46,11 +46,13 @@ const plural = (n: number, one: string, many = `${one}s`) => (n === 1 ? one : ma
  */
 export function welcomeEmail(params: {
   appName: string;
+  iconUrl?: string | null;
+  platform?: string;
   reviewCount: number;
   needsReply: number;
   rating: number | null;
 }): RenderedEmail {
-  const { appName, reviewCount, needsReply, rating } = params;
+  const { appName, iconUrl = null, platform = "Google Play", reviewCount, needsReply, rating } = params;
 
   // A workspace whose first sync found nothing gets a different, honest
   // message. Congratulating someone on 0 reviews is how trust dies early.
@@ -78,8 +80,9 @@ export function welcomeEmail(params: {
     `${appName}: ${reviewCount} ${plural(reviewCount, "review")} ready to reply to`,
     {
       preheader: `${needsReply} of them have no reply yet.`,
-      heading: `${esc(appName)} is connected. Here is what we found.`,
+      heading: "Connected. Here is what we found.",
       blocks: [
+        { kind: "appHeader", appName, iconUrl, platform },
         {
           kind: "stats",
           items: [
@@ -257,6 +260,10 @@ export function inviteEmail(params: {
  */
 export function dailyDigestEmail(params: {
   appName: string;
+  iconUrl?: string | null;
+  platform?: string;
+  /** Star counts 1-5 across all synced reviews, for the distribution bar. */
+  distribution?: [number, number, number, number, number] | null;
   newReviews: number;
   needsReply: number;
   rating: number | null;
@@ -265,8 +272,19 @@ export function dailyDigestEmail(params: {
   quietDay: boolean;
   unsubscribeUrl: string;
 }): RenderedEmail {
-  const { appName, newReviews, needsReply, rating, ratingDelta, reviews, quietDay, unsubscribeUrl } =
-    params;
+  const {
+    appName,
+    iconUrl = null,
+    platform = "Google Play",
+    distribution = null,
+    newReviews,
+    needsReply,
+    rating,
+    ratingDelta,
+    reviews,
+    quietDay,
+    unsubscribeUrl,
+  } = params;
 
   const cards = reviews.slice(0, 3).map((r) => ({
     kind: "review" as const,
@@ -277,25 +295,41 @@ export function dailyDigestEmail(params: {
     href: `${EMAIL_APP_URL}/inbox?review=${encodeURIComponent(r.id)}`,
   }));
 
-  const statBlocks = [
+  const moved = ratingDelta != null && Math.abs(ratingDelta) >= 0.05;
+  const statBlocks: EmailOptions["blocks"] = [
+    { kind: "appHeader", appName, iconUrl, platform },
+    // The rating gets the hero treatment because it is the number the customer
+    // is anxious about, and the delta is coloured so a fall reads as a fall.
+    ...(rating
+      ? [
+          {
+            kind: "heroStat" as const,
+            value: rating.toFixed(1),
+            label: moved
+              ? `store rating, ${ratingDelta! > 0 ? "up" : "down"} since yesterday`
+              : "store rating, unchanged since yesterday",
+            delta: moved
+              ? {
+                  value: `${ratingDelta! > 0 ? "+" : ""}${ratingDelta!.toFixed(2)}`,
+                  direction: (ratingDelta! > 0 ? "up" : "down") as "up" | "down",
+                }
+              : undefined,
+            tone: (moved ? (ratingDelta! > 0 ? "good" : "bad") : "neutral") as
+              | "good"
+              | "bad"
+              | "neutral",
+          },
+        ]
+      : []),
     {
       kind: "stats" as const,
       items: [
         { value: String(newReviews), label: "new yesterday" },
         { value: String(needsReply), label: "awaiting a reply" },
-        ...(rating
-          ? [
-              {
-                value: rating.toFixed(1),
-                label:
-                  ratingDelta && Math.abs(ratingDelta) >= 0.05
-                    ? `rating (${ratingDelta > 0 ? "+" : ""}${ratingDelta.toFixed(2)})`
-                    : "store rating",
-              },
-            ]
-          : []),
+        ...(distribution ? [{ value: String(distribution.reduce((a, n) => a + n, 0)), label: "reviews in total" }] : []),
       ],
     },
+    ...(distribution ? [{ kind: "ratingBars" as const, distribution }] : []),
   ];
 
   if (quietDay) {
@@ -304,7 +338,7 @@ export function dailyDigestEmail(params: {
         needsReply > 0
           ? `No new reviews, but ${needsReply} still have no reply.`
           : "No new reviews, and nothing waiting.",
-      heading: `No new reviews for ${esc(appName)} yesterday.`,
+      heading: "No new reviews yesterday.",
       blocks: [
         ...statBlocks,
         {
@@ -336,7 +370,7 @@ export function dailyDigestEmail(params: {
         reviews[0] != null
           ? `"${reviews[0].body.slice(0, 90)}${reviews[0].body.length > 90 ? "..." : ""}"`
           : `${needsReply} awaiting a reply.`,
-      heading: `${newReviews} new ${plural(newReviews, "review")} for ${esc(appName)}.`,
+      heading: `${newReviews} new ${plural(newReviews, "review")} yesterday.`,
       blocks: [
         ...statBlocks,
         ...cards,
@@ -369,6 +403,9 @@ export function dailyDigestEmail(params: {
  */
 export function monthlyDigestEmail(params: {
   appName: string;
+  iconUrl?: string | null;
+  platform?: string;
+  distribution?: [number, number, number, number, number] | null;
   monthLabel: string;
   rating: number | null;
   ratingDelta: number | null;
@@ -380,6 +417,9 @@ export function monthlyDigestEmail(params: {
 }): RenderedEmail {
   const {
     appName,
+    iconUrl = null,
+    platform = "Google Play",
+    distribution = null,
     monthLabel,
     rating,
     ratingDelta,
@@ -402,12 +442,34 @@ export function monthlyDigestEmail(params: {
     `${appName} in ${monthLabel}: ${rating ? `${rating.toFixed(1)} stars, ` : ""}${totalReviews} ${plural(totalReviews, "review")}`,
     {
       preheader: `${replyRate}% replied. ${worst ? `Most complaints were about ${worst.label}.` : ""}`,
-      heading: `${esc(appName)} in ${esc(monthLabel)}.`,
+      heading: `How ${esc(monthLabel)} went.`,
       blocks: [
+        { kind: "appHeader", appName, iconUrl, platform },
+        ...(rating
+          ? [
+              {
+                kind: "heroStat" as const,
+                value: rating.toFixed(1),
+                label: `store rating, ${direction} over the month`,
+                delta:
+                  ratingDelta != null && Math.abs(ratingDelta) >= 0.05
+                    ? {
+                        value: `${ratingDelta > 0 ? "+" : ""}${ratingDelta.toFixed(2)}`,
+                        direction: (ratingDelta > 0 ? "up" : "down") as "up" | "down",
+                      }
+                    : undefined,
+                tone: (ratingDelta == null || Math.abs(ratingDelta) < 0.05
+                  ? "neutral"
+                  : ratingDelta > 0
+                    ? "good"
+                    : "bad") as "good" | "bad" | "neutral",
+              },
+            ]
+          : []),
+        ...(distribution ? [{ kind: "ratingBars" as const, distribution }] : []),
         {
           kind: "stats",
           items: [
-            ...(rating ? [{ value: rating.toFixed(1), label: `stars, ${direction}` }] : []),
             { value: String(totalReviews), label: "reviews" },
             { value: String(repliesPublished), label: "replies published" },
             { value: `${replyRate}%`, label: "replied to" },
