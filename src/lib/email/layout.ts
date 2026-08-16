@@ -100,6 +100,17 @@ const FONT =
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.tryreviewbox.com";
 
+/**
+ * Where the brand images are served from.
+ *
+ * Deliberately separate from APP_URL: the app may sit on app.tryreviewbox.com
+ * behind auth, and an image behind a login renders as a broken box in every
+ * inbox. Assets live in public/brand/ and are served by whichever host has the
+ * marketing site.
+ */
+const MARKETING_URL =
+  process.env.NEXT_PUBLIC_MARKETING_URL ?? "https://tryreviewbox.com";
+
 /** Escape anything that reaches the HTML. Review text is user content. */
 export function esc(value: string): string {
   return value
@@ -309,9 +320,17 @@ export function renderEmail(opts: EmailOptions): string {
   <table width="600" cellpadding="0" cellspacing="0" border="0" style="width:100%;max-width:600px;">
 
     <!-- Wordmark. Small on purpose: the top of the message is the most
-         valuable space in it, and our logo is not why anyone opened this. -->
+         valuable space in it, and our logo is not why anyone opened this.
+         The <img> is an absolute URL because email clients cannot resolve
+         relative paths and Gmail strips data: URIs, and the alt text carries
+         the brand when images are blocked, which is the default in Outlook
+         and in Gmail for any sender you have not replied to. -->
     <tr><td style="padding:0 4px 14px;">
-      <span style="font-family:${FONT};font-size:14px;font-weight:700;color:${C.fg1};letter-spacing:-0.2px;">ReviewBox</span>
+      <a href="${APP_URL}/dashboard" style="text-decoration:none;">
+        <img src="${MARKETING_URL}/brand/reviewbox-wordmark.png"
+             width="132" height="27" alt="ReviewBox"
+             style="display:block;width:132px;height:27px;border:0;outline:none;" />
+      </a>
     </td></tr>
 
     <tr><td style="background:${C.surface};border:1px solid ${C.border};border-radius:14px;padding:28px 28px 12px;">

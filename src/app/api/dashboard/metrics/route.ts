@@ -99,6 +99,38 @@ export async function GET(): Promise<NextResponse> {
 
     const sb = getServiceClient();
 
+    // Scope every review count to the workspace's LIVE apps.
+    //
+    // The inbox does this (/api/reviews) and the dashboard did not, so the two
+    // disagreed: 200 reviews on the dashboard, 20 in the inbox. The extra 180
+    // belong to a disconnected app whose rows are still in the table. Counting
+    // by workspace alone is the same mistake that produced the phantom
+    // "200 reviews, 4.32 average" on a workspace with nothing connected.
+    //
+    // Migration 021 deletes the orphans, but this filter is what stops it
+    // happening again the next time someone removes an app.
+    const liveApps = await sb
+      .from("apps")
+      .select("id")
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null);
+
+    const liveAppIds = ((liveApps.data as { id: string }[] | null) ?? []).map((a) => a.id);
+
+    if (liveApps.error) {
+      console.error("[dashboard/metrics] live app lookup failed:", liveApps.error);
+    }
+
+    // No live apps means no reviews to count. Returning zeros is correct and
+    // is what the empty-workspace screen expects.
+    if (!liveAppIds.length) {
+      return NextResponse.json(EMPTY_METRICS);
+    }
+
+    /** Every reviews query goes through this so none can forget the filter. */
+    const reviewsIn = () =>
+      sb.from("reviews").select("id", { count: "exact", head: true }).in("app_id", liveAppIds);
+
     const now = new Date();
     const todayStart = new Date(now);
     todayStart.setHours(0, 0, 0, 0);
@@ -133,17 +165,11 @@ export async function GET(): Promise<NextResponse> {
       appsMetaResult,
     ] = await Promise.all([
       // 1. Unreplied reviews
-      sb
-        .from("reviews")
-        .select("id", { count: "exact", head: true })
-        .eq("workspace_id", workspaceId)
+      reviewsIn()
         .eq("reply_status", "needs_reply"),
 
       // 2. Urgent unreplied reviews
-      sb
-        .from("reviews")
-        .select("id", { count: "exact", head: true })
-        .eq("workspace_id", workspaceId)
+      reviewsIn()
         .eq("priority", "urgent")
         .neq("reply_status", "replied"),
 
@@ -151,7 +177,7 @@ export async function GET(): Promise<NextResponse> {
       sb
         .from("reviews")
         .select("rating")
-        .eq("workspace_id", workspaceId)
+        .in("app_id", liveAppIds)
         .gte("store_created_at", thirtyDaysAgo.toISOString()),
 
       // 4. AI drafts this week (DB created_at is correct here — when WE drafted)
@@ -163,30 +189,18 @@ export async function GET(): Promise<NextResponse> {
         .gte("created_at", sevenDaysAgo.toISOString()),
 
       // 5. Reviews posted today on the store (not synced today)
-      sb
-        .from("reviews")
-        .select("id", { count: "exact", head: true })
-        .eq("workspace_id", workspaceId)
+      reviewsIn()
         .gte("store_created_at", todayStart.toISOString()),
 
       // 6. Total reviews
-      sb
-        .from("reviews")
-        .select("id", { count: "exact", head: true })
-        .eq("workspace_id", workspaceId),
+      reviewsIn(),
 
       // 7. Reviews this week (for week-over-week delta)
-      sb
-        .from("reviews")
-        .select("id", { count: "exact", head: true })
-        .eq("workspace_id", workspaceId)
+      reviewsIn()
         .gte("store_created_at", sevenDaysAgo.toISOString()),
 
       // 8. Reviews last week (for week-over-week delta)
-      sb
-        .from("reviews")
-        .select("id", { count: "exact", head: true })
-        .eq("workspace_id", workspaceId)
+      reviewsIn()
         .gte("store_created_at", fourteenDaysAgo.toISOString())
         .lt("store_created_at", sevenDaysAgo.toISOString()),
 
@@ -194,7 +208,7 @@ export async function GET(): Promise<NextResponse> {
       sb
         .from("reviews")
         .select("rating")
-        .eq("workspace_id", workspaceId)
+        .in("app_id", liveAppIds)
         .gte("store_created_at", sixtyDaysAgo.toISOString())
         .lt("store_created_at", thirtyDaysAgo.toISOString()),
 
@@ -202,7 +216,7 @@ export async function GET(): Promise<NextResponse> {
       sb
         .from("reviews")
         .select("rating, store_created_at")
-        .eq("workspace_id", workspaceId)
+        .in("app_id", liveAppIds)
         .gte("store_created_at", tenDaysAgo.toISOString())
         .order("store_created_at", { ascending: true }),
 

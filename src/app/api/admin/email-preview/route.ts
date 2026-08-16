@@ -53,7 +53,8 @@ const SAMPLE_REVIEWS = [
 
 const TEMPLATES: Record<string, () => RenderedEmail> = {
   welcome: () =>
-    welcomeEmail({ appName: "Mumbai One", platform: "Google Play", reviewCount: 20, needsReply: 14, rating: 3.1 }),
+    welcomeEmail({ appName: "Mumbai One", platform: "Google Play",
+      iconUrl: "https://play-lh.googleusercontent.com/8ddL1kuoNUB5vUvgDVjYY3_6HwQcrg1K2fd_R8soD-e2QYr6JmMFmMfMYcRuFqSb=w240-h480", reviewCount: 20, needsReply: 14, rating: 3.1 }),
 
   "welcome-empty": () =>
     welcomeEmail({ appName: "Mumbai One", reviewCount: 0, needsReply: 0, rating: null }),
@@ -98,6 +99,7 @@ const TEMPLATES: Record<string, () => RenderedEmail> = {
     dailyDigestEmail({
       appName: "Mumbai One",
       platform: "Google Play",
+      iconUrl: "https://play-lh.googleusercontent.com/8ddL1kuoNUB5vUvgDVjYY3_6HwQcrg1K2fd_R8soD-e2QYr6JmMFmMfMYcRuFqSb=w240-h480",
       distribution: [9, 1, 3, 4, 3],
       newReviews: 3,
       needsReply: 12,
@@ -124,6 +126,7 @@ const TEMPLATES: Record<string, () => RenderedEmail> = {
     monthlyDigestEmail({
       appName: "Mumbai One",
       platform: "Google Play",
+      iconUrl: "https://play-lh.googleusercontent.com/8ddL1kuoNUB5vUvgDVjYY3_6HwQcrg1K2fd_R8soD-e2QYr6JmMFmMfMYcRuFqSb=w240-h480",
       distribution: [18, 4, 6, 9, 10],
       monthLabel: "August",
       rating: 3.1,
