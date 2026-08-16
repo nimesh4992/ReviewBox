@@ -1,5 +1,5 @@
 ﻿import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
-import { COMPANY, companyLine, formatRegisteredOffice, orPending } from "@/lib/legal/company";
+import { COMPANY, companyLine, entityDescription, formatRegisteredOffice, orPending } from "@/lib/legal/company";
 
 export const metadata = {
   title: "Terms of Service",
@@ -43,8 +43,8 @@ export default function TermsPage() {
           By accessing or using ReviewBox (&ldquo;the Service&rdquo;), you agree to be bound by
           these Terms of Service (&ldquo;Terms&rdquo;). If you do not agree to these Terms, you
           may not access or use the Service. These Terms constitute a legally binding agreement
-          between you and {companyLine()}, a company registered in {COMPANY.country} with its
-          registered office at {formatRegisteredOffice()} (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or
+          between you and {companyLine()}, {entityDescription()}, with its principal
+          place of business at {formatRegisteredOffice()} (&ldquo;we,&rdquo; &ldquo;us,&rdquo; or
           &ldquo;our&rdquo;).
         </p>
       </LegalSection>

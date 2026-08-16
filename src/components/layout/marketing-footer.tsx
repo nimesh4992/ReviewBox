@@ -96,12 +96,12 @@ export function MarketingFooter() {
 
         <div className="mt-14 border-t border-[var(--rb-border-1)] pt-6 text-[12px] text-fg-4">
           <p className="max-w-[70ch] leading-relaxed">
-            {companyLine()} · Registered in {COMPANY.country}
-            {COMPANY.cin ? ` · CIN ${COMPANY.cin}` : ""}
+            {companyLine()} · {COMPANY.entityType} registered in {COMPANY.country}
+            {COMPANY.firmRegistrationNumber ? ` · Firm Reg. ${COMPANY.firmRegistrationNumber}` : ""}
             {COMPANY.gstin ? ` · GSTIN ${COMPANY.gstin}` : ""}
           </p>
           <p className="mt-1 max-w-[70ch] leading-relaxed">
-            Registered office: {formatRegisteredOffice()}
+            Principal place of business: {formatRegisteredOffice()}
           </p>
           <p className="mt-1">
             Support:{" "}

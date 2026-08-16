@@ -1,5 +1,5 @@
 ﻿import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
-import { COMPANY, companyLine } from "@/lib/legal/company";
+import { COMPANY, companyLine, entityDescription } from "@/lib/legal/company";
 
 export const metadata = {
   title: "Data Processing Agreement",
@@ -40,7 +40,7 @@ export default function DpaPage() {
       <LegalSection id="scope" number={1} title="Parties and scope">
         <p>
           This Data Processing Agreement (the &ldquo;DPA&rdquo;) supplements the ReviewBox Terms
-          of Service between {companyLine()}, a company registered in {COMPANY.country} (the
+          of Service between {companyLine()}, {entityDescription()} (the
           &ldquo;Processor&rdquo;), and the customer (the
           &ldquo;Controller&rdquo;).
         </p>

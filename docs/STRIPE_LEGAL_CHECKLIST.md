@@ -9,51 +9,56 @@ The clauses most worth paying for an hour of review on are listed at the end.
 
 ---
 
-## 1. The blocker: your company name
+## 1. The entity: a partnership firm named "AT WORK Inc"
 
-You told me the incorporation certificate reads **"AT WORK Inc"**, and that is
-what the site now says. There is a problem with that.
+You've confirmed AT WORK Inc is a **partnership firm**, not a Private Limited.
+That changes several things, and one of them is still a risk.
 
-An Indian company's name has to end in "Private Limited", "Limited", "LLP" or a
-similar Indian form. The Companies Act does not allow "Inc." in the name of a
-company registered in India. So one of these is true:
+**"Inc" still doesn't fit.** "Inc" is short for "Incorporated". A partnership
+firm is the one Indian business form that is explicitly *not* incorporated — in
+law the firm has no separate legal personality; it is the partners. So the name
+tells customers and Stripe that they are dealing with a corporate body when they
+are dealing with individuals. Stripe verifies the business name against your
+registration papers, and this is a common reason India applications stall.
 
-1. **The certificate actually says something else** — for example "At Work
-   Technologies Private Limited" — and "AT WORK Inc" is how you write the brand.
-   In that case the legal name on the site is a company that does not exist.
-2. **The entity is not registered in India** — it is a US or other foreign
-   company. In that case the whole jurisdiction premise is wrong: governing law,
-   the grievance officer requirement, and the GST treatment all change.
+**Action:** transcribe the name exactly as it appears on the partnership deed /
+Registrar of Firms certificate into `src/lib/legal/company.ts`. If the deed
+really does say "AT WORK Inc", it is worth asking your CA whether to keep
+trading under it, because the mismatch between the name and the form is the part
+that invites questions.
 
-This matters commercially, not just legally: **Stripe verifies the business name
-against your incorporation documents, and a mismatch is one of the most common
-reasons an application is rejected.**
+**Two consequences of being a partnership that are worth knowing:**
 
-**Action:** open the certificate of incorporation and copy the name character for
-character into `src/lib/legal/company.ts`. If it turns out the company is not
-Indian, tell me and I will redo the jurisdiction across all the pages.
+- **Unlimited personal liability.** A partnership firm gives its partners no
+  liability shield. The limitation-of-liability clause in the Terms caps what
+  customers can claim from the *business*, but partners remain personally liable
+  for the firm's debts and obligations. A Private Limited or LLP is the usual fix
+  and is worth discussing with your CA before you take paying customers.
+- **Registration is optional but matters.** An unregistered partnership firm
+  generally cannot sue to enforce a contract against a third party. For a
+  business whose entire revenue is contracts with customers, that is a real
+  exposure — if the firm is not registered with the Registrar of Firms, ask your
+  CA what it takes.
+
+**No CIN.** That identifier belongs to companies under the Companies Act. The
+site now asks for a Registrar of Firms registration number instead, and the
+footer publishes it only if you have one.
 
 ---
 
 ## 2. Facts only you can supply
 
 Fill these into **one file** — `src/lib/legal/company.ts` — and every page,
-footer and invoice updates. They are legally required to be published for an
-Indian company, and Stripe looks for them.
+footer and invoice updates. `npm run test:unit` prints what is still outstanding.
 
 | Fact | Where to get it | Status |
 |---|---|---|
-| Exact legal name | Certificate of Incorporation | ⚠️ Needs confirming (see above) |
-| CIN | MCA certificate | ❌ Missing |
+| Exact firm name | Partnership deed / Registrar of Firms certificate | ⚠️ Needs confirming (see above) |
+| Firm registration number | Registrar of Firms — or confirm the firm is unregistered | ❌ Missing |
 | GSTIN | GST registration | ❌ Missing — you said you have this |
-| Registered office address | MCA record. Must be a real, serviceable address — legal notices are delivered there, so not a PO box | ❌ Missing |
+| Principal place of business | Full postal address. Legal notices are delivered there, so not a PO box | ❌ Missing |
 | Grievance Officer: name, designation, email, postal address | You appoint them. Must be a named human, not just a mailbox | ❌ Missing |
-| City whose courts have jurisdiction | Normally where the registered office is | ❌ Missing |
-
-Until they are filled in, the pages say the details are "to be published"
-rather than inventing them. `npm run test:unit` prints the outstanding list.
-
----
+| City whose courts have jurisdiction | Normally where the firm operates | ❌ Missing |
 
 ## 3. What changed on the site
 
@@ -87,7 +92,7 @@ receiving diagnostics only. Turned off.
 
 ## 4. Before you submit to Stripe
 
-- [ ] **Confirm the legal name** and fill in `company.ts` (section 1).
+- [ ] **Confirm the firm name** against the partnership deed and fill in `company.ts` (section 1).
 - [ ] **Request an India invite.** Stripe India is not self-serve signup — you
       have to request access. Do this early; it gates everything else.
 - [ ] **Tick the export/international opt-in** in the application if you intend
@@ -95,8 +100,9 @@ receiving diagnostics only. Turned off.
       test mode.
 - [ ] **Show the currency on pricing.** "$49" alone is ambiguous to an
       international buyer; Stripe asks for the currency code. Say "USD 49 / month".
-- [ ] **Have KYC documents ready:** certificate of incorporation, PAN, GSTIN,
-      bank proof, director identity documents.
+- [ ] **Have KYC documents ready:** partnership deed, firm PAN, GSTIN, bank
+      proof, and identity documents for the partners. Stripe India accepts
+      partnership firms, but the deed is the document it will want.
 - [ ] **Check every page loads logged out** — refund policy, terms, privacy,
       contact, pricing, grievance.
 
@@ -134,7 +140,7 @@ The privacy pages describe what we do, not what a free tier permits.
 
 ## 6. Worth paying a lawyer to check
 
-1. **The company name and jurisdiction premise** — everything else rests on it.
+1. **The firm name, the entity form, and whether to convert to an LLP or Private Limited** before taking paying customers — the unlimited-liability point above is the single most consequential item on this page.
 2. **The no-refund clause** against the Consumer Protection Act. Many of your
    target customers are solo developers, who may count as consumers rather than
    businesses, and a blanket no-refund term can be attacked as unfair. The 14-day

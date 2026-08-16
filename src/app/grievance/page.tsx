@@ -110,7 +110,7 @@ export default function GrievancePage() {
         )}
 
         <p>
-          Complaints are handled by {companyLine()}, whose registered office is at{" "}
+          Complaints are handled by {companyLine()}, whose principal place of business is at{" "}
           {formatRegisteredOffice()}.
         </p>
       </LegalSection>

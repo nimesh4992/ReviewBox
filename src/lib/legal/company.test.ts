@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { COMPANY, companyLine, formatRegisteredOffice, outstandingLegalFacts } from "./company";
+import {
+  COMPANY,
+  companyLine,
+  entityDescription,
+  formatRegisteredOffice,
+  outstandingLegalFacts,
+} from "./company";
 
 /**
  * These tests guard the legal identity, not the law. They fail when a page
@@ -12,6 +18,12 @@ describe("company legal identity", () => {
   it("names an India-registered entity", () => {
     expect(COMPANY.country).toBe("India");
     expect(COMPANY.jurisdiction.governingLaw).toBe("India");
+  });
+
+  it("describes the entity as a partnership, which has no CIN", () => {
+    expect(COMPANY.entityType).toBe("Partnership firm");
+    expect(COMPANY).not.toHaveProperty("cin");
+    expect(entityDescription()).toContain("Indian Partnership Act, 1932");
   });
 
   it("never claims a jurisdiction outside India", () => {
