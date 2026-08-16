@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { parseStoreUrl } from "@/lib/store-urls";
 import { useApps, useInvalidateApps, type WorkspaceApp } from "@/hooks/use-apps";
 import { avatarInitials, formatReviewDate } from "@/utils/format";
 import { GooglePlaySetupModal } from "@/components/dashboard/google-play-setup-modal";
@@ -529,6 +530,25 @@ function AddAppForm({ onAdded }: { onAdded: () => void }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Switch the platform to match a pasted store link.
+   *
+   * The dropdown defaults to Google Play, so pasting an App Store link left
+   * the two contradicting each other — which is exactly the state that
+   * produced "Something went wrong on our end". The link is unambiguous about
+   * which store it belongs to, so trust it and move the dropdown.
+   */
+  function handleStoreIdChange(value: string) {
+    setStoreId(value);
+    setError(null);
+
+    const parsed = parseStoreUrl(value);
+    if (!parsed) return;
+
+    const linkPlatform = parsed.platform === "google-play" ? "google_play" : "app_store";
+    if (linkPlatform !== platform) setPlatform(linkPlatform);
+  }
+
   async function handleAdd() {
     if (!name.trim() || !storeId.trim()) {
       setError("Name and store ID are required.");
@@ -615,18 +635,21 @@ function AddAppForm({ onAdded }: { onAdded: () => void }) {
 
       <label className="block">
         <span className="text-xs font-medium text-[var(--rb-fg-2)]">
-          {platform === "google_play" ? "Package name" : "Bundle ID"}
+          {platform === "google_play" ? "Package name or Play Store link" : "Bundle ID or App Store link"}
         </span>
         <Input
           value={storeId}
-          onChange={(e) => setStoreId(e.target.value)}
+          onChange={(e) => handleStoreIdChange(e.target.value)}
           placeholder={
             platform === "google_play"
-              ? "com.yourcompany.app"
-              : "com.yourcompany.app"
+              ? "com.yourcompany.app  ·  or paste the Play Store link"
+              : "com.yourcompany.app  ·  or paste the App Store link"
           }
           className="mt-1 h-8 border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] font-mono text-sm focus:bg-surface"
         />
+        <span className="mt-1 block text-[11px] text-[var(--rb-fg-3)]">
+          Don&apos;t know your package name? Paste the app&apos;s store page address instead.
+        </span>
       </label>
 
       <div className="flex items-center gap-2">
