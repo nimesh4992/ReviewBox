@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { compressReviewText } from "./prompt-utils";
+import { compressReviewText, humanizePunctuation } from "./prompt-utils";
 
 describe("compressReviewText", () => {
   it("strips common filler phrases", () => {
@@ -44,5 +44,43 @@ describe("compressReviewText", () => {
   it("leaves text without filler unchanged in substance", () => {
     const text = "The app crashes on launch.";
     expect(compressReviewText(text)).toBe(text);
+  });
+});
+
+describe("humanizePunctuation", () => {
+  it("removes the em dash that marks a reply as machine-written", () => {
+    expect(humanizePunctuation("We're sorry — that's frustrating.")).toBe(
+      "We're sorry, that's frustrating.",
+    );
+  });
+
+  it("turns a sign-off dash into a plain hyphen", () => {
+    // The deterministic composer emitted "\n\n— {teamName}", which is why em
+    // dashes appeared even when no model ran.
+    expect(humanizePunctuation("Thanks for writing in.\n\n— The Mumbai One Team")).toBe(
+      "Thanks for writing in.\n\n- The Mumbai One Team",
+    );
+  });
+
+  it("handles en dashes too", () => {
+    expect(humanizePunctuation("Sorry – we're on it.")).toBe("Sorry, we're on it.");
+  });
+
+  it("catches a dash with no surrounding spaces", () => {
+    expect(humanizePunctuation("crash—on launch")).toBe("crash-on launch");
+  });
+
+  it("does not create doubled punctuation", () => {
+    expect(humanizePunctuation("Fixed, — and shipped.")).toBe("Fixed, and shipped.");
+    expect(humanizePunctuation("Done — . Next.")).toBe("Done. Next.");
+  });
+
+  it("leaves ordinary hyphens and text alone", () => {
+    const clean = "Re-open the app, then sign in again.\n\n- The Support Team";
+    expect(humanizePunctuation(clean)).toBe(clean);
+  });
+
+  it("is safe on empty text", () => {
+    expect(humanizePunctuation("")).toBe("");
   });
 });

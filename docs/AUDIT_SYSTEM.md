@@ -153,6 +153,19 @@ your server IP is being refused. Only calling the real thing can.
 4. A finding isn't fixed until the *visibility* is fixed too: if a path can
    fail, it must fail loudly (status column, summary.errors, Sentry, or a
    banner) — never return "success" having done nothing.
+5. **Read the failure; don't infer it** (learned 2026-08-16). Twice in one
+   session the first plausible theory was wrong and one line of the Vercel
+   log settled it. Before proposing a cause for a production symptom, get the
+   actual error: Vercel logs, `/api/admin/probe/schema`, or a query the
+   founder can paste. A theory that fits the symptom is not evidence.
+6. **A defect can be invisible to code review and still be total.** The
+   whole-population failures found on 2026-08-16 — no signup could complete,
+   no Android customer could post a reply — read as correct code. Each was a
+   check against a value that looks right and is the wrong value entirely
+   (PGRST204 vs 42703, `has_credentials` vs `publisher_api_connected`, DB enum
+   vs display string). Grep cannot find these. Only running the product, or
+   asking "which layer produces this value, and is it the same layer that
+   consumes it?", can.
 
 ## Definition of done for an audit round
 
@@ -293,3 +306,69 @@ promise cannot be kept for Google Play and the product must say so honestly:
    upstream and is not implicated.
 3. Only then consider a paid scraping proxy — and per the one rule in
    CLAUDE.md, not before a customer is paying.
+
+---
+
+## 2026-08-16 round — founder-driven live testing (PR #85, merged)
+
+Not an audit round. Thirteen defects found by the founder **using the product
+on production** and sending screenshots, over roughly two hours. Recorded here
+because of what it says about the method: **none of these were found by
+reading code, and several had survived three prior audit rounds.**
+
+Full narrative in `docs/today.md`. Findings by class:
+
+### Whole-population failures — the product did not work at all
+
+| # | Defect | Who it affected |
+|---|---|---|
+| L1 | `POST /api/onboarding/setup` 500 — `apps.store_country` absent, fallback gated on 42703 but PostgREST answers **PGRST204** on writes | **Every** new signup |
+| L2 | `canPostViaApi` asked `has_credentials` (App Store key pair) for Google Play apps, which never have one | **Every** Android customer, permanently |
+| L3 | Inbox filtered on a stale `selectedApp` id instead of `resolveSelectedApp()` | Anyone who had ever disconnected an app |
+
+L1 and L2 are the same shape: **a correct-looking check against a value from
+the wrong layer.** L1 compares an error code produced only by reads against a
+write; L2 compares one store's credential field against the other store's app.
+Neither is visible in review — the code says exactly what it means.
+
+### Confidently-wrong numbers
+
+| # | Defect |
+|---|---|
+| L4 | Dashboard portfolio rating averaged `lifetime_rating` across **deleted** apps (weighted by review count, so a dead app dominated) |
+| L5 | `canAddApp` counted deleted apps against the plan limit — disconnect an app on a 1-app plan and you can never add another |
+| L6 | Sentiment platform split compared the DB enum `google_play` against the display string `"Google Play"` — both counters always 0 |
+
+### States with no exit
+
+| # | Defect |
+|---|---|
+| L7 | Verification writes `credentials_verified`; dashboard read `status !== "success"` as broken, so **passing the connection test marked the app broken** |
+| L8 | "AI is preparing your workspace… about 10 seconds" inferred from an empty Knowledge Base — equally true when enrichment finished and produced nothing. Polled every 8s forever |
+| L9 | The same flag drove two stacked banners saying the same thing |
+
+### Wrong-but-plausible output
+
+| # | Defect |
+|---|---|
+| L10 | Replies signed "The {workspace} Team" — published on the store to a reviewer who has never heard of the workspace |
+| L11 | Persona cached per workspace, so a support-email change stayed stale up to an hour |
+| L12 | Settings badged every Google Play app "Connected" on creation, before anything was granted |
+| L13 | Every avatar showed the same platform letter |
+
+### What this round changes about how we work
+
+1. **The founder testing live found more in two hours than the last audit
+   round found in a day.** Audits find inconsistency; use finds wrongness.
+   Neither replaces the other, but the ratio should inform effort.
+2. **Fix the detector, not just the defect.** L1's real damage was that
+   `/api/admin/probe/schema` — built the previous session *to catch exactly
+   this* — probed reads only and would have reported the column healthy while
+   onboarding was down. A diagnostic that can't see the failure mode it exists
+   for is worse than none, because it certifies.
+3. **Render visual work before committing it.** The store icons were committed
+   once as hand-drawn approximations and once at a size where neither store was
+   identifiable. Both were caught by screenshotting at real size, not by review.
+4. **Preview sign-in being broken cost real time.** Every fix had to be
+   verified on production. Clerk dev keys scoped to Preview is ~10 minutes of
+   founder work and shortens every future loop.

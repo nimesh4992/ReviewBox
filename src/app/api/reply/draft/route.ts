@@ -1,13 +1,15 @@
 import { auth } from "@clerk/nextjs/server";
+import * as Sentry from "@sentry/nextjs";
 import { NextRequest, NextResponse } from "next/server";
 
 import { generateReply } from "@/lib/groq";
 import { generateReplyWithGemini } from "@/lib/gemini";
 import { checkAiRateLimit } from "@/lib/rate-limit";
+import { rateLimit } from "@/lib/api-rate-limit";
 import { apiError, captureAndError } from "@/lib/api-response";
 import { getMatchedTemplate } from "@/lib/templates";
 import { getCachedReply, setCachedReply } from "@/lib/reply-cache";
-import { compressReviewText, buildSystemPrompt } from "@/lib/prompt-utils";
+import { compressReviewText, buildSystemPrompt, humanizePunctuation } from "@/lib/prompt-utils";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import {
   getWorkspacePersona,
@@ -97,7 +99,13 @@ async function generateWithFailover(params: {
   systemPrompt: string;
   charLimit?:   number;
 }): Promise<{ reply: string; source: "groq" | "gemini" }> {
-  // Primary: Groq (Llama 3.3 70B, 6K req/day free)
+  // Both provider errors used to be swallowed by bare `catch {}`, so when AI
+  // generation stopped working the only visible symptom was that every reply
+  // suddenly read like a form letter — the deterministic Tier 4 composer. The
+  // reason was unknowable after the fact: no log, no Sentry event, nothing.
+  // Log both, with the provider named, so the next occurrence is a one-line
+  // diagnosis instead of a guess.
+  let groqError: unknown;
   try {
     const reply = await generateReply({
       reviewBody:   params.reviewBody,
@@ -106,19 +114,34 @@ async function generateWithFailover(params: {
       systemPrompt: params.systemPrompt,
     });
     return { reply, source: "groq" };
-  } catch {
-    // Groq failed — fall through to Gemini
+  } catch (err) {
+    groqError = err;
+    console.error("[reply/draft] groq failed:", err instanceof Error ? err.message : err);
   }
 
   // Fallback: Gemini Flash (1.5K req/day free)
-  const reply = await generateReplyWithGemini({
-    reviewBody:   params.reviewBody,
-    rating:       params.rating,
-    tone:         params.tone,
-    systemPrompt: params.systemPrompt,
-    charLimit:    params.charLimit,
-  });
-  return { reply, source: "gemini" };
+  try {
+    const reply = await generateReplyWithGemini({
+      reviewBody:   params.reviewBody,
+      rating:       params.rating,
+      tone:         params.tone,
+      systemPrompt: params.systemPrompt,
+      charLimit:    params.charLimit,
+    });
+    return { reply, source: "gemini" };
+  } catch (err) {
+    console.error("[reply/draft] gemini failed:", err instanceof Error ? err.message : err);
+    Sentry.captureMessage("[reply/draft] both AI providers failed — serving composer fallback", {
+      level: "error",
+      extra: {
+        groq:   groqError instanceof Error ? groqError.message : String(groqError),
+        gemini: err instanceof Error ? err.message : String(err),
+        groqKeySet:   !!process.env.GROQ_API_KEY,
+        geminiKeySet: !!process.env.GEMINI_API_KEY,
+      },
+    });
+    throw err;
+  }
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
@@ -140,8 +163,24 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const plan =
       (session.sessionClaims?.metadata as Record<string, string> | undefined)
         ?.plan ?? "trial";
-    const { allowed } = await checkAiRateLimit(userId, plan);
-    if (!allowed) return apiError("RATE_LIMITED", 429, "AI draft limit reached for your plan");
+
+    // The per-plan AI quota is NOT charged here. It used to be, and that made
+    // it a limit on *interactions* rather than on AI calls: opening a review
+    // auto-drafts, switching tone re-drafts, and reopening a review drafts
+    // again — every one of which spent a token even when the answer came from
+    // a saved template or the Redis cache and no provider was touched. On
+    // Starter (50/day) simply reading through the inbox exhausted the day's
+    // quota without the customer ever asking for a draft.
+    //
+    // It's charged immediately before TIER 3 instead, the only tier that calls
+    // Groq or Gemini. Tiers 0-2 (workspace templates, built-in templates,
+    // cache) are free, which is what "aiDraftsPerDay" was always meant to
+    // mean.
+    //
+    // A cheap request-rate guard stays here so the endpoint still can't be
+    // hammered — it bounds requests per minute, not drafts per day.
+    const burst = await rateLimit(req, userId, { bucket: "reply-draft", limit: 60, window: "1 m" });
+    if (!burst.allowed) return apiError("RATE_LIMITED", 429, "Too many requests — slow down a moment.");
 
     // ── Parse body ─────────────────────────────────────────────────────────
     const body        = (await req.json()) as DraftRequestBody;
@@ -225,7 +264,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
         if (bestMatch) {
           const raw   = enforceCharLimit(bestMatch.content, charLimit);
-          const reply = personalizeText(raw, persona);
+          const reply = humanizePunctuation(personalizeText(raw, persona));
           // Bump usage_count async
           void sb.from("reply_templates")
             .update({ usage_count: (bestMatch.usage_count ?? 0) + 1 })
@@ -244,7 +283,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const matchedDef = getMatchedTemplate(review);
     if (matchedDef && TRIVIAL_TEMPLATE_IDS.has(matchedDef.id)) {
       const raw   = matchedDef.pick(review, tone);
-      const reply = enforceCharLimit(personalizeText(raw, persona), charLimit);
+      const reply = humanizePunctuation(enforceCharLimit(personalizeText(raw, persona), charLimit));
       log("template", { templateId: matchedDef.id });
       return NextResponse.json({ source: "template" as ReplySource, reply }, { status: 200 });
     }
@@ -256,7 +295,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const cached = await getCachedReply({ text: reviewBody, rating }, tone);
     if (cached !== null) {
       const raw   = enforceCharLimit(cached, charLimit);
-      const reply = personalizeText(raw, persona);
+      const reply = humanizePunctuation(personalizeText(raw, persona));
       log("cache");
       return NextResponse.json({ source: "cache" as ReplySource, reply }, { status: 200 });
     }
@@ -267,6 +306,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Covers ~98% of non-trivial reviews.
     // Free quota: 6K Groq + 1.5K Gemini = 7.5K/day combined
     // ══════════════════════════════════════════════════════════════════════
+
+    // Charge the plan's AI quota here — the first point at which we are
+    // actually going to call a provider. Everything above this line answered
+    // from the workspace's own templates or the cache and cost nothing.
+    const { allowed } = await checkAiRateLimit(userId, plan);
+    if (!allowed) return apiError("RATE_LIMITED", 429, "AI draft limit reached for your plan");
 
     // Fetch KB entry for context (best-effort)
     let kbEntries: Array<{ category: string; title: string; content: string }> = [];
@@ -300,7 +345,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
 
       const raw   = enforceCharLimit(aiReply, charLimit);
-      const reply = personalizeText(raw, persona);
+      const reply = humanizePunctuation(personalizeText(raw, persona));
 
       // Cache the raw AI output (before personalization — personas can change)
       await setCachedReply({ text: reviewBody, rating }, tone, aiReply);
@@ -318,7 +363,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // user always gets something they can edit and send.
     // ══════════════════════════════════════════════════════════════════════
     const composedReply = composeReply(review, tone, persona);
-    const reply = enforceCharLimit(composedReply, charLimit);
+    const reply = humanizePunctuation(enforceCharLimit(composedReply, charLimit));
     log("composer", { reason: "ai_unavailable" });
     return NextResponse.json({ source: "composer" as ReplySource, reply }, { status: 200 });
 

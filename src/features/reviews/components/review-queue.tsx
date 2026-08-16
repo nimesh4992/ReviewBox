@@ -117,6 +117,19 @@ const SENTIMENT_BADGE: Record<ReviewSentiment, { label: string; className: strin
   positive: { label: "Positive",  className: "bg-[var(--rb-green-100)] text-[var(--rb-green-600)]" },
 };
 
+/**
+ * Drafts already fetched this session, keyed `${reviewId}|${tone}`.
+ *
+ * Module scope, not component state: the composer unmounts every time you move
+ * to another review, so component state would forget the draft the moment you
+ * navigated away and re-request it when you came back. Reading through an
+ * inbox is a normal thing to do and shouldn't cost a request per glance.
+ *
+ * Deliberately not persisted — a page reload should be able to get a fresh
+ * answer, and the server's Redis cache already covers the expensive part.
+ */
+const draftMemo = new Map<string, string>();
+
 // ── Reviewer avatar ───────────────────────────────────────────────────────────
 //
 // Initials on a colour derived from the reviewer's name, with the store's mark
@@ -420,10 +433,10 @@ function ReplyComposer({
   const markReplied = useMarkReplied();
   const markDraft   = useMarkDraft();
 
-  // Credential-aware action hierarchy. When the review's app can post to the
-  // store, one-click "Post reply" is the hero action — that's the whole
-  // promise of the product. Draft Mode's copy-and-paste flow stays the hero
-  // only where it's genuinely the best available path (no connection).
+  // Credential-aware action hierarchy. A connected app publishes from one
+  // button; an unconnected one is sent to connect. Copy-and-paste is never the
+  // hero — asking the customer to paste the reply themselves is the work they
+  // bought the product to remove.
   //
   // This asked `has_credentials` for both stores, which is the App Store's
   // per-app key pair. A Google Play app never has one — its auth is the
@@ -462,7 +475,25 @@ function ReplyComposer({
     }
   }
 
-  const handleGenerate = useCallback(async (selectedTone: AIReplyTone) => {
+  const handleGenerate = useCallback(async (selectedTone: AIReplyTone, force = false) => {
+    // Already have this review's draft in this tone — reuse it rather than
+    // asking the server again. Opening a review auto-drafts and every tone
+    // switch re-drafts, so without this, flipping Professional → Empathetic →
+    // Professional costs three requests to end up where you started, and
+    // simply re-reading a review you looked at ten minutes ago costs another.
+    // "Regenerate" passes force:true, which is the one case where the user is
+    // explicitly asking for a different answer.
+    const memoKey = `${review.id}|${selectedTone}`;
+    if (!force) {
+      const remembered = draftMemo.get(memoKey);
+      if (remembered) {
+        setAiSuggestion(remembered);
+        setText(remembered);
+        setOriginalDraft(remembered);
+        return;
+      }
+    }
+
     setIsGenerating(true);
     setGenerateError(null);
     try {
@@ -481,6 +512,7 @@ function ReplyComposer({
       if (res.status === 503) { setGenerateError("AI unavailable — try again shortly."); return; }
       if (!res.ok)            { setGenerateError("Something went wrong."); return; }
       const data = (await res.json()) as { reply: string; source?: string };
+      draftMemo.set(memoKey, data.reply);
       setAiSuggestion(data.reply);
       // Auto-populate the textarea so user can post immediately — no "Use this" click
       setText(data.reply);
@@ -713,23 +745,27 @@ function ReplyComposer({
           </button>
         </div>
 
-        {/* Review metadata — the facts a support person actually cross-checks
-            against the store console: device, country, app version, platform.
-            Labeled like the store consoles so the two screens read the same. */}
-        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)] px-3.5 py-3">
+        {/* Review metadata, one line.
+            It was a 2x2 card of labelled cells taking ~90px of the detail
+            pane's vertical budget — above the fold, ahead of the reply
+            composer, for four short facts nobody reads in isolation. They are
+            context you glance at, not fields you study, so they get one dotted
+            line and the space goes to the reply. Empty values drop out rather
+            than rendering an em dash placeholder each. */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-[var(--rb-fg-3)]">
           {[
-            { label: "Device",      value: review.device || "—" },
-            { label: "Country",     value: review.country || "—" },
-            { label: "App version", value: `v${review.appVersion}` },
-            { label: "Platform",    value: review.source === "App Store" ? "iOS" : "Android" },
-          ].map((m) => (
-            <div key={m.label} className="min-w-0">
-              <div className="text-[10.5px] font-medium uppercase tracking-[0.04em] text-[var(--rb-fg-3)]">
-                {m.label}
-              </div>
-              <div className="mt-0.5 truncate text-[12.5px] font-medium text-[var(--rb-fg-1)]">{m.value}</div>
-            </div>
-          ))}
+            review.source === "App Store" ? "iOS" : "Android",
+            review.appVersion ? `v${review.appVersion}` : null,
+            review.device || null,
+            review.country || null,
+          ]
+            .filter(Boolean)
+            .map((value, i) => (
+              <span key={`${value}-${i}`} className="flex items-center gap-1.5">
+                {i > 0 && <span aria-hidden="true" className="text-[var(--rb-fg-4)]">·</span>}
+                <span className="truncate">{value}</span>
+              </span>
+            ))}
         </div>
 
         {/* Translated text */}
@@ -766,8 +802,21 @@ function ReplyComposer({
               ) : (
                 <PenLine className="size-3 text-[var(--rb-blue-500)]" />
               )}
-              <span className="text-[11px] font-semibold text-[var(--rb-blue-500)]">
-                {isGenerating ? "Generating…" : aiSuggestion ? "AI draft" : "AI reply"}
+              <span className={cn(
+                "text-[11px] font-semibold",
+                draftSource === "composer" ? "text-[var(--rb-amber-600)]" : "text-[var(--rb-blue-500)]",
+              )}>
+                {/* `composer` is Tier 4: both Groq and Gemini failed and the
+                    server returned a deterministic, stitched-together reply.
+                    That degradation used to be invisible, so an outage looked
+                    like the AI simply writing badly. Say which it is. */}
+                {isGenerating
+                  ? "Generating…"
+                  : draftSource === "composer"
+                    ? "AI unavailable · basic draft"
+                    : aiSuggestion
+                      ? "AI draft, edit or publish"
+                      : "AI reply"}
               </span>
             </div>
             <ToneSelector tone={tone} onChange={setTone} />
@@ -779,7 +828,7 @@ function ReplyComposer({
           <div className="flex items-center gap-2">
             <p className="text-[12px] text-[var(--rb-red-500)]">{generateError}</p>
             <button
-              onClick={() => handleGenerate(tone)}
+              onClick={() => handleGenerate(tone, true)}
               className="text-[11px] font-semibold text-[var(--rb-blue-500)] hover:underline"
             >
               Retry
@@ -840,55 +889,65 @@ function ReplyComposer({
             <div className="flex flex-col gap-2">
               {canPostViaApi ? (
                 <>
-                  {/* Connected account: one-click post is the hero action —
-                      this is the product's core promise. */}
+                  {/* One button, and it publishes. D018 made copy-and-paste
+                      the launch path only because the API write-back could not
+                      be verified without store admin access; it sequenced
+                      one-click posting for "when a customer (or we) hold store
+                      admin/API access". That condition is met, so a connected
+                      app gets the thing the product is for. */}
                   <button
                     onClick={handleSend}
                     disabled={isSending || !text.trim() || overLimit}
                     className="h-10 w-full rounded-[8px] bg-[var(--rb-blue-500)] text-[13px] font-semibold text-white transition-colors hover:bg-[var(--rb-blue-600)] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF] focus-visible:ring-offset-1"
                   >
-                    {isSending
-                      ? "Posting…"
-                      : `Post reply to ${review.source === "App Store" ? "App Store" : "Google Play"}`}
+                    {isSending ? "Publishing…" : "Publish reply"}
                   </button>
                   <p className="text-[10px] leading-relaxed text-[var(--rb-fg-3)]">
-                    Posts via the connected store account — the review page updates in minutes.
+                    Publishes to {review.source === "App Store" ? "the App Store" : "Google Play"} under your developer name — the review page updates in minutes.
                     {overLimit && <span className="ml-1 text-[var(--rb-red-500)]">Reply is over the {limit}-char store limit.</span>}
                   </p>
                 </>
               ) : (
                 <>
-                  {/* Draft Mode (D018): Copy → user pastes into store → Mark
-                      replied. Hero only when no store credentials exist. */}
-                  {/* Two-up: the hero keeps its weight, but the pair stops
-                      stacking into a wall of full-width bars. */}
-                  <div className="grid grid-cols-[1.4fr_1fr] gap-2">
+                  {/* Not connected yet. The primary action still points at
+                      publishing — it just routes to the two-minute connection
+                      instead of promising something we can't do. Offering
+                      "Copy reply" as the hero here is what made the product
+                      feel pointless: it asks the customer to do by hand the
+                      exact work they bought it to remove. */}
+                  <Link
+                    href="/settings"
+                    className="flex h-10 w-full items-center justify-center rounded-[8px] bg-[var(--rb-blue-500)] text-[13px] font-semibold text-white transition-colors hover:bg-[var(--rb-blue-600)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF] focus-visible:ring-offset-1"
+                  >
+                    Connect {review.source === "App Store" ? "App Store Connect" : "Google Play"} to publish
+                  </Link>
+                  <p className="text-[10px] leading-relaxed text-[var(--rb-fg-3)]">
+                    Takes about two minutes. Until then you can copy the reply and paste it into {review.source === "App Store" ? "App Store Connect" : "Play Console"} yourself.
+                    {overLimit && <span className="ml-1 text-[var(--rb-red-500)]">Reply is over the {limit}-char store limit.</span>}
+                  </p>
+
+                  {/* Draft Mode stays reachable, demoted: copy, then record it. */}
+                  <div className="flex gap-2">
                     <button
                       onClick={handleCopy}
                       disabled={!text.trim()}
                       className={cn(
-                        "flex h-10 items-center justify-center gap-1.5 rounded-[8px] text-[13px] font-semibold text-white transition-colors disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF] focus-visible:ring-offset-1",
-                        copied ? "bg-[var(--rb-green-500)]" : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
+                        "h-9 flex-1 rounded-[8px] border border-[var(--rb-border-3)] text-[12px] font-semibold transition-colors disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]",
+                        copied
+                          ? "border-[var(--rb-green-500)]/30 bg-[var(--rb-green-500)]/10 text-[var(--rb-green-500)]"
+                          : "bg-surface text-[var(--rb-fg-1)] hover:bg-[var(--rb-bg-hover)]",
                       )}
                     >
                       {copied ? <><Check className="size-3.5" strokeWidth={3} />Copied</> : "Copy reply"}
                     </button>
-
-                    {/* Confirm step — record it as replied in our DB (no store API call) */}
                     <button
                       onClick={handleMarkReplied}
                       disabled={!text.trim() || overLimit || isMarking}
-                      className="h-10 rounded-[8px] border border-[var(--rb-border-3)] bg-surface text-[12px] font-semibold text-[var(--rb-fg-1)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
+                      className="h-9 flex-1 rounded-[8px] border border-[var(--rb-border-3)] bg-surface text-[12px] font-semibold text-[var(--rb-fg-1)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
                     >
                       {isMarking ? "Saving…" : alreadyReplied ? "Update reply" : "Mark as replied"}
                     </button>
                   </div>
-
-                  {/* Where to paste + char warning */}
-                  <p className="text-[10px] leading-relaxed text-[var(--rb-fg-3)]">
-                    Paste into {review.source === "App Store" ? "App Store Connect" : "Google Play Console"}, then mark it replied here.
-                    {overLimit && <span className="ml-1 text-[var(--rb-red-500)]">Reply is over the {limit}-char store limit.</span>}
-                  </p>
                 </>
               )}
 
@@ -903,34 +962,18 @@ function ReplyComposer({
                 </button>
                 {!alreadyReplied && aiSuggestion && (
                   <button
-                    onClick={() => handleGenerate(tone)}
+                    onClick={() => handleGenerate(tone, true)}
                     disabled={isGenerating}
                     className="text-[11px] font-medium text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-fg-2)] disabled:opacity-40"
                   >
                     Regenerate
                   </button>
                 )}
-                {canPostViaApi ? (
-                  /* Connected flow: copy stays available as an escape hatch */
-                  <button
-                    onClick={handleCopy}
-                    disabled={!text.trim()}
-                    className="ml-auto text-[11px] font-medium text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-fg-2)] disabled:opacity-40"
-                  >
-                    {copied ? <><Check className="size-3.5" strokeWidth={3} />Copied</> : "Copy reply"}
-                  </button>
-                ) : (
-                  /* Draft Mode: API posting stays reachable for the curious —
-                     its error path links to Settings to connect the account */
-                  <button
-                    onClick={handleSend}
-                    disabled={isSending || !text.trim() || overLimit}
-                    className="ml-auto text-[10px] font-medium text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-blue-500)] disabled:opacity-40"
-                    title="Post directly via the store API (requires a connected store account)"
-                  >
-                    {isSending ? "Posting…" : "Post via API"}
-                  </button>
-                )}
+                {/* No "Post via API" escape hatch. It was a tertiary link that
+                    posted for real, sitting under a hero that told you to copy
+                    and paste — two contradictory answers to "how do I reply?"
+                    on one screen. Connected apps publish from the button
+                    above; unconnected ones connect first. */}
               </div>
             </div>
           </div>
@@ -1286,12 +1329,16 @@ function GroupReplyPanel({
               {isSending ? (
                 <>
                   <Loader2 className="size-3 animate-spin" />
-                  Posting…
+                  Publishing…
                 </>
               ) : (
                 <>
                   <CheckCheck className="size-3" />
-                  Post {selectedCount} {selectedCount === 1 ? "reply" : "replies"}
+                  {/* Same verb as the single composer. This path has always
+                      published straight to the store; calling it "Post" while
+                      the single-review pane said "Copy reply" is part of why
+                      it was unclear what the product actually does. */}
+                  Publish {selectedCount} {selectedCount === 1 ? "reply" : "replies"}
                 </>
               )}
             </button>

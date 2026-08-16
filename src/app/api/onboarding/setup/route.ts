@@ -17,6 +17,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
 import { rateLimit } from "@/lib/api-rate-limit";
 import { writeWithOptionalColumns } from "@/lib/db-errors";
+import { seedStarterTemplates } from "@/lib/seed-templates";
 import { resolveAppMetadata } from "@/services/store-search";
 import { syncWorkspace } from "@/services/review-sync";
 import { getBrandVoiceStub, type AppCategory } from "@/lib/brand-voice-stubs";
@@ -210,6 +211,14 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       await sb.from("workspaces").delete().eq("id", workspaceId);
       return apiError("INTERNAL_SERVER_ERROR", 500);
     }
+
+    // Starter Reply-Kit templates. This is the route that actually creates the
+    // workspace in the live wizard, so it is the route that has to seed them —
+    // /api/onboarding/complete gates its own seed on "did I just create this
+    // workspace?", which is false by the time it runs, so the seed never fired
+    // for anyone. Not awaited: an empty Reply Kit degrades draft quality, it
+    // should never block signup.
+    void seedStarterTemplates(workspaceId);
   }
 
   // ── Idempotency: reuse existing app if present ────────────────────────────────

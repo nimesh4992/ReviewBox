@@ -146,12 +146,30 @@ export function buildSystemPrompt(
     contextBlock  = ` Known context: [${entry.category}] ${snippet}`;
   }
 
+  // The style rules exist because the output is published publicly on the
+  // store under the customer's developer name. A reply that reads as
+  // machine-written costs them more than no reply would. The named tells are
+  // the ones that actually showed up in production drafts: em dashes, stacked
+  // corporate reassurances ("we take X very seriously"), and every reply
+  // opening the same way.
+  const styleRules =
+    ` Write the way a real person on a small support team writes:` +
+    ` plain words, contractions, one idea per sentence.` +
+    ` Never use em dashes or en dashes — use a comma, a full stop, or rewrite.` +
+    ` Do not stack reassurance phrases like "we take this very seriously" or` +
+    ` "we value your feedback"; say the specific thing instead.` +
+    ` Respond to what this reviewer actually wrote, naming their problem in` +
+    ` their words. Vary how you open; never begin with "Thank you for your` +
+    ` feedback". No marketing language, no emoji unless the tone is casual.` +
+    ` If you cannot promise a fix, do not imply one.`;
+
   return (
     `You are a support agent replying to an app store review.` +
     brandBlock +
     ` Be ${tonePhrase}.` +
+    styleRules +
     limitNote +
-    ` Sign off as "${signoff}".` +
+    ` End with a sign-off line: "- ${signoff}".` +
     contextBlock
   );
 }
@@ -164,4 +182,31 @@ export function buildSystemPrompt(
  */
 export function estimateTokens(text: string): number {
   return Math.ceil(text.length / 4);
+}
+
+/**
+ * Strip the punctuation that makes a reply read as machine-written.
+ *
+ * Em dashes are the giveaway. Every LLM reaches for them, almost no support
+ * agent types one, and these replies are published publicly on the store under
+ * the customer's developer name — so "obviously AI" is a reputational cost, not
+ * a style quibble. The deterministic composer used them too (`— {teamName}`),
+ * which is why they showed up even when no model ran.
+ *
+ * Applied to the final text of every tier rather than trusted to the prompt: a
+ * model instruction is a request, and the template and composer tiers never
+ * see a prompt at all.
+ */
+export function humanizePunctuation(text: string): string {
+  return text
+    // "word — word" → "word, word"; a dash used as a sign-off marker
+    // ("\n— Team") becomes a plain hyphen so the line still reads as a sign-off.
+    .replace(/(\n+)[ \t]*[—–][ \t]*/g, "$1- ")
+    .replace(/\s+[—–]\s+/g, ", ")
+    // Any survivors (no surrounding spaces, e.g. "word—word").
+    .replace(/[—–]/g, "-")
+    // The comma substitution can create ", ," or ",," in text that already had
+    // punctuation next to the dash.
+    .replace(/,\s*,/g, ",")
+    .replace(/,\s*\./g, ".");
 }

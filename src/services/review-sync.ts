@@ -30,6 +30,8 @@ import { buildEnrichedRow } from "@/lib/review-mapper";
 import { bootstrapReviews } from "@/services/bootstrap-reviews";
 import { planSyncWrites, mergeReviewRows, isGpPermissionError } from "@/lib/sync-writes";
 import { isMissingColumnError, writeWithOptionalColumns } from "@/lib/db-errors";
+import { seedStarterTemplates } from "@/lib/seed-templates";
+import { STARTER_REPLY_TEMPLATES } from "@/lib/brand-voice-stubs";
 import { sendRatingSpikeAlert } from "@/lib/email/send-rating-spike-alert";
 import { notifyRatingSpike, notifyUrgentReview } from "@/lib/slack";
 import { runAutomationRules } from "@/lib/automation-executor";
@@ -128,7 +130,23 @@ async function refreshAppMetadata(app: DbApp): Promise<string> {
     if (meta.developer)            update.developer             = meta.developer;
 
     if (Object.keys(update).length) {
-      await sb.from("apps").update(update).eq("id", app.id);
+      const { error } = await sb.from("apps").update(update).eq("id", app.id);
+      if (error) {
+        // Swallowed before. `lifetime_rating` is what the dashboard shows as
+        // the all-time "Portfolio rating"; when it stays null the hero
+        // silently falls back to a 30-day average of synced reviews, which is
+        // a different and much lower number than the store's own rating. The
+        // customer sees 2.47 where the Play listing says 3.1 and has no way
+        // to tell why.
+        console.error(`[sync] metadata write failed for app ${app.id}:`, error);
+      }
+    } else {
+      // Nothing to write means the scrape returned no rating, count, icon or
+      // developer — a parse failure or a storefront that doesn't carry the
+      // app. Worth saying out loud for the same reason.
+      console.warn(
+        `[sync] metadata scrape returned nothing usable for ${app.store_id} (storefront ${meta.country ?? known ?? "?"})`,
+      );
     }
 
     // Persist the discovered storefront separately so a pending migration
@@ -826,14 +844,20 @@ async function enrichOnboarding(
   }
 
   // ── Reply templates ─────────────────────────────────────────────────────────
-  // Only generate if the workspace has ≤5 templates (just the starter set).
-  // Gemini adds 5 app-specific ones on top of the generic starters.
+  // Backfill the generic starter set first. It is seeded at signup, but every
+  // workspace created before that seed was wired up has none — and a workspace
+  // with an empty Reply Kit sends every single draft to the AI tier, because
+  // TIER 0 has nothing to match against. No-ops when templates already exist.
+  await seedStarterTemplates(workspaceId);
+
+  // Only generate if the workspace has ≤6 templates (just the starter set).
+  // Gemini adds app-specific ones on top of the generic starters.
   const { count: templateCount } = await sb
     .from("reply_templates")
     .select("id", { count: "exact", head: true })
     .eq("workspace_id", workspaceId);
 
-  if ((templateCount ?? 0) <= 5) {
+  if ((templateCount ?? 0) <= STARTER_REPLY_TEMPLATES.length) {
     try {
       const templates = await generateTemplatesFromReviews(reviews, appName);
       if (templates.length) {
