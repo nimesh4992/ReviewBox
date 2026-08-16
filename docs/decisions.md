@@ -286,3 +286,28 @@ the app-delete-loop fix never reached master). New rules:
 4. **One concern per branch.** Don't let a feature branch also carry doc/decision
    changes that then get lost if the feature is reworked.
 
+
+## D020 — Founder delegates merge + deploy to Claude (2026-08-16)
+
+Decided by the founder, in their own words, after merging #76 and #79
+personally and instructing the merge of #82 directly.
+
+**Supersedes D009 points 1 and 4, and the matching lines of D000, as follows:**
+
+- Claude MAY merge a PR to master once every CI check is green on the exact
+  head commit, and merging is understood to deploy production via Vercel.
+- Everything else in D009 stands unchanged: no direct pushes to master, no
+  force-push or history rewrites, no production migrations, no real emails,
+  no pricing/billing changes without founder approval, no new paid
+  dependencies. Legal-page changes remain founder-approved — the founder has
+  been approving them explicitly in-session.
+- The plain-English PR description and test plan from D000 remain mandatory:
+  the founder still verifies *behavior*, now after deploy rather than before
+  merge. Rollback stays one step: Vercel → Deployments → previous green →
+  Promote to Production.
+- If CI is not fully green, or a change falls under the still-reserved
+  categories above, Claude opens the PR and stops, as before.
+
+Reason: the founder reviews on production directly and wants the loop
+shortened; CI is the correctness gate (D000), and Vercel rollback bounds the
+blast radius at ~60 seconds.
