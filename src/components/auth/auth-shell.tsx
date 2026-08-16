@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CheckCircle2, Sparkles, ShieldCheck } from "lucide-react";
+import { CheckCircle2, PenLine, ShieldCheck, Star } from "lucide-react";
 
 /**
  * Shared shell for /sign-in and /sign-up.
@@ -26,10 +26,10 @@ const VALUE_PROPS = [
   {
     icon: CheckCircle2,
     title: "Every review in one inbox",
-    body: "Google Play and App Store, one queue — filter, tag, and work through it.",
+    body: "Google Play and App Store in one queue you can filter, tag, and work through.",
   },
   {
-    icon: Sparkles,
+    icon: PenLine,
     title: "Replies drafted in your voice",
     body: "Grounded in your templates and knowledge base. You edit, you send.",
   },
@@ -45,11 +45,22 @@ function DemoCard() {
     <div className="overflow-hidden rounded-xl border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-sm)]">
       <div className="border-b border-[var(--rb-border-1)] p-4">
         <div className="flex items-center justify-between gap-3">
-          <span className="font-mono text-[10px] uppercase tracking-wider text-fg-3">
+          <span className="rb-eyebrow text-fg-3">
             App Store · v4.2.1
           </span>
-          <span aria-label="1 out of 5 stars" className="text-[12px] text-fg-3">
-            <span className="text-[var(--rb-amber-500)]">★</span>★★★★
+          <span
+            role="img"
+            aria-label="1 out of 5 stars"
+            className="inline-flex items-center gap-px"
+          >
+            {Array.from({ length: 5 }, (_, i) => (
+              <Star
+                key={i}
+                className={i === 0 ? "size-3 text-[var(--rb-amber-500)]" : "size-3 text-fg-3"}
+                fill={i === 0 ? "currentColor" : "none"}
+                strokeWidth={i === 0 ? 0 : 1.5}
+              />
+            ))}
           </span>
         </div>
         <p className="mt-2 text-[13px] font-semibold text-fg-1">Crashes on iPad after 4.2.1</p>
@@ -59,11 +70,11 @@ function DemoCard() {
         </p>
       </div>
       <div className="bg-[var(--rb-bg-sunken)] p-4">
-        <span className="font-mono text-[10px] uppercase tracking-wider text-fg-3">
+        <span className="rb-eyebrow text-fg-3">
           Suggested reply
         </span>
         <p className="mt-1.5 text-[12.5px] leading-relaxed text-fg-1">
-          Thanks for flagging the iPad freeze on 4.2.1 — we reproduced it this
+          Thanks for flagging the iPad freeze on 4.2.1. We reproduced it this
           morning and a fix is rolling out this week. I&apos;ll follow up here the
           moment it lands.
         </p>
