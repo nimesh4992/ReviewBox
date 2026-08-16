@@ -20,17 +20,24 @@ export type AppCategory =
   | "utility"
   | "other";
 
-export const APP_CATEGORIES: { id: AppCategory; label: string; emoji: string }[] = [
-  { id: "productivity", label: "Productivity",     emoji: "⚡" },
-  { id: "health_fitness", label: "Health & Fitness", emoji: "🏃" },
-  { id: "finance",      label: "Finance",          emoji: "💳" },
-  { id: "gaming",       label: "Gaming",           emoji: "🎮" },
-  { id: "shopping",     label: "Shopping",         emoji: "🛍️" },
-  { id: "social",       label: "Social",           emoji: "💬" },
-  { id: "education",    label: "Education",        emoji: "📚" },
-  { id: "travel",       label: "Travel",           emoji: "✈️" },
-  { id: "utility",      label: "Utility",          emoji: "🔧" },
-  { id: "other",        label: "Other",            emoji: "📱" },
+/**
+ * `icon` names a lucide icon, resolved to a component by the client that
+ * renders it. These were emoji, which draw as a different picture on every
+ * operating system and read as a template rather than a product. The name is
+ * kept as a plain string so this module stays free of React imports — the
+ * onboarding API routes import it server-side.
+ */
+export const APP_CATEGORIES: { id: AppCategory; label: string; icon: string }[] = [
+  { id: "productivity",   label: "Productivity",     icon: "ListChecks" },
+  { id: "health_fitness", label: "Health & Fitness", icon: "HeartPulse" },
+  { id: "finance",        label: "Finance",          icon: "Wallet" },
+  { id: "gaming",         label: "Gaming",           icon: "Gamepad2" },
+  { id: "shopping",       label: "Shopping",         icon: "ShoppingBag" },
+  { id: "social",         label: "Social",           icon: "Users" },
+  { id: "education",      label: "Education",        icon: "GraduationCap" },
+  { id: "travel",         label: "Travel",           icon: "Plane" },
+  { id: "utility",        label: "Utility",          icon: "Wrench" },
+  { id: "other",          label: "Other",            icon: "Shapes" },
 ];
 
 /**

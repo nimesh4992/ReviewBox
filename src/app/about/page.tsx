@@ -91,17 +91,11 @@ export default function AboutPage() {
         <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-10 max-w-2xl">
           <h2 className="text-xl font-bold text-gray-900 dark:text-[#F5F5F7]">Where the team hangs out</h2>
           <p className="mt-3 text-gray-500 dark:text-[#86868B] text-sm leading-relaxed">
-            ReviewBox is operated by AT WORK Inc, registered in India. We&apos;re a small, fully remote team.
+            ReviewBox is operated by AT WORK Inc, a partnership firm registered in India. We&apos;re a small, fully remote team.
             We meet in person twice a year. Everything else is async — we write things down,
             ship things, and measure the impact.
           </p>
           <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="/careers"
-              className="rounded-xl bg-gray-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-gray-700"
-            >
-              See open roles
-            </Link>
             <Link
               href="/contact"
               className="rounded-xl border border-gray-200 dark:border-white/10 px-5 py-2.5 text-sm font-semibold text-gray-700 dark:text-[#C7C7CC] hover:bg-gray-50 dark:hover:bg-white/5"

@@ -2,7 +2,13 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { UserPlus, Mail, Clock, Users } from "lucide-react";
+import {
+  Check,
+  Clock,
+  Mail,
+  UserPlus,
+  Users,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiErrorMessage } from "@/lib/api-error-message";
@@ -161,7 +167,7 @@ export function TeamMembers() {
           </Button>
         </div>
         {err && <p className="mt-1.5 text-[12px] text-[var(--rb-red-500)]">{err}</p>}
-        {success && <p className="mt-1.5 text-[12px] text-[var(--rb-green-500)]">✓ Invite sent</p>}
+        {success && <p className="mt-1.5 flex items-center gap-1.5 text-[12px] text-[var(--rb-green-500)]"><Check className="size-3.5" strokeWidth={3} />Invite sent</p>}
       </div>
     </div>
   );

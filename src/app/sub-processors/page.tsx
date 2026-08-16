@@ -157,7 +157,7 @@ export default function SubProcessorsPage() {
 
       <LegalSection id="transfers" number={3} title="International transfers">
         <p>
-          {COMPANY.legalName} is registered in {COMPANY.country}, and most of the providers listed
+          {COMPANY.legalName} is a {COMPANY.entityType.toLowerCase()} registered in {COMPANY.country}, and most of the providers listed
           above operate from the United States. Using ReviewBox therefore involves transferring
           data across borders.
         </p>

@@ -44,7 +44,7 @@ const FAQS = [
   { q: "How fast do you respond?", a: "Within one business day for support. Sales emails typically same day." },
   { q: "Is there live chat?", a: "Not yet — but every email goes to a real person and we respond fast." },
   { q: "Can I schedule a demo?", a: "Yes — email sales@tryreviewbox.com and we'll find a time." },
-  { q: "Where are you based?", a: "ReviewBox is operated by AT WORK Inc, registered in India. The team works remotely." },
+  { q: "Where are you based?", a: "ReviewBox is operated by AT WORK Inc, a partnership firm registered in India. The team works remotely." },
 ];
 
 export default function ContactPage() {

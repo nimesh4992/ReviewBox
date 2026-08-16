@@ -203,25 +203,15 @@
   --accent-foreground: oklch(0.96 0.003 240);
   --destructive: oklch(0.52 0.22 25);
   --destructive-foreground: oklch(1 0 0);
-  --border: oklch(0.22 0.01 260);
-  --input: oklch(0.22 0.01 260);
-  --ring: oklch(0.590 0.196 254);
-}
-
-/* Marketing dark surfaces need a visible edge.
-   `* { border-color: var(--border) }` below is unlayered author CSS, so it
-   outranks every Tailwind `border-*` utility and all borders resolve to
-   --border regardless of the class applied. In dark that value is
-   oklch(0.22 0.01 260) ≈ #181B1F against a #161618 surface — about 1.05:1,
-   i.e. no visible edge at all on cards, rows and inputs.
-   Correcting the inherited value (rather than the utilities) fixes marketing
-   without touching src/app/(app)/**: .rb-marketing exists only on the
-   marketing shell, and (0,2,0) beats .dark's (0,1,0).
-   The underlying layering bug is tracked separately — fixing it activates
-   ~613 border utilities app-wide and needs its own visual review. */
-.rb-marketing.dark {
+  /* The fallback border for elements that set a width but no colour. The old
+     oklch(0.22 0.01 260) measured 1.05:1 against --rb-bg-surface — no visible
+     edge at all, so every bare `border` element lost its outline in dark mode.
+     It was invisible for the same reason the utilities were broken, just from
+     the other direction. These match --rb-border-2/-3 so the fallback agrees
+     with the tokens components use deliberately. */
   --border: rgba(255, 255, 255, 0.12);
-  --input:  rgba(255, 255, 255, 0.12);
+  --input:  rgba(255, 255, 255, 0.16);
+  --ring: oklch(0.590 0.196 254);
 }
 
 @theme inline {
@@ -275,7 +265,24 @@
   --text-rb-display: var(--rb-text-display);
 }
 
-* { border-color: var(--border); }
+/* Default border colour for elements that set a border width but no colour.
+   This MUST live in @layer base. Unlayered author CSS outranks every layered
+   rule regardless of specificity, so as a bare `*` selector this defeated all
+   ~600 Tailwind `border-*` utilities in the codebase: `border-blue-500`,
+   `border-[#FF0000]` and `border-[var(--rb-border-1)]` all rendered as
+   --border. That is why card edges were invisible in dark mode and why the
+   Billing plan CTAs read as disabled — the failure was never contrast, it was
+   the cascade. Layered, the utilities win and the default still applies to
+   anything that does not name a colour.
+   Mirrors Tailwind v4's own preflight, including the pseudo-elements. */
+@layer base {
+  *,
+  ::before,
+  ::after,
+  ::backdrop {
+    border-color: var(--border);
+  }
+}
 
 html {
   background: var(--rb-bg-canvas);

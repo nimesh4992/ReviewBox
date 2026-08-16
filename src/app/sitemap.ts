@@ -13,12 +13,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url("/",          1.0, "weekly"),
     url("/pricing",   0.9, "weekly"),
     url("/compare",   0.9, "monthly"),
-    url("/customers", 0.8, "monthly"),
 
     // Company
     url("/about",     0.7, "monthly"),
     url("/blog",      0.8, "weekly"),
-    url("/careers",   0.7, "weekly"),
     url("/changelog", 0.7, "weekly"),
     url("/contact",   0.6, "monthly"),
     url("/status",    0.5, "daily"),
@@ -35,7 +33,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url("/blog/ai-cost-reduction",         0.7, "monthly"),
 
     // Case studies
-    url("/customers/acme-banking",         0.6, "monthly"),
 
     // Auth
     url("/sign-up", 0.7, "yearly"),

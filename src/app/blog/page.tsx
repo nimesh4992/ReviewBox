@@ -46,15 +46,6 @@ const POSTS = [
     slug: "/blog/appstore-vs-google-play-rating",
   },
   {
-    title: "Case study: Acme Banking, 4.21 → 4.58 in 90 days",
-    excerpt:
-      "11-minute average reply time. A structured response framework. And one weekend sprint that changed everything.",
-    category: "Case Studies",
-    date: "April 20, 2026",
-    readTime: "9 min read",
-    slug: "/customers/acme-banking",
-  },
-  {
     title: "Connecting Google Play to ReviewBox: the complete guide",
     excerpt:
       "Service account setup, API scopes, the exact JSON you need — with screenshots for every step.",

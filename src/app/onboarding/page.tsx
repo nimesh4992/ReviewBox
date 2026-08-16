@@ -3,8 +3,39 @@
 import { useEffect, useRef, useState } from "react";
 import { useClerk } from "@clerk/nextjs";
 import {
-  Apple, ArrowLeft, Check, ChevronRight, Loader2, Plug, Search, Smartphone, Sparkles,
+  Apple, ArrowLeft, Check, ChevronRight, Gamepad2, GraduationCap, HeartPulse,
+  ListChecks, Loader2, PenLine, Plane, Plug, Search, Shapes, ShoppingBag,
+  Smartphone, Star, Users, Wallet, Wrench,
 } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
+
+/** Resolves the icon name on an APP_CATEGORIES entry to its component. */
+const CATEGORY_ICONS: Record<string, LucideIcon> = {
+  ListChecks, HeartPulse, Wallet, Gamepad2, ShoppingBag,
+  Users, GraduationCap, Plane, Wrench, Shapes,
+};
+
+function CategoryIcon({ name }: { name: string }) {
+  const Icon = CATEGORY_ICONS[name] ?? Shapes;
+  return <Icon className="size-3.5" aria-hidden="true" />;
+}
+
+/** A rating rendered as real icons — "★" resolves through the OS font stack. */
+function RatingStars({ rating }: { rating: number }) {
+  const rounded = Math.round(rating);
+  return (
+    <span role="img" aria-label={`${rating.toFixed(1)} out of 5 stars`} className="inline-flex items-center gap-px align-middle">
+      {Array.from({ length: 5 }, (_, i) => (
+        <Star
+          key={i}
+          className={i < rounded ? "size-3 text-[var(--rb-amber-500)]" : "size-3 text-fg-4"}
+          fill={i < rounded ? "currentColor" : "none"}
+          strokeWidth={i < rounded ? 0 : 1.5}
+        />
+      ))}
+    </span>
+  );
+}
 import { track } from "@/lib/analytics";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -274,7 +305,7 @@ export default function OnboardingPage() {
                     active && "bg-[#0A84FF] text-white ring-2 ring-[#0A84FF]/30",
                     !done && !active && "bg-[var(--rb-bg-sunken)] text-fg-3",
                   )}>
-                    {done ? "✓" : n}
+                    {done ? <Check className="size-3.5" strokeWidth={3} /> : n}
                   </div>
                   <span className={cn("text-[9px] font-medium hidden sm:block",
                     active ? "text-fg-2" : "text-fg-3",
@@ -553,7 +584,7 @@ function Step2App({
           }
           <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold text-fg-1">{form.selectedApp.name}</div>
-            <div className="text-xs text-fg-3">{form.selectedApp.developer} {form.selectedApp.rating ? `· ${form.selectedApp.rating.toFixed(1)}★` : ""}</div>
+            <div className="text-xs text-fg-3">{form.selectedApp.developer}{form.selectedApp.rating ? <> · {form.selectedApp.rating.toFixed(1)} <RatingStars rating={form.selectedApp.rating} /></> : null}</div>
           </div>
           <Check className="size-4 shrink-0 text-[#0A84FF]" />
         </div>
@@ -577,7 +608,7 @@ function Step2App({
               }
               <div className="min-w-0 flex-1">
                 <div className="truncate text-sm font-medium text-fg-1">{r.name}</div>
-                <div className="text-xs text-fg-3">{r.developer} {r.rating ? `· ${r.rating.toFixed(1)}★` : ""}</div>
+                <div className="text-xs text-fg-3">{r.developer}{r.rating ? <> · {r.rating.toFixed(1)} <RatingStars rating={r.rating} /></> : null}</div>
               </div>
             </button>
           ))}
@@ -598,13 +629,14 @@ function Step2App({
                 key={c.id}
                 onClick={() => set("appCategory", c.id)}
                 className={cn(
-                  "rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors",
+                  "inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors",
                   form.appCategory === c.id
                     ? "border-[#0A84FF] bg-[#0A84FF]/10 text-[#0A84FF]"
                     : "border-[var(--rb-border-1)] text-fg-3 hover:border-[var(--rb-border-3)] hover:text-fg-2",
                 )}
               >
-                {c.emoji} {c.label}
+                <CategoryIcon name={c.icon} />
+                {c.label}
               </button>
             ))}
           </div>
@@ -653,7 +685,7 @@ function Step3BrandVoice({
           <ArrowLeft className="size-3" /> Back
         </button>
         <div className="flex items-center gap-2">
-          <Sparkles className="size-4 text-[#0A84FF]" strokeWidth={1.5} />
+          <PenLine className="size-4 text-[#0A84FF]" strokeWidth={1.5} />
           <h2 className="text-xl font-semibold text-fg-1">Your brand voice</h2>
         </div>
         <p className="mt-1 text-sm text-fg-3">AI uses this to write replies that sound like you.</p>
@@ -922,7 +954,7 @@ function Step5Ready({
     <div className="space-y-6">
       <div className="text-center">
         <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-[#0A84FF]/10">
-          <Sparkles className="size-6 text-[#0A84FF]" strokeWidth={1.5} />
+          <PenLine className="size-6 text-[#0A84FF]" strokeWidth={1.5} />
         </div>
         <h2 className="text-xl font-semibold text-fg-1">
           {canLaunch ? "Your workspace is ready" : "Preparing your workspace…"}

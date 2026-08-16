@@ -94,7 +94,7 @@ export function AIStylesTab() {
       {/* Header */}
       <div className="mb-1 flex items-center justify-between">
         <div>
-          <h2 className="text-base font-semibold text-fg-1">AI Reply styles</h2>
+          <h2 className="text-base font-semibold text-fg-1">AI reply styles</h2>
           <p className="mt-1 text-sm text-fg-3">
             Choose the tone ReviewBox uses when generating AI replies.
           </p>
