@@ -116,6 +116,19 @@ const SENTIMENT_BADGE: Record<ReviewSentiment, { label: string; className: strin
   positive: { label: "Positive",  className: "bg-[var(--rb-green-100)] text-[var(--rb-green-600)]" },
 };
 
+/**
+ * Drafts already fetched this session, keyed `${reviewId}|${tone}`.
+ *
+ * Module scope, not component state: the composer unmounts every time you move
+ * to another review, so component state would forget the draft the moment you
+ * navigated away and re-request it when you came back. Reading through an
+ * inbox is a normal thing to do and shouldn't cost a request per glance.
+ *
+ * Deliberately not persisted — a page reload should be able to get a fresh
+ * answer, and the server's Redis cache already covers the expensive part.
+ */
+const draftMemo = new Map<string, string>();
+
 // ── Reviewer avatar ───────────────────────────────────────────────────────────
 //
 // Initials on a colour derived from the reviewer's name, with the store's mark
@@ -461,7 +474,25 @@ function ReplyComposer({
     }
   }
 
-  const handleGenerate = useCallback(async (selectedTone: AIReplyTone) => {
+  const handleGenerate = useCallback(async (selectedTone: AIReplyTone, force = false) => {
+    // Already have this review's draft in this tone — reuse it rather than
+    // asking the server again. Opening a review auto-drafts and every tone
+    // switch re-drafts, so without this, flipping Professional → Empathetic →
+    // Professional costs three requests to end up where you started, and
+    // simply re-reading a review you looked at ten minutes ago costs another.
+    // "Regenerate" passes force:true, which is the one case where the user is
+    // explicitly asking for a different answer.
+    const memoKey = `${review.id}|${selectedTone}`;
+    if (!force) {
+      const remembered = draftMemo.get(memoKey);
+      if (remembered) {
+        setAiSuggestion(remembered);
+        setText(remembered);
+        setOriginalDraft(remembered);
+        return;
+      }
+    }
+
     setIsGenerating(true);
     setGenerateError(null);
     try {
@@ -480,6 +511,7 @@ function ReplyComposer({
       if (res.status === 503) { setGenerateError("AI unavailable — try again shortly."); return; }
       if (!res.ok)            { setGenerateError("Something went wrong."); return; }
       const data = (await res.json()) as { reply: string; source?: string };
+      draftMemo.set(memoKey, data.reply);
       setAiSuggestion(data.reply);
       // Auto-populate the textarea so user can post immediately — no "Use this" click
       setText(data.reply);
@@ -747,8 +779,21 @@ function ReplyComposer({
               ) : (
                 <Sparkles className="size-3 text-[var(--rb-blue-500)]" />
               )}
-              <span className="text-[11px] font-semibold text-[var(--rb-blue-500)]">
-                {isGenerating ? "Generating…" : aiSuggestion ? "AI draft — edit or post" : "AI reply"}
+              <span className={cn(
+                "text-[11px] font-semibold",
+                draftSource === "composer" ? "text-[var(--rb-amber-600)]" : "text-[var(--rb-blue-500)]",
+              )}>
+                {/* `composer` is Tier 4: both Groq and Gemini failed and the
+                    server returned a deterministic, stitched-together reply.
+                    That degradation used to be invisible, so an outage looked
+                    like the AI simply writing badly. Say which it is. */}
+                {isGenerating
+                  ? "Generating…"
+                  : draftSource === "composer"
+                    ? "AI unavailable · basic draft"
+                    : aiSuggestion
+                      ? "AI draft, edit or publish"
+                      : "AI reply"}
               </span>
             </div>
             <ToneSelector tone={tone} onChange={setTone} />
@@ -760,7 +805,7 @@ function ReplyComposer({
           <div className="flex items-center gap-2">
             <p className="text-[12px] text-[var(--rb-red-500)]">{generateError}</p>
             <button
-              onClick={() => handleGenerate(tone)}
+              onClick={() => handleGenerate(tone, true)}
               className="text-[11px] font-semibold text-[var(--rb-blue-500)] hover:underline"
             >
               Retry
@@ -894,7 +939,7 @@ function ReplyComposer({
                 </button>
                 {!alreadyReplied && aiSuggestion && (
                   <button
-                    onClick={() => handleGenerate(tone)}
+                    onClick={() => handleGenerate(tone, true)}
                     disabled={isGenerating}
                     className="text-[11px] font-medium text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-fg-2)] disabled:opacity-40"
                   >
