@@ -242,6 +242,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     appId = appInsert.data!.id as string;
   }
 
+  // Set below, in the Clerk block, which runs before the response returns and
+  // therefore before the after() callback fires. Null means "already onboarded"
+  // or "no email on the account" — either way, no welcome email.
+  let welcomeRecipient: string | null = null;
+
   // Kick off the first review sync so the dashboard has real public-store
   // data (rating + latest reviews) the moment the user lands on it — no
   // Play Console credentials needed (D018 Draft Mode).
@@ -258,9 +263,19 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     } catch (err) {
       console.error("[onboarding] first sync failed:", err);
     }
+
+    // Welcome email goes out here, behind the sync, so it can report what we
+    // actually found — "2,943 reviews, 12 with no reply yet" instead of a
+    // generic three-step tour. It is sent even if the sync threw: the template
+    // has an honest "still pulling" variant for a zero count.
+    if (welcomeRecipient) {
+      await sendWelcomeEmail(welcomeRecipient, workspaceId).catch((err) =>
+        console.error("[onboarding] welcome email:", err),
+      );
+    }
   });
 
-  // Mark user as onboarded + set trial window + fire welcome email
+  // Mark user as onboarded + set trial window + pick the welcome recipient
   try {
     const clerk = await clerkClient();
     const clerkUser = await clerk.users.getUser(userId);
@@ -278,18 +293,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
 
     if (!alreadyOnboarded) {
-      const email = clerkUser.emailAddresses[0]?.emailAddress;
-      const name =
-        clerkUser.firstName ??
-        email?.split("@")[0] ??
-        "there";
-
-      if (email) {
-        // Non-blocking — don't await so the response isn't delayed
-        sendWelcomeEmail(email, name).catch((err) =>
-          console.error("[onboarding] welcome email:", err),
-        );
-      }
+      welcomeRecipient = clerkUser.emailAddresses[0]?.emailAddress ?? null;
     }
   } catch (err) {
     // Non-fatal — workspace created, just metadata/email failed

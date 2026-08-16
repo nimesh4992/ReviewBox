@@ -6,6 +6,15 @@ import { audit } from "@/lib/audit";
 import { rateLimit } from "@/lib/api-rate-limit";
 import { apiError, captureAndError } from "@/lib/api-response";
 import { getResend, FROM } from "@/lib/email/client";
+import { inviteEmail } from "@/lib/email/templates";
+
+/** Whole days from now until `iso`, floored at 1. Falls back to the migration-006 default. */
+function daysUntil(iso: string | null): number {
+  if (!iso) return 14;
+  const ms = new Date(iso).getTime() - Date.now();
+  if (!Number.isFinite(ms)) return 14;
+  return Math.max(1, Math.round(ms / 86_400_000));
+}
 
 interface CreateInviteBody {
   email: string;
@@ -131,13 +140,35 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     try {
       const resend = getResend();
       if (resend) {
+        // The app name makes the invite recognisable — "join ReviewBox" is a
+        // cold ask, "reply to Mumbai One reviews" is a job. Best-effort: an
+        // invite that arrives without it is still a working invite.
+        const { data: firstApp } = await sb
+          .from("apps")
+          .select("name")
+          .eq("workspace_id", workspaceId)
+          .is("deleted_at", null)
+          .order("created_at", { ascending: true })
+          .limit(1)
+          .maybeSingle();
+
+        const message = inviteEmail({
+          inviterName,
+          workspaceName: workspaceName ?? "ReviewBox",
+          appName: (firstApp?.name as string | undefined) ?? null,
+          inviteUrl,
+          // Derived from the row the database actually wrote, not a constant
+          // mirrored in TypeScript. The default lives in migration 006 and the
+          // email must not promise a window the token does not have.
+          expiresInDays: daysUntil(invite.expires_at as string | null),
+        });
+
         await resend.emails.send({
-        from: FROM,
-        to: email,
-        subject: `${inviterName} invited you to ${workspaceName ?? "ReviewBox"}`,
-        html: `<p>${inviterName} invited you to join their ReviewBox workspace${workspaceName ? ` <strong>${workspaceName}</strong>` : ""}.</p>
-<p><a href="${inviteUrl}" style="background:#0A84FF;color:#fff;padding:10px 16px;border-radius:8px;text-decoration:none;font-weight:600">Accept invitation</a></p>
-<p>This link expires in 14 days. If you weren't expecting this, you can ignore it.</p>`,
+          from: FROM,
+          to: email,
+          subject: message.subject,
+          html: message.html,
+          text: message.text,
         });
       }
     } catch (err) {
