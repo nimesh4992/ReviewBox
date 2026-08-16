@@ -120,12 +120,21 @@ const isBilledRoute = createRouteMatcher([
 
 export default clerkMiddleware(async (auth, request) => {
   const { nextUrl } = request;
-  const hostname = request.headers.get("host") ?? "";
-  const isProd = hostname.includes("tryreviewbox.com");
-  // Exact host match only. `startsWith("app.")` would also match a spoofed host
-  // like `app.tryreviewbox.com.attacker.com` (which also passes the loose
-  // isProd .includes check); redirect targets here are hardcoded so match tight.
+  // Normalize before comparing: strip the port, lowercase, and treat a leading
+  // "www." as the bare domain. Without this, www.tryreviewbox.com matched
+  // NEITHER host branch below — so the authenticated product was served
+  // directly from the marketing domain instead of redirecting to the app
+  // subdomain, and Clerk's session cookie could go missing across the
+  // www/non-www boundary, leaving sign-in unable to see an existing session.
+  const rawHost = (request.headers.get("host") ?? "").toLowerCase().split(":")[0];
+  const hostname = rawHost.startsWith("www.") ? rawHost.slice(4) : rawHost;
+
+  // Exact match against the two known hosts. `includes("tryreviewbox.com")`
+  // would also pass a spoofed host like tryreviewbox.com.attacker.com, and
+  // `startsWith("app.")` would pass app.tryreviewbox.com.attacker.com. Preview
+  // deployments (*.vercel.app) match neither and correctly skip host routing.
   const isAppHost = hostname === APP_HOST;
+  const isProd = isAppHost || hostname === MARKETING_HOST;
 
   // ── Subdomain routing (production only) ────────────────────────────────────
   if (isProd) {
