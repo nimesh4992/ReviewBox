@@ -157,9 +157,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const review      = buildReview({ ...body, tags: safeTags });
 
     // ── Workspace context ──────────────────────────────────────────────────
+    // Resolve which app this review belongs to before building the persona.
+    // The reply is signed with the app's name, and a workspace can hold more
+    // than one — signing a Mumbai One reviewer as another app's team would be
+    // published publicly on the store.
     const workspaceId = await getWorkspaceId(userId);
-    const persona     = workspaceId
-      ? await getWorkspacePersona(workspaceId)
+
+    let reviewAppId: string | undefined;
+    if (workspaceId && reviewId) {
+      const sb = getServiceClient();
+      const { data: reviewRow } = await sb
+        .from("reviews")
+        .select("app_id")
+        .eq("id", reviewId)
+        .eq("workspace_id", workspaceId)
+        .maybeSingle();
+      reviewAppId = (reviewRow?.app_id as string | null) ?? undefined;
+    }
+
+    const persona = workspaceId
+      ? await getWorkspacePersona(workspaceId, reviewAppId)
       : DEFAULT_PERSONA;
 
     const log = (source: ReplySource, extra?: Record<string, unknown>) =>

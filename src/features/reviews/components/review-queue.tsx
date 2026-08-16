@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useDeferredValue } from "react";
+import { useState, useEffect, useCallback, useId, useRef, useDeferredValue } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -20,6 +20,7 @@ import { track } from "@/lib/analytics";
 import { useApps } from "@/hooks/use-apps";
 import { AppReview, ReviewSentiment, AIReplyTone } from "@/types/review";
 import { avatarInitials, humanizeToken, formatReviewDate } from "@/utils/format";
+import { avatarColorVar } from "@/lib/avatar-color";
 import { apiErrorMessage } from "@/lib/api-error-message";
 
 // Helper — stamp a review as replied in the infinite query cache
@@ -116,12 +117,67 @@ const SENTIMENT_BADGE: Record<ReviewSentiment, { label: string; className: strin
 
 // ── Reviewer avatar ───────────────────────────────────────────────────────────
 //
-// Shows the reviewer's initials. It used to print a single "G" or "A" for the
-// platform, which meant every row in the inbox carried the same letter — the
-// one position in a list that exists to tell rows apart, spent on a fact the
-// row already states twice (the "Android"/"iOS" tag beside the author, and the
-// Play/App Store filter chips above). The platform still tints the avatar, so
-// nothing is lost.
+// Initials on a colour derived from the reviewer's name, with the store's mark
+// badged in the corner.
+//
+// It used to be one flat tile per row showing a single "G" or "A" for the
+// platform — so twenty rows carried the same letter in the same colour, in the
+// one position in a list whose whole job is telling rows apart, spent on a
+// fact the row already states twice (the Android/iOS tag beside the author,
+// and the Play/App Store filter chips above). The store is still identifiable
+// at a glance, just moved to the badge where it costs nothing.
+
+function GooglePlayMark({ className }: { className?: string }) {
+  // Four wedges, four Google colours — the shape is only readable as Google
+  // Play if the colours are separate, so this can't collapse to one path.
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <path
+        d="M1.337.924a1.486 1.486 0 0 0-.112.568v21.017c0 .217.045.419.124.6l11.155-11.087L1.337.924z"
+        fill="#00A0FF"
+      />
+      <path
+        d="M12.755 11.202l2.389-2.374L2.011.331a1.49 1.49 0 0 0-.6-.169l11.344 11.04z"
+        fill="#00E676"
+      />
+      <path
+        d="M22.018 13.298l-3.919 2.218-3.515-3.493 3.543-3.521 3.891 2.202a1.49 1.49 0 0 1 0 2.594z"
+        fill="#FFCE00"
+      />
+      <path
+        d="M12.755 12.796L1.348 23.815c.194.023.398-.013.61-.14l13.221-7.507-2.424-2.372z"
+        fill="#FF3A44"
+      />
+    </svg>
+  );
+}
+
+function AppStoreMark({ className }: { className?: string }) {
+  // The App Store tile: blue gradient square, white "A". Stroked rather than
+  // outlined because at 12-14px the fine detail of the real glyph is below one
+  // device pixel — strokes with round caps read correctly, a faithful outline
+  // turns to mud.
+  // useId: the badge renders once per row, and a hardcoded gradient id would
+  // be duplicated across every one of them — invalid markup, and the kind that
+  // breaks unpredictably once a second SVG on the page claims the same name.
+  const gradId = useId();
+  return (
+    <svg viewBox="0 0 24 24" className={className} aria-hidden="true">
+      <defs>
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%"   stopColor="#1AC8FB" />
+          <stop offset="100%" stopColor="#1A66E8" />
+        </linearGradient>
+      </defs>
+      <rect width="24" height="24" rx="5.4" fill={`url(#${gradId})`} />
+      <g stroke="#fff" strokeWidth="2.1" strokeLinecap="round" fill="none">
+        <path d="M12 6.4 17 15.2" />
+        <path d="M12 6.4 7 15.2" />
+        <path d="M6.2 15.2h11.6" />
+      </g>
+    </svg>
+  );
+}
 
 function ReviewerAvatar({ author, source, size = "sm" }: {
   author: string;
@@ -129,21 +185,42 @@ function ReviewerAvatar({ author, source, size = "sm" }: {
   size?: "sm" | "xs";
 }) {
   const isIos = source === "App Store";
-  // Fall back to "?" rather than rendering an empty circle — Google Play
-  // returns an empty author for reviews left without a profile name.
+  const isSm  = size === "sm";
+  // Fall back to "?" rather than an empty tile — Google Play returns a blank
+  // author for reviews left without a profile name.
   const initials = avatarInitials(author) || "?";
+  const label = author || "Anonymous reviewer";
+  const store = isIos ? "App Store" : "Google Play";
+
   return (
-    <div
-      title={author || "Anonymous reviewer"}
-      className={cn(
-        "shrink-0 items-center justify-center rounded-[9px] font-bold text-white",
-        isIos
-          ? "bg-gradient-to-br from-[#4592FF] to-[#0058B3]"
-          : "bg-gradient-to-br from-[#34C759] to-[#1A8A36]",
-        size === "sm" ? "flex size-9 text-[13px]" : "flex size-7 rounded-[7px] text-[11px]",
-      )}
-    >
-      {initials}
+    <div className={cn("relative shrink-0", isSm ? "size-9" : "size-7")}>
+      <div
+        title={`${label} · ${store}`}
+        className={cn(
+          "flex size-full items-center justify-center font-bold text-white",
+          isSm ? "rounded-[9px] text-[13px]" : "rounded-[7px] text-[11px]",
+        )}
+        // Colour comes from the --rb-avatar-* palette, indexed by a hash of
+        // the name, so it is stable per reviewer across renders and screens.
+        style={{ backgroundColor: avatarColorVar(author) }}
+      >
+        {initials}
+      </div>
+
+      {/* Store badge. The white ring keeps both marks legible whichever colour
+          the avatar landed on, and against the row background in dark mode. */}
+      <span
+        className={cn(
+          "absolute -bottom-0.5 -right-0.5 flex items-center justify-center rounded-full bg-white ring-1 ring-black/5",
+          isSm ? "size-[15px]" : "size-3",
+        )}
+      >
+        {isIos ? (
+          <AppStoreMark className={isSm ? "size-[11px] rounded-[3px]" : "size-2.5 rounded-[2px]"} />
+        ) : (
+          <GooglePlayMark className={isSm ? "size-[9px]" : "size-2"} />
+        )}
+      </span>
     </div>
   );
 }
