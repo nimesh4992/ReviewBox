@@ -77,9 +77,13 @@ async function handler(req: NextRequest): Promise<NextResponse> {
       const summary = await syncWorkspace(workspaceId);
       return NextResponse.json({ ...summary, workspaceId });
     } catch (err) {
+      // Logged in full below, but NOT returned. Every other route funnels
+      // failures through captureAndError() for this reason: an internal
+      // exception string can name tables, columns and upstream services.
       const msg = err instanceof Error ? err.message : String(err);
+      console.error("[sync/reviews] worker failed:", workspaceId, msg);
       return NextResponse.json(
-        { error: "WORKER_FAILED", workspaceId, message: msg },
+        { error: "WORKER_FAILED", workspaceId },
         { status: 500 },
       );
     }

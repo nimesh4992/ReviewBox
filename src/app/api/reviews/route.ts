@@ -80,6 +80,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const limitParam = parseInt(searchParams.get("limit") ?? String(DEFAULT_LIMIT), 10);
     const limit      = Math.min(isNaN(limitParam) ? DEFAULT_LIMIT : limitParam, MAX_LIMIT);
     const cursor     = searchParams.get("cursor") ?? undefined;
+
+    // The id half of the composite cursor is UUID-validated before it is
+    // interpolated into the .or() filter; the timestamp half was not, and it
+    // goes into that same expression twice. A comma or parenthesis there is not
+    // a syntax error to PostgREST — it is more filter grammar. The workspace_id
+    // .eq() guard bounds the blast radius, but a filter expression is not a
+    // place to put unvalidated input.
+    if (cursor !== undefined) {
+      const sep = cursor.lastIndexOf("|");
+      const ts  = sep === -1 ? cursor : cursor.slice(0, sep);
+      const valid = /^[0-9T:.+-]{10,35}Z?$/.test(ts) && !Number.isNaN(Date.parse(ts));
+      if (!valid) {
+        // A cursor we did not mint. Answer empty rather than guessing at intent.
+        return NextResponse.json({ reviews: [], nextCursor: null, hasMore: false });
+      }
+    }
     const status     = searchParams.get("status") ?? undefined;
     const sentiment  = searchParams.get("sentiment") ?? undefined;
     const rating     = searchParams.get("rating") ? parseInt(searchParams.get("rating")!, 10) : undefined;
@@ -144,6 +160,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       const cursorTs = sep === -1 ? cursor : cursor.slice(0, sep);
       const cursorId = sep === -1 ? null   : cursor.slice(sep + 1);
 
+      // The id half was already UUID-validated before being interpolated into
+      // the .or() expression; the timestamp half was not, and it is
+      // interpolated twice into that same expression. A comma or a parenthesis
+      // in it is not a syntax error to PostgREST — it is more filter grammar.
+      // The workspace_id .eq() guard still bounds the blast radius, but a
+      // filter expression is not a place to put unvalidated input.
       if (cursorId && /^[0-9a-f-]{36}$/i.test(cursorId)) {
         query = query.or(
           `store_created_at.lt.${cursorTs},and(store_created_at.eq.${cursorTs},id.lt.${cursorId})`,
