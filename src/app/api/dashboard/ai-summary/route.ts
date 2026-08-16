@@ -69,8 +69,12 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     // for another app (or for the all-apps view) out of the hour-long cache.
     const cacheKey = `ai_summary_text:${workspaceId}:${appId ?? "all"}`;
 
-    // Check Redis cache first
-    if (redis) {
+    // Check Redis cache first — unless the user explicitly asked to refresh.
+    // The panel's Refresh button returned the identical cached payload for a
+    // full hour: the spinner turned and "Updated N minutes ago" never moved.
+    // The 10/hour rate limit above already bounds the cost of a real refresh.
+    const forceRefresh = req.nextUrl.searchParams.get("refresh") === "1";
+    if (redis && !forceRefresh) {
       const cached = await redis.get<{
         summary: string;
         reviewCount: number;

@@ -50,7 +50,7 @@ function toStorePlatform(platform: "google_play" | "app_store"): "google-play" |
 
 // ── GET ───────────────────────────────────────────────────────────────────────
 
-export async function GET(): Promise<NextResponse> {
+export async function GET(req: NextRequest): Promise<NextResponse> {
   const session = await auth();
   if (!session?.userId) return apiError("UNAUTHORIZED", 401);
 
@@ -60,13 +60,24 @@ export async function GET(): Promise<NextResponse> {
   const sb = getServiceClient();
 
   // ── Your app: real metrics from our own review history ────────────────────
-  const { data: app } = await sb
+  //
+  // Which app is "you"? Previously `.limit(1)` with NO `order`, so on a
+  // multi-app workspace the benchmark's "You" row was a non-deterministic
+  // app that could change between page loads. Now: the app the sidebar has
+  // selected, else the oldest — a stable answer either way.
+  const requestedAppId = req.nextUrl.searchParams.get("appId")?.trim() || undefined;
+
+  let appQuery = sb
     .from("apps")
     .select("id, name, lifetime_rating, lifetime_review_count, platform")
     .eq("workspace_id", workspaceId)
-    .is("deleted_at", null)
-    .limit(1)
-    .maybeSingle();
+    .is("deleted_at", null);
+
+  appQuery = requestedAppId
+    ? appQuery.eq("id", requestedAppId)
+    : appQuery.order("created_at", { ascending: true });
+
+  const { data: app } = await appQuery.limit(1).maybeSingle();
 
   const appId: string | null = app?.id ?? null;
   let rating: number = typeof app?.lifetime_rating === "number" ? app.lifetime_rating : 0;

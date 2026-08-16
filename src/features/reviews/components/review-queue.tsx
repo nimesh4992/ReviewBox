@@ -53,6 +53,11 @@ function useMarkReplied() {
         };
       },
     );
+    // Publishing a reply changes unrepliedCount / urgentCount, which the
+    // dashboard KPIs and the sidebar's Inbox badge read from a 5-minute
+    // cache. Without this the badge kept its old number for minutes after
+    // the user cleared the review it was counting.
+    void qc.invalidateQueries({ queryKey: ["dashboard-metrics"] });
   };
 }
 

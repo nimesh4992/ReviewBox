@@ -54,7 +54,33 @@ export function useApps() {
   return { apps, isLoading, isError, refetch };
 }
 
+/**
+ * Invalidate everything that is derived from the app list.
+ *
+ * Adding or removing an app changes far more than the picker: the dashboard
+ * KPIs, the AI summary, the review queue, sentiment, ASO and the competitor
+ * benchmark are all computed per app. Only `["apps"]` was invalidated, so
+ * after deleting an app — which deletes its reviews server-side — the
+ * dashboard kept showing that app's numbers until its own staleTime expired
+ * (up to an hour for the AI summary).
+ *
+ * Keys are invalidated by prefix, so every per-app variant is covered.
+ */
 export function useInvalidateApps() {
   const qc = useQueryClient();
-  return () => qc.invalidateQueries({ queryKey: ["apps"] });
+  return () => {
+    for (const key of [
+      ["apps"],
+      ["dashboard-metrics"],
+      ["ai-summary"],
+      ["reviews"],
+      ["incidents"],
+      ["sentiment-overview"],
+      ["aso-keywords"],
+      ["aso-mine"],
+      ["competitors"],
+    ]) {
+      void qc.invalidateQueries({ queryKey: key });
+    }
+  };
 }

@@ -370,7 +370,7 @@ export default function DashboardPage() {
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
   const { appId: selectedAppId, appName: selectedAppName } = resolveSelectedApp(apps, selectedApp);
   const { data: metrics, isLoading, refetch: refetchMetrics } = useDashboardMetrics(selectedAppId);
-  const { data: incidents, isError: incidentsError } = useIncidents();
+  const { data: incidents, isError: incidentsError } = useIncidents(selectedAppId);
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [aiEnriching, setAiEnriching] = useState<boolean | null>(null);

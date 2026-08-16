@@ -1,6 +1,6 @@
 "use client";
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 
 export interface AiSummaryData {
   summary: string;
@@ -9,9 +9,12 @@ export interface AiSummaryData {
   cached: boolean;
 }
 
-async function fetchAiSummary(appId?: string): Promise<AiSummaryData> {
-  const qs = appId ? `?appId=${encodeURIComponent(appId)}` : "";
-  const res = await fetch(`/api/dashboard/ai-summary${qs}`);
+async function fetchAiSummary(appId?: string, refresh = false): Promise<AiSummaryData> {
+  const params = new URLSearchParams();
+  if (appId) params.set("appId", appId);
+  if (refresh) params.set("refresh", "1");
+  const qs = params.toString();
+  const res = await fetch(`/api/dashboard/ai-summary${qs ? `?${qs}` : ""}`);
   if (!res.ok) throw new Error("Failed to load AI summary");
   return res.json() as Promise<AiSummaryData>;
 }
@@ -21,10 +24,26 @@ async function fetchAiSummary(appId?: string): Promise<AiSummaryData> {
  *              `resolveSelectedApp`). Undefined = all apps in the workspace.
  */
 export function useAiSummary(appId?: string) {
-  return useQuery<AiSummaryData, Error>({
-    queryKey: ["ai-summary", appId ?? "all"],
+  const qc = useQueryClient();
+  const key = ["ai-summary", appId ?? "all"];
+
+  const query = useQuery<AiSummaryData, Error>({
+    queryKey: key,
     queryFn: () => fetchAiSummary(appId),
     staleTime: 60 * 60 * 1000, // 1 hour — matches server cache TTL
     retry: 1,
   });
+
+  /**
+   * Regenerate, bypassing BOTH caches. `refetch()` alone re-requested the
+   * route, which answered from its own 1-hour Redis entry — so the button
+   * spun and nothing changed.
+   */
+  const refresh = async () => {
+    const fresh = await fetchAiSummary(appId, true);
+    qc.setQueryData(key, fresh);
+    return fresh;
+  };
+
+  return { ...query, refresh };
 }
