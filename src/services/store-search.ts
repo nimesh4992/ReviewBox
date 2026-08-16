@@ -46,6 +46,12 @@ function getRedis(): Redis | null {
 
 // @assumption A 6-hour-old rating is fresh enough to show as current | risk: after a rating spike the dashboard contradicts the store for up to 6 hours
 const META_TTL = 6 * 60 * 60; // 6 hours in seconds
+/**
+ * A scrape that produced no rating is cached for minutes, not hours. Long
+ * enough to stop a burst of syncs re-scraping the same listing, short enough
+ * that a transient store hiccup does not pin a wrong dashboard for a workday.
+ */
+const META_TTL_INCOMPLETE = 10 * 60; // 10 minutes
 
 export interface StoreSearchResult {
   /** Bundle ID (App Store) or package name (Google Play) — what we store in apps.store_id */
@@ -480,10 +486,28 @@ async function readCache(key: string): Promise<AppMetadata | null> {
   return null;
 }
 
+/**
+ * Cache a metadata result — but only a COMPLETE one.
+ *
+ * A scrape that came back without a rating is a failure wearing a success's
+ * clothes, and caching it for six hours makes that failure sticky: every sync
+ * in the window short-circuits on the cached row, `lifetime_rating` is never
+ * written, and the dashboard keeps showing the average of the reviews we hold
+ * (2.53) instead of the store's real rating (3.12).
+ *
+ * That is exactly what happened after the `toNumber()` fix shipped — the fix
+ * was live, but the pre-fix null-rating entry was still being served, so
+ * nothing changed and the fix looked broken.
+ *
+ * A partial result still gets cached, briefly, so a genuinely rating-less
+ * listing does not mean re-scraping on every single sync.
+ */
 async function writeCache(key: string, value: AppMetadata): Promise<void> {
   try {
     const redis = getRedis();
-    if (redis) await redis.setex(key, META_TTL, value);
+    if (!redis) return;
+    const ttl = value.rating !== null ? META_TTL : META_TTL_INCOMPLETE;
+    await redis.setex(key, ttl, value);
   } catch {
     // best-effort — a cache miss is fine
   }
