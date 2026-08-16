@@ -19,7 +19,7 @@ import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
 import { useApps } from "@/hooks/use-apps";
 import { AppReview, ReviewSentiment, AIReplyTone } from "@/types/review";
-import { humanizeToken, formatReviewDate } from "@/utils/format";
+import { avatarInitials, humanizeToken, formatReviewDate } from "@/utils/format";
 import { apiErrorMessage } from "@/lib/api-error-message";
 
 // Helper — stamp a review as replied in the infinite query cache
@@ -114,22 +114,36 @@ const SENTIMENT_BADGE: Record<ReviewSentiment, { label: string; className: strin
   positive: { label: "Positive",  className: "bg-[var(--rb-green-100)] text-[var(--rb-green-600)]" },
 };
 
-// ── App icon avatar ───────────────────────────────────────────────────────────
+// ── Reviewer avatar ───────────────────────────────────────────────────────────
+//
+// Shows the reviewer's initials. It used to print a single "G" or "A" for the
+// platform, which meant every row in the inbox carried the same letter — the
+// one position in a list that exists to tell rows apart, spent on a fact the
+// row already states twice (the "Android"/"iOS" tag beside the author, and the
+// Play/App Store filter chips above). The platform still tints the avatar, so
+// nothing is lost.
 
-function AppIconAvatar({ source, size = "sm" }: {
+function ReviewerAvatar({ author, source, size = "sm" }: {
+  author: string;
   source: AppReview["source"];
   size?: "sm" | "xs";
 }) {
   const isIos = source === "App Store";
+  // Fall back to "?" rather than rendering an empty circle — Google Play
+  // returns an empty author for reviews left without a profile name.
+  const initials = avatarInitials(author) || "?";
   return (
-    <div className={cn(
-      "shrink-0 items-center justify-center rounded-[9px] text-[13px] font-bold text-white",
-      isIos
-        ? "bg-gradient-to-br from-[#4592FF] to-[#0058B3]"
-        : "bg-gradient-to-br from-[#34C759] to-[#1A8A36]",
-      size === "sm" ? "flex size-9" : "flex size-7 rounded-[7px] text-[11px]",
-    )}>
-      {isIos ? "A" : "G"}
+    <div
+      title={author || "Anonymous reviewer"}
+      className={cn(
+        "shrink-0 items-center justify-center rounded-[9px] font-bold text-white",
+        isIos
+          ? "bg-gradient-to-br from-[#4592FF] to-[#0058B3]"
+          : "bg-gradient-to-br from-[#34C759] to-[#1A8A36]",
+        size === "sm" ? "flex size-9 text-[13px]" : "flex size-7 rounded-[7px] text-[11px]",
+      )}
+    >
+      {initials}
     </div>
   );
 }
@@ -190,7 +204,7 @@ function ReviewRow({ review, selected, onClick, selectMode, isChecked, onCheck, 
           />
         </div>
       ) : (
-        <AppIconAvatar source={review.source} />
+        <ReviewerAvatar author={review.author} source={review.source} />
       )}
       <div className="min-w-0 flex-1">
         <div className="flex min-w-0 items-center gap-2">
@@ -551,7 +565,7 @@ function ReplyComposer({
     <div className={cn("flex w-full sm:w-[420px] shrink-0 flex-col border-l border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)]", className)}>
       {/* Header */}
       <div className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-[18px] py-[14px]">
-        <AppIconAvatar source={review.source} size="xs" />
+        <ReviewerAvatar author={review.author} source={review.source} size="xs" />
         <div className="min-w-0 flex-1">
           <div className="truncate text-[13px] font-semibold text-[var(--rb-fg-1)]">{review.author}</div>
           <div className="text-[11px] text-[var(--rb-fg-3)]">{review.source} · v{review.appVersion}</div>
@@ -1013,7 +1027,7 @@ function GroupReplyPanel({
               onChange={() => toggleReview(r.id)}
               className="size-3.5 accent-[var(--rb-blue-500)]"
             />
-            <AppIconAvatar source={r.source} size="xs" />
+            <ReviewerAvatar author={r.author} source={r.source} size="xs" />
             <div className="min-w-0 flex-1">
               <div className="flex items-center gap-2">
                 <span className="truncate text-[12px] font-semibold text-[var(--rb-fg-1)]">{r.author}</span>
