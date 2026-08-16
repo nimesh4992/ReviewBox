@@ -37,6 +37,7 @@ function RatingStars({ rating }: { rating: number }) {
   );
 }
 import { track } from "@/lib/analytics";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { APP_CATEGORIES, type AppCategory } from "@/lib/brand-voice-stubs";
@@ -66,8 +67,25 @@ interface FormState {
   brandVoice:    BrandVoiceConfig;
 }
 
+/** Final form of a slug — used when deriving from the name and when saving. */
 function slugify(v: string) {
   return v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "");
+}
+
+/**
+ * Slugify for a field being typed into RIGHT NOW.
+ *
+ * `slugify()` strips trailing separators, which is correct for a finished slug
+ * and wrong while typing: it ran on every keystroke of the controlled slug
+ * input, so pressing space (or "-") produced "my-" → stripped back to "my" →
+ * re-rendered without it. The separator was deleted as fast as it was typed,
+ * and "my-company" was literally unenterable — you got "mycompany".
+ *
+ * So keep a trailing separator while the user is mid-word; slugify() runs for
+ * real on save.
+ */
+function slugifyWhileTyping(v: string) {
+  return v.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+/, "");
 }
 
 const DEFAULT_BRAND_VOICE: BrandVoiceConfig = {
@@ -167,7 +185,9 @@ export default function OnboardingPage() {
   // ── Slug availability check ──────────────────────────────────────────────────
   useEffect(() => {
     if (slugTimer.current) clearTimeout(slugTimer.current);
-    const slug = form.workspaceSlug.trim();
+    // Check the FINAL slug, not the mid-typing one — a trailing "-" is a
+    // normal in-progress state and must not be reported as invalid.
+    const slug = slugify(form.workspaceSlug.trim());
     if (!slug) { setSlugStatus({ state: "idle" }); return; }
     setSlugStatus({ state: "checking" });
     slugTimer.current = setTimeout(async () => {
@@ -207,7 +227,7 @@ export default function OnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           workspaceName: form.workspaceName,
-          workspaceSlug: form.workspaceSlug,
+          workspaceSlug: slugify(form.workspaceSlug),
           appName:       form.selectedApp.name,
           platform:      form.platform,
           storeId:       form.selectedApp.storeId,
@@ -227,7 +247,16 @@ export default function OnboardingPage() {
           return;
         }
       }
-      if (!res.ok) { setSaveError("Something went wrong. Please try again."); return; }
+      // Show the reason the server gave. This threw away the response body and
+      // printed a fixed "Something went wrong", so a fixable problem — a
+      // reserved slug, a rejected store ID, the store being unreachable — was
+      // indistinguishable from a crash, to the customer AND to anyone
+      // debugging it afterwards.
+      if (!res.ok) {
+        const body: unknown = await res.json().catch(() => null);
+        setSaveError(apiErrorMessage(body, "Something went wrong. Please try again."));
+        return;
+      }
       const d = (await res.json()) as { workspaceId: string; appId: string };
       setWorkspaceId(d.workspaceId);
       track({ name: "onboarding_setup", properties: { platform: form.platform } });
@@ -247,7 +276,7 @@ export default function OnboardingPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           workspaceName: form.workspaceName,
-          workspaceSlug: form.workspaceSlug,
+          workspaceSlug: slugify(form.workspaceSlug),
           appName:       form.selectedApp.name,
           platform:      form.platform,
           storeId:       form.selectedApp.storeId,
@@ -259,7 +288,8 @@ export default function OnboardingPage() {
         }),
       });
       if (!res.ok && res.status !== 409) {
-        setSaveError("Something went wrong. Please try again.");
+        const body: unknown = await res.json().catch(() => null);
+        setSaveError(apiErrorMessage(body, "Something went wrong. Please try again."));
         return;
       }
       track({ name: "onboarding_completed", properties: { platform: form.platform } });
@@ -425,7 +455,7 @@ function Step1Workspace({
             <span className="shrink-0 text-xs text-fg-3">tryreviewbox.com/</span>
             <input
               value={form.workspaceSlug}
-              onChange={(e) => set("workspaceSlug", slugify(e.target.value))}
+              onChange={(e) => set("workspaceSlug", slugifyWhileTyping(e.target.value))}
               placeholder="acme"
               className="min-w-0 flex-1 bg-transparent text-sm text-fg-1 outline-none placeholder:text-fg-3"
             />
@@ -696,6 +726,25 @@ function Step3BrandVoice({
   onBack:   () => void;
   onNext:   () => void;
 }) {
+  // Hold the text exactly as typed.
+  //
+  // These inputs were controlled from the PARSED array —
+  // `value={bv.wordsToUse.join(", ")}` with an onChange that split on commas
+  // and trimmed each part. So typing "thank" then space produced "thank ",
+  // which trimmed straight back to "thank" and re-rendered without the space:
+  // the space was deleted as fast as it was typed, and a multi-word phrase
+  // could never be entered. The placeholder asks for "thank you, we
+  // appreciate, our team" — none of which the field would accept.
+  //
+  // The raw string is the source of truth while typing; the array is derived
+  // from it. Initialised once on mount, after hydration has run.
+  const [wordsToUseText, setWordsToUseText] = useState(() => bv.wordsToUse.join(", "));
+  const [wordsToAvoidText, setWordsToAvoidText] = useState(() => bv.wordsToAvoid.join(", "));
+
+  /** "thank you, we appreciate" → ["thank you", "we appreciate"] */
+  const parseWords = (value: string): string[] =>
+    value.split(",").map((s) => s.trim()).filter(Boolean);
+
   return (
     <div className="space-y-6">
       <div>
@@ -739,8 +788,11 @@ function Step3BrandVoice({
           Words we love to use <span className="text-fg-3">(optional)</span>
         </label>
         <input
-          value={bv.wordsToUse.join(", ")}
-          onChange={(e) => setBv({ wordsToUse: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
+          value={wordsToUseText}
+          onChange={(e) => {
+            setWordsToUseText(e.target.value);
+            setBv({ wordsToUse: parseWords(e.target.value) });
+          }}
           placeholder="thank you, we appreciate, our team…"
           className="w-full rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2.5 text-sm text-fg-1 placeholder:text-fg-3 outline-none focus:border-[#0A84FF]/50"
         />
@@ -752,8 +804,11 @@ function Step3BrandVoice({
           Words we never use <span className="text-fg-3">(optional)</span>
         </label>
         <input
-          value={bv.wordsToAvoid.join(", ")}
-          onChange={(e) => setBv({ wordsToAvoid: e.target.value.split(",").map((s) => s.trim()).filter(Boolean) })}
+          value={wordsToAvoidText}
+          onChange={(e) => {
+            setWordsToAvoidText(e.target.value);
+            setBv({ wordsToAvoid: parseWords(e.target.value) });
+          }}
           placeholder="unfortunately, can't, won't…"
           className="w-full rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2.5 text-sm text-fg-1 placeholder:text-fg-3 outline-none focus:border-[#0A84FF]/50"
         />
