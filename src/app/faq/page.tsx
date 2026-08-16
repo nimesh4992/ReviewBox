@@ -22,7 +22,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: "How long does the first sync take?",
-        a: "The first sync fetches your most recent reviews immediately — typically under 2 minutes for up to 500 reviews. Subsequent syncs run automatically every 4 hours.",
+        a: "The first sync fetches your most recent reviews immediately, typically under two minutes. After that we sync once a day automatically, and you can trigger a sync yourself any time from Settings.",
       },
       {
         q: "Can I try ReviewBox before paying?",

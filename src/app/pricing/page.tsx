@@ -3,6 +3,7 @@ import { Check, X } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
+import { PAID_PLANS, PLAN_LIMITS, PLAN_PRICING, type PlanName } from "@/lib/plans";
 
 export const metadata = {
   title: "Pricing",
@@ -10,67 +11,83 @@ export const metadata = {
     "Simple, transparent pricing for every team. Start free, no credit card required.",
 };
 
-const PLANS = [
-  {
-    name: "Starter",
-    price: 49,
-    description: "For indie developers and small teams just getting started.",
-    highlight: false,
-    features: {
-      apps: "2 apps",
-      reviews: "5,000 reviews / month",
-      aiDrafts: "50 AI drafts / day",
-      alerts: "Email alerts",
-      automations: "5 automation rules",
-      teammates: "3 teammates",
-      support: "Community support",
-    },
+// Plans are DERIVED from lib/plans.ts, never retyped here.
+//
+// This page had drifted into advertising a product we don't sell: a $199
+// "Team" tier that no longer exists, per-day AI limits that are now monthly,
+// teammate and automation-rule counts that nothing enforces, and features
+// that were never built. A marketing page maintained by hand next to a
+// PLAN_LIMITS object maintained by code will always end up lying; the only
+// durable fix is one source of truth.
+interface PlanCard {
+  name: string;
+  key: PlanName;
+  monthly: number;
+  annual: number;
+  inr: number;
+  description: string;
+  highlight: boolean;
+  onRequest: boolean;
+  features: Record<string, string>;
+}
+
+const PLANS: PlanCard[] = PAID_PLANS.map((name): PlanCard => ({
+  name: PLAN_PRICING[name].label,
+  key: name,
+  monthly: PLAN_PRICING[name].monthlyUsd!,
+  annual: PLAN_PRICING[name].annualUsd!,
+  inr: PLAN_PRICING[name].monthlyInr!,
+  description: PLAN_PRICING[name].tagline,
+  highlight: name === "pro",
+  onRequest: false,
+  features: {
+    apps: `${PLAN_LIMITS[name].appsMax} apps`,
+    replies: `${PLAN_LIMITS[name].publishedRepliesPerMonth.toLocaleString()} published replies / month`,
+    reviews: `${PLAN_LIMITS[name].reviewsPerMonth.toLocaleString()} reviews / month`,
+    aiDrafts: `${PLAN_LIMITS[name].aiDraftsPerMonth.toLocaleString()} AI drafts / month`,
+    seats: PLAN_LIMITS[name].seats === 1 ? "1 seat" : `${PLAN_LIMITS[name].seats} seats`,
+    alerts: name === "starter" ? "Email alerts" : "Email + Slack alerts",
+    support: name === "starter" ? "Email support" : "Priority email support",
   },
+}));
+
+PLANS.push(
   {
-    name: "Pro",
-    price: 99,
-    description: "For growing teams that need deeper insights and faster responses.",
-    highlight: true,
-    features: {
-      apps: "10 apps",
-      reviews: "50,000 reviews / month",
-      aiDrafts: "200 AI drafts / day",
-      alerts: "Email + Slack alerts",
-      automations: "25 automation rules",
-      teammates: "10 teammates",
-      support: "Priority email support",
-    },
-  },
-  {
-    name: "Team",
-    price: 199,
-    description: "For product organisations managing many apps at scale.",
+    name: PLAN_PRICING.enterprise.label,
+    key: "enterprise",
+    monthly: 0,
+    annual: 0,
+    inr: 0,
+    description: PLAN_PRICING.enterprise.tagline,
     highlight: false,
+    // Quote-only on purpose: we have no seat management, SSO or procurement
+    // story, so a published number would promise what we can't deliver.
+    onRequest: true,
     features: {
       apps: "Unlimited apps",
+      replies: "Unlimited published replies",
       reviews: "Unlimited reviews",
-      aiDrafts: "Unlimited AI drafts",
-      alerts: "Email + Slack + webhooks",
-      automations: "Unlimited automation rules",
-      teammates: "Unlimited teammates",
-      support: "Dedicated Slack channel",
+      aiDrafts: "Custom AI allowance",
+      seats: "Unlimited seats",
+      alerts: "Email + Slack alerts",
+      support: "Named contact",
     },
   },
-];
+);
 
 const PRICING_JSON_LD = {
   "@context": "https://schema.org",
   "@type": "Product",
   name: "ReviewBox",
   description: "AI-powered review management for Google Play and App Store.",
-  offers: PLANS.map((plan) => ({
+  offers: PLANS.filter((p) => !p.onRequest).map((plan) => ({
     "@type": "Offer",
     name: plan.name,
-    price: plan.price,
+    price: plan.monthly,
     priceCurrency: "USD",
     priceSpecification: {
       "@type": "UnitPriceSpecification",
-      price: plan.price,
+      price: plan.monthly,
       priceCurrency: "USD",
       referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "MON" },
     },
@@ -78,43 +95,68 @@ const PRICING_JSON_LD = {
   })),
 };
 
+// Only things that work today.
+//
+// Removed, because they were advertised and do not exist:
+//   "Real-time sync (every 4h)"   Vercel Hobby caps cron at once a day; the
+//                                 schedule is 0 8 * * * and cannot be raised
+//                                 without upgrading the plan (see CLAUDE.md).
+//   "Full review history"         Google Play exposes roughly the last week.
+//                                 We cannot deliver history we can't fetch.
+//   "Crash cluster detection"     Incident auto-detection is unbuilt (M3).
+//   "Auto-publish rules"          Automations draft; they never publish
+//                                 without a human (M3, opt-in, unbuilt).
+//   "Webhook output"              Unbuilt (S4.2).
+//   "Zapier / Make integration"   Unbuilt (S4.2).
+//   Automation-rule counts        Nothing enforces a per-plan rule limit.
+//
+// If you add a row here, it must be something a customer can do today. A
+// pricing page is a contract, and every one of the above was a promise the
+// product could not keep.
 const FEATURE_MATRIX = [
   {
     category: "Reviews",
     rows: [
-      { label: "Google Play sync", starter: true, pro: true, team: true },
-      { label: "App Store sync", starter: true, pro: true, team: true },
-      { label: "Real-time sync (every 4h)", starter: true, pro: true, team: true },
-      { label: "Full review history", starter: false, pro: true, team: true },
+      { label: "Google Play sync", starter: true, pro: true, enterprise: true },
+      { label: "App Store sync", starter: true, pro: true, enterprise: true },
+      { label: "Daily automatic sync", starter: true, pro: true, enterprise: true },
+      { label: "Sync on demand", starter: true, pro: true, enterprise: true },
     ],
   },
   {
-    category: "AI Replies",
+    category: "Replies",
     rows: [
-      { label: "Template-matched replies", starter: true, pro: true, team: true },
-      { label: "AI-generated drafts (Groq)", starter: true, pro: true, team: true },
-      { label: "Knowledge base context", starter: false, pro: true, team: true },
-      { label: "Custom AI persona/tone", starter: false, pro: true, team: true },
-      { label: "Auto-publish rules", starter: false, pro: false, team: true },
+      { label: "Publish replies to the store in one click", starter: true, pro: true, enterprise: true },
+      { label: "Starter reply templates", starter: true, pro: true, enterprise: true },
+      { label: "Your own reply templates", starter: true, pro: true, enterprise: true },
+      { label: "AI drafts in your brand voice", starter: true, pro: true, enterprise: true },
+      { label: "Knowledge base context", starter: false, pro: true, enterprise: true },
+      { label: "Bulk reply to many reviews at once", starter: false, pro: true, enterprise: true },
+      { label: "Translate reviews written in any language", starter: true, pro: true, enterprise: true },
     ],
   },
   {
     category: "Intelligence",
     rows: [
-      { label: "Sentiment analysis", starter: true, pro: true, team: true },
-      { label: "Rating spike detection", starter: true, pro: true, team: true },
-      { label: "Crash cluster detection", starter: false, pro: true, team: true },
-      { label: "Release health tracking", starter: false, pro: true, team: true },
-      { label: "ASO keyword suggestions", starter: false, pro: true, team: true },
+      { label: "Automatic sentiment tagging", starter: true, pro: true, enterprise: true },
+      { label: "Issue tags: crashes, billing, login, performance", starter: true, pro: true, enterprise: true },
+      { label: "Topic clustering across your reviews", starter: false, pro: true, enterprise: true },
+      { label: "Rating spike alerts", starter: true, pro: true, enterprise: true },
+      { label: "Release health tracking", starter: false, pro: true, enterprise: true },
+      // Deliberately "ideas", not "tracking". We mine keyword phrases out of
+      // your own review text and suggest more with AI. We do NOT track store
+      // rank — that needs either store search scraping (which Google refuses
+      // us) or a paid rank API, so promising it would be a lie.
+      { label: "ASO keyword ideas mined from your reviews", starter: false, pro: true, enterprise: true },
     ],
   },
   {
-    category: "Automation",
+    category: "Working together",
     rows: [
-      { label: "Automation rule builder", starter: true, pro: true, team: true },
-      { label: "Auto-triage & escalation", starter: false, pro: true, team: true },
-      { label: "Webhook output", starter: false, pro: false, team: true },
-      { label: "Zapier / Make integration", starter: false, pro: false, team: true },
+      { label: "Automation rules", starter: true, pro: true, enterprise: true },
+      { label: "Slack alerts", starter: false, pro: true, enterprise: true },
+      { label: "Multiple teammates", starter: false, pro: true, enterprise: true },
+      { label: "CSV export", starter: true, pro: true, enterprise: true },
     ],
   },
 ];
@@ -148,7 +190,7 @@ export default function PricingPage() {
         </div>
 
         {/* Plan cards */}
-        <div className="grid gap-6 sm:grid-cols-3">
+        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
           {PLANS.map((plan) => (
             <div
               key={plan.name}
@@ -165,19 +207,34 @@ export default function PricingPage() {
               )}
               <h2 className="text-xl font-bold text-gray-900 dark:text-[#F5F5F7]">{plan.name}</h2>
               <p className="mt-1 text-sm text-gray-500 dark:text-[#86868B]">{plan.description}</p>
-              <div className="mt-6 flex items-baseline gap-1">
-                <span className="text-4xl font-bold text-gray-900 dark:text-[#F5F5F7]">${plan.price}</span>
-                <span className="text-sm text-gray-400 dark:text-[#636366]">/month</span>
+              <div className="mt-6">
+                {plan.onRequest ? (
+                  <span className="text-3xl font-bold text-gray-900 dark:text-[#F5F5F7]">Talk to us</span>
+                ) : (
+                  <>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-4xl font-bold text-gray-900 dark:text-[#F5F5F7]">${plan.annual}</span>
+                      <span className="text-sm text-gray-400 dark:text-[#636366]">/month</span>
+                      <span className="text-sm text-gray-400 line-through dark:text-[#636366]">${plan.monthly}</span>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-[#86868B]">
+                      billed yearly · ${plan.monthly}/month billed monthly
+                    </p>
+                    <p className="mt-1 text-xs text-gray-500 dark:text-[#86868B]">
+                      India: ₹{plan.inr.toLocaleString("en-IN")}/month
+                    </p>
+                  </>
+                )}
               </div>
               <Link
-                href="/sign-up"
+                {...(plan.onRequest ? { href: "/contact" } : { href: "/sign-up" })}
                 className={`mt-6 block w-full rounded-xl py-2.5 text-center text-sm font-semibold transition-colors ${
                   plan.highlight
                     ? "bg-[#0A84FF] text-white hover:bg-[#0070e0]"
                     : "border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] text-gray-900 dark:text-[#F5F5F7] hover:bg-gray-50 dark:hover:bg-white/5"
                 }`}
               >
-                Start free trial
+                {plan.onRequest ? "Contact us" : "Start free trial"}
               </Link>
               <ul className="mt-8 space-y-3 text-sm text-gray-600 dark:text-[#C7C7CC]">
                 {Object.values(plan.features).map((f) => (
@@ -236,7 +293,7 @@ export default function PricingPage() {
                           <Check2 ok={row.pro} />
                         </td>
                         <td className="px-6 py-3 text-center">
-                          <Check2 ok={row.team} />
+                          <Check2 ok={row.enterprise} />
                         </td>
                       </tr>
                     ))}
