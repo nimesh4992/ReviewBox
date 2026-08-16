@@ -1,7 +1,8 @@
 # Today — Handoff for next agent
 
-**Last updated:** 2026-08-15
-**Branch agent left on:** `claude/product-audit-testing-toum42` (PR open — audit round + fixes)
+**Last updated:** 2026-08-16
+**State:** PR #77 (audit round, 28 fixes) is **MERGED to master**. Master compiles,
+all CI green, migration 020 applied to production by the founder.
 
 You are the next Claude agent. Read this top-to-bottom before doing anything.
 
@@ -17,155 +18,100 @@ You are the next Claude agent. Read this top-to-bottom before doing anything.
 
 ---
 
-## ⚠️ Do this first
+## ⚠️ Read this first: master may not be reaching production
 
-**One founder action is genuinely blocking, and it is a 30-second SQL query.**
+There are two ways this repo can deploy production, and on 2026-08-16 **both
+were closed at the same time**, silently:
 
-`supabase/migrations/pending_combined.sql` and `007_aso_keywords.sql` both
-create `aso_keywords` with **different columns**, both with
-`CREATE TABLE IF NOT EXISTS`. Whichever was pasted into Supabase first silently
-won, and nothing in the repo can tell us which. Run this in the Supabase SQL
-editor and paste the result into this file:
+1. **Vercel's Git integration** — refuses to build master for this repo.
+   Vercel answers `Deployment Blocked — the commit author did not have
+   contributing access; the Hobby Plan does not support collaboration for
+   private repositories`. The repo owner's GitHub account is not a member of
+   the Vercel team, and merge commits are authored by that account. This is
+   why the CLI job below exists at all (see the comment above
+   `deploy-production` in `.github/workflows/ci.yml`).
+2. **The `deploy-production` CI job** — needs `VERCEL_TOKEN`, which is **not
+   set**. It used to *skip* when the token was missing and still report a
+   green "Deploy to production".
 
-```sql
-select column_name from information_schema.columns where table_name = 'aso_keywords';
-```
+Net effect when PR #77 merged: CI was fully green, the deploy check was green,
+and **nothing shipped**. A green check that means "deployed nothing" is the
+exact silent-success failure the audit round was about, so this session made
+that job **fail loudly** instead of skipping.
 
-- If you see `volume_estimate` / `trend_data` → matches the code, nothing to do.
-- If you see `volume` / `difficulty` → **every ASO keyword route is 500ing in
-  production right now** and needs a migration to reconcile.
+**Consequence for you:** a red `Deploy to production` on master is *correct and
+expected* until the founder adds the secret. It means master genuinely is not
+in production. Do not "fix" it by restoring the skip.
 
-**Migration 020 is ready to apply** (`supabase/migrations/020_schema_catchup.sql`).
-It is idempotent and safe to paste as-is. It adds columns the code already uses
-but that no migration ever created (so the repo currently cannot rebuild prod),
-and enables RLS on `webhook_events`.
+**Founder action (~2 min, unblocks all deploys):** Vercel → Account Settings →
+Tokens → create a token scoped to the ReviewBox team → GitHub → Settings →
+Secrets and variables → Actions → add it as `VERCEL_TOKEN` → re-run the job.
 
 ---
 
-## What this session did (2026-08-15)
+## What shipped (PR #77, merged 2026-08-16)
 
-Mandate: "audit the entire code, act like a real user, test every use case
-starting from signup". Ran the full five-lens system from `AUDIT_SYSTEM.md` as
-four parallel agents, plus a real browser walkthrough of all 20 screens.
+A full five-lens audit (`docs/AUDIT_SYSTEM.md`) plus a browser walkthrough and a
+live probe of the signup path. **28 defects fixed.** The full table with
+`file:line` evidence is in `docs/AUDIT_SYSTEM.md` under "2026-08-15 round".
+Headlines:
 
-**27 verified defects found, 25 fixed.** Full table with file:line evidence is
-in `docs/AUDIT_SYSTEM.md` under "2026-08-15 round". The headlines:
+- **Every automation rule was a silent no-op.** Sync passed the store's
+  `external_id` where the executor updates `reviews` by uuid PK, so every write
+  was a 22P02 no-op — while the run log (whose `review_id` is TEXT) recorded
+  **"success"**. Auto-reply threw "review not found" on every fire.
+- **Abandoning onboarding stranded users permanently.** Only `/complete`
+  stamped the trial; closing the tab during the forced ~10s wait left Clerk with
+  no plan, and `/api/reply/draft` read a *missing* plan as `free` (0 drafts/day).
+- **GDPR export leaked App Store Connect `.p8` signing keys** to any member
+  (no owner gate, `select("*")` over `apps`).
+- **App Store Connect territories are alpha-3** ("IND") going into `char(2)` —
+  22001 fails the whole insert batch, so connecting ASC broke sync entirely.
+- **AppFollow re-import erased saved drafts** (blanket upsert) and keyed
+  ID-less rows on their *position in the file*, overwriting unrelated reviews.
+- **Eight UI spots reported failure as success or as empty data** — most
+  damaging: any error loading apps rendered the first-run "connect your first
+  app" welcome to established customers.
 
-### Two blockers — features that were 100% dead, silently
+## Signup path — verified answers
 
-- **Every automation rule was a no-op.** Sync passed the store's `external_id`
-  as the review id, but automation actions update `reviews` by uuid primary
-  key — so every write was a 22P02 no-op. The execution log's `review_id` is
-  TEXT, so the log happily recorded **"success"** for work that never happened.
-  Auto-reply threw "review not found" on every single fire. This is why the
-  Run history looked healthy while no draft ever appeared.
-- **Abandoning onboarding stranded the user permanently.** Only `/complete`
-  stamped the trial, and steps 4-5 include a forced ~10s wait. Close the tab
-  there and you came back to: no plan in Clerk → `/api/reply/draft` defaulted a
-  *missing* plan to `free` → 0 AI drafts/day → "AI draft limit reached for your
-  plan", forever — while `/api/onboarding/state` said you were onboarded and
-  refused to re-run the wizard. Recovery required Clerk dashboard surgery.
-
-### The security one
-
-`POST /api/gdpr/export` had **no owner gate** and used `apps.select("*")`,
-which includes `access_token`/`refresh_token` — for App Store Connect that is
-the **.p8 signing key** plus keyId/issuerId. Any invited teammate could
-download the ability to post replies as the owner, outside ReviewBox, forever.
-
-### Data-integrity: two ways reviews were being corrupted or refused
-
-- App Store Connect sends **alpha-3** territories ("IND") into
-  `reviews.country char(2)`. Postgres 22001 fails the **whole insert batch**,
-  not the row — so connecting App Store Connect broke sync entirely. Now
-  normalised through `toAlpha2()` (`src/lib/country-codes.ts`, 6 tests).
-- AppFollow re-import was a blanket upsert that **reset reply_status and
-  reply_text** on every already-imported review. Worse, rows without an ID
-  column were keyed on their **position in the file**, so importing a second
-  CSV overwrote unrelated reviews row-by-row. Now `ignoreDuplicates` + a
-  content hash.
-
-### The UI was lying about state in eight places
-
-The pattern throughout: a failed fetch rendered as *empty data*, and a failed
-write rendered as *success*.
-
-- `use-apps` turned any error into `[]`, and the dashboard renders "zero apps"
-  as the **first-run welcome screen** — so one transient 500 told an
-  established customer their workspace was gone. (Watched this happen live in
-  the browser before fixing it.)
-- `use-review-queue` computed `isError` and then **didn't return it**, so a
-  failed inbox fetch showed "No reviews · Connect an app in Settings" to
-  someone whose app was already connected.
-- Automations fabricated success outright: a rejected POST inserted a
-  client-only `temp-…` rule that showed the green "Installed" state, never
-  fired, and vanished on reload. `makeTemp()` is gone.
-- Alert preferences always said "Preferences saved" without checking the
-  response — and the route **silently dropped `slackWebhookUrl`**, the field
-  the UI has a dedicated input for.
-
-Both dashboard and inbox error states were **verified rendering in a real
-browser**, not just type-checked.
-
-### Also fixed
-
-Settings → Team 500'd on every open (`joined_at` exists in no migration);
-`trial_ends_at` was never written so day-5/day-12 trial emails have **never
-sent**; onboarding told customers to invite a **made-up service-account
-address**; the rating-spike alert burned its 24h dedup key *before* sending, so
-any failure lost the alert for a day with no retry; five un-awaited side
-effects inside `syncWorkspace` that Vercel freezes; `/api/apps` returning 200
-with an empty list on DB errors; brand voice stored as raw JSON in the AI
-prompt; the day-15 Stripe dead-end ("Invalid plan." on every plan).
-
-## Signup-path probe — answers to "how many reviews, and do they get sentiment?"
-
-Probed search → bootstrap → sentiment against the fixture apps.
-
-**Sentiment at signup works, and covers every review.** The rules engine tags
-each bootstrapped review at write time with sentiment, priority, issue tags and
-escalation — no network, no tokens, no Gemini needed. Verified: a 1★ crash
-review comes out `critical` / `urgent` / `["crash","release-regression"]` /
-escalated to engineering; a billing complaint routes to support. Gemini only
-refines ambiguous 3★ reviews later, when someone opens the Sentiment screen.
-
-**Why a customer sees ~50-60 reviews and not 200.** `BOOTSTRAP_LIMIT` is 200,
-but the Google Play scrape is filtered to `lang: "en"`. An app whose reviews
-are mostly Hindi/Marathi returns only its English subset. For our India-first
-ICP that is the normal case, not an edge case — this is backlog **CM1**, and it
-is the single highest-value thing left for the core promise.
-
-**Three defects found and fixed here** (details in AUDIT_SYSTEM.md, S1-S3):
-App Store bootstrap reported "sync succeeded, 0 reviews" on *every* upstream
-failure instead of erroring; Google Play reviews were stored with no country
-despite the storefront being known; the dashboard's "Reviews" number was the
-store's global lifetime count with no label, which is what makes a healthy sync
-look like data loss.
+- **Sentiment covers every review at signup.** The rules engine tags each
+  bootstrapped review at write time (sentiment/priority/tags/escalation), no
+  network, no tokens. Verified live: 1★ crash text → `critical`/`urgent`/
+  `["crash","release-regression"]`/engineering. Gemini only refines ambiguous
+  3★ reviews later, on demand.
+- **Why customers see ~50-60 reviews, not 200.** `BOOTSTRAP_LIMIT` is 200, but
+  the Play scrape is filtered to `lang: "en"`, so an app whose reviews are
+  mostly Hindi/Marathi returns only its English subset. For the India-first ICP
+  that is the normal case. This is backlog **CM1** and is the highest-value
+  remaining item for the core promise.
 
 ## ⚠️ The build sandbox cannot test the live store calls
 
-Its egress proxy refuses `CONNECT` to `play.google.com` and `itunes.apple.com`
-with **403 before any request leaves the box**
+Its egress proxy refuses `CONNECT` to `play.google.com`, `itunes.apple.com` and
+`tryreviewbox.com` with **403 before any request leaves the box**
 (`curl: (56) CONNECT tunnel failed, response 403`). Every store 403 seen from a
 Claude session — including the one recorded as finding **A8** — is the sandbox,
 **not** Google blocking us. Only `GET /api/admin/probe/stores` against
-production can answer whether scraping actually works. Please don't let a
-future session record a sandbox 403 as a store block again.
+production can settle it. Do not record a sandbox 403 as a store block again.
 
-## Verified stale — close, don't re-fix
+## Resolved — don't re-investigate
 
-**Backlog R1** says four API namespaces are missing from the middleware
-matcher. All four are present (`src/middleware.ts:36, 89-91`). R1 is done.
-`/api/reports/send-now` was the one route genuinely missing, now added.
+- **`aso_keywords` schema ambiguity: CLOSED.** Founder ran the check on
+  2026-08-16; production has `volume_estimate` / `trend_data` / `added_at` /
+  `updated_at`, matching `007_aso_keywords.sql` and the code. The conflicting
+  `pending_combined.sql` has been deleted from the repo.
+- **Migration 020 applied**, including RLS on `webhook_events`.
+- **Backlog R1** (middleware matcher gaps) was already fixed; re-verified.
 
 ## What's next
 
-1. Founder: run the `aso_keywords` column check above, and apply migration 020
-2. `ai_usage` is read by four dashboards and **written by nothing** — every "AI
-   drafts" number in the product and the admin panel is permanently 0
-3. Same swallowed-error class as above still present on ASO, Sentiment,
-   Reply Kit reads, and Competitors — lower traffic, same fix shape
-4. `pending_combined.sql` should be deleted once prod's real schema is known;
-   keeping a file that disagrees with the numbered migrations is a trap
-5. Migration numbering hit its **third** duplicate (`007` + `007a`). Next
+1. **Founder: add `VERCEL_TOKEN`** — nothing reaches production until then
+2. **CM1** — multi-language reviews; the `lang: "en"` filter is costing our ICP
+   most of their feedback
+3. **AU3** — `ai_usage` is read by four dashboards and written by nothing, so
+   every "AI drafts" figure is permanently 0
+4. **AU4** — finish the swallowed-error sweep on ASO / Sentiment / Reply Kit /
+   Competitors (same shape as the fixes already shipped)
+5. Migration numbering has hit its **third** duplicate (`007` + `007a`). Next
    number is **021**.

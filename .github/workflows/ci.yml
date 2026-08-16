@@ -230,36 +230,56 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Skip rather than fail when the token is absent. Without this, adding
-      # this job would turn master red until the secret exists, and a red
-      # pipeline that everyone learns to ignore is worse than no pipeline.
+      # FAIL when the token is absent — do not skip.
+      #
+      # This originally skipped, reasoning that "a red pipeline that everyone
+      # learns to ignore is worse than no pipeline". That reasoning holds only
+      # if some other path still deploys. Here none does: the comment above
+      # this job records that Vercel's Git integration refuses to build master
+      # for this repo ("the commit author did not have contributing access"),
+      # which is why this CLI job exists at all. So with the token missing,
+      # BOTH production paths are closed and nothing reaches production.
+      #
+      # What that produced in practice: PR #77 merged on 2026-08-16, this job
+      # reported a green "Deploy to production", every deploy step inside it
+      # was skipped, and the code never shipped. A green check that means
+      # "deployed nothing" is precisely the silent-success failure the whole
+      # audit round was about — the pipeline should not model it differently
+      # from the product.
+      #
+      # Red master here is correct and actionable: it means master is genuinely
+      # not in production. Fix by adding the secret, not by softening this.
       - name: Check for VERCEL_TOKEN
-        id: guard
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
           if [ -z "$VERCEL_TOKEN" ]; then
-            echo "::warning::VERCEL_TOKEN is not set — skipping the production deploy. Add it at Settings → Secrets and variables → Actions (create the token at Vercel → Account Settings → Tokens, scoped to the ReviewBox team)."
-            echo "ready=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "ready=true" >> "$GITHUB_OUTPUT"
+            echo "::error::VERCEL_TOKEN is not set, so master was NOT deployed to production." >&2
+            {
+              echo "### ❌ Production deploy did not run"
+              echo ""
+              echo "\`VERCEL_TOKEN\` is missing, and Vercel's Git integration does not"
+              echo "build master for this repo — so **this commit is not in production.**"
+              echo ""
+              echo "To fix: create a token at Vercel → Account Settings → Tokens (scoped to"
+              echo "the ReviewBox team), then add it as \`VERCEL_TOKEN\` under"
+              echo "Settings → Secrets and variables → Actions. Re-run this job afterwards."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit 1
           fi
 
       - uses: actions/setup-node@v4
-        if: steps.guard.outputs.ready == 'true'
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
       - name: Install Vercel CLI
-        if: steps.guard.outputs.ready == 'true'
         run: npm install --global vercel@latest
 
       # `vercel pull` fetches the project's own production environment
       # variables, so the real Clerk / Supabase / Groq values come from Vercel
       # and are never duplicated into GitHub secrets.
       - name: Pull Vercel production environment
-        if: steps.guard.outputs.ready == 'true'
         run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
         env:
           # VERCEL_ORG_ID and VERCEL_PROJECT_ID come from the workflow-level
@@ -267,7 +287,6 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
       - name: Build
-        if: steps.guard.outputs.ready == 'true'
         run: vercel build --prod --token="$VERCEL_TOKEN"
         env:
           # VERCEL_ORG_ID and VERCEL_PROJECT_ID come from the workflow-level
@@ -275,7 +294,6 @@ jobs:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy
-        if: steps.guard.outputs.ready == 'true'
         run: |
           url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
           echo "Deployed: $url"
