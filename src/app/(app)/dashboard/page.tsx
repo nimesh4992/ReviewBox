@@ -85,17 +85,6 @@ function PortfolioSparkline({ data }: { data: (number | null)[] }) {
     .filter(Boolean)
     .join(" ");
 
-  // `preserveAspectRatio="none"` is what lets the line stretch to whatever width
-  // the card happens to be — but it scales x and y independently, and it scales
-  // EVERYTHING in the SVG, glyphs included. On a wide screen the viewBox is
-  // stretched about 2x horizontally and not at all vertically, so the axis
-  // numbers came out visibly distorted.
-  //
-  // So the labels leave the SVG. The stretched box keeps only geometry
-  // (gridlines and the path, which are supposed to stretch) and the numbers are
-  // HTML positioned over it, rendering at their natural proportions.
-  const pct = (v: number) => `${(ys(v) / h) * 100}%`;
-
   return (
     <div ref={containerRef} className="w-full">
       {values.length < 2 ? (
@@ -113,45 +102,6 @@ function PortfolioSparkline({ data }: { data: (number | null)[] }) {
           <path d={d} fill="none" stroke="#0A84FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
-    <div className="relative w-full" style={{ height: h }}>
-      <svg
-        viewBox={`0 0 ${w} ${h}`}
-        preserveAspectRatio="none"
-        className="absolute inset-0 h-full w-full"
-        aria-hidden="true"
-      >
-        {ticks.map((g) => (
-          <line
-            key={g}
-            x1={padL}
-            x2={w - padR}
-            y1={ys(g)}
-            y2={ys(g)}
-            stroke="var(--rb-border-1)"
-          />
-        ))}
-        <path
-          d={d}
-          fill="none"
-          stroke="#0A84FF"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          // Stroke width is a length like any other, so the horizontal stretch
-          // would thin the line as the card widens. This keeps it at 2px.
-          vectorEffect="non-scaling-stroke"
-        />
-      </svg>
-
-      {ticks.map((g) => (
-        <span
-          key={g}
-          className="absolute text-[10px] tabular-nums text-fg-3"
-          style={{ top: pct(g), left: 0, width: padL - 6, transform: "translateY(-50%)", textAlign: "right" }}
-        >
-          {g.toFixed(1)}
-        </span>
-      ))}
     </div>
   );
 }
@@ -565,11 +515,10 @@ export default function DashboardPage() {
     },
     {
       icon: Star,
-      label: ratingIsLifetime ? "Store rating" : "Avg. rating",
-      value: displayRating !== null ? displayRating.toFixed(2) : "—",
-      delta: formatDelta(avgRatingDelta),
-      kind: avgRatingDeltaKind,
-      sub: ratingIsLifetime ? "all-time (store)" : "last 30 days · synced",
+      // Always the 30-day average, never the store's all-time figure. The hero
+      // above already shows the store rating; letting this tile switch to it as
+      // well is what printed the same number twice under two labels, which is
+      // the exact complaint that started this work.
       label: "Avg. rating",
       value: avgRating !== null ? avgRating.toFixed(2) : "—",
       delta: formatDelta(avgRatingDelta),
@@ -690,7 +639,9 @@ export default function DashboardPage() {
                 average looked like the store rating being wrong (2.53 vs the
                 Play listing's 3.1) — the store's own figure and our synced
                 window must never be presentable as the same thing. */}
-            {ratingIsLifetime ? "Store rating · all-time" : "Synced reviews · 30-day average"}
+            {/* One label only. The merge left two adjacent expressions here,
+                which rendered "Store rating · all-timeStore rating" on screen —
+                invisible to tsc, visible to every customer. */}
             {ratingIsLifetime ? "Store rating · all-time" : "Store rating"}
           </div>
           <div className="mt-3 flex items-baseline gap-3">
