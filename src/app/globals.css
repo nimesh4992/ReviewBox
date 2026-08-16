@@ -339,10 +339,28 @@ textarea {
   outline-color: var(--ring);
 }
 
-/* Smooth focus rings */
-:focus-visible {
+/* Focus indication.
+   Form controls are excluded here because they draw their own — see
+   components/ui/input.tsx, which sets a border colour AND a 3px ring. Stacking
+   this outline on top produced three concentric blue highlights on one focused
+   field, which is what made active inputs look alarmed rather than focused.
+   Everything else (links, buttons, custom widgets) keeps the outline. */
+:focus-visible:not(input):not(textarea):not(select) {
   outline: 2px solid var(--brand);
   outline-offset: 2px;
+}
+
+@layer base {
+  /* One focus treatment for every form control, including the plain <input>
+     elements that do not go through the shadcn component. Layered, so a
+     component that wants its own ring still wins. */
+  input:focus-visible,
+  textarea:focus-visible,
+  select:focus-visible {
+    outline: none;
+    border-color: var(--brand);
+    box-shadow: 0 0 0 3px rgb(var(--brand-rgb) / 0.18);
+  }
 }
 
 ::selection {
