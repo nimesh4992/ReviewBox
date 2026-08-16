@@ -513,6 +513,18 @@ async function writeCache(key: string, value: AppMetadata): Promise<void> {
   }
 }
 
+/**
+ * Cache only results that carry a rating or a review count. A result with
+ * neither is usually a consent/placeholder page or a partial parse, and
+ * caching one pinned the failure for the full 6h TTL across onboarding AND
+ * every sync retry — a transient block looked permanent, and
+ * `apps.lifetime_rating` stayed null the whole time.
+ */
+async function cacheIfUsable(key: string, value: AppMetadata): Promise<void> {
+  if (value.rating === null && value.reviewCount === null) return;
+  await writeCache(key, value);
+}
+
 /** Fetch a Google Play app's metadata from its listing. */
 export async function fetchGooglePlayMetadata(
   packageName: string,
@@ -536,7 +548,7 @@ export async function fetchGooglePlayMetadata(
         reviewCount: toNumber(app.ratings, app.reviews),
         country: store,
       };
-      await writeCache(cacheKey, result);
+      await cacheIfUsable(cacheKey, result);
       return result;
     }
   } catch {
@@ -593,7 +605,7 @@ export async function fetchGooglePlayMetadata(
       country: store,
     };
 
-    await writeCache(cacheKey, result);
+    await cacheIfUsable(cacheKey, result);
     return result;
   } catch {
     return null;
@@ -631,7 +643,7 @@ export async function fetchAppStoreMetadata(
       country: store,
     };
 
-    await writeCache(cacheKey, result);
+    await cacheIfUsable(cacheKey, result);
     return result;
   } catch {
     return null;
