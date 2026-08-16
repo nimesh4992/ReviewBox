@@ -59,11 +59,20 @@ export default function AboutPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 gap-6 sm:grid-cols-4 mb-20">
+          {/* These were fabricated: "2,400+ AI drafts / day", "48h average
+              first-reply time drop", "4.21 -> 4.58 avg rating lift after 90
+              days". We have no customers, so none of them could be measured,
+              and a rating-lift figure is a performance claim a regulator would
+              read as an inducement.
+
+              What replaces them is what the product actually does, stated
+              without a number we cannot stand behind. Put real figures here
+              when there are real customers to measure. */}
           {[
-            { value: "2,400+", label: "AI drafts generated / day" },
-            { value: "48h", label: "Average first-reply time drop" },
-            { value: "4.21→4.58", label: "Avg. rating lift after 90 days" },
-            { value: "< 5 min", label: "Setup to first synced review" },
+            { value: "2", label: "Stores supported: App Store and Google Play" },
+            { value: "1 click", label: "From AI draft to a published reply" },
+            { value: "Daily", label: "Automatic review sync, plus sync on demand" },
+            { value: "14 days", label: "Free trial, no card required" },
           ].map(({ value, label }) => (
             <div key={label} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6">
               <div className="text-3xl font-bold text-gray-900 dark:text-[#F5F5F7]">{value}</div>

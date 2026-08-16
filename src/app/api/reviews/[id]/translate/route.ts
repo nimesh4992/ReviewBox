@@ -4,6 +4,7 @@ import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { apiError, captureAndError } from "@/lib/api-response";
 import { rateLimit } from "@/lib/api-rate-limit";
 import { translateText } from "@/lib/groq";
+import { isLikelyEnglish } from "@/lib/language";
 import { Redis } from "@upstash/redis";
 
 const CACHE_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
@@ -61,6 +62,14 @@ export async function POST(
     }
 
     const body = (review.body as string | null) ?? "";
+
+    // Second line of defence behind the hidden button: an older client, a
+    // bookmarked request or a retry must not spend a Groq call to be told the
+    // review was already English.
+    if (isLikelyEnglish(body)) {
+      return NextResponse.json({ translatedText: body, sourceLang: "en", cached: false });
+    }
+
     const { translatedText, sourceLang } = await translateText(body);
 
     // Cache it

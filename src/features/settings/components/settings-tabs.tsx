@@ -16,6 +16,7 @@ import { AppConnections } from "./app-connections";
 import { AppFollowImport } from "./appfollow-import";
 import { SlackIntegration } from "./slack-integration";
 import { SupportSection } from "./support-section";
+import { TagLabelSettings } from "./tag-labels";
 import { TeamMembers } from "./team-members";
 import { WorkspaceDefaults } from "./settings-sections";
 import { DangerZone } from "@/components/settings/danger-zone";
@@ -85,6 +86,7 @@ function SettingsTabsInner() {
           rail that ran out of content halfway down the page. */}
       <TabsContent value="general" className="max-w-[560px] space-y-4">
         <WorkspaceDefaults />
+        <TagLabelSettings />
       </TabsContent>
 
       <TabsContent value="alerts">

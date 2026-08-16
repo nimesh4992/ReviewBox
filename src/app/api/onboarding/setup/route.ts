@@ -18,9 +18,11 @@ import { apiError } from "@/lib/api-response";
 import { rateLimit } from "@/lib/api-rate-limit";
 import { writeWithOptionalColumns } from "@/lib/db-errors";
 import { seedStarterTemplates } from "@/lib/seed-templates";
+import { claimTrialForApp } from "@/lib/trial-service";
 import { resolveAppMetadata } from "@/services/store-search";
 import { syncWorkspace } from "@/services/review-sync";
 import { getBrandVoiceStub, type AppCategory } from "@/lib/brand-voice-stubs";
+import { TRIAL_DAYS } from "@/lib/plans";
 
 // The after() bootstrap scrapes the public store (10-30s) — needs more than
 // the default function budget so the sync isn't cut off mid-write.
@@ -63,7 +65,6 @@ const RESERVED_SLUGS = new Set([
   "status", "support", "terms", "www",
 ]);
 
-const TRIAL_DAYS = 14;
 
 // ── Brand voice text generator ────────────────────────────────────────────────
 
@@ -131,6 +132,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   let workspaceId: string;
   const isNew = !existingMember?.workspace_id;
+  // Flipped to false when this app has already had a trial under another
+  // workspace — the client uses it to explain why they're on the free plan.
+  let trialGranted = isNew;
 
   if (existingMember?.workspace_id) {
     workspaceId = existingMember.workspace_id as string;
@@ -296,6 +300,25 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       console.error("[onboarding/setup] app insert:", appInsert.error);
       return apiError("INTERNAL_SERVER_ERROR", 500);
     }
+
+    // Claim the trial for this APP, not this account.
+    //
+    // Gating trials on the account gates nothing — email addresses are free
+    // and unlimited, so the same person can trial forever with a new address
+    // each fortnight. The store listing is the thing they can't duplicate.
+    // A second workspace adding an already-trialled app isn't blocked; it
+    // just starts on `free` instead of getting another free run.
+    if (isNew && storeId) {
+      const eligibility = await claimTrialForApp({
+        workspaceId,
+        platform: dbPlatform,
+        storeId,
+      });
+      if (eligibility.previouslyClaimed) {
+        await sb.from("workspaces").update({ plan: eligibility.plan }).eq("id", workspaceId);
+        trialGranted = false;
+      }
+    }
     appId = appInsert.data!.id as string;
   }
 
@@ -346,5 +369,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
   });
 
-  return NextResponse.json({ workspaceId, appId });
+  // `trialGranted: false` means this app has already had a free trial under a
+  // different workspace, so this one starts on the free plan. The client shows
+  // that rather than letting the customer discover it later as a mystery limit.
+  return NextResponse.json({ workspaceId, appId, trialGranted });
 }

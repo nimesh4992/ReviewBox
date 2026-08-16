@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { audit } from "@/lib/audit";
 import { rateLimit } from "@/lib/api-rate-limit";
+import { canPublishReply } from "@/lib/plan-enforcement";
 import { apiError, captureAndError } from "@/lib/api-response";
 import { submitReply as submitGooglePlayReply } from "@/services/google-play/publisher-api";
 import {
@@ -94,6 +95,22 @@ export async function POST(
     // ── Publish to store if status = "sent" ──────────────────────────────────
 
     if (status === "sent") {
+      // Plan meter. Checked here rather than in the UI because the UI is not
+      // a security boundary, and because bulk "Publish N replies" calls this
+      // route in a loop — a client-side check would let one click blow
+      // straight through the limit.
+      const plan =
+        (session.sessionClaims?.metadata as Record<string, string> | undefined)?.plan ?? "trial";
+      const quota = await canPublishReply(workspaceId, plan);
+      if (!quota.allowed) {
+        return apiError(
+          "RATE_LIMITED",
+          429,
+          `You've published ${quota.used} of ${quota.limit} replies this month on your current plan. ` +
+            `Upgrade to keep publishing, or mark this one as replied to track it without posting.`,
+        );
+      }
+
       type AppInfo = { store_id: string; platform: string; access_token: string | null; refresh_token: string | null };
       const app = (Array.isArray(review.apps) ? review.apps[0] : review.apps) as AppInfo | null;
 

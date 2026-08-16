@@ -26,6 +26,10 @@ export interface AppReview {
   device: string;
   country: string;
   issueTags: ReviewIssueTag[];
+  /** What the rules engine assigned, before any human correction (migration 024). */
+  autoIssueTags?: ReviewIssueTag[];
+  /** True when someone has edited this review's tags, so the UI can offer a reset. */
+  tagsEdited?: boolean;
   sentiment: ReviewSentiment;
   priority: ReviewPriority;
   replyStatus: ReplyStatus;

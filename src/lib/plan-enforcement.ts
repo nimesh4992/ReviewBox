@@ -71,3 +71,51 @@ export async function checkReviewLimit(
 
   return null;
 }
+
+/**
+ * Can this workspace publish another reply to the store this month?
+ *
+ * Published replies are the commercial meter (lib/plans.ts): a reply posted to
+ * the store is the thing the customer is actually buying, it is measurable,
+ * and it grows with them — unlike "apps", which charges someone with ten
+ * dormant listings like a heavy user.
+ *
+ * Counted from the audit log rather than a counter column: `reply.publish` is
+ * already written on every successful publish, so there is no second source of
+ * truth to drift. Rolling 30 days rather than calendar month, so nobody gets a
+ * cliff at midnight on the 1st.
+ *
+ * Fails OPEN. If the count can't be read we let the reply through — refusing
+ * to publish someone's reply because our own query failed is a worse outcome
+ * than one reply over the line.
+ */
+export async function canPublishReply(
+  workspaceId: string,
+  plan: string,
+): Promise<{ allowed: boolean; used: number; limit: number }> {
+  const resolved = resolvePlan(plan);
+  const limit = PLAN_LIMITS[resolved].publishedRepliesPerMonth;
+
+  const since = new Date(Date.now() - 30 * 86_400_000).toISOString();
+
+  try {
+    const sb = getServiceClient();
+    const { count, error } = await sb
+      .from("audit_log")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId)
+      .eq("action", "reply.publish")
+      .gte("created_at", since);
+
+    if (error) {
+      console.error("[plan] published-reply count failed, allowing:", error);
+      return { allowed: true, used: 0, limit };
+    }
+
+    const used = count ?? 0;
+    return { allowed: used < limit, used, limit };
+  } catch (err) {
+    console.error("[plan] published-reply count threw, allowing:", err);
+    return { allowed: true, used: 0, limit };
+  }
+}

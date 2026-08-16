@@ -12,11 +12,29 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { apiErrorMessage } from "@/lib/api-error-message";
+import { avatarInitials } from "@/utils/format";
+import { avatarColorVar } from "@/lib/avatar-color";
 
 interface Member {
   clerk_user_id: string;
   role: string;
   joined_at: string | null;
+  /** All three are null when Clerk could not be reached — see the members route. */
+  name: string | null;
+  email: string | null;
+  image_url: string | null;
+  is_self: boolean;
+}
+
+/**
+ * Who this row is, in the order a human would recognise them: their name, then
+ * the address they were invited at, and only as a last resort the Clerk ID —
+ * which is what the row used to show for everyone.
+ */
+function memberLabel(m: Member): { primary: string; secondary: string | null } {
+  if (m.name)  return { primary: m.name, secondary: m.email };
+  if (m.email) return { primary: m.email, secondary: null };
+  return { primary: `${m.clerk_user_id.slice(0, 12)}…`, secondary: "Name unavailable" };
 }
 
 interface Invite {
@@ -100,15 +118,42 @@ export function TeamMembers() {
       {/* Current members */}
       {members.length > 0 && (
         <div className="mb-4 space-y-1">
-          {members.map((m) => (
-            <div key={m.clerk_user_id} className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 hover:bg-[var(--rb-bg-hover)]">
-              <span className="text-[13px] text-fg-2 font-mono truncate">{m.clerk_user_id.slice(0, 20)}…</span>
-              <div className="flex items-center gap-2 shrink-0">
-                <RoleBadge role={m.role} />
-                <span className="text-[11px] text-fg-3">{formatDate(m.joined_at)}</span>
+          {members.map((m) => {
+            const { primary, secondary } = memberLabel(m);
+            return (
+              <div key={m.clerk_user_id} className="flex items-center justify-between gap-3 rounded-lg px-3 py-2 hover:bg-[var(--rb-bg-hover)]">
+                <div className="flex min-w-0 items-center gap-2.5">
+                  {m.image_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- Clerk CDN avatar, no loader configured for it
+                    <img
+                      src={m.image_url}
+                      alt=""
+                      className="size-7 shrink-0 rounded-full object-cover"
+                    />
+                  ) : (
+                    <span
+                      aria-hidden="true"
+                      className="flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white"
+                      style={{ background: avatarColorVar(m.clerk_user_id) }}
+                    >
+                      {avatarInitials(primary)}
+                    </span>
+                  )}
+                  <div className="min-w-0">
+                    <p className="truncate text-[13px] font-medium text-fg-1">
+                      {primary}
+                      {m.is_self && <span className="ml-1.5 text-[11px] font-normal text-fg-3">You</span>}
+                    </p>
+                    {secondary && <p className="truncate text-[11px] text-fg-3">{secondary}</p>}
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <RoleBadge role={m.role} />
+                  <span className="text-[11px] text-fg-3">{formatDate(m.joined_at)}</span>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 

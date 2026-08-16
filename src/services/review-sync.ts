@@ -30,6 +30,7 @@ import { buildEnrichedRow } from "@/lib/review-mapper";
 import { bootstrapReviews } from "@/services/bootstrap-reviews";
 import { planSyncWrites, mergeReviewRows, isGpPermissionError } from "@/lib/sync-writes";
 import { isMissingColumnError, writeWithOptionalColumns } from "@/lib/db-errors";
+import { formatDeviceName } from "@/lib/device-name";
 import { seedStarterTemplates } from "@/lib/seed-templates";
 import { STARTER_REPLY_TEMPLATES } from "@/lib/brand-voice-stubs";
 import { sendRatingSpikeAlert } from "@/lib/email/send-rating-spike-alert";
@@ -235,7 +236,10 @@ async function syncGooglePlayApp(app: DbApp, summary: SyncSummary, isFirstSync: 
         uc?.starRating ?? 3,
         uc?.text ?? "",
         uc?.appVersionName ?? null,
-        uc?.device ?? null,
+        // Not `uc.device` — that is the Android build codename ("klte",
+        // "spacewar"), which reads as noise in the review pane. The readable
+        // name is in the same payload under deviceMetadata.
+        formatDeviceName(uc?.device, uc?.deviceMetadata),
         null,
         at,
         !!dc,

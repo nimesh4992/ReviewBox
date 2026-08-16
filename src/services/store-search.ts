@@ -196,7 +196,7 @@ async function searchGooglePlayIn(
       name: r.title!,
       developer: developerName(r.developer),
       icon: r.icon ?? null,
-      rating: typeof r.score === "number" ? r.score : null,
+      rating: toNumber(r.score, (r as { scoreText?: unknown }).scoreText),
       url: r.url ?? `https://play.google.com/store/apps/details?id=${r.appId}`,
       country,
     }));
@@ -418,6 +418,36 @@ export async function searchStore(
   return searchGooglePlay(trimmed, limit);
 }
 
+
+/**
+ * Coerce a scraped numeric field.
+ *
+ * The store scrapers are not consistent about types: a rating can arrive as
+ * the number 3.1, the string "3.1", or only as `scoreText`, and which one you
+ * get varies by library version and by storefront. The old check was
+ * `typeof x === "number" ? x : null`, so a perfectly good "3.1" became null.
+ *
+ * That is why the dashboard read "PORTFOLIO RATING · 30 DAYS · 2.50" against a
+ * Play listing showing 3.1: `apps.lifetime_rating` stayed null, so the hero
+ * silently fell back to a 30-day average of synced reviews. The app icon,
+ * being a plain string, wrote fine — which is what made it look like metadata
+ * was working.
+ *
+ * Rejects NaN, Infinity and negatives rather than writing nonsense.
+ */
+function toNumber(...candidates: unknown[]): number | null {
+  for (const raw of candidates) {
+    if (typeof raw === "number" && Number.isFinite(raw) && raw >= 0) return raw;
+    if (typeof raw === "string") {
+      // "3.1", "3,1" (some locales), "1,234" (counts)
+      const cleaned = raw.trim().replace(/,(\d)/g, ".$1").replace(/[, ]/g, "");
+      const n = Number.parseFloat(cleaned);
+      if (Number.isFinite(n) && n >= 0) return n;
+    }
+  }
+  return null;
+}
+
 // ── Single-app metadata (icon, lifetime rating, lifetime review count) ───────
 //
 // Used after a user picks their app to populate apps.icon_url +
@@ -478,13 +508,8 @@ export async function fetchGooglePlayMetadata(
         name: app.title ?? packageName,
         developer: developerName(app.developer),
         icon: app.icon ?? null,
-        rating: typeof app.score === "number" ? app.score : null,
-        reviewCount:
-          typeof app.ratings === "number"
-            ? app.ratings
-            : typeof app.reviews === "number"
-              ? app.reviews
-              : null,
+        rating: toNumber(app.score, (app as { scoreText?: unknown }).scoreText),
+        reviewCount: toNumber(app.ratings, app.reviews),
         country: store,
       };
       await writeCache(cacheKey, result);
@@ -515,9 +540,15 @@ export async function fetchGooglePlayMetadata(
       /https:\/\/play-lh\.googleusercontent\.com\/[A-Za-z0-9_\-=/]+=w(\d+)-h(\d+)/,
     );
 
+    // Several shapes, because the listing markup changes and any one of these
+    // silently returning nothing is how the rating went missing in the first
+    // place. JSON-LD first (most stable), then the accessibility label, then
+    // the embedded data array Play uses for the star summary.
     const ratingMatch =
-      html.match(/"ratingValue":\s*"?(\d(?:\.\d)?)"?/i) ??
-      html.match(/aria-label="(?:Average rating|Rated)\s+(\d(?:\.\d)?)/i);
+      html.match(/"ratingValue"\s*:\s*"?(\d(?:\.\d+)?)"?/i) ??
+      html.match(/aria-label="(?:Average rating|Rated)\s+(\d(?:\.\d+)?)/i) ??
+      html.match(/\[\[\[(\d\.\d+)\]\]/) ??
+      html.match(/>(\d\.\d)<\/div><div[^>]*>star/i);
 
     const countMatch =
       html.match(/"ratingCount":\s*"?(\d+)"?/i) ??

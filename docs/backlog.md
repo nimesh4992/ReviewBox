@@ -19,9 +19,16 @@ These are the next items to ship. Don't skip; don't reorder without thinking.
 **Done when:** review scrape is not restricted to `lang: "en"`; each review stores its detected language; the inbox shows the original with an optional translation; AI drafts reply in the review's language (brand voice preserved). Verified against a Hindi/Marathi-heavy fixture app.
 **Why now:** our ICP is India-first (`docs/PRODUCT_CONTEXT.md`) and we currently show a fraction of their feedback and would answer it in the wrong language. This is the same class of blind spot as the US-storefront bug, one layer up — invisible in a feature comparison because the row exists on both sides.
 
-### [ ] CM2 · Bulk reply + user-editable tag rules · ICE 32 (8×8÷2)
-**Added 2026-07-29 by `docs/COMPETITIVE_MAP.md`.**
-**Done when:** an operator can select many reviews and apply a template reply, and can create their own auto-tag conditions (text / rating / language / length). Today tags are derived automatically with no user control.
+### [~] CM2 · Bulk reply + user-editable tag rules · ICE 32 (8×8÷2)
+**Added 2026-07-29 by `docs/COMPETITIVE_MAP.md`. Tag half SHIPPED 2026-08-16 (PR #89).**
+**Shipped:** workspace-scoped tag renaming (`tag_labels`, Settings → General) and
+per-review tag correction (`reviews.issue_tags_override`, editable chips in the
+review pane). Renaming is display-only so automation rules keep matching; the
+engine's original tags are preserved alongside the human correction. Renamed
+tags carry through to the digest emails. **Needs migration 024.**
+**Still open:** bulk reply across selected reviews, and user-defined auto-tag
+*conditions* (text / rating / language / length) — this shipped the ability to
+correct and rename tags, not to author new tagging rules.
 **Why now:** our buyer is a team of one — leverage is the product.
 
 ### [ ] CM3 · Enforce workspace roles before the Team plan is sold · ICE 30 (see R2)
@@ -48,10 +55,15 @@ Production has `volume_estimate` / `trend_data` / `added_at` / `updated_at`, mat
 **Done when:** either the current behaviour is confirmed and documented in `decisions.md`, or reviews get a `deleted_at` and a restore window.
 **Why now:** deleting an app permanently deletes its reviews (D015 sanctions it). That is defensible, but it must be a decision on the record before a paying customer does it by accident — after the fact there is nothing to restore, and the store only returns ~90 days on re-add.
 
-### [ ] AU3 · `ai_usage` is read everywhere, written nowhere · ICE 45 (5×9÷1)
-**Added 2026-08-15 by the audit round.** **Effort:** 2h.
-**Done when:** `/api/reply/draft` (and the automation executor's `generateReply` path) insert an `ai_usage` row per call, so the dashboard "AI drafts this week", admin overview, customer detail, and analytics stop reporting a hardcoded-looking 0.
-**Why now:** four surfaces currently show a number that is structurally always zero — including the founder's only view of AI cost and abuse.
+### [x] AU3 · `ai_usage` is read everywhere, written nowhere — SHIPPED 2026-08-16 (PR #89)
+`recordAiUsage()` (`src/lib/ai-usage.ts`) is called from every tier of
+`/api/reply/draft` via the existing `log()` hook, and from both AI paths in the
+automation executor. `model` carries the tier that served the reply
+(reply-kit / template / cache / groq / gemini / composer), so the founder can
+tell a free template draft from a metered provider call — a single count that
+mixed them could not. Automation drafts are attributed to the rule rather than
+a user, since a rule can burn far more quota than a person clicking Generate.
+Written via `after()`, not a detached promise, which Vercel would cut off.
 
 ### [ ] AU4 · Finish the swallowed-error sweep (ASO / Sentiment / Reply Kit / Competitors) · ICE 40 (8×5÷1)
 **Added 2026-08-15 by the audit round.** **Effort:** 3h.

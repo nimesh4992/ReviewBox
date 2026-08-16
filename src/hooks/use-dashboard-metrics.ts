@@ -12,6 +12,7 @@ const EMPTY_METRICS: DashboardMetrics = {
   avgRating: null,
   aiDraftsThisWeek: 0,
   reviewsToday: 0,
+  reviewsThisWeek: 0,
   totalReviews: 0,
   reviewsWeekDelta: null,
   avgRatingDelta: null,

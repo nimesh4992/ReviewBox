@@ -11,6 +11,7 @@ import { ThemeProvider } from "@/components/providers/theme-provider";
 import { CookieBanner } from "@/components/layout/cookie-banner";
 import { PostHogProvider } from "@/components/providers/posthog-provider";
 import { SentryIdentify } from "@/components/providers/sentry-identify";
+import { marketingUrl } from "@/lib/site-urls";
 
 // Product UI face. latin-ext is free at runtime (next/font emits a per-subset
 // @font-face with unicode-range) and stops Polish/Turkish/Czech review bodies
@@ -30,8 +31,10 @@ const brand = Schibsted_Grotesk({
   display: "swap",
 });
 
-const RAW_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
-const BASE_URL = RAW_URL.startsWith("http") ? RAW_URL : `https://${RAW_URL}`;
+// The PUBLIC origin, not the app's. Canonical URLs and sitemap entries must
+// name the marketing domain even when the app sits on a subdomain — see
+// lib/site-urls.ts.
+const BASE_URL = marketingUrl();
 
 // Tell mobile browsers to render at device width instead of the default
 // ~980px desktop width that then gets scaled down to fit. Without this,

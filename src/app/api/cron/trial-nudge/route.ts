@@ -167,7 +167,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       await redis.set(dedupKey, "1", { ex: 30 * 24 * 3600 });
     }
 
-    await sendTrialExpiringEmail(ownerInfo.email, ownerInfo.name, 2);
+    await sendTrialExpiringEmail({ to: ownerInfo.email, workspaceId: ws.id, daysLeft: 2 });
 
     sent++;
   }
