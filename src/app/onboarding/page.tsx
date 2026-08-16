@@ -305,7 +305,7 @@ export default function OnboardingPage() {
                     active && "bg-[#0A84FF] text-white ring-2 ring-[#0A84FF]/30",
                     !done && !active && "bg-[var(--rb-bg-sunken)] text-fg-3",
                   )}>
-                    {done ? "✓" : n}
+                    {done ? <Check className="size-3.5" strokeWidth={3} /> : n}
                   </div>
                   <span className={cn("text-[9px] font-medium hidden sm:block",
                     active ? "text-fg-2" : "text-fg-3",

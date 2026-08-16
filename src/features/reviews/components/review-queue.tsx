@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useDeferredValue } from "reac
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
+  Check,
   CheckCheck,
   Inbox,
   Loader2,
@@ -696,7 +697,7 @@ function ReplyComposer({
 
         {/* Actions */}
         {replyDone && !alreadyReplied ? (
-          <p className="text-[12px] font-semibold text-[var(--rb-green-500)]">✓ Marked as replied — moving to next…</p>
+          <p className="flex items-center gap-1.5 text-[12px] font-semibold text-[var(--rb-green-500)]"><Check className="size-3.5" strokeWidth={3} />Marked as replied, moving to next…</p>
         ) : (
           <div className="flex flex-col gap-1.5">
             {sendFeedback === "error" && sendError && (
@@ -743,7 +744,7 @@ function ReplyComposer({
                       copied ? "bg-[var(--rb-green-500)]" : "bg-[var(--rb-blue-500)] hover:bg-[var(--rb-blue-600)]",
                     )}
                   >
-                    {copied ? "✓ Copied — now paste it on the store" : "Copy reply"}
+                    {copied ? <><Check className="size-3.5" strokeWidth={3} />Copied, now paste it on the store</> : "Copy reply"}
                   </button>
 
                   {/* Confirm step — record it as replied in our DB (no store API call) */}
@@ -770,7 +771,7 @@ function ReplyComposer({
                   disabled={!text.trim() || isSavingDraft}
                   className="text-[11px] font-medium text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-fg-2)] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-[#0A84FF]"
                 >
-                  {isSavingDraft ? "Saving…" : draftSaved ? "✓ Saved" : "Save draft"}
+                  {isSavingDraft ? "Saving…" : draftSaved ? <><Check className="size-3.5" strokeWidth={3} />Saved</> : "Save draft"}
                 </button>
                 {!alreadyReplied && aiSuggestion && (
                   <button
@@ -788,7 +789,7 @@ function ReplyComposer({
                     disabled={!text.trim()}
                     className="ml-auto text-[11px] font-medium text-[var(--rb-fg-3)] transition-colors hover:text-[var(--rb-fg-2)] disabled:opacity-40"
                   >
-                    {copied ? "✓ Copied" : "Copy reply"}
+                    {copied ? <><Check className="size-3.5" strokeWidth={3} />Copied</> : "Copy reply"}
                   </button>
                 ) : (
                   /* Draft Mode: API posting stays reachable for the curious —
@@ -1130,7 +1131,7 @@ function GroupReplyPanel({
         {/* Success / errors */}
         {allDone && sendErrors.length === 0 && (
           <p className="text-[12px] font-semibold text-[var(--rb-green-500)]">
-            ✓ All {progress?.total} replies posted
+            <Check className="size-3.5 shrink-0" strokeWidth={3} />All {progress?.total} replies posted
           </p>
         )}
         {allDone && sendErrors.length > 0 && (
