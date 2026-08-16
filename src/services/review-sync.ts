@@ -128,7 +128,23 @@ async function refreshAppMetadata(app: DbApp): Promise<string> {
     if (meta.developer)            update.developer             = meta.developer;
 
     if (Object.keys(update).length) {
-      await sb.from("apps").update(update).eq("id", app.id);
+      const { error } = await sb.from("apps").update(update).eq("id", app.id);
+      if (error) {
+        // Swallowed before. `lifetime_rating` is what the dashboard shows as
+        // the all-time "Portfolio rating"; when it stays null the hero
+        // silently falls back to a 30-day average of synced reviews, which is
+        // a different and much lower number than the store's own rating. The
+        // customer sees 2.47 where the Play listing says 3.1 and has no way
+        // to tell why.
+        console.error(`[sync] metadata write failed for app ${app.id}:`, error);
+      }
+    } else {
+      // Nothing to write means the scrape returned no rating, count, icon or
+      // developer — a parse failure or a storefront that doesn't carry the
+      // app. Worth saying out loud for the same reason.
+      console.warn(
+        `[sync] metadata scrape returned nothing usable for ${app.store_id} (storefront ${meta.country ?? known ?? "?"})`,
+      );
     }
 
     // Persist the discovered storefront separately so a pending migration

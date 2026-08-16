@@ -745,23 +745,27 @@ function ReplyComposer({
           </button>
         </div>
 
-        {/* Review metadata — the facts a support person actually cross-checks
-            against the store console: device, country, app version, platform.
-            Labeled like the store consoles so the two screens read the same. */}
-        <div className="mt-3 grid grid-cols-2 gap-x-4 gap-y-2 rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-surface)] px-3.5 py-3">
+        {/* Review metadata, one line.
+            It was a 2x2 card of labelled cells taking ~90px of the detail
+            pane's vertical budget — above the fold, ahead of the reply
+            composer, for four short facts nobody reads in isolation. They are
+            context you glance at, not fields you study, so they get one dotted
+            line and the space goes to the reply. Empty values drop out rather
+            than rendering an em dash placeholder each. */}
+        <div className="mt-2.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-[11px] text-[var(--rb-fg-3)]">
           {[
-            { label: "Device",      value: review.device || "—" },
-            { label: "Country",     value: review.country || "—" },
-            { label: "App version", value: `v${review.appVersion}` },
-            { label: "Platform",    value: review.source === "App Store" ? "iOS" : "Android" },
-          ].map((m) => (
-            <div key={m.label} className="min-w-0">
-              <div className="text-[10.5px] font-medium uppercase tracking-[0.04em] text-[var(--rb-fg-3)]">
-                {m.label}
-              </div>
-              <div className="mt-0.5 truncate text-[12.5px] font-medium text-[var(--rb-fg-1)]">{m.value}</div>
-            </div>
-          ))}
+            review.source === "App Store" ? "iOS" : "Android",
+            review.appVersion ? `v${review.appVersion}` : null,
+            review.device || null,
+            review.country || null,
+          ]
+            .filter(Boolean)
+            .map((value, i) => (
+              <span key={`${value}-${i}`} className="flex items-center gap-1.5">
+                {i > 0 && <span aria-hidden="true" className="text-[var(--rb-fg-4)]">·</span>}
+                <span className="truncate">{value}</span>
+              </span>
+            ))}
         </div>
 
         {/* Translated text */}
