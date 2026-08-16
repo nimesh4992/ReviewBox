@@ -66,7 +66,7 @@ export function TopNavigation({ onOpenSidebar }: TopNavigationProps) {
       <div className="flex shrink-0 items-center gap-2">
         <Link href="/settings?tab=integrations">
           <button className="flex h-8 items-center gap-1.5 rounded-lg bg-[#0A84FF] px-3.5 text-[13px] font-semibold text-white transition-colors hover:bg-[#006EE0]">
-            <Plus className="size-3.5" strokeWidth={2.5} />
+            <Plus className="size-3.5" />
             <span className="hidden sm:inline">Connect app</span>
           </button>
         </Link>

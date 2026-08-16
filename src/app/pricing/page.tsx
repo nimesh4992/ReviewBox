@@ -268,7 +268,7 @@ export default function PricingPage() {
               },
               {
                 q: "Is there a refund policy?",
-                a: "Yes — 30-day full refund on monthly and annual plans, no questions asked. See our Refund Policy for details.",
+                a: "Subscription payments are non-refundable, and we do not prorate. That is exactly why every plan starts with a 14-day free trial that needs no card — evaluate the product fully before you pay. Cancel any time to stop future renewals; you keep access until the end of the period you paid for. Duplicate charges and billing errors on our side are always refunded. See our Refund & Cancellation Policy.",
               },
               {
                 q: "Do you offer annual billing?",

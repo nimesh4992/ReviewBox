@@ -52,7 +52,7 @@ export function MarketingNav() {
               <Link
                 key={l.href}
                 href={l.href}
-                className="text-[13.5px] font-medium text-fg-2 transition-colors hover:text-fg-1"
+                className="text-[13px] font-medium text-fg-2 transition-colors hover:text-fg-1"
               >
                 {l.label}
               </Link>
@@ -70,7 +70,7 @@ export function MarketingNav() {
 
             <Link
               href="/sign-in"
-              className="hidden px-2 text-[13.5px] font-medium text-fg-2 transition-colors hover:text-fg-1 sm:block"
+              className="hidden px-2 text-[13px] font-medium text-fg-2 transition-colors hover:text-fg-1 sm:block"
             >
               Sign in
             </Link>

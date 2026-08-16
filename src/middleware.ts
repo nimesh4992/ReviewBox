@@ -21,6 +21,17 @@ const isPublicRoute = createRouteMatcher([
   "/privacy(.*)",
   "/terms(.*)",
   "/dpa(.*)",
+  // Every legal page must be reachable without an account. These were missing
+  // from the matcher, so anonymous visitors — and Stripe's account reviewer,
+  // and Googlebot — hit an auth wall on the Cookie Policy, the AUP and the
+  // Refund Policy, while sitemap.ts advertised all three.
+  "/cookies(.*)",
+  "/acceptable-use(.*)",
+  "/refund(.*)",
+  "/refund-policy(.*)",
+  "/grievance(.*)",
+  "/sub-processors(.*)",
+  "/security(.*)",
   "/sign-in(.*)",
   "/sign-up(.*)",
   "/invite(.*)",

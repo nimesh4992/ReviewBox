@@ -20,10 +20,14 @@ export function LogoMark({ size = 22, className }: { size?: number; className?: 
         d="M14 8 H50 A8 8 0 0 1 58 16 V40 A8 8 0 0 1 50 48 H28 L18 58 V48 H14 A8 8 0 0 1 6 40 V16 A8 8 0 0 1 14 8 Z"
         fill="var(--rb-blue-500)"
       />
-      <rect x="14" y="32" width="6" height="8" rx="3" fill="#fff" fillOpacity="0.97" />
-      <rect x="23" y="29" width="6" height="11" rx="3" fill="#fff" fillOpacity="0.97" />
-      <rect x="32" y="25" width="6" height="15" rx="3" fill="#fff" fillOpacity="0.97" />
-      <rect x="41" y="20" width="6" height="20" rx="3" fill="#fff" fillOpacity="0.97" />
+      {/* Three bars, not four. At the size={22} both call sites use, the old
+          four 6-unit bars rendered as ~2px strips separated by ~1px gaps — a
+          comb, not a chart. Wider bars with real gaps survive the downscale.
+          fillOpacity 0.97 was 3% of white over brand blue: invisible, and it
+          forced a second paint. */}
+      <rect x="15" y="30" width="9" height="10" rx="3" fill="#fff" />
+      <rect x="27.5" y="24" width="9" height="16" rx="3" fill="#fff" />
+      <rect x="40" y="16" width="9" height="24" rx="3" fill="#fff" />
     </svg>
   );
 }

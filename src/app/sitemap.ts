@@ -48,5 +48,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url("/refund-policy",  0.3, "monthly"),
     url("/acceptable-use", 0.3, "monthly"),
     url("/cookies",        0.3, "monthly"),
+    url("/grievance",      0.3, "monthly"),
+    url("/sub-processors", 0.3, "monthly"),
   ];
 }

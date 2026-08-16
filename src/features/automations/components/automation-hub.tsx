@@ -262,9 +262,9 @@ function RunHistoryPanel() {
         >
           {/* Status icon */}
           {log.status === "success" ? (
-            <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-500" strokeWidth={2} />
+            <CheckCircle2 className="mt-0.5 size-3.5 shrink-0 text-emerald-500" />
           ) : (
-            <XCircle className="mt-0.5 size-3.5 shrink-0 text-red-400" strokeWidth={2} />
+            <XCircle className="mt-0.5 size-3.5 shrink-0 text-red-400" />
           )}
 
           {/* Content */}

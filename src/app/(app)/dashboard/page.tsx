@@ -119,7 +119,7 @@ function WorkspaceStatusStrip({
     const names = errored.map((a) => a.name).join(", ");
     return (
       <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-amber-500)]/30 bg-[var(--rb-amber-100)]/40 px-4 py-2.5">
-        <AlertOctagon className="size-4 shrink-0 text-[var(--rb-amber-600)]" strokeWidth={2} />
+        <AlertOctagon className="size-4 shrink-0 text-[var(--rb-amber-600)]" />
         <div className="min-w-0 flex-1">
           <span className="text-rb-base font-medium text-fg-1">
             {errored.length === 1 ? `${names} can’t sync yet` : `${errored.length} apps can’t sync yet`}
@@ -151,7 +151,7 @@ function WorkspaceStatusStrip({
       pending.length === 1 ? `Syncing ${pending[0].name}…` : `Syncing ${pending.length} apps…`;
     return (
       <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-border-1)] bg-surface px-4 py-2.5">
-        <Loader2 className="size-4 shrink-0 animate-spin text-[#0A84FF]" strokeWidth={2} />
+        <Loader2 className="size-4 shrink-0 animate-spin text-[#0A84FF]" />
         <div className="min-w-0 flex-1">
           <span className="text-rb-base font-medium text-fg-1">{label}</span>
           <span className="ml-2 hidden text-rb-sm text-fg-3 sm:inline">
@@ -169,7 +169,7 @@ function WorkspaceStatusStrip({
     const app = quietOk[0];
     return (
       <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-border-1)] bg-surface px-4 py-2.5">
-        <Sparkles className="size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
+        <Sparkles className="size-4 shrink-0 text-[#0A84FF]" />
         <div className="min-w-0 flex-1">
           <span className="text-rb-base font-medium text-fg-1">
             {app.name} is connected — no recent reviews yet
@@ -193,11 +193,11 @@ function WorkspaceStatusStrip({
   if (aiEnriching) {
     return (
       <div className="flex items-center gap-3 rounded-xl border border-[var(--rb-border-1)] bg-surface px-4 py-2.5">
-        <Bot className="size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
+        <Bot className="size-4 shrink-0 text-[#0A84FF]" />
         <span className="min-w-0 flex-1 text-rb-base text-fg-2">
           Preparing reply templates from your reviews — about 10 seconds.
         </span>
-        <Loader2 className="size-4 shrink-0 animate-spin text-fg-3" strokeWidth={2} />
+        <Loader2 className="size-4 shrink-0 animate-spin text-fg-3" />
       </div>
     );
   }
@@ -217,7 +217,7 @@ function WorkspaceStatusStrip({
     const app = publicOnly[0];
     return (
       <div className="flex items-center gap-3 rounded-xl border border-[#0A84FF]/20 bg-[#0A84FF]/[0.04] px-4 py-2.5">
-        <Sparkles className="size-4 shrink-0 text-[#0A84FF]" strokeWidth={2} />
+        <Sparkles className="size-4 shrink-0 text-[#0A84FF]" />
         <div className="min-w-0 flex-1">
           <span className="text-rb-base font-medium text-fg-1">
             {app.name} is showing public Play Store data
@@ -511,7 +511,7 @@ export default function DashboardPage() {
           disabled={exporting}
           className="flex h-9 w-fit items-center gap-1.5 rounded-lg border border-[var(--rb-border-3)] bg-surface px-4 text-[13px] font-medium text-fg-2 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
         >
-          <Download className="size-3.5" strokeWidth={2} />
+          <Download className="size-3.5" />
           {exporting ? "Exporting…" : "Export CSV"}
         </button>
       </header>
@@ -535,7 +535,7 @@ export default function DashboardPage() {
       {/* ── AI enrichment banner ── */}
       {aiEnriching === true && (
         <div className="flex items-start gap-3 rounded-xl border border-[#0A84FF]/20 bg-[#0A84FF]/[0.04] px-4 py-3">
-          <Bot className="mt-0.5 size-4 shrink-0 animate-pulse text-[#0A84FF]" strokeWidth={2} />
+          <Bot className="mt-0.5 size-4 shrink-0 animate-pulse text-[#0A84FF]" />
           <div className="flex-1">
             <div className="text-[13px] font-semibold text-fg-1">
               AI is preparing your workspace…
@@ -544,7 +544,7 @@ export default function DashboardPage() {
               Gemini is reading your reviews and generating your Knowledge Base and reply templates. This takes about 10 seconds.
             </div>
           </div>
-          <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-[#0A84FF]" strokeWidth={2} />
+          <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-[#0A84FF]" />
         </div>
       )}
 
@@ -676,7 +676,7 @@ export default function DashboardPage() {
                       className="flex size-7 shrink-0 items-center justify-center rounded-lg"
                       style={{ background: color + "1A", color }}
                     >
-                      <AlertOctagon className="size-3.5" strokeWidth={2} />
+                      <AlertOctagon className="size-3.5" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <div className="truncate text-[13px] font-semibold tracking-[-0.005em] text-fg-1">

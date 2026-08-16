@@ -39,7 +39,7 @@ export function UpgradeToast() {
   return (
     <div className="pointer-events-none fixed inset-x-0 top-6 z-50 flex justify-center px-4">
       <div className="pointer-events-auto flex items-center gap-3 rounded-xl border border-emerald-200 bg-white px-5 py-3 shadow-lg dark:border-emerald-900/40 dark:bg-[#1a1d27]">
-        <CheckCircle2 className="size-5 text-emerald-500" strokeWidth={2} />
+        <CheckCircle2 className="size-5 text-emerald-500" />
         <div>
           <p className="text-[13px] font-semibold text-[#1D1D1F] dark:text-white">
             You&apos;re on {label || "the new plan"}!

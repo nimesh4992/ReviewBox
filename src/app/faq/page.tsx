@@ -60,7 +60,7 @@ const FAQ_SECTIONS = [
       },
       {
         q: "Can I get a refund?",
-        a: "Yes — 30-day full refund on monthly plans (most recent charge) and annual plans (from purchase/renewal date). No questions asked. See our Refund Policy for full details.",
+        a: "Subscription payments are non-refundable and we do not issue prorated refunds. Every plan starts with a 14-day free trial that needs no card, so you can evaluate ReviewBox fully before paying. You can cancel any time to stop future renewals and keep access until the end of the period you paid for. Duplicate charges and billing mistakes on our side are refunded in full. See our Refund & Cancellation Policy.",
       },
       {
         q: "Do you offer discounts for startups or non-profits?",

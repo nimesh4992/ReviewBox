@@ -299,7 +299,7 @@ function AddCompetitorDialog({
               {addingId === r.storeId ? (
                 <Loader2 className="size-4 shrink-0 animate-spin text-fg-3" strokeWidth={1.5} />
               ) : (
-                <Plus className="size-4 shrink-0 text-[var(--rb-blue-500)]" strokeWidth={2} />
+                <Plus className="size-4 shrink-0 text-[var(--rb-blue-500)]" />
               )}
             </button>
           ))}
@@ -355,7 +355,7 @@ export function CompetitorsScreen() {
             onClick={() => setAddOpen(true)}
             className="flex h-8 items-center gap-1.5 rounded-lg bg-[var(--rb-blue-500)] px-3 text-[12px] font-semibold text-white transition-colors hover:bg-[var(--rb-blue-600)]"
           >
-            <Plus className="size-3.5" strokeWidth={2} />
+            <Plus className="size-3.5" />
             Add competitor
           </button>
         )}
@@ -407,7 +407,7 @@ export function CompetitorsScreen() {
               onClick={() => setAddOpen(true)}
               className="mt-1 flex h-8 items-center gap-1.5 rounded-lg border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)]"
             >
-              <Plus className="size-3.5" strokeWidth={2} />
+              <Plus className="size-3.5" />
               Add your first competitor
             </button>
           </div>

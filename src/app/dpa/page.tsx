@@ -1,4 +1,5 @@
 ﻿import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-layout";
+import { COMPANY, companyLine } from "@/lib/legal/company";
 
 export const metadata = {
   title: "Data Processing Agreement",
@@ -28,7 +29,8 @@ export default function DpaPage() {
       jurisdiction="EEA / UK"
       version="4.0"
       plainLanguage={[
-        "You're the Controller. We're the Processor. We process Customer Data on your written instructions.",
+        "For your review and reply data you are the Controller and we are the Processor, acting on your instructions.",
+        "For your own account, billing and product-usage data we are an independent Controller — see the Privacy Policy.",
         "Sub-processors are listed in section 4. 14-day notice before any new one.",
         "Security measures and audit rights are in sections 5 and 6.",
         "This DPA is incorporated by reference into the main Terms of Service.",
@@ -38,7 +40,8 @@ export default function DpaPage() {
       <LegalSection id="scope" number={1} title="Parties and scope">
         <p>
           This Data Processing Agreement (the &ldquo;DPA&rdquo;) supplements the ReviewBox Terms
-          of Service between AT Work Inc., trading as ReviewBox (the &ldquo;Processor&rdquo;) and the customer (the
+          of Service between {companyLine()}, a company registered in {COMPANY.country} (the
+          &ldquo;Processor&rdquo;), and the customer (the
           &ldquo;Controller&rdquo;).
         </p>
         <p>
@@ -81,7 +84,7 @@ export default function DpaPage() {
           advance; Controller may object on reasonable grounds.
         </p>
         <p>
-          Current authorised sub-processors: Supabase (database, EU region), Clerk
+          The authoritative list is the /sub-processors page. It currently includes Supabase (database), Clerk
           (authentication), Stripe (billing), Groq (AI inference, no data retention), Google
           (AI inference), Resend (email), PostHog (analytics), Upstash (rate limiting).
         </p>
@@ -89,39 +92,71 @@ export default function DpaPage() {
 
       <LegalSection id="security" number={5} title="Security measures">
         <p>
-          AES-256 at rest. TLS 1.3 in transit. Workspace isolation enforced via row-level
-          security in the database. Quarterly penetration tests. Key rotation every 90 days.
-          SOC 2 Type II in progress.
+          Processor implements and maintains the following technical and organisational measures:
         </p>
+        <ul className="mt-2 list-disc space-y-1.5 pl-5">
+          <li>Encryption of Customer Data in transit using TLS, and at rest by the database provider.</li>
+          <li>
+            Tenant isolation enforced by row-level security policies in the database, so a workspace
+            can access only its own records.
+          </li>
+          <li>
+            Access to production systems limited to personnel who require it, protected by
+            multi-factor authentication.
+          </li>
+          <li>Credentials held in environment configuration and not committed to source control.</li>
+          <li>Audit logging of privileged mutations within the application.</li>
+        </ul>
         <p>
-          Access to production systems is restricted to authorised personnel, requires MFA, and is
-          logged. Processor conducts annual security training for all employees with access to
-          Customer Data.
+          Processor does not currently hold SOC 2, ISO 27001 or an equivalent certification and
+          makes no representation that it does. Where a certification is obtained, this Addendum
+          will be updated to identify it and the issuing auditor.
         </p>
       </LegalSection>
 
       <LegalSection id="audit" number={6} title="Audit rights">
         <p>
-          Processor provides Controller with current SOC 2 report on request, under NDA. Controller
-          may conduct an audit no more than once per calendar year, with 30 days&apos; notice,
-          during business hours, and at Controller&apos;s expense.
+          Processor makes available to Controller the information reasonably necessary to
+          demonstrate compliance with this Addendum, and responds to reasonable security
+          questionnaires. Processor holds no third-party audit report at present, so none is
+          offered; if one is obtained it will be made available on request under NDA.
         </p>
         <p>
-          Processor may satisfy audit requests by providing its most recent third-party audit report
-          or security questionnaire responses where these reasonably address the Controller&apos;s
-          concerns.
+          Controller may conduct an audit no more than once per calendar year, on 30 days&apos;
+          notice, during business hours and at Controller&apos;s expense, subject to
+          confidentiality obligations.
         </p>
       </LegalSection>
 
       <LegalSection id="transfers" number={7} title="International transfers">
         <p>
-          Where Processor transfers Customer Data outside the EEA/UK, the Standard Contractual
-          Clauses (Decision 2021/914) apply, attached as Annex II.
+          Processor is established in {COMPANY.country}, which is not the subject of a European
+          Commission adequacy decision, and engages sub-processors established outside the EEA.
+          Customer Data protected by the GDPR is therefore transferred internationally.
         </p>
         <p>
-          For transfers to the United Kingdom, the International Data Transfer Agreement (IDTA)
-          applies. Controller&apos;s execution of this DPA constitutes execution of the applicable
-          transfer mechanism.
+          Where Customer Data protected by the GDPR is transferred to Processor, the Standard
+          Contractual Clauses adopted by Commission Implementing Decision (EU) 2021/914 apply, with
+          Module Two (controller to processor) governing the transfer between Controller and
+          Processor, and Module Three (processor to processor) governing onward transfers to
+          Processor&apos;s sub-processors. For transfers from the United Kingdom, the ICO&apos;s
+          International Data Transfer Addendum to those Clauses applies; for Switzerland, the
+          Clauses apply with the amendments required by Swiss law.
+        </p>
+        <p>
+          Controller&apos;s acceptance of this Addendum constitutes execution of the applicable
+          Clauses. The details required by their annexes — the parties, the categories of data
+          subjects and personal data, the purposes of processing, the retention period, the
+          technical and organisational measures, and the list of sub-processors — are those set out
+          in this Addendum and on our{" "}
+          <a href="/sub-processors" className="text-[#0A84FF] hover:underline">
+            Sub-processors
+          </a>{" "}
+          page. A countersigned copy of the Clauses is available on request from{" "}
+          <a href={`mailto:${COMPANY.emails.privacy}`} className="text-[#0A84FF] hover:underline">
+            {COMPANY.emails.privacy}
+          </a>
+          .
         </p>
       </LegalSection>
 

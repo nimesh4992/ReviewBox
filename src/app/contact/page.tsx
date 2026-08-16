@@ -1,5 +1,5 @@
 ﻿import Link from "next/link";
-import { Mail, MessageSquare, Clock, MapPin } from "lucide-react";
+import { Mail, Handshake, Clock, Scale } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
@@ -21,7 +21,7 @@ const CHANNELS = [
     bg: "bg-blue-50",
   },
   {
-    icon: MessageSquare,
+    icon: Handshake,
     title: "Sales",
     description: "Team plan, volume pricing, custom contracts, or procurement.",
     cta: "sales@tryreviewbox.com",
@@ -30,7 +30,7 @@ const CHANNELS = [
     bg: "bg-emerald-50",
   },
   {
-    icon: MapPin,
+    icon: Scale,
     title: "Legal & privacy",
     description: "DPA requests, GDPR queries, data deletion, subpoenas.",
     cta: "legal@tryreviewbox.com",
@@ -44,7 +44,7 @@ const FAQS = [
   { q: "How fast do you respond?", a: "Within one business day for support. Sales emails typically same day." },
   { q: "Is there live chat?", a: "Not yet — but every email goes to a real person and we respond fast." },
   { q: "Can I schedule a demo?", a: "Yes — email sales@tryreviewbox.com and we'll find a time." },
-  { q: "Where are you based?", a: "We're a remote-first team with people in San Francisco and London." },
+  { q: "Where are you based?", a: "ReviewBox is operated by AT WORK Inc, registered in India. The team works remotely." },
 ];
 
 export default function ContactPage() {
@@ -122,7 +122,7 @@ export default function ContactPage() {
               <div>
                 <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366] mb-2">Headquarters</p>
                 <p className="font-semibold text-gray-900 dark:text-[#F5F5F7]">AT Work Inc.</p>
-                <p className="text-sm text-gray-500 dark:text-[#86868B] mt-1">Remote-first · San Francisco + London</p>
+                <p className="text-sm text-gray-500 dark:text-[#86868B] mt-1">Registered in India · team works remotely</p>
               </div>
               <div className="border-t border-gray-100 dark:border-white/6 pt-6">
                 <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366] mb-2">Legal</p>

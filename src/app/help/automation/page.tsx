@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronRight, Zap } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
@@ -135,10 +135,7 @@ export default function AutomationPage() {
               <div className="space-y-4">
                 {RULE_EXAMPLES.map((rule) => (
                   <div key={rule.name} className="rounded-2xl border border-gray-200 bg-white p-6">
-                    <div className="flex items-start gap-3 mb-4">
-                      <div className="inline-flex rounded-xl bg-amber-50 p-2 shrink-0">
-                        <Zap className="h-4 w-4 text-amber-500" strokeWidth={2} />
-                      </div>
+                    <div className="mb-4">
                       <h3 className="font-semibold text-gray-900">{rule.name}</h3>
                     </div>
                     <div className="grid gap-3 sm:grid-cols-3 text-xs">

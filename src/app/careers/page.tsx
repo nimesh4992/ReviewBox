@@ -88,7 +88,7 @@ export default function CareersPage() {
             {[
               { value: "12 + 21", label: "team size (now + by EOY)" },
               { value: "$4.2M", label: "seed round" },
-              { value: "2 cities", label: "San Francisco + London" },
+              { value: "Remote", label: "Work from anywhere" },
               { value: "90%ile", label: "eng compensation" },
             ].map(({ value, label }) => (
               <div key={label}>

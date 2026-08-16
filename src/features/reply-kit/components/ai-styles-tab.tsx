@@ -33,7 +33,7 @@ function StyleCard({
         <span className="text-sm font-semibold text-fg-1">{style.name}</span>
         {isActive && (
           <span className="ml-auto flex size-5 items-center justify-center rounded-full bg-[var(--rb-blue-500)]">
-            <Check strokeWidth={2.5} className="size-3 text-white" />
+            <Check className="size-3 text-white" />
           </span>
         )}
       </div>
@@ -101,7 +101,7 @@ export function AIStylesTab() {
         </div>
         {saved && (
           <span className="flex items-center gap-1 rounded-full bg-[var(--rb-green-500)]/10 px-3 py-1 text-xs font-medium text-[var(--rb-green-500)]">
-            <Check strokeWidth={2.5} className="size-3" />
+            <Check className="size-3" />
             Saved
           </span>
         )}

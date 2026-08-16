@@ -235,7 +235,7 @@ function ReviewRow({ review, selected, onClick, selectMode, isChecked, onCheck, 
             {isDrafting ? (
               <Loader2 className="size-3 animate-spin" strokeWidth={1.5} />
             ) : (
-              <Sparkles className="size-3" strokeWidth={2} />
+              <Sparkles className="size-3" />
             )}
             {isDrafting ? "Drafting…" : "Draft"}
           </button>
@@ -588,7 +588,7 @@ function ReplyComposer({
               key={tag}
               className="inline-flex items-center gap-1 rounded-full bg-[var(--rb-bg-accent-soft)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--rb-blue-500)]"
             >
-              <Sparkles className="size-2.5" strokeWidth={2} />
+              <Sparkles className="size-2.5" />
               {humanizeToken(tag)}
             </span>
           ))}
@@ -599,7 +599,7 @@ function ReplyComposer({
             className="ml-auto flex items-center gap-1 rounded-full border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] px-2.5 py-0.5 text-[11px] font-semibold text-[var(--rb-fg-2)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50"
           >
             {isTranslating ? (
-              <Loader2 className="size-2.5 animate-spin" strokeWidth={2} />
+              <Loader2 className="size-2.5 animate-spin" />
             ) : (
               <span className="text-[10px]">🌐</span>
             )}
@@ -639,7 +639,7 @@ function ReplyComposer({
               {isGenerating ? (
                 <Loader2 className="size-3 animate-spin text-[var(--rb-blue-500)]" strokeWidth={1.5} />
               ) : (
-                <Sparkles className="size-3 text-[var(--rb-blue-500)]" strokeWidth={2} />
+                <Sparkles className="size-3 text-[var(--rb-blue-500)]" />
               )}
               <span className="text-[11px] font-semibold text-[var(--rb-blue-500)]">
                 {isGenerating ? "Generating…" : aiSuggestion ? "AI draft — edit or post" : "AI reply"}
@@ -676,7 +676,6 @@ function ReplyComposer({
                 ? "border-[var(--rb-red-400)] focus:border-[var(--rb-red-400)]"
                 : "border-[var(--rb-border-2)] focus:border-[var(--rb-blue-400)]",
             )}
-            style={{ fontFamily: "var(--rb-font-text)" }}
           />
           <div className="mt-1 flex items-center justify-between">
             <span className="text-[10px] text-[var(--rb-fg-3)]">
@@ -965,7 +964,7 @@ function GroupReplyPanel({
       {/* Header */}
       <div className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] px-[18px] py-[14px]">
         <div className="flex size-7 shrink-0 items-center justify-center rounded-[7px] bg-[var(--rb-bg-accent-soft)]">
-          <MessageSquareDiff className="size-3.5 text-[var(--rb-blue-500)]" strokeWidth={2} />
+          <MessageSquareDiff className="size-3.5 text-[var(--rb-blue-500)]" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="text-[13px] font-semibold text-[var(--rb-fg-1)]">Reply all similar</div>
@@ -990,7 +989,7 @@ function GroupReplyPanel({
               key={t}
               className="inline-flex items-center gap-1 rounded-full bg-[var(--rb-bg-accent-soft)] px-2 py-0.5 text-[10px] font-semibold text-[var(--rb-blue-500)]"
             >
-              <Sparkles className="size-2" strokeWidth={2} />
+              <Sparkles className="size-2" />
               {humanizeToken(t)}
             </span>
           ))}
@@ -1039,7 +1038,7 @@ function GroupReplyPanel({
         <div className="rounded-[10px] border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-3">
           <div className="mb-2 flex items-center justify-between gap-2">
             <div className="flex items-center gap-1.5 text-[11px] font-semibold text-[var(--rb-blue-500)]">
-              <Sparkles className="size-2.5" strokeWidth={2} />
+              <Sparkles className="size-2.5" />
               AI draft · based on top issue
             </div>
             <ToneSelector tone={tone} onChange={setTone} />
@@ -1085,7 +1084,6 @@ function GroupReplyPanel({
                 ? "border-[var(--rb-red-400)] focus:border-[var(--rb-red-400)]"
                 : "border-[var(--rb-border-2)] focus:border-[var(--rb-blue-400)]",
             )}
-            style={{ fontFamily: "var(--rb-font-text)" }}
           />
           <div className="mt-1 flex items-center justify-between">
             <span className="text-[10px] text-[var(--rb-fg-3)]">
@@ -1502,7 +1500,6 @@ export function InboxScreen({
               </div>
               <h1
                 className="mt-1 text-[24px] font-semibold leading-tight tracking-[-0.022em] text-[var(--rb-fg-1)]"
-                style={{ fontFamily: "var(--rb-font-display)" }}
               >
                 Inbox
               </h1>
@@ -1514,7 +1511,7 @@ export function InboxScreen({
                   onClick={() => { setGroupMode(true); setSelectedId(null); setGroupReviewsOverride(null); }}
                   className="flex h-8 items-center gap-1.5 rounded-[8px] bg-[var(--rb-bg-accent-soft)] px-3 text-[12px] font-semibold text-[var(--rb-blue-500)] transition-colors hover:bg-[var(--rb-blue-100)]"
                 >
-                  <MessageSquareDiff className="size-3.5" strokeWidth={2} />
+                  <MessageSquareDiff className="size-3.5" />
                   Reply all · {groupCount}
                 </button>
               )}
@@ -1716,7 +1713,7 @@ export function InboxScreen({
                 disabled={bulkWorking}
                 className="flex h-7 items-center gap-1.5 rounded-[7px] bg-[var(--rb-green-500)] px-3 text-[11px] font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
               >
-                {bulkWorking ? <Loader2 className="size-3 animate-spin" strokeWidth={1.5} /> : <CheckCheck className="size-3" strokeWidth={2} />}
+                {bulkWorking ? <Loader2 className="size-3 animate-spin" strokeWidth={1.5} /> : <CheckCheck className="size-3" />}
                 Mark replied
               </button>
               <button
@@ -1732,7 +1729,7 @@ export function InboxScreen({
                 }}
                 className="flex h-7 items-center gap-1.5 rounded-[7px] bg-[var(--rb-bg-accent-soft)] px-3 text-[11px] font-semibold text-[var(--rb-blue-500)] transition-colors hover:bg-[var(--rb-blue-100)]"
               >
-                <MessageSquareDiff className="size-3" strokeWidth={2} />
+                <MessageSquareDiff className="size-3" />
                 Reply all
               </button>
               <button
