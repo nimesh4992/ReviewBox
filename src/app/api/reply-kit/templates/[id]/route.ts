@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
+import { normalizeTemplateLanguage } from "@/lib/template-language";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -42,7 +43,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams): Promise<
     patch.rating_max = Math.max(1, Math.min(5, Math.floor(raw.ratingMax)));
   }
   if (typeof raw.language === "string") {
-    patch.language = raw.language.slice(0, 10);
+    patch.language = normalizeTemplateLanguage(raw.language);
   }
 
   if (Object.keys(patch).length === 0) return apiError("INVALID_INPUT", 400, "no valid fields to update");

@@ -87,7 +87,13 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       conditions,
       action,
       action_label:  actionLabel,
-      action_config: actionConfig ?? null,
+      // `action_config` is NOT NULL (001_initial_schema.sql). Writing null
+      // here raised 23502 and returned a 500, so installing any preset without
+      // a config value — "All new reviews", "Reply to positive reviews", every
+      // ai_reply rule — failed outright. Empty string is falsy for the
+      // executor's `if (!tagToAdd) throw` checks, so it reads the same as unset
+      // without violating the constraint.
+      action_config: actionConfig ?? "",
       apps_scope:    appsScope ?? "all",
       priority:      priority ?? 0,
       enabled:       true,

@@ -31,7 +31,32 @@ const ISSUE_TAGS = [
   "localization",
 ] as const;
 
-const LANGUAGES = ["English", "Spanish", "French", "German", "Portuguese", "Italian", "Japanese"];
+/**
+ * `reply_templates.language` is char(5) — it stores a BCP 47 code, not a name.
+ *
+ * This list used to be the display names, and the form defaulted to "English".
+ * Every option here is longer than 5 characters ("Portuguese" is 10), so every
+ * save raised Postgres 22001 "value too long for type character(5)" and came
+ * back as "Couldn't save — try again". Template creation had never worked, for
+ * anyone, on any option — which is why the list below the form always said
+ * "No templates yet".
+ *
+ * Codes are stored; labels are shown.
+ */
+const LANGUAGES: ReadonlyArray<{ code: string; label: string }> = [
+  { code: "en", label: "English" },
+  { code: "es", label: "Spanish" },
+  { code: "fr", label: "French" },
+  { code: "de", label: "German" },
+  { code: "pt", label: "Portuguese" },
+  { code: "it", label: "Italian" },
+  { code: "ja", label: "Japanese" },
+];
+
+/** Display name for a stored code, tolerating legacy rows that hold a name. */
+function languageLabel(value: string): string {
+  return LANGUAGES.find((l) => l.code === value)?.label ?? value;
+}
 
 const CHAR_LIMIT = 350; // Google Play reply limit
 
@@ -117,7 +142,7 @@ const EMPTY_FORM: TemplateFormState = {
   tags: [],
   ratingMin: 1,
   ratingMax: 5,
-  language: "English",
+  language: "en",
 };
 
 interface TemplateFormProps {
@@ -220,7 +245,7 @@ function TemplateForm({ initial, saving, submitLabel, onSubmit, onCancel, error 
             className="rounded-lg border border-[var(--rb-border-2)] bg-surface px-3 py-2 text-sm text-[var(--rb-fg-1)] outline-none focus:border-[var(--rb-blue-500)]"
           >
             {LANGUAGES.map((l) => (
-              <option key={l} value={l}>{l}</option>
+              <option key={l.code} value={l.code}>{l.label}</option>
             ))}
           </select>
         </div>
@@ -301,7 +326,7 @@ function TemplateCard({
       {/* Footer */}
       <div className="mt-3 flex items-center gap-2">
         <span className="rounded-full bg-[var(--rb-bg-hover)] px-2 py-0.5 text-[10px] text-[var(--rb-fg-3)]">
-          {template.language}
+          {languageLabel(template.language)}
         </span>
         <span className="text-[11px] text-[var(--rb-fg-4)]">
           ★{template.rating_min}–★{template.rating_max}
