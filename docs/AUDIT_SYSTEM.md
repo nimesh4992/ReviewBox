@@ -262,14 +262,21 @@ that is the common case — the most likely explanation for a customer seeing
 - **Migration numbering**: `007_aso_keywords.sql` and `007a_workspace_brand_voice.sql`
   share a number — the third occurrence of this. Cannot be renamed (D006), so
   the next number is **021**.
-- **`supabase/migrations/pending_combined.sql` disagrees with the numbered
-  files** — its `aso_keywords` has different columns (`volume TEXT`,
-  `difficulty TEXT`) from 007's (`volume_estimate INT`, `trend_data INT[]`).
-  Both use `CREATE TABLE IF NOT EXISTS`, so whichever the founder pasted first
-  silently won, and the repo cannot tell which prod has. **Needs a one-time
-  check in prod**: `select column_name from information_schema.columns where
-  table_name = 'aso_keywords';` If it matches pending_combined, every ASO
-  keyword route is 500ing today.
+- ~~`pending_combined.sql` disagrees with the numbered files~~ — **RESOLVED
+  2026-08-16.** Founder ran the check: production has `volume_estimate` /
+  `trend_data` / `added_at` / `updated_at`, matching `007_aso_keywords.sql` and
+  the code. ASO keyword routes are healthy. `pending_combined.sql` has been
+  deleted so nobody can paste the wrong shape into a fresh database.
+- **Deploy pipeline reported success while deploying nothing** (found
+  2026-08-16, immediately after PR #77 merged). Vercel's Git integration
+  refuses to build master for this repo (Hobby-plan contributor block), and the
+  CLI `deploy-production` job *skipped* on a missing `VERCEL_TOKEN` while still
+  reporting green. Both production paths were closed at once and CI said
+  everything was fine. Fixed: the job now fails loudly. **The secret is still
+  unset — master is not in production until the founder adds it.** This is the
+  same silent-success class as the product bugs this round fixed, which is
+  worth noting: the pipeline was modelling failure the same wrong way the app
+  was.
 - `ai_usage` is read by four dashboards but **written by nothing** — every "AI
   drafts" figure is permanently 0 (backlog item, not fixed here).
 - Remaining swallowed-error UI on ASO / Sentiment / Reply Kit reads /
