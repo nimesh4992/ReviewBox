@@ -38,7 +38,20 @@ create table public.apps (
   platform        text not null check (platform in ('google_play', 'app_store')),
   store_id        text not null,           -- package name or bundle ID
   icon_url        text,
-  -- OAuth tokens (encrypted at rest via Supabase Vault in production)
+  -- App Store Connect credentials. access_token holds {keyId, issuerId};
+  -- refresh_token holds the raw .p8 ECDSA signing key.
+  --
+  -- NOT application-encrypted. This comment previously claimed "encrypted at
+  -- rest via Supabase Vault in production" — no Vault, pgsodium or app-layer
+  -- crypto exists anywhere in this repo, and a comment asserting a control
+  -- that was never built is worse than no comment: it stops the next reader
+  -- looking. What IS true is that Supabase encrypts the underlying volume, so
+  -- these are protected against disk theft but not against anything holding
+  -- the service-role key.
+  --
+  -- Hardening these to app-layer encryption is tracked separately; it needs a
+  -- key-management decision first, because a lost key makes every customer's
+  -- store connection unrecoverable.
   access_token    text,
   refresh_token   text,
   token_expires_at timestamptz,
