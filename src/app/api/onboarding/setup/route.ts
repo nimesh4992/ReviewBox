@@ -146,22 +146,60 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       brandVoiceValue = getBrandVoiceStub(appCategory)?.slice(0, 500);
     }
 
-    const wsInsert = await sb
+    // Optional columns, each behind a migration that may not be applied:
+    //   brand_voice   → 007a_workspace_brand_voice
+    //   app_category  → 008_learning_loop
+    //   trial_ends_at → 001 (always present, but grouped here so one retry
+    //                        covers every optional column)
+    //
+    // /api/onboarding/complete has always retried without these on 42703,
+    // with the note "migrations 007/008 not yet run in prod". /setup — the
+    // route the live 5-step wizard actually calls — never got that guard, so
+    // on a database missing either column the whole insert failed and
+    // onboarding dead-ended at "Set up my workspace" with a 500. Nobody could
+    // create a workspace at all.
+    const optionalColumns = {
+      trial_ends_at: new Date(Date.now() + TRIAL_DAYS * 86400000).toISOString(),
+      app_category:  appCategory ?? null,
+      brand_voice:   brandVoiceValue ?? null,
+    };
+    const requiredColumns = {
+      name: workspaceName.trim(),
+      slug: cleanSlug,
+      plan: "trial",
+    };
+
+    let wsInsert = await sb
       .from("workspaces")
-      .insert({
-        name:           workspaceName.trim(),
-        slug:           cleanSlug,
-        plan:           "trial",
-        trial_ends_at:  new Date(Date.now() + TRIAL_DAYS * 86400000).toISOString(),
-        app_category:   appCategory ?? null,
-        brand_voice:    brandVoiceValue ?? null,
-      })
+      .insert({ ...requiredColumns, ...optionalColumns })
       .select("id")
       .single();
 
+    // 42703 = column does not exist. Retry with only the columns 001
+    // guarantees, so a pending migration degrades the brand-voice pre-fill
+    // rather than blocking signup entirely.
+    if (wsInsert.error?.code === "42703") {
+      console.warn(
+        "[onboarding/setup] optional workspace columns missing — retrying without them:",
+        wsInsert.error.message,
+      );
+      wsInsert = await sb
+        .from("workspaces")
+        .insert(requiredColumns)
+        .select("id")
+        .single();
+    }
+
     if (wsInsert.error?.code === "23505") return apiError("SLUG_TAKEN", 409);
     if (wsInsert.error) {
-      console.error("[onboarding/setup] workspace insert:", wsInsert.error);
+      // Log the detail — a bare 500 here left no way to tell which constraint
+      // or column was at fault after the fact.
+      console.error("[onboarding/setup] workspace insert failed:", {
+        code:    wsInsert.error.code,
+        message: wsInsert.error.message,
+        details: wsInsert.error.details,
+        hint:    wsInsert.error.hint,
+      });
       return apiError("INTERNAL_SERVER_ERROR", 500);
     }
     workspaceId = wsInsert.data!.id as string;
