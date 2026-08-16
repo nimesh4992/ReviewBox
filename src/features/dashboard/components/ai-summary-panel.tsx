@@ -13,8 +13,8 @@ function relativeTime(iso: string): string {
   return h === 1 ? "1 hour ago" : `${h} hours ago`;
 }
 
-export function AiSummaryPanel({ appId }: { appId?: string }) {
-  const { data, isLoading, isFetching, refresh } = useAiSummary(appId);
+export function AiSummaryPanel({ appId, enabled = true }: { appId?: string; enabled?: boolean }) {
+  const { data, isLoading, isFetching, refresh } = useAiSummary(appId, { enabled });
   const [refreshing, setRefreshing] = useState(false);
   const busy = isFetching || refreshing;
 

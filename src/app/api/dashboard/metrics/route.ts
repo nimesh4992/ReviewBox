@@ -36,6 +36,16 @@ export interface DashboardMetrics {
    * not the count of rows we've synced). Null if metadata not yet refreshed.
    */
   lifetimeReviewCount: number | null;
+  /**
+   * How many apps actually contributed to `lifetimeRating`.
+   *
+   * Not the same as "how many apps you have": an app whose store listing has
+   * not been read yet has no rating and cannot be part of the average. The UI
+   * needs this number to caption the figure truthfully — saying "weighted
+   * across your 2 apps" over a single app's rating is the same mislabelling
+   * this endpoint's scoping work exists to remove.
+   */
+  lifetimeRatingAppCount: number;
 }
 
 // Zeroes — used when the user has no workspace yet or a query fails.
@@ -54,6 +64,7 @@ const EMPTY_METRICS: DashboardMetrics = {
   ratingTrend: [],
   lifetimeRating: null,
   lifetimeReviewCount: null,
+  lifetimeRatingAppCount: 0,
 };
 
 export async function GET(request: Request): Promise<NextResponse> {
@@ -342,6 +353,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       reviewsThisWeek: thisWeek,
       lifetimeRating,
       lifetimeReviewCount,
+      lifetimeRatingAppCount: appsMeta.length,
     };
 
     return NextResponse.json(metrics);

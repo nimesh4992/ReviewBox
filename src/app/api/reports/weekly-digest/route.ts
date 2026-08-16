@@ -82,56 +82,58 @@ async function handler(req: NextRequest): Promise<NextResponse> {
 
       if (!reviews?.length) return false;
 
-      let sentAny = false;
-      for (const app of liveApps) {
-        const appReviews = reviews.filter((r) => r.app_id === app.id);
-        if (!appReviews.length) continue;
+      // ONE digest per workspace, as before — but the figures now cover only
+      // live apps, and the label says what they cover. Sending one digest per
+      // app would mean five Monday emails for a five-app owner; the previous
+      // behaviour (workspace-wide totals stamped with one arbitrary app's
+      // name) was the actual bug, and naming the scope fixes it.
+      const appsWithReviews = liveApps.filter((a) => reviews.some((r) => r.app_id === a.id));
+      const appName =
+        appsWithReviews.length === 1
+          ? appsWithReviews[0].name || ws.name || "your app"
+          : `your ${appsWithReviews.length} apps`;
 
-        const totalReviews   = appReviews.length;
-        const avgRating      = appReviews.reduce((sum, r) => sum + (r.rating as number), 0) / totalReviews;
-        const urgentCount    = appReviews.filter((r) => r.priority === "urgent").length;
-        const unrepliedCount = appReviews.filter((r) => r.reply_status === "needs_reply").length;
+      const totalReviews   = reviews.length;
+      const avgRating      = reviews.reduce((sum, r) => sum + (r.rating as number), 0) / totalReviews;
+      const urgentCount    = reviews.filter((r) => r.priority === "urgent").length;
+      const unrepliedCount = reviews.filter((r) => r.reply_status === "needs_reply").length;
 
-        const tagCounts: Record<string, number> = {};
-        for (const r of appReviews) {
-          const tags = (r.issue_tags as string[] | null) ?? [];
-          for (const t of tags) tagCounts[t] = (tagCounts[t] ?? 0) + 1;
-        }
-        const topIssue = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
-
-        const appName = app.name || ws.name || "your app";
-
-        await sendWeeklyDigest(email, { totalReviews, avgRating, urgentCount, unrepliedCount, topIssue, appName });
-        sentAny = true;
-
-        void notifySlack(ws.id, {
-          text: `📊 Weekly digest — ${appName}: ${totalReviews} reviews, ${avgRating.toFixed(1)}★ avg`,
-          blocks: [
-            {
-              type: "section",
-              text: {
-                type: "mrkdwn",
-                text: [
-                  `📊 *Weekly digest — ${appName}*`,
-                  `Reviews: *${totalReviews}* · Avg rating: *${avgRating.toFixed(1)}★*`,
-                  unrepliedCount > 0 ? `Needs reply: *${unrepliedCount}*` : null,
-                  urgentCount > 0    ? `🔴 Urgent: *${urgentCount}*` : null,
-                  topIssue           ? `Top issue: \`${topIssue}\`` : null,
-                ].filter(Boolean).join("\n"),
-              },
-            },
-            {
-              type: "section",
-              text: {
-                type: "mrkdwn",
-                text: `<${process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com"}/reviews|View review queue →>`,
-              },
-            },
-          ],
-        });
+      const tagCounts: Record<string, number> = {};
+      for (const r of reviews) {
+        const tags = (r.issue_tags as string[] | null) ?? [];
+        for (const t of tags) tagCounts[t] = (tagCounts[t] ?? 0) + 1;
       }
+      const topIssue = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
-      return sentAny;
+      await sendWeeklyDigest(email, { totalReviews, avgRating, urgentCount, unrepliedCount, topIssue, appName });
+
+      void notifySlack(ws.id, {
+        text: `📊 Weekly digest — ${appName}: ${totalReviews} reviews, ${avgRating.toFixed(1)}★ avg`,
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: [
+                `📊 *Weekly digest — ${appName}*`,
+                `Reviews: *${totalReviews}* · Avg rating: *${avgRating.toFixed(1)}★*`,
+                unrepliedCount > 0 ? `Needs reply: *${unrepliedCount}*` : null,
+                urgentCount > 0    ? `🔴 Urgent: *${urgentCount}*` : null,
+                topIssue           ? `Top issue: \`${topIssue}\`` : null,
+              ].filter(Boolean).join("\n"),
+            },
+          },
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `<${process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com"}/reviews|View review queue →>`,
+            },
+          },
+        ],
+      });
+
+      return true;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`workspace ${ws.id}: ${msg}`);

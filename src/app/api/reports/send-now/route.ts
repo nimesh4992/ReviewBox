@@ -145,6 +145,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   }
 
   const urgentCount = reviews.filter((r) => r.priority === "urgent").length;
-  await sendUnrepliedAlert(email, appName, reviews.length, urgentCount);
+  await sendUnrepliedAlert(email, [{ appName, count: reviews.length, urgentCount }]);
   return NextResponse.json({ sent: true });
 }

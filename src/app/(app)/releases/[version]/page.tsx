@@ -187,22 +187,46 @@ export default async function ReleaseDetailPage({ params, searchParams }: Releas
         ? liveApps.find((a) => a.id === requestedAppId)
         : undefined;
       const scopedAppIds = selected ? [selected.id] : liveApps.map((a) => a.id);
-      appName = selected?.name ?? (liveApps.length === 1 ? liveApps[0].name : "");
 
       if (scopedAppIds.length && !(requestedAppId && !selected)) {
         const { data } = await sb
           .from("reviews")
-          .select("id,author,rating,body,sentiment,issue_tags,reply_status,store_created_at,source,country")
+          .select("app_id,id,author,rating,body,sentiment,issue_tags,reply_status,store_created_at,source,country")
           .eq("workspace_id", workspaceId)
           .in("app_id", scopedAppIds)
           .eq("app_version", version)
           .order("store_created_at", { ascending: false })
           .limit(100);
 
-        if (data && data.length > 0) {
-          stats = deriveStats(version, data as DbReview[]);
+        let rows = (data ?? []) as (DbReview & { app_id: string })[];
+
+        // Reached without ?appId= — a bookmark, or a link from before the
+        // releases table started carrying it. A version number is unique only
+        // within an app, so rendering every app's rows as one release would
+        // reintroduce exactly the blend this page was fixed to stop. Pick the
+        // app with the most reviews for this version and say which one it is,
+        // rather than silently merging.
+        let resolvedApp = selected;
+        if (!resolvedApp && rows.length) {
+          const counts = new Map<string, number>();
+          for (const r of rows) counts.set(r.app_id, (counts.get(r.app_id) ?? 0) + 1);
+          const winner = liveApps
+            .filter((a) => counts.has(a.id))
+            .sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0))[0];
+          if (winner) {
+            resolvedApp = winner;
+            rows = rows.filter((r) => r.app_id === winner.id);
+          }
+        }
+
+        appName = resolvedApp?.name ?? (liveApps.length === 1 ? liveApps[0].name : "");
+
+        if (rows.length > 0) {
+          stats = deriveStats(version, rows as DbReview[]);
           hasData = true;
         }
+      } else {
+        appName = selected?.name ?? (liveApps.length === 1 ? liveApps[0].name : "");
       }
     }
   }

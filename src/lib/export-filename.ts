@@ -16,8 +16,10 @@ export function slugifyAppName(name: string | undefined | null): string {
   const slug = (name ?? "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 40);
+    .slice(0, 40)
+    // Trim AFTER truncating too — a cut that lands on a separator would
+    // otherwise leave "reviews-acme-pay--2026-08-16.csv".
+    .replace(/^-+|-+$/g, "");
   return slug || "app";
 }
 

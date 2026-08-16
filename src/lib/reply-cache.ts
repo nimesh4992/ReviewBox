@@ -70,7 +70,11 @@ export function buildCacheKeyRaw(
   return [
     scope.workspaceId ?? "anon",
     scope.appId ?? "ws",
-    (review.text ?? "").slice(0, 200),
+    // The WHOLE body, not the first 200 characters. The model is given the
+    // full text, so two reviews that share an opening paragraph and diverge
+    // afterwards would otherwise collide and be answered with each other's
+    // reply. Hashing costs the same either way.
+    review.text ?? "",
     review.rating,
     tone,
     scope.systemPrompt,
@@ -107,6 +111,10 @@ export async function getCachedReply(
 ): Promise<string | null> {
   const redis = getRedis();
   if (!redis) return null;
+  // No workspace = no tenant boundary to key on. Sharing an "anon" bucket
+  // would be the very leak this module was rewritten to close, so such a
+  // caller simply does not use the cache.
+  if (!scope.workspaceId) return null;
   try {
     const key    = await buildCacheKey(scope, review, tone);
     const cached = await redis.get<string>(key);
@@ -128,6 +136,7 @@ export async function setCachedReply(
 ): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
+  if (!scope.workspaceId) return; // see getCachedReply
   try {
     const key = await buildCacheKey(scope, review, tone);
     await redis.setex(key, CACHE_TTL_SECONDS, reply);

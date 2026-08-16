@@ -60,4 +60,15 @@ describe("reply cache key — tenant isolation", () => {
       buildCacheKeyRaw(scope, review, "warm"),
     );
   });
+
+  it("distinguishes reviews that share a long opening but diverge later", () => {
+    // The key hashed only the first 200 chars while the model was given the
+    // whole body, so a shared preamble made two different reviews collide and
+    // be answered with each other's reply.
+    const shared = "T".repeat(400);
+    const scope = { workspaceId: "ws", appId: "app-1", systemPrompt: "p" };
+    const a = buildCacheKeyRaw(scope, { text: `${shared} refund please`, rating: 1 }, "warm");
+    const b = buildCacheKeyRaw(scope, { text: `${shared} love the update`, rating: 1 }, "warm");
+    expect(a).not.toEqual(b);
+  });
 });

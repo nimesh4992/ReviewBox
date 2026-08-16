@@ -120,8 +120,12 @@ export async function GET(req: Request): Promise<NextResponse> {
     // counted a deleted app's reviews into every KPI, topic share and the
     // critical-reviews list — and a client appId is honoured only when it is
     // one of this workspace's own live apps (the /api/reviews contract).
+    // A FAILED lookup is not an empty workspace. Answering 200-with-zeros
+    // would render "no sentiment data yet" over a database error — the AU4
+    // pattern where a 500 is disguised as an empty state and nobody ever
+    // finds out the screen is broken.
     const liveAppIds = await getLiveAppIds(sb, workspaceId);
-    if (liveAppIds === null) return NextResponse.json(EMPTY);
+    if (liveAppIds === null) return apiError("INTERNAL_SERVER_ERROR", 500);
     const scopedAppIds = scopeAppIds(liveAppIds, appId);
     if (!scopedAppIds.length) return NextResponse.json(EMPTY);
 

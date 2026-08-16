@@ -18,6 +18,8 @@ import { Redis } from "@upstash/redis";
 
 /** Cap the SCAN so an unexpectedly large keyspace can't hold a request open. */
 const MAX_KEYS = 500;
+/** …and cap the number of SCAN round trips per pattern for the same reason. */
+const MAX_SWEEPS = 20;
 
 function getRedis(): Redis | null {
   const url = process.env.UPSTASH_REDIS_REST_URL;
@@ -38,11 +40,16 @@ export async function deleteKeysByPattern(patterns: readonly string[]): Promise<
     const keys: string[] = [];
     for (const match of patterns) {
       let cursor = "0";
+      // SCAN walks the WHOLE keyspace regardless of how many keys match, so a
+      // key-count bound alone would let each pattern sweep the entire database
+      // on a workspace that has nothing cached. Bound the iterations too.
+      let sweeps = 0;
       do {
-        const [next, batch] = await redis.scan(cursor, { match, count: 100 });
+        const [next, batch] = await redis.scan(cursor, { match, count: 500 });
         keys.push(...batch);
         cursor = String(next);
-      } while (cursor !== "0" && keys.length < MAX_KEYS);
+        sweeps += 1;
+      } while (cursor !== "0" && keys.length < MAX_KEYS && sweeps < MAX_SWEEPS);
     }
     if (!keys.length) return 0;
     await redis.del(...keys);

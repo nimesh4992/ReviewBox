@@ -19,6 +19,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { getLiveAppIds, scopeAppIds } from "@/lib/live-apps";
+import { exportFileName } from "@/lib/export-filename";
 import { apiError } from "@/lib/api-response";
 import { rateLimit } from "@/lib/api-rate-limit";
 
@@ -170,13 +171,27 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   const csv = lines.join("\n");
-  const date = new Date().toISOString().split("T")[0];
+
+  // Name the scope here too, not just in the client's download attribute —
+  // anything that follows this URL directly (curl, a link, the JSON path)
+  // gets the same self-describing filename. No column in the CSV says which
+  // app it covers.
+  let scopeName = "";
+  if (scopedAppIds.length === 1) {
+    const { data: scopedApp } = await sb
+      .from("apps")
+      .select("name")
+      .eq("id", scopedAppIds[0])
+      .maybeSingle();
+    scopeName = (scopedApp?.name as string | undefined) ?? "";
+  }
+  const filename = exportFileName(scopeName, scopeName ? scopedAppIds[0] : undefined);
 
   return new NextResponse(csv, {
     status: 200,
     headers: {
       "Content-Type":        "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="reviews-${date}.csv"`,
+      "Content-Disposition": `attachment; filename="${filename}"`,
       "Cache-Control":       "no-store",
       "X-Total-Count":       String(totalMatching ?? rows.length),
       "X-Returned-Count":    String(rows.length),

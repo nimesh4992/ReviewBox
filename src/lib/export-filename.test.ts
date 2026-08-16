@@ -13,6 +13,14 @@ describe("slugifyAppName", () => {
     expect(slugifyAppName("Acme  Pay+ (Beta)!")).toBe("acme-pay-beta");
   });
 
+  it("leaves no trailing hyphen when truncation lands on a separator", () => {
+    // 40 chars of "aaaa-" repeated puts the cut exactly on a hyphen.
+    const name = "aaaa ".repeat(12);
+    const slug = slugifyAppName(name);
+    expect(slug.endsWith("-")).toBe(false);
+    expect(slug.startsWith("-")).toBe(false);
+  });
+
   it("falls back to 'app' for a name that slugifies to nothing", () => {
     // A non-Latin app name must still produce a usable filename rather than
     // `reviews--2026-08-16.csv`.

@@ -89,44 +89,61 @@ async function handler(req: NextRequest): Promise<NextResponse> {
       byApp.set(r.app_id as string, bucket);
     }
 
-    const sends: Promise<unknown>[] = [];
-    for (const app of liveApps) {
-      const bucket = byApp.get(app.id);
-      if (!bucket) continue;
-      const { count, urgentCount } = bucket;
-      const appName = app.name || ws.name || "your app";
+    // ONE email and ONE Slack ping per workspace, carrying the per-app
+    // breakdown. Sending per app would be accurate but would put five
+    // messages a day in a five-app owner's inbox; the breakdown lives inside
+    // the message instead.
+    const summaries = liveApps
+      .map((app) => {
+        const bucket = byApp.get(app.id);
+        if (!bucket) return null;
+        return {
+          appName: app.name || ws.name || "your app",
+          count: bucket.count,
+          urgentCount: bucket.urgentCount,
+        };
+      })
+      .filter((s): s is { appName: string; count: number; urgentCount: number } => s !== null);
 
-      // Fire email + Slack in parallel (both best-effort)
-      if (email) sends.push(sendUnrepliedAlert(email, appName, count, urgentCount));
-      sends.push(
-        notifySlack(ws.id, {
-          text: `⏰ ${count} review${count === 1 ? "" : "s"} waiting 48h+ for a reply — ${appName}`,
-          blocks: [
-            {
-              type: "section",
-              text: {
-                type: "mrkdwn",
-                text: [
-                  `⏰ *${count} review${count === 1 ? "" : "s"} waiting 48h+* — ${appName}`,
-                  urgentCount > 0 ? `🔴 ${urgentCount} urgent` : null,
-                  `Replying promptly improves your store rating.`,
-                ].filter(Boolean).join("\n"),
-              },
-            },
-            {
-              type: "section",
-              text: {
-                type: "mrkdwn",
-                text: `<${APP_URL}/reviews?filter=needs_reply|Reply now →>`,
-              },
-            },
-          ],
-        }),
-      );
-    }
+    if (!summaries.length) return false;
 
-    await Promise.allSettled(sends);
-    return sends.length > 0;
+    const total       = summaries.reduce((sum, s) => sum + s.count, 0);
+    const totalUrgent = summaries.reduce((sum, s) => sum + s.urgentCount, 0);
+    const scopeLabel  = summaries.length === 1 ? summaries[0].appName : `${summaries.length} apps`;
+
+    await Promise.allSettled([
+      email ? sendUnrepliedAlert(email, summaries) : Promise.resolve(),
+      notifySlack(ws.id, {
+        text: `⏰ ${total} review${total === 1 ? "" : "s"} waiting 48h+ for a reply — ${scopeLabel}`,
+        blocks: [
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: [
+                `⏰ *${total} review${total === 1 ? "" : "s"} waiting 48h+* — ${scopeLabel}`,
+                ...(summaries.length === 1
+                  ? []
+                  : summaries.map(
+                      (s) => `• ${s.appName}: ${s.count}${s.urgentCount > 0 ? ` (${s.urgentCount} urgent)` : ""}`,
+                    )),
+                totalUrgent > 0 && summaries.length === 1 ? `🔴 ${totalUrgent} urgent` : null,
+                `Replying promptly improves your store rating.`,
+              ].filter(Boolean).join("\n"),
+            },
+          },
+          {
+            type: "section",
+            text: {
+              type: "mrkdwn",
+              text: `<${APP_URL}/reviews?filter=needs_reply|Reply now →>`,
+            },
+          },
+        ],
+      }),
+    ]);
+
+    return true;
   }
 
   // Process in batches of 10 to stay under Vercel's 60s function budget —

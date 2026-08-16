@@ -19,6 +19,7 @@ const EMPTY_METRICS: DashboardMetrics = {
   ratingTrend: [],
   lifetimeRating: null,
   lifetimeReviewCount: null,
+  lifetimeRatingAppCount: 0,
 };
 
 async function fetchDashboardMetrics(appId?: string): Promise<DashboardMetrics> {
@@ -32,8 +33,8 @@ async function fetchDashboardMetrics(appId?: string): Promise<DashboardMetrics> 
  * @param appId Scope every metric to one app (from the sidebar selector, via
  *              `resolveSelectedApp`). Undefined = all apps in the workspace.
  */
-export function useDashboardMetrics(appId?: string) {
-  const { data, isLoading, isError, refetch } = useQuery<DashboardMetrics>({
+export function useDashboardMetrics(appId?: string, options?: { enabled?: boolean }) {
+  const { data, isLoading, isError, refetch, isPlaceholderData } = useQuery<DashboardMetrics>({
     // appId is part of the key so switching apps refetches instead of serving
     // the previous app's numbers from cache.
     queryKey: ["dashboard-metrics", appId ?? "all"],
@@ -43,6 +44,8 @@ export function useDashboardMetrics(appId?: string) {
     // Show previous data while a background refetch runs so the dashboard
     // never blanks out on return visits.
     placeholderData: keepPreviousData,
+    // Gated until the app selection resolves — see useAiSummary.
+    enabled: options?.enabled ?? true,
   });
 
   return {
@@ -50,5 +53,11 @@ export function useDashboardMetrics(appId?: string) {
     isLoading,
     isError,
     refetch,
+    // TRUE while the numbers on screen belong to the PREVIOUS app: with
+    // `keepPreviousData`, switching apps keeps the old figures visible until
+    // the new ones land, which on this screen would mean app A's rating
+    // sitting under app B's name — the very confusion this scoping work
+    // exists to remove. Callers must render a loading state on this.
+    isStaleForApp: isPlaceholderData,
   };
 }

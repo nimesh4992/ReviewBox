@@ -356,8 +356,12 @@ export function CompetitorsScreen() {
       <header className="flex items-end justify-between gap-6">
         <div>
           {/* Never "All apps": the benchmark's "You" row is always ONE app,
-              so labelling it as the portfolio was simply untrue. */}
-          <div className="text-[12px] font-medium text-fg-3">{yourApp?.name ?? "No app connected"}</div>
+              so labelling it as the portfolio was simply untrue. And while
+              the request is in flight we know nothing — saying "No app
+              connected" to someone who has one is worse than saying nothing. */}
+          <div className="text-[12px] font-medium text-fg-3">
+            {isLoading ? " " : (yourApp?.name ?? "No app connected")}
+          </div>
           <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.022em] text-fg-1">
             Competitors
           </h1>
