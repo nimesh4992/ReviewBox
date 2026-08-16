@@ -872,8 +872,8 @@ export default function DashboardPage() {
 
       </section>
 
-      {/* ── AI Review Summary ── */}
-      <AiSummaryPanel />
+      {/* ── AI Review Summary — scoped to the same app selection as the metrics ── */}
+      <AiSummaryPanel appId={selectedAppId} />
 
       {/* ── 3-column bottom ── */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">

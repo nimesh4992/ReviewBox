@@ -12,8 +12,8 @@ function relativeTime(iso: string): string {
   return h === 1 ? "1 hour ago" : `${h} hours ago`;
 }
 
-export function AiSummaryPanel() {
-  const { data, isLoading, isFetching, refetch } = useAiSummary();
+export function AiSummaryPanel({ appId }: { appId?: string }) {
+  const { data, isLoading, isFetching, refetch } = useAiSummary(appId);
 
   return (
     <div className="rounded-xl border border-[var(--rb-border-1)] bg-surface p-5 flex flex-col gap-3 shadow-[var(--rb-shadow-xs)]">
