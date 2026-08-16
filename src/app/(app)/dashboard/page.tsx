@@ -85,6 +85,17 @@ function PortfolioSparkline({ data }: { data: (number | null)[] }) {
     .filter(Boolean)
     .join(" ");
 
+  // `preserveAspectRatio="none"` is what lets the line stretch to whatever width
+  // the card happens to be — but it scales x and y independently, and it scales
+  // EVERYTHING in the SVG, glyphs included. On a wide screen the viewBox is
+  // stretched about 2x horizontally and not at all vertically, so the axis
+  // numbers came out visibly distorted.
+  //
+  // So the labels leave the SVG. The stretched box keeps only geometry
+  // (gridlines and the path, which are supposed to stretch) and the numbers are
+  // HTML positioned over it, rendering at their natural proportions.
+  const pct = (v: number) => `${(ys(v) / h) * 100}%`;
+
   return (
     <div ref={containerRef} className="w-full">
       {values.length < 2 ? (
@@ -102,6 +113,45 @@ function PortfolioSparkline({ data }: { data: (number | null)[] }) {
           <path d={d} fill="none" stroke="#0A84FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
+    <div className="relative w-full" style={{ height: h }}>
+      <svg
+        viewBox={`0 0 ${w} ${h}`}
+        preserveAspectRatio="none"
+        className="absolute inset-0 h-full w-full"
+        aria-hidden="true"
+      >
+        {ticks.map((g) => (
+          <line
+            key={g}
+            x1={padL}
+            x2={w - padR}
+            y1={ys(g)}
+            y2={ys(g)}
+            stroke="var(--rb-border-1)"
+          />
+        ))}
+        <path
+          d={d}
+          fill="none"
+          stroke="#0A84FF"
+          strokeWidth="2"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          // Stroke width is a length like any other, so the horizontal stretch
+          // would thin the line as the card widens. This keeps it at 2px.
+          vectorEffect="non-scaling-stroke"
+        />
+      </svg>
+
+      {ticks.map((g) => (
+        <span
+          key={g}
+          className="absolute text-[10px] tabular-nums text-fg-3"
+          style={{ top: pct(g), left: 0, width: padL - 6, transform: "translateY(-50%)", textAlign: "right" }}
+        >
+          {g.toFixed(1)}
+        </span>
+      ))}
     </div>
   );
 }
@@ -461,7 +511,19 @@ export default function DashboardPage() {
   const dateStr = now.toLocaleDateString("en-US", { weekday: "long", month: "long", day: "numeric" });
 
   const avgRating      = metrics?.avgRating ?? null;
-  const displayRating  = metrics?.lifetimeRating ?? avgRating;
+  // The hero is the STORE's rating — the number the customer sees on their
+  // listing and gets judged by. It is deliberately NOT allowed to fall back to
+  // the 30-day average, because the second row already shows that: falling back
+  // printed the same figure twice under two different labels, which reads as
+  // broken and hides that we simply have not scraped the store yet.
+  const storeRating    = metrics?.lifetimeRating ?? null;
+  // Name the source. "As shown on Google Play" tells the reader why this number
+  // differs from the 30-day average below it; "the store" would not.
+  const platforms      = new Set(apps.map((a) => a.platform));
+  const storeName      =
+    platforms.size === 1
+      ? (platforms.has("app_store") ? "the App Store" : "Google Play")
+      : "the stores";
   const displayReviews = metrics?.lifetimeReviewCount ?? metrics?.totalReviews ?? 0;
   // What we hold in the DB for this storefront, as opposed to the store's
   // global lifetime figure above.
@@ -476,6 +538,8 @@ export default function DashboardPage() {
   const ratingTrend      = metrics?.ratingTrend ?? [];
   const reviewsThisWeek  = metrics?.reviewsThisWeek ?? 0;
   const ratingIsLifetime = metrics?.lifetimeRating != null;
+  // Row 2 keeps the 30-day average, which is a different question:
+  // "how are we doing lately" rather than "what does the store say".
 
   const reviewsDeltaKind: "positive" | "warning" | "neutral" =
     reviewsWeekDelta === null ? "neutral" : reviewsWeekDelta < 0 ? "warning" : "positive";
@@ -506,6 +570,11 @@ export default function DashboardPage() {
       delta: formatDelta(avgRatingDelta),
       kind: avgRatingDeltaKind,
       sub: ratingIsLifetime ? "all-time (store)" : "last 30 days · synced",
+      label: "Avg. rating",
+      value: avgRating !== null ? avgRating.toFixed(2) : "—",
+      delta: formatDelta(avgRatingDelta),
+      kind: avgRatingDeltaKind,
+      sub: "last 30 days",
     },
     {
       icon: TrendingUp,
@@ -622,17 +691,18 @@ export default function DashboardPage() {
                 Play listing's 3.1) — the store's own figure and our synced
                 window must never be presentable as the same thing. */}
             {ratingIsLifetime ? "Store rating · all-time" : "Synced reviews · 30-day average"}
+            {ratingIsLifetime ? "Store rating · all-time" : "Store rating"}
           </div>
           <div className="mt-3 flex items-baseline gap-3">
             <span className="text-5xl font-semibold leading-none tracking-[-0.04em] tabular-nums text-fg-1 sm:text-[60px]">
-              {displayRating !== null ? displayRating.toFixed(2) : "—"}
+              {storeRating !== null ? storeRating.toFixed(2) : "—"}
             </span>
-            {displayRating !== null && (
+            {storeRating !== null && (
               <div className="mb-1 flex gap-0.5">
                 {Array.from({ length: 5 }).map((_, i) => (
                   <svg
                     key={i}
-                    className={cn("size-4", i < Math.round(displayRating) ? "text-amber-400" : "text-[var(--rb-border-2)]")}
+                    className={cn("size-4", i < Math.round(storeRating) ? "text-amber-400" : "text-[var(--rb-border-2)]")}
                     viewBox="0 0 20 20"
                     fill="currentColor"
                   >
@@ -642,33 +712,18 @@ export default function DashboardPage() {
               </div>
             )}
           </div>
-          {avgRatingDelta !== null ? (
-            <div className="mt-3 flex items-center gap-2">
-              <span
-                className={cn(
-                  "rounded-full px-2 py-0.5 text-[11px] font-semibold tabular-nums",
-                  avgRatingDelta >= 0
-                    ? "bg-[var(--rb-green-500)]/10 text-[var(--rb-green-500)]"
-                    : "bg-[var(--rb-red-500)]/10 text-[var(--rb-red-500)]",
-                )}
-              >
-                {formatDelta(avgRatingDelta)}
-              </span>
-              <span className="text-xs text-fg-3">vs previous 30 days</span>
-            </div>
-          ) : (
-            <div className="mt-3 text-xs text-fg-3">
-              {/* Say where the number came from. A big confident 4.60 sitting
-                  directly above "No reviews synced yet" reads as invented
-                  data — the figure is real, it's just the store's own
-                  all-time average rather than anything we computed. */}
-              {avgRating !== null
-                ? "No prior data to compare"
-                : ratingIsLifetime
-                  ? "Your store's all-time average — synced reviews will track changes"
-                  : "Sync reviews to see your rating"}
-            </div>
-          )}
+          {/* No delta here on purpose. The only rating change we can compute is
+              over the last 30 days of synced reviews, and pinning that to an
+              all-time store figure states two different measurements as one
+              fact — the same mistake as the old "Reviews today · +8% vs last
+              week" tile. The 30-day movement has its own tile below. */}
+          <div className="mt-3 text-xs text-fg-3">
+            {storeRating !== null
+              ? `As shown on ${storeName}${
+                  reviewsAreLifetime ? ` · ${displayReviews.toLocaleString()} ratings` : ""
+                }`
+              : "We haven't read your store listing yet. Run a sync from Settings → Apps."}
+          </div>
           <p className="mt-4 max-w-[240px] text-[13px] leading-relaxed text-fg-3">
             {/* An empty workspace is not an inbox-zero achievement — congratulating
                 someone for replying to reviews they don't have reads as broken. */}
@@ -853,7 +908,7 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-baseline gap-2">
             <span className="text-[36px] font-semibold tabular-nums leading-none text-fg-1">
-              {displayRating != null ? displayRating.toFixed(1) : "—"}
+              {avgRating != null ? avgRating.toFixed(1) : "—"}
             </span>
             <span className="text-[14px] text-fg-3">★</span>
             {metrics?.avgRatingDelta != null && (

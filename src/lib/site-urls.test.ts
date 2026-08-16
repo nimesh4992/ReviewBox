@@ -60,3 +60,41 @@ describe("nothing configured", () => {
     expect(marketingUrl()).toBe("https://tryreviewbox.com");
   });
 });
+
+describe("malformed values never reach new URL()", () => {
+  // layout.tsx does `metadataBase: new URL(BASE_URL)` at module scope. A value
+  // that throws there fails "Collecting page data" and kills the whole
+  // production build — which is precisely what a stray pair of quotes in
+  // NEXT_PUBLIC_MARKETING_URL did on 2026-08-16.
+  const junk = [
+    '"https://tryreviewbox.com"',   // pasted with quotes
+    "https://tryreviewbox.com, https://app.tryreviewbox.com", // two values in one
+    "https://",                      // scheme, no host
+    "http://",
+    "://tryreviewbox.com",
+    "https:// tryreviewbox.com",     // space inside
+  ];
+
+  for (const value of junk) {
+    it(`falls back rather than throwing for ${JSON.stringify(value)}`, () => {
+      setEnv(value, value);
+      expect(() => new URL(appUrl())).not.toThrow();
+      expect(() => new URL(marketingUrl())).not.toThrow();
+      expect(appUrl()).toBe("https://tryreviewbox.com");
+      expect(marketingUrl()).toBe("https://tryreviewbox.com");
+    });
+  }
+
+  it("does not let a bad marketing URL discard a good app URL", () => {
+    setEnv("https://app.tryreviewbox.com", '"broken"');
+    expect(appUrl()).toBe("https://app.tryreviewbox.com");
+    // Marketing falls through to the app URL, not all the way to the default.
+    expect(marketingUrl()).toBe("https://app.tryreviewbox.com");
+  });
+
+  it("still accepts every good value it accepted before", () => {
+    setEnv("https://app.tryreviewbox.com", "tryreviewbox.com");
+    expect(appUrl()).toBe("https://app.tryreviewbox.com");
+    expect(marketingUrl()).toBe("https://tryreviewbox.com");
+  });
+});
