@@ -174,10 +174,13 @@ async function syncGooglePlayApp(app: DbApp, summary: SyncSummary, isFirstSync: 
   // Track Play Console connection state for the "connect your Play Console"
   // banner. Only a permission-shaped failure downgrades to false — transient
   // store errors leave the stored state untouched.
+  // Awaited, not fire-and-forget: on Vercel the lambda freezes the moment the
+  // response is sent, so a detached promise here often never ran and the
+  // "connect your Play Console" banner kept showing for a connected app.
   if (apiReviews !== null) {
-    void recordPublisherApiState(app.id, true);
+    await recordPublisherApiState(app.id, true);
   } else if (apiErrorMsg && isGpPermissionError(apiErrorMsg)) {
-    void recordPublisherApiState(app.id, false);
+    await recordPublisherApiState(app.id, false);
   }
 
   if (scraped === null && apiReviews === null) {
@@ -408,7 +411,7 @@ async function upsertAndFinalize(
   // Fire Gemini onboarding enrichment once, on the first sync that produced data.
   // Generates KB entries + reply templates from the workspace's real reviews.
   if (isFirstSync && newRows.length) {
-    enrichOnboarding(
+    await enrichOnboarding(
       app.workspace_id,
       app.name,
       newRows.map((r) => ({ text: r.body ?? "", rating: r.rating })),
@@ -417,13 +420,39 @@ async function upsertAndFinalize(
     );
   }
 
+  // Automation actions update `reviews` by primary key, so they need the DB
+  // uuid — not the store's external_id. Passing external_id made every
+  // `.eq("id", …)` a 22P02 no-op while the run log still wrote "success", so
+  // every rule looked like it fired and nothing was ever written.
+  const dbIdByExternalId = new Map<string, string>();
+  if (newRows.length) {
+    for (let i = 0; i < newRows.length; i += 200) {
+      const chunk = newRows.slice(i, i + 200).map((r) => r.external_id);
+      const { data, error: idLookupError } = await sb
+        .from("reviews")
+        .select("id, external_id")
+        .eq("app_id", app.id)
+        .in("external_id", chunk);
+
+      if (idLookupError) {
+        // Non-fatal: the reviews are already stored. Automations skip this
+        // batch rather than firing against ids we could not resolve.
+        summary.errors.push(`app ${app.id}: automation id lookup: ${idLookupError.message}`);
+        break;
+      }
+      for (const r of data ?? []) {
+        dbIdByExternalId.set(r.external_id as string, r.id as string);
+      }
+    }
+  }
+
   // Run automation rules on NEWLY synced reviews only. Running them over every
   // row each sync would re-fire auto-draft / auto-reply on the same months-old
   // reviews every single day.
   const unrepliedReviews: AppReview[] = newRows
-    .filter((r) => r.reply_status === "needs_reply")
+    .filter((r) => r.reply_status === "needs_reply" && dbIdByExternalId.has(r.external_id))
     .map((r) => ({
-      id:              r.external_id,
+      id:              dbIdByExternalId.get(r.external_id)!,
       author:          r.author,
       rating:          r.rating,
       text:            r.body,
@@ -440,23 +469,28 @@ async function upsertAndFinalize(
       hasAiSuggestion: false,
     }));
 
+  // Everything below is awaited. These were detached promises, which on Vercel
+  // are cut off when the invocation ends — automation rules that never ran and
+  // Slack pings that never left the box, both with no trace that they failed.
   if (unrepliedReviews.length) {
-    runAutomationRules(app.workspace_id, unrepliedReviews, app.id).catch(
+    await runAutomationRules(app.workspace_id, unrepliedReviews, app.id).catch(
       (e) => console.error("[sync] automation rules:", e),
     );
   }
 
   // Urgent review → Slack with per-review dedup (48h TTL)
   const urgentNew = unrepliedReviews.filter((r) => r.priority === "urgent");
-  for (const r of urgentNew.slice(0, 3)) {
-    void notifyUrgentReview(app.workspace_id, r.id, {
-      author:    r.author,
-      rating:    r.rating,
-      text:      r.text,
-      appName:   app.name,
-      reviewUrl: `${APP_URL}/reviews`,
-    });
-  }
+  await Promise.allSettled(
+    urgentNew.slice(0, 3).map((r) =>
+      notifyUrgentReview(app.workspace_id, r.id, {
+        author:    r.author,
+        rating:    r.rating,
+        text:      r.text,
+        appName:   app.name,
+        reviewUrl: `${APP_URL}/reviews`,
+      }),
+    ),
+  );
 
   // Rating spike detection — ≥5 reviews rated ≤2★ for same version in 24h
   const since = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -478,7 +512,7 @@ async function upsertAndFinalize(
     for (const [version, count] of Object.entries(counts)) {
       if (count >= 5) {
         summary.spikesDetected++;
-        notifyWorkspaceOwner(app.workspace_id, app.id, app.name, version, count).catch(
+        await notifyWorkspaceOwner(app.workspace_id, app.id, app.name, version, count).catch(
           (e) => console.error("[sync] spike notify:", e),
         );
       }
@@ -829,12 +863,24 @@ async function notifyWorkspaceOwner(
   // same ≤2★ reviews for 24h, so without a guard the owner gets the same alert
   // on each sync. Redis SET NX with a 24h TTL ⇒ at most one email per
   // app+version per day. (Slack has its own 23h dedup in notifyRatingSpike.)
+  //
+  // The claim is taken with a SHORT ttl and only extended to 24h once the
+  // send has actually happened. Claiming for the full day up-front meant any
+  // failure between here and the send (a thrown Clerk lookup, or the lambda
+  // freezing) silently suppressed the alert for 24h with nothing sent — a
+  // rating spike the customer never heard about and that could never retry.
   const redis = getRedis();
+  const dedupKey = `spike:email:${appId}:${version}`;
   if (redis) {
-    const key = `spike:email:${appId}:${version}`;
-    const fresh = await redis.set(key, "1", { nx: true, ex: 24 * 60 * 60 });
-    if (fresh === null) return; // already alerted within the last 24h
+    const fresh = await redis.set(dedupKey, "1", { nx: true, ex: 120 });
+    if (fresh === null) return; // already alerted (or a send is in flight)
   }
+
+  /** Release the short claim so the next sync can retry this alert. */
+  const releaseClaim = async (): Promise<void> => {
+    if (!redis) return;
+    try { await redis.del(dedupKey); } catch { /* best effort */ }
+  };
 
   const sb = getServiceClient();
   const { data: member } = await sb
@@ -845,15 +891,21 @@ async function notifyWorkspaceOwner(
     .limit(1)
     .maybeSingle();  // .single() throws PGRST116 when no owner row exists → noisy 500 logs
 
-  if (!member) return;
+  if (!member) { await releaseClaim(); return; }
 
-  const clerk = await clerkClient();
-  const clerkUser = await clerk.users.getUser(member.clerk_user_id);
-  const email = clerkUser.emailAddresses[0]?.emailAddress;
-  if (!email) return;
+  let email: string | undefined;
+  try {
+    const clerk = await clerkClient();
+    const clerkUser = await clerk.users.getUser(member.clerk_user_id);
+    email = clerkUser.emailAddresses[0]?.emailAddress;
+  } catch (err) {
+    await releaseClaim();
+    throw err;
+  }
+  if (!email) { await releaseClaim(); return; }
 
   // Email + Slack in parallel (both best-effort; Slack deduped per app+version for 23h)
-  await Promise.allSettled([
+  const [emailResult] = await Promise.allSettled([
     sendRatingSpikeAlert(email, appName, version, count),
     notifyRatingSpike(workspaceId, appId, {
       appName,
@@ -862,4 +914,15 @@ async function notifyWorkspaceOwner(
       appVersion: version,
     }),
   ]);
+
+  if (emailResult.status === "rejected") {
+    // Let the next sync try again rather than swallowing the alert for a day.
+    await releaseClaim();
+    return;
+  }
+
+  // Sent — now hold the dedup for the full 24h window.
+  if (redis) {
+    try { await redis.expire(dedupKey, 24 * 60 * 60); } catch { /* best effort */ }
+  }
 }

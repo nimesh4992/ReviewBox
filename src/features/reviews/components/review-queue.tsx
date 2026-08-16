@@ -1204,6 +1204,8 @@ interface InboxScreenProps {
   hasNextPage?: boolean;
   isFetchingNextPage?: boolean;
   isFetching?: boolean;
+  /** True when the reviews fetch failed — distinguishes it from an empty inbox. */
+  loadError?: boolean;
   fetchNextPage?: () => void;
 }
 
@@ -1212,6 +1214,7 @@ export function InboxScreen({
   hasNextPage = false,
   isFetchingNextPage = false,
   isFetching = false,
+  loadError = false,
   fetchNextPage,
 }: InboxScreenProps) {
   // Seed search from ?search= so the global header search box actually
@@ -1652,13 +1655,17 @@ export function InboxScreen({
               <Inbox className="size-10 text-[var(--rb-fg-4)]" strokeWidth={1.5} />
               <div>
                 <p className="text-sm font-semibold text-[var(--rb-fg-1)]">
-                  {search ? "No results" : "No reviews"}
+                  {loadError ? "We couldn't load your reviews" : search ? "No results" : "No reviews"}
                 </p>
                 <p className="mt-1 text-xs text-[var(--rb-fg-3)]">
-                  {search ? `Nothing matched "${search}"` : "Connect an app in Settings to start syncing."}
+                  {loadError
+                    ? "Something went wrong on our side — your reviews are still here. Try refreshing in a moment."
+                    : search
+                      ? `Nothing matched "${search}"`
+                      : "Connect an app in Settings to start syncing."}
                 </p>
               </div>
-              {!search && (
+              {!search && !loadError && (
                 <Link
                   href="/settings"
                   className="rounded-lg border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)]"

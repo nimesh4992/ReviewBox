@@ -34,7 +34,11 @@ const isPublicRoute = createRouteMatcher([
   // the prod app host trial-nudge was redirected to /dashboard before its
   // secret check ever ran (docs/ROLE_AUDIT.md P0-5).
   "/api/cron/(.*)",
-  "/api/health/(.*)",
+  // `(.*)` not `/(.*)`: the old pattern required a trailing segment, so the
+  // bare /api/health that uptime monitors poll fell through to the app matcher
+  // and got bounced to sign-in. /api/health/user-check under this prefix
+  // authenticates itself with CRON_SECRET and fails closed, same as the crons.
+  "/api/health(.*)",
   "/api/demo/(.*)",
   "/api/auth/clear-onboarded-cookie",
   "/monitoring(.*)",
@@ -78,6 +82,11 @@ const isAppRoute = createRouteMatcher([
   "/api/aso(.*)",
   "/api/google-play(.*)",
   "/api/reports/export(.*)",
+  // send-now is user-triggered (the Reports screen's "Send now" buttons) and
+  // was in neither matcher, so on app.tryreviewbox.com the fall-through
+  // redirected the POST to the /dashboard HTML page and res.json() blew up.
+  // Same class as the import/competitors/slack gap fixed below.
+  "/api/reports/send-now(.*)",
   "/api/health(.*)",
   "/api/admin(.*)",
   "/api/debug(.*)",

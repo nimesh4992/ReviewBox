@@ -16,11 +16,15 @@ export async function GET(): Promise<NextResponse> {
     }
 
     const sb = getServiceClient();
+    // The column is `created_at` (001_initial_schema.sql) — `joined_at` has
+    // never existed in any migration, so this select 42703'd and Settings →
+    // Team returned 500 every single time it was opened. Aliased so the
+    // client's `joined_at` field keeps working.
     const { data, error } = await sb
       .from("workspace_members")
-      .select("clerk_user_id, role, joined_at")
+      .select("clerk_user_id, role, joined_at:created_at")
       .eq("workspace_id", workspaceId)
-      .order("joined_at", { ascending: true });
+      .order("created_at", { ascending: true });
 
     if (error) {
       console.error("[team/members GET]", error);

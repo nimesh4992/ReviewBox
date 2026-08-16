@@ -63,7 +63,7 @@ export function useReviewQueue(filters: ReviewFiltersQuery = {}) {
     refetchIntervalInBackground: false,
   });
 
-  // Flatten pages into a single reviews array; fall back to mock on error
+  // Flatten pages into a single reviews array.
   const reviews: AppReview[] = data?.pages.flatMap((page) => page.reviews) ?? [];
 
   return {
@@ -73,5 +73,10 @@ export function useReviewQueue(filters: ReviewFiltersQuery = {}) {
     isFetchingNextPage,
     isFetching,
     isLoading,
+    // isError was computed and then dropped from this return, so the inbox
+    // could not tell a failed fetch from an empty inbox — and rendered "No
+    // reviews · Connect an app in Settings" to customers whose app was
+    // already connected, sending them to redo setup they'd finished.
+    isError,
   };
 }

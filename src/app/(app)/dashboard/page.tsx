@@ -13,10 +13,12 @@ import {
   TrendingUp,
 } from "lucide-react";
 
+import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
 import { useApps } from "@/hooks/use-apps";
 import { useIncidents } from "@/hooks/use-incidents";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrialBanner } from "@/components/dashboard/trial-banner";
 import { UpgradeToast } from "@/components/dashboard/upgrade-toast";
@@ -305,9 +307,10 @@ function KpiCard({
 
 export default function DashboardPage() {
   const { data: metrics, isLoading, refetch: refetchMetrics } = useDashboardMetrics();
-  const { apps, isLoading: appsLoading, refetch: refetchApps } = useApps();
-  const { data: incidents } = useIncidents();
+  const { apps, isLoading: appsLoading, isError: appsError, refetch: refetchApps } = useApps();
+  const { data: incidents, isError: incidentsError } = useIncidents();
   const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
   const [aiEnriching, setAiEnriching] = useState<boolean | null>(null);
 
   // Poll metrics + apps every 10s while any app hasn't attempted a sync yet.
@@ -363,8 +366,17 @@ export default function DashboardPage() {
 
   async function handleExport() {
     setExporting(true);
+    setExportError(null);
     try {
       const res  = await fetch("/api/reports/export?days=30");
+      // On failure this route returns a JSON error envelope. Without this
+      // check it was blobbed and saved as `reviews-<date>.csv`, so the user
+      // got a file full of {"error":…} and believed the export had worked.
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setExportError(apiErrorMessage(body, "Export failed. Please try again."));
+        return;
+      }
       const blob = await res.blob();
       const href = URL.createObjectURL(blob);
       const a    = document.createElement("a");
@@ -390,6 +402,10 @@ export default function DashboardPage() {
   const avgRating      = metrics?.avgRating ?? null;
   const displayRating  = metrics?.lifetimeRating ?? avgRating;
   const displayReviews = metrics?.lifetimeReviewCount ?? metrics?.totalReviews ?? 0;
+  // What we hold in the DB for this storefront, as opposed to the store's
+  // global lifetime figure above.
+  const syncedReviews  = metrics?.totalReviews ?? 0;
+  const reviewsAreLifetime = metrics?.lifetimeReviewCount != null;
   const unreplied      = metrics?.unrepliedCount ?? 0;
   const urgent         = metrics?.urgentCount ?? 0;
   const reviewsToday   = metrics?.reviewsToday ?? 0;
@@ -447,6 +463,23 @@ export default function DashboardPage() {
     },
   ];
 
+  // "Couldn't load your apps" and "you have no apps" are different states and
+  // must not render the same screen: showing the first-run welcome to an
+  // existing customer reads as "my workspace was wiped".
+  if (!appsLoading && appsError) {
+    return (
+      <div className="flex w-full flex-1 flex-col items-center justify-center gap-3 p-8 text-center">
+        <p className="text-rb-lg font-semibold text-fg-1">We couldn&apos;t load your apps</p>
+        <p className="max-w-md text-rb-sm text-fg-3">
+          This is a problem on our side, not with your workspace — your apps and reviews are safe.
+        </p>
+        <Button onClick={() => refetchApps()} size="sm" className="mt-1">
+          Try again
+        </Button>
+      </div>
+    );
+  }
+
   if (!appsLoading && apps.length === 0) {
     return <EmptyWorkspaceWelcome />;
   }
@@ -482,6 +515,14 @@ export default function DashboardPage() {
           {exporting ? "Exporting…" : "Export CSV"}
         </button>
       </header>
+      {exportError !== null && (
+        <div
+          role="alert"
+          className="rounded-lg border border-[var(--rb-red-500)]/25 bg-[var(--rb-red-500)]/10 px-4 py-2 text-rb-sm font-medium text-[var(--rb-red-500)]"
+        >
+          {exportError}
+        </div>
+      )}
       {/* ── One status strip: errors > syncing > quiet > AI prep > connect nudge ── */}
       <WorkspaceStatusStrip
         apps={apps}
@@ -584,14 +625,26 @@ export default function DashboardPage() {
               <div className="mt-0.5 text-xs text-fg-3">
                 {incidents
                   ? `${incidents.filter((i) => i.status !== "resolved").length} open`
-                  : "Loading…"}
+                  : incidentsError
+                    ? "Unavailable"
+                    : "Loading…"}
               </div>
             </div>
             <Link href="/incidents" className="ml-auto text-xs font-semibold text-[#0A84FF] hover:underline">
               View all →
             </Link>
           </div>
-          {!incidents ? (
+          {/* The error branch matters: useIncidents() throws on a failed fetch,
+              so `incidents` stays undefined forever and this card used to sit
+              on skeletons permanently with no way out. */}
+          {!incidents && incidentsError ? (
+            <div className="flex flex-col items-center justify-center gap-1 py-10 text-center">
+              <div className="text-[13px] font-medium text-fg-2">Couldn&apos;t load incidents</div>
+              <div className="mt-1 text-[11px] text-fg-3">
+                This section is temporarily unavailable — nothing is wrong with your workspace.
+              </div>
+            </div>
+          ) : !incidents ? (
             <div className="space-y-3 px-5 py-4">
               <Skeleton className="h-10 w-full rounded-lg" />
               <Skeleton className="h-10 w-full rounded-lg" />
@@ -748,7 +801,17 @@ export default function DashboardPage() {
               {displayReviews.toLocaleString()}
             </span>
           </div>
+          {/* The big number is the store's lifetime, global count; everything
+              below it (and the inbox behind "View all") is the subset we have
+              actually synced for this storefront. Printing them together with
+              no qualifier made an app with 12,400 lifetime reviews and 40
+              synced rows look like the sync had lost data. */}
+          {reviewsAreLifetime && (
+            <div className="text-[11px] text-fg-3">all-time (store)</div>
+          )}
           <div className="flex gap-3 text-[11px] text-fg-3">
+            <span>{syncedReviews.toLocaleString()} synced</span>
+            <span>·</span>
             <span>{unreplied} unreplied</span>
             <span>·</span>
             <span>{urgent} urgent</span>

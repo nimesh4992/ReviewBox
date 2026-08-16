@@ -10,7 +10,7 @@
  * of scraping time before the user lands on a populated dashboard.
  */
 
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse, after } from "next/server";
 
 import { getServiceClient } from "@/lib/supabase-server";
@@ -50,11 +50,18 @@ interface SetupBody {
 }
 
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,38}[a-z0-9]$/;
+// Must stay in sync with /api/onboarding/slug-check and /api/onboarding/complete.
+// When this set was the smaller of the three, a user could be shown "Reserved
+// URL." on step 1 and still have the slug accepted here.
 const RESERVED_SLUGS = new Set([
-  "admin", "api", "app", "blog", "billing", "dashboard", "help",
-  "inbox", "onboarding", "pricing", "privacy", "reviews", "settings",
-  "sign-in", "sign-up", "terms", "www",
+  "admin", "api", "app", "blog", "billing", "careers", "changelog", "compare",
+  "contact", "cookies", "customers", "dashboard", "dpa", "faq", "help",
+  "inbox", "incidents", "onboarding", "pricing", "privacy", "refund",
+  "releases", "reports", "reviews", "settings", "sign-in", "sign-up",
+  "status", "support", "terms", "www",
 ]);
+
+const TRIAL_DAYS = 14;
 
 // ── Brand voice text generator ────────────────────────────────────────────────
 
@@ -127,24 +134,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     workspaceId = existingMember.workspace_id as string;
   } else {
     // Build brand voice: user-provided config takes priority, falls back to category stub
-    let brandVoiceValue: string | object | undefined;
+    // `workspaces.brand_voice` is TEXT with a 500-char check, and every
+    // consumer (workspace-persona, Settings) treats it as prose that goes
+    // straight into the AI prompt. Storing the config object here serialised
+    // raw JSON into the prompt, and a generous word list blew the check
+    // constraint and 500'd onboarding. Store the rendered sentence only.
+    let brandVoiceValue: string | undefined;
     if (brandVoice) {
-      brandVoiceValue = {
-        ...brandVoice,
-        text: buildBrandVoiceText(brandVoice),
-      };
+      brandVoiceValue = buildBrandVoiceText(brandVoice).slice(0, 500);
     } else if (appCategory) {
-      brandVoiceValue = getBrandVoiceStub(appCategory);
+      brandVoiceValue = getBrandVoiceStub(appCategory)?.slice(0, 500);
     }
 
     const wsInsert = await sb
       .from("workspaces")
       .insert({
-        name:         workspaceName.trim(),
-        slug:         cleanSlug,
-        plan:         "trial",
-        app_category: appCategory ?? null,
-        brand_voice:  brandVoiceValue ?? null,
+        name:           workspaceName.trim(),
+        slug:           cleanSlug,
+        plan:           "trial",
+        trial_ends_at:  new Date(Date.now() + TRIAL_DAYS * 86400000).toISOString(),
+        app_category:   appCategory ?? null,
+        brand_voice:    brandVoiceValue ?? null,
       })
       .select("id")
       .single();
@@ -156,11 +166,22 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     }
     workspaceId = wsInsert.data!.id as string;
 
-    await sb.from("workspace_members").insert({
+    // Roll back the orphan workspace if membership fails. Without this the
+    // workspace row survives holding the slug, the user has no membership so
+    // getWorkspaceId() returns null forever, and retrying setup hits 23505 —
+    // the user is locked out of their own workspace name by their own orphan.
+    // /api/onboarding/complete already guards this; setup never did.
+    const memberInsert = await sb.from("workspace_members").insert({
       workspace_id: workspaceId,
       clerk_user_id: userId,
       role: "owner",
     });
+
+    if (memberInsert.error) {
+      console.error("[onboarding/setup] member insert:", memberInsert.error);
+      await sb.from("workspaces").delete().eq("id", workspaceId);
+      return apiError("INTERNAL_SERVER_ERROR", 500);
+    }
   }
 
   // ── Idempotency: reuse existing app if present ────────────────────────────────
@@ -259,6 +280,34 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     });
   }
+
+  // Stamp the trial as soon as the workspace exists, not at /complete.
+  //
+  // The wizard's last two steps include a forced ~10s wait, and a user who
+  // closed the tab there never reached /complete — the only place that used to
+  // set plan + trialEndsAt. They came back to a workspace whose Clerk metadata
+  // had no plan at all, so /api/reply/draft resolved them to 0 AI drafts a day
+  // and told them "AI draft limit reached for your plan", while
+  // /api/onboarding/state reported them onboarded and refused to send them
+  // back through the wizard. /complete still runs this (both are idempotent —
+  // existing values are preserved); doing it here just removes the window.
+  after(async () => {
+    try {
+      const clerk = await clerkClient();
+      const clerkUser = await clerk.users.getUser(userId);
+      await clerk.users.updateUserMetadata(userId, {
+        publicMetadata: {
+          ...clerkUser.publicMetadata,
+          plan: clerkUser.publicMetadata?.plan ?? "trial",
+          trialEndsAt:
+            clerkUser.publicMetadata?.trialEndsAt ??
+            new Date(Date.now() + TRIAL_DAYS * 86400000).toISOString(),
+        },
+      });
+    } catch (err) {
+      console.error("[onboarding/setup] trial stamp failed:", err);
+    }
+  });
 
   return NextResponse.json({ workspaceId, appId });
 }

@@ -1,7 +1,7 @@
 # Today — Handoff for next agent
 
-**Last updated:** 2026-07-29
-**Branch agent left on:** `claude/saas-ui-design-review-tt435y` (PR #73 open — **merge it, master does not compile**)
+**Last updated:** 2026-08-15
+**Branch agent left on:** `claude/product-audit-testing-toum42` (PR open — audit round + fixes)
 
 You are the next Claude agent. Read this top-to-bottom before doing anything.
 
@@ -10,137 +10,162 @@ You are the next Claude agent. Read this top-to-bottom before doing anything.
 ## Read order, every session
 
 1. **`CLAUDE.md`** (repo root) — stack, conventions, autopilot model, what NOT to do
-2. **`docs/decisions.md`** — IMMUTABLE rules. D000 (non-coder contract) and D009 (never-do list) are critical.
-3. **`docs/backlog.md`** — ICE-ranked queue
-4. **This file (`docs/today.md`)** — last session's handoff
+2. **`docs/PRODUCT_CONTEXT.md`** — who the customer is; an audit without it can only find inconsistency
+3. **`docs/decisions.md`** — IMMUTABLE rules. D000 (non-coder contract) and D009 (never-do list) are critical.
+4. **`docs/backlog.md`** — ICE-ranked queue
+5. **This file (`docs/today.md`)** — last session's handoff
 
 ---
 
 ## ⚠️ Do this first
 
-**PR #73 must merge.** Master's `dashboard/page.tsx` is corrupted and fails
-`tsc`, so Vercel cannot build and production has been serving a pre-#72 bundle.
-Every fix below is stacked behind that merge. The founder reported "nothing has
-changed" twice for exactly this reason — the code was merged, the deploy never
-succeeded.
+**One founder action is genuinely blocking, and it is a 30-second SQL query.**
 
-**Do not trust the red "E2E tests (advisory)" check.** It has failed on every
-commit on every branch for this entire session, including documentation-only
-ones. CI uses placeholder Clerk keys that Clerk rejects with `"Invalid host"`,
-so every route — including public pricing and legal pages — serves an error.
-It says nothing about your change. Fix = real Clerk test keys as repo secrets
-(founder, ~10 min). Do not silence it.
+`supabase/migrations/pending_combined.sql` and `007_aso_keywords.sql` both
+create `aso_keywords` with **different columns**, both with
+`CREATE TABLE IF NOT EXISTS`. Whichever was pasted into Supabase first silently
+won, and nothing in the repo can tell us which. Run this in the Supabase SQL
+editor and paste the result into this file:
+
+```sql
+select column_name from information_schema.columns where table_name = 'aso_keywords';
+```
+
+- If you see `volume_estimate` / `trend_data` → matches the code, nothing to do.
+- If you see `volume` / `difficulty` → **every ASO keyword route is 500ing in
+  production right now** and needs a migration to reconcile.
+
+**Migration 020 is ready to apply** (`supabase/migrations/020_schema_catchup.sql`).
+It is idempotent and safe to paste as-is. It adds columns the code already uses
+but that no migration ever created (so the repo currently cannot rebuild prod),
+and enables RLS on `webhook_events`.
 
 ---
 
-## What this session did (2026-07-29)
+## What this session did (2026-08-15)
 
-Founder shared production screenshots: Settings "looks very poorly designed",
-dark mode broken, dead buttons, reports not working, both Save buttons saving
-each other's fields. Mandate: fix the entire UI and wiring, keep going.
+Mandate: "audit the entire code, act like a real user, test every use case
+starting from signup". Ran the full five-lens system from `AUDIT_SYSTEM.md` as
+four parallel agents, plus a real browser walkthrough of all 20 screens.
 
-### Build / deploy
-- Repaired `dashboard/page.tsx` (spliced `SyncBanners` / `WorkspaceStatusStrip`)
-  and `api/apps/route.ts` (duplicated insert keys, doubled `if (error)`).
-  **Third occurrence** of the same dashboard damage — see the warning in CLAUDE.md.
+**27 verified defects found, 25 fixed.** Full table with file:line evidence is
+in `docs/AUDIT_SYSTEM.md` under "2026-08-15 round". The headlines:
 
-### Bugs where the UI lied about state
-- **Reply Kit deletes and edits failed silently.** Four mutations updated local
-  state without checking `res.ok`, so a rejected delete still removed the row and
-  a rejected save still showed the new values — until a refresh restored the old
-  data. Now checked, with visible errors.
-- **App selector did nothing on Sentiment / ASO / Reports.** The sidebar stores
-  the app **ID**; those screens resolved it by **name**, which never matches, so
-  they showed workspace-wide data under one app's heading and Reports printed a
-  raw UUID. Now behind the tested helper `src/lib/selected-app.ts` — this had
-  already been "fixed" once and regressed, hence the extraction.
-- **Search-as-you-type races** in onboarding and competitors: the debounce
-  cleared the timer but never invalidated an in-flight request, so a slow earlier
-  response could overwrite a newer one. In onboarding that meant connecting the
-  wrong app.
-- **"All reviews replied to. Great work!"** on a workspace with zero reviews.
+### Two blockers — features that were 100% dead, silently
 
-### Invisible / unusable UI
-- **Google Play modal**: service-account email drawn in `--rb-fg-1` on a
-  `bg-[#F5F5F7]` box — identical colours in dark mode, so the box looked empty
-  next to a working Copy button. Also two stacked close buttons, nested
-  scrollbars, horizontal overflow, white panels.
-- **Sign-in / sign-up**: shell is tokenised (goes dark) but Clerk's card is
-  `bg-transparent` with fixed light label colours — near-black "Email address"
-  on a dark panel. Pinned the auth shell to `data-theme="light"`.
-- **Account menu**: items were dark-grey on a dark panel and turned near-black
-  on hover — they vanished under the cursor.
-- **Team invite page**: error message rendered white-on-white.
-- **Onboarding**: was hardcoded dark-only (~140 white-alpha values); now
-  theme-aware. Disabled Continue button was an unreadable navy block.
-- **Contrast**: `--rb-fg-4` is 2.15:1 on a light surface. Moved all *content*
-  off it app-wide; left the token value alone (see CLAUDE.md).
+- **Every automation rule was a no-op.** Sync passed the store's `external_id`
+  as the review id, but automation actions update `reviews` by uuid primary
+  key — so every write was a 22P02 no-op. The execution log's `review_id` is
+  TEXT, so the log happily recorded **"success"** for work that never happened.
+  Auto-reply threw "review not found" on every single fire. This is why the
+  Run history looked healthy while no draft ever appeared.
+- **Abandoning onboarding stranded the user permanently.** Only `/complete`
+  stamped the trial, and steps 4-5 include a forced ~10s wait. Close the tab
+  there and you came back to: no plan in Clerk → `/api/reply/draft` defaulted a
+  *missing* plan to `free` → 0 AI drafts/day → "AI draft limit reached for your
+  plan", forever — while `/api/onboarding/state` said you were onboarded and
+  refused to re-run the wizard. Recovery required Clerk dashboard surgery.
 
-### Accessibility
-- Declare-incident dialog is hand-rolled, not Radix: added Escape-to-close,
-  scroll lock, `role="dialog"`/`aria-modal`.
-- **DS4 (raw `<button>` → `<Button>`) was checked and deliberately skipped** —
-  its premise is wrong. `globals.css` already applies
-  `:focus-visible { outline: 2px solid var(--brand) }` to every focusable
-  element, so those buttons do show a keyboard focus ring. Swapping 42 controls
-  would restyle a dense inbox UI for no accessibility gain.
+### The security one
 
-### Design-system rules learned (now in CLAUDE.md)
-- **A hardcoded colour paired with a token colour** is the signature of
-  invisible text — fine in one theme, unreadable in the other. This is how the
-  Google Play modal's service-account email disappeared and how the sign-in
-  form labels went near-black on a dark panel.
-- **`--rb-fg-4` is 2.15:1 on light** — decoration only, never content.
-- **Border weights are semantic**: border-1 divides, border-2 is for inputs,
-  border-3 is for interactive. Two of three plan CTAs on Billing read as
-  disabled because they used divider weight; every contrast check passed,
-  because the failure was affordance rather than legibility.
+`POST /api/gdpr/export` had **no owner gate** and used `apps.select("*")`,
+which includes `access_token`/`refresh_token` — for App Store Connect that is
+the **.p8 signing key** plus keyId/issuerId. Any invited teammate could
+download the ability to post replies as the owner, outside ReviewBox, forever.
 
-### Also
-- Settings: converted to five tabs (General/Alerts/Integrations/Team/Data) with
-  the active tab in ?tab= and every deep-link into Settings pointed at the tab
-  it means; duplicate Data & Privacy card removed.
-- Accent unified on `#0A84FF` (indigo `#5B5BD6` removed from app screens).
-- 5 dead dashboard components deleted (zero imports).
-- Global header search was broken (`/reviews?search=` redirects to `/inbox` and
-  dropped the query); now wired.
-- New `POST /api/reports/send-now` — the Reports buttons were POSTing to
-  CRON_SECRET-gated endpoints and silently 401ing on every click.
-- Tests 129 → 136.
+### Data-integrity: two ways reviews were being corrupted or refused
 
-## Verified clean (don't re-audit without reason)
+- App Store Connect sends **alpha-3** territories ("IND") into
+  `reviews.country char(2)`. Postgres 22001 fails the **whole insert batch**,
+  not the row — so connecting App Store Connect broke sync entirely. Now
+  normalised through `toAlpha2()` (`src/lib/country-codes.ts`, 6 tests).
+- AppFollow re-import was a blanket upsert that **reset reply_status and
+  reply_text** on every already-imported review. Worse, rows without an ID
+  column were keyed on their **position in the file**, so importing a second
+  CSV overwrote unrelated reviews row-by-row. Now `ignoreDuplicates` + a
+  content hash.
 
-Swept with scripted class-searches, no issues found: divisions guarded against
-NaN/Infinity; `formatReviewDate` handles empty/invalid/non-ISO input; all 61
-client `/api/*` URLs resolve to a real route handler; no `<div onClick>` without
-a keyboard path except the modal backdrop (intentional); inbox search already
-guards against stale responses correctly.
+### The UI was lying about state in eight places
+
+The pattern throughout: a failed fetch rendered as *empty data*, and a failed
+write rendered as *success*.
+
+- `use-apps` turned any error into `[]`, and the dashboard renders "zero apps"
+  as the **first-run welcome screen** — so one transient 500 told an
+  established customer their workspace was gone. (Watched this happen live in
+  the browser before fixing it.)
+- `use-review-queue` computed `isError` and then **didn't return it**, so a
+  failed inbox fetch showed "No reviews · Connect an app in Settings" to
+  someone whose app was already connected.
+- Automations fabricated success outright: a rejected POST inserted a
+  client-only `temp-…` rule that showed the green "Installed" state, never
+  fired, and vanished on reload. `makeTemp()` is gone.
+- Alert preferences always said "Preferences saved" without checking the
+  response — and the route **silently dropped `slackWebhookUrl`**, the field
+  the UI has a dedicated input for.
+
+Both dashboard and inbox error states were **verified rendering in a real
+browser**, not just type-checked.
+
+### Also fixed
+
+Settings → Team 500'd on every open (`joined_at` exists in no migration);
+`trial_ends_at` was never written so day-5/day-12 trial emails have **never
+sent**; onboarding told customers to invite a **made-up service-account
+address**; the rating-spike alert burned its 24h dedup key *before* sending, so
+any failure lost the alert for a day with no retry; five un-awaited side
+effects inside `syncWorkspace` that Vercel freezes; `/api/apps` returning 200
+with an empty list on DB errors; brand voice stored as raw JSON in the AI
+prompt; the day-15 Stripe dead-end ("Invalid plan." on every plan).
+
+## Signup-path probe — answers to "how many reviews, and do they get sentiment?"
+
+Probed search → bootstrap → sentiment against the fixture apps.
+
+**Sentiment at signup works, and covers every review.** The rules engine tags
+each bootstrapped review at write time with sentiment, priority, issue tags and
+escalation — no network, no tokens, no Gemini needed. Verified: a 1★ crash
+review comes out `critical` / `urgent` / `["crash","release-regression"]` /
+escalated to engineering; a billing complaint routes to support. Gemini only
+refines ambiguous 3★ reviews later, when someone opens the Sentiment screen.
+
+**Why a customer sees ~50-60 reviews and not 200.** `BOOTSTRAP_LIMIT` is 200,
+but the Google Play scrape is filtered to `lang: "en"`. An app whose reviews
+are mostly Hindi/Marathi returns only its English subset. For our India-first
+ICP that is the normal case, not an edge case — this is backlog **CM1**, and it
+is the single highest-value thing left for the core promise.
+
+**Three defects found and fixed here** (details in AUDIT_SYSTEM.md, S1-S3):
+App Store bootstrap reported "sync succeeded, 0 reviews" on *every* upstream
+failure instead of erroring; Google Play reviews were stored with no country
+despite the storefront being known; the dashboard's "Reviews" number was the
+store's global lifetime count with no label, which is what makes a healthy sync
+look like data loss.
+
+## ⚠️ The build sandbox cannot test the live store calls
+
+Its egress proxy refuses `CONNECT` to `play.google.com` and `itunes.apple.com`
+with **403 before any request leaves the box**
+(`curl: (56) CONNECT tunnel failed, response 403`). Every store 403 seen from a
+Claude session — including the one recorded as finding **A8** — is the sandbox,
+**not** Google blocking us. Only `GET /api/admin/probe/stores` against
+production can answer whether scraping actually works. Please don't let a
+future session record a sandbox 403 as a store block again.
+
+## Verified stale — close, don't re-fix
+
+**Backlog R1** says four API namespaces are missing from the middleware
+matcher. All four are present (`src/middleware.ts:36, 89-91`). R1 is done.
+`/api/reports/send-now` was the one route genuinely missing, now added.
 
 ## What's next
 
-1. **Merge PR #73** (founder) — nothing ships until then
-2. Add real Clerk test keys as CI secrets so E2E becomes a real signal
-3. Decide on `--rb-fg-4`: darkening it to pass contrast collapses it into
-   `--rb-fg-3`; needs a design call
-4. Visual QA is largely done, not outstanding. Every app screen was rendered
-   and checked in **dark** (dashboard, inbox, reports, competitors, sentiment,
-   aso, automations, incidents, releases, reply-kit, billing, settings,
-   onboarding) and the higher-risk ones again in **light**. That sweep is what
-   caught the Billing CTAs reading as disabled — a failure no contrast check
-   flags, because the labels were perfectly legible.
-
-   Still unverified: the **Inbox populated with real reviews** and the **Google
-   Play modal**, because neither renders without workspace data. Their fixes
-   rest on contrast measurements and type-checking.
-
-   Recipe: write a `.env.local` with the CI placeholder Clerk/Supabase values,
-   replace `src/middleware.ts` with a pass-through, `rm -rf .next` (a stale
-   cache causes `ENOENT .next/server/middleware.js`), `npm run dev` — check the
-   log for the port, it moves if 3000 is held — then drive Playwright with
-   `executablePath: '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'`. Set
-   the theme by seeding `localStorage['reviewbox-workspace']`. **Restore
-   middleware and delete `.env.local` before committing**, and verify with
-   `git status` *after* cleanup — getting that wrong once left authentication
-   stubbed in the working tree.
-
-5. Invite the service account in Play Console so reviews actually sync
+1. Founder: run the `aso_keywords` column check above, and apply migration 020
+2. `ai_usage` is read by four dashboards and **written by nothing** — every "AI
+   drafts" number in the product and the admin panel is permanently 0
+3. Same swallowed-error class as above still present on ASO, Sentiment,
+   Reply Kit reads, and Competitors — lower traffic, same fix shape
+4. `pending_combined.sql` should be deleted once prod's real schema is known;
+   keeping a file that disagrees with the numbered migrations is a trap
+5. Migration numbering hit its **third** duplicate (`007` + `007a`). Next
+   number is **021**.

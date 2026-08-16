@@ -8,7 +8,7 @@ export default function InboxPage() {
   // Scope the inbox to the app picked in the sidebar. "" = all apps.
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
 
-  const { reviews, fetchNextPage, hasNextPage, isFetchingNextPage, isFetching, isLoading } =
+  const { reviews, fetchNextPage, hasNextPage, isFetchingNextPage, isFetching, isLoading, isError } =
     useReviewQueue(selectedApp ? { appId: selectedApp } : {});
 
   return (
@@ -21,6 +21,7 @@ export default function InboxPage() {
           hasNextPage={hasNextPage}
           isFetchingNextPage={isFetchingNextPage}
           isFetching={isFetching}
+          loadError={isError}
           fetchNextPage={fetchNextPage}
         />
       )}

@@ -181,6 +181,100 @@ your server IP is being refused. Only calling the real thing can.
 The interrupted four-agent deep sweep re-runs automatically; append its
 verified findings here when it completes.
 
+## 2026-08-15 round — full five-lens sweep + live walkthrough
+
+Four parallel lens agents (0+1, 2, 3, 4) plus a browser walkthrough of every
+app screen. Fixed on `claude/product-audit-testing-toum42`. Everything below
+was verified in code, and the two UI states marked ✅✅ were additionally
+confirmed rendering in a real browser.
+
+| # | Lens | Severity | Finding | Status |
+|---|------|----------|---------|--------|
+| B1 | 3 | **BLOCKER** | Sync passed `external_id` as `AppReview.id`, but automation actions update `reviews` by uuid PK → every `.eq("id", …)` was a 22P02 no-op, while `automation_execution_logs.review_id` is TEXT so the run log recorded **"success"**. Every automation rule was dead; auto-reply threw "review not found" 100% of the time | ✅ Fixed — DB uuid resolved post-insert; executor now throws when a write matches 0 rows |
+| B2 | 0/1 | **BLOCKER** | Abandoning onboarding after step 3 left Clerk with no `plan`, and `/api/reply/draft` defaulted a *missing* plan to `free` (0 drafts/day) → "AI draft limit reached for your plan" forever, while `/api/onboarding/state` reported the user onboarded and refused to re-run the wizard | ✅ Fixed — trial stamped at `/setup`; missing plan now defaults to `trial`, matching middleware |
+| H1 | 2 | HIGH | `POST /api/gdpr/export` had no owner gate and `apps.select("*")` shipped `access_token`/`refresh_token` — the App Store Connect **.p8 signing key** — to any workspace member | ✅ Fixed — owner-only + explicit column list |
+| H2 | 3 | HIGH | App Store Connect `territory` is alpha-3 ("IND") written into `reviews.country char(2)` → 22001 fails the **entire** insert batch → sync permanently broken for any ASC-connected app. Same for AppFollow CSV ("United States") | ✅ Fixed — `toAlpha2()` in `src/lib/country-codes.ts`, 6 unit tests |
+| H3 | 3 | HIGH | AppFollow re-import was a blanket upsert → reset `reply_status`/`reply_text` on every already-imported review. Rows without an ID column keyed on **row position**, so a second CSV overwrote unrelated reviews | ✅ Fixed — `ignoreDuplicates` + content-hash external_id |
+| H4 | 3 | HIGH | `GET /api/team/members` selects/orders by `workspace_members.joined_at`, which exists in no migration → Settings → Team 500s every time, in prod | ✅ Fixed — aliased to the real `created_at` |
+| H5 | 0 | HIGH | `workspaces.trial_ends_at` was never written by anything, so the trial-nudge cron matched no workspace: day-5 and day-12 emails have **never** sent | ✅ Fixed — written in both onboarding paths |
+| H6 | 3 | HIGH | Onboarding stored `brand_voice` as a serialised JSON **object** in a TEXT/500-char column → raw JSON injected into every AI prompt, and a long word list blew the check constraint → onboarding 500 | ✅ Fixed — stores the rendered sentence, clamped to 500 |
+| H7 | 4 | HIGH | Automations UI fabricated success: failed PATCH/DELETE still flipped the toggle / removed the row, and a failed POST inserted a client-only `temp-…` rule that showed "Installed" and never fired | ✅ Fixed — `makeTemp()` deleted, errors surfaced |
+| H8 | 4 | HIGH | Alert preferences always showed "Preferences saved" without checking the response, **and** the route silently dropped `slackWebhookUrl` — the field the UI collects | ✅ Fixed — both halves |
+| H9 | 4 | HIGH | `use-apps` turned any error into `[]`; dashboard renders "zero apps" as the first-run welcome → one transient 500 told an established customer their workspace was empty | ✅✅ Fixed — distinct error state, verified in browser |
+| H10 | 4 | HIGH | `use-review-queue` computed `isError` and never returned it → a failed fetch rendered "No reviews · Connect an app in Settings" to customers whose app was connected | ✅✅ Fixed — verified in browser |
+| H11 | 0/1 | HIGH | Onboarding step 4 told customers to invite `NEXT_PUBLIC_GOOGLE_CLIENT_EMAIL ?? "reviews@reviewbox.iam.gserviceaccount.com"` — a variable set nowhere, so every customer invited a **made-up address**, waited 10 min, and clicked Done | ✅ Fixed — reads `/api/google-play/service-account`, with a real missing state |
+| H12 | 1 | HIGH | Rating-spike alert claimed its 24h Redis dedup key **before** sending; any failure or lambda freeze between the two suppressed the alert for a day with nothing sent and no retry | ✅ Fixed — short claim, extended to 24h only after a confirmed send |
+| M1 | 1 | MEDIUM | `enrichOnboarding`, `runAutomationRules`, `notifyUrgentReview`, `notifyWorkspaceOwner`, `recordPublisherApiState` all launched un-awaited inside `syncWorkspace` — frozen by Vercel when the invocation ends | ✅ Fixed — all awaited |
+| M2 | 3 | MEDIUM | `webhook_events` has RLS **disabled**; in Supabase that leaves default anon grants intact, so the anon key could delete dedup rows and re-arm Stripe webhook replay | ✅ Fixed — migration 020 enables RLS |
+| M3 | 3 | MEDIUM | `alert_preferences.{label,description,channels,schedule_day_of_*}` and `automation_rules.action_label` are used by code but created by **no migration** (hand-applied in prod, never committed) — the migrations dir cannot rebuild prod | ✅ Fixed — migration 020 |
+| M4 | 4 | MEDIUM | Dashboard CSV export never checked `res.ok` — a JSON error envelope was blobbed and saved as `reviews-<date>.csv` | ✅ Fixed |
+| M5 | 3 | MEDIUM | `GET /api/apps` swallowed every non-42703 error and returned **200 with an empty list** | ✅ Fixed — 500 on real errors |
+| M6 | 4 | MEDIUM | Dashboard "Active incidents" sat on skeletons forever on a failed fetch (`useIncidents` throws, so `data` stays undefined) | ✅ Fixed — error branch |
+| M7 | 0 | MEDIUM | `POST /api/incidents` accepted severity `"low"`, which the DB check constraint rejects → generic 500 | ✅ Fixed — aligned to the constraint |
+| M8 | 0 | MEDIUM | `/api/stripe/checkout` checked price IDs before Stripe config; unset env → `""` price → "Invalid plan." on every plan, and the billing page's `STRIPE_NOT_CONFIGURED` branch was unreachable. This is the day-15 screen | ✅ Fixed — config checked first |
+| M9 | 2 | MEDIUM | `/api/reports/send-now` was in neither middleware matcher → the POST 307'd to the `/dashboard` HTML page in prod. Bare `/api/health` likewise required auth, bouncing uptime monitors | ✅ Fixed — both matchers |
+| M10 | 0 | MEDIUM | `/api/onboarding/setup` never checked the `workspace_members` insert; a failure orphaned the workspace, permanently consuming the slug and locking the user out of their own name | ✅ Fixed — rollback |
+| M11 | 0 | MEDIUM | setup's `RESERVED_SLUGS` was a subset of slug-check's, so a slug shown as "Reserved" was still accepted | ✅ Fixed — lists reconciled |
+
+### Verified stale — close, don't re-fix
+
+- **Backlog R1** claims `/api/import`, `/api/competitors`, `/api/auth/slack`,
+  `/api/cron` are missing from the middleware matcher. All four are present
+  (`src/middleware.ts:36, 89-91`). R1 is done; `send-now` (M9) was the one
+  genuinely missing route.
+
+### Signup-path probe (same round) — 3 further fixes
+
+Probed the real signup data path (search → bootstrap → sentiment) against the
+PRODUCT_CONTEXT fixtures.
+
+| # | Lens | Severity | Finding | Status |
+|---|------|----------|---------|--------|
+| S1 | 1/4 | HIGH | App Store bootstrap swallowed every upstream failure into `[]`: `resolveItunesTrackId` returned null on a refused lookup and the caller did `return []`, so `scraped === null` never fired and sync recorded **success with 0 reviews**. Blocked request / Apple outage / wrong bundle ID / app-not-on-this-storefront were all indistinguishable from "no reviews", forever. The storefront case is the App Store twin of Mumbai One | ✅ Fixed — throws with the storefront named; later-page failures still keep partial results; 4 regression tests |
+| S2 | 0 | MEDIUM | Google Play bootstrap wrote `country: null` on every review despite knowing the storefront it had just scraped — silently breaking the inbox country filter and any automation `country` condition, on the platform most reviews come from | ✅ Fixed |
+| S3 | 4 | MEDIUM | BUG-020 confirmed: dashboard "Reviews" card printed the store's lifetime **global** count unlabelled, above per-country synced counts, linking to an inbox holding only the synced subset | ✅ Fixed — labelled "all-time (store)", synced count shown beside it |
+
+**Verified healthy:** the rules engine assigns sentiment/priority/tags/escalation
+to **every** bootstrapped review at write time, with no network and no tokens —
+1★ crash text → `critical`/`urgent`/`["crash","release-regression"]`/engineering;
+billing text → `support`. Gemini only refines ambiguous 3★ reviews later, on
+demand. The Sentiment screen's KPIs and topics come from a **server-side
+aggregate over the whole range** (`/api/sentiment/overview`), not from the
+20-row page the screen also loads — that page feeds only the "Re-cluster with
+AI" button.
+
+**How many reviews a new signup actually gets:** `BOOTSTRAP_LIMIT` is 200, but
+the Play scrape is filtered to `lang: "en"`, so an app whose reviews are mostly
+in another language returns only its English subset. For the India-first ICP
+that is the common case — the most likely explanation for a customer seeing
+~50-60 reviews rather than 200. Tracked as CM1.
+
+### Still open
+
+- **A8 (Google 403) — the sandbox cannot answer this.** This build sandbox's
+  egress proxy refuses `CONNECT` to `play.google.com`, `itunes.apple.com` and
+  `apps.apple.com` with **403 before any traffic leaves the box**
+  (`curl: (56) CONNECT tunnel failed, response 403`). So the 403s seen from
+  here — in the original A8 note and in this round's probe — are **not
+  evidence about production**. Only `GET /api/admin/probe/stores` run against
+  production can settle whether Google blocks Vercel's IPs. Do not treat a
+  sandbox 403 as a store block again.
+- **Migration numbering**: `007_aso_keywords.sql` and `007a_workspace_brand_voice.sql`
+  share a number — the third occurrence of this. Cannot be renamed (D006), so
+  the next number is **021**.
+- **`supabase/migrations/pending_combined.sql` disagrees with the numbered
+  files** — its `aso_keywords` has different columns (`volume TEXT`,
+  `difficulty TEXT`) from 007's (`volume_estimate INT`, `trend_data INT[]`).
+  Both use `CREATE TABLE IF NOT EXISTS`, so whichever the founder pasted first
+  silently won, and the repo cannot tell which prod has. **Needs a one-time
+  check in prod**: `select column_name from information_schema.columns where
+  table_name = 'aso_keywords';` If it matches pending_combined, every ASO
+  keyword route is 500ing today.
+- `ai_usage` is read by four dashboards but **written by nothing** — every "AI
+  drafts" figure is permanently 0 (backlog item, not fixed here).
+- Remaining swallowed-error UI on ASO / Sentiment / Reply Kit reads /
+  competitors — same class as H7-H10, lower traffic. Backlogged.
+
 ## Escalation: what to do if A8 is confirmed in production
 
 If `last_sync_status` comes back `store_blocked_scraping`, the zero-setup
