@@ -322,7 +322,7 @@ export async function searchGooglePlay(
  * *bundle* ID — so that needs one iTunes lookup to translate before we can
  * store it.
  */
-async function resolvePastedStoreUrl(
+export async function resolvePastedStoreUrl(
   parsed: ParsedStoreUrl,
 ): Promise<StoreSearchResult | null> {
   if (parsed.kind === "package") {
