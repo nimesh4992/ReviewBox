@@ -41,32 +41,20 @@ function PortfolioSparkline({ data }: { data: (number | null)[] }) {
   // points means elapsed time — but the line must not be drawn across them.
   const values = data.filter((v): v is number => v !== null);
 
-  // Measured, not stretched: this SVG used to be drawn at a fixed 560 units
-  // and stretched to the container with preserveAspectRatio="none", which
-  // scales the axis text along with the line — squeezed glyphs on narrow
-  // screens, smeared on wide ones. Rendering at the container's real pixel
-  // width keeps text undistorted at every size. The wrapper div (and this
-  // observer) stay mounted even in the too-little-data state so the width is
-  // already correct the moment enough data arrives.
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [w, setW] = useState(560);
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width;
-      if (width) setW(Math.max(120, Math.round(width)));
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  if (values.length < 2) {
+    return (
+      <div className="flex h-[130px] items-center justify-center text-[12px] text-fg-3">
+        Trend appears here once 2+ days of reviews are synced.
+      </div>
+    );
+  }
 
-  const h = 130, padL = 28, padR = 8, padT = 10, padB = 20;
+  const w = 560, h = 130, padL = 28, padR = 8, padT = 10, padB = 20;
 
-  // Ratings live on a fixed 1–5 star scale, and the axis must say so. The old
-  // domain auto-zoomed to the data (min→max), so a rough month rendered as a
-  // 1.4–2.5 window — which reads as "my rating axis ends at 2.5", not as a
-  // trend on a 5-star scale.
+  // Fixed 1–5 domain — ratings live on a five-star scale and the axis must say
+  // so. The old domain auto-zoomed to the data (min→max), so a rough month
+  // rendered as a 1.4–2.5 window, which reads as "the rating axis ends at 2.5"
+  // rather than as a trend on a 5-star scale.
   const ticks = [1, 2, 3, 4, 5];
 
   const xs = (i: number) => padL + (i / Math.max(1, data.length - 1)) * (w - padL - padR);
@@ -97,22 +85,6 @@ function PortfolioSparkline({ data }: { data: (number | null)[] }) {
   const pct = (v: number) => `${(ys(v) / h) * 100}%`;
 
   return (
-    <div ref={containerRef} className="w-full">
-      {values.length < 2 ? (
-        <div className="flex h-[130px] items-center justify-center text-[12px] text-fg-3">
-          Trend appears here once 2+ days of reviews are synced.
-        </div>
-      ) : (
-        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
-          {ticks.map((g) => (
-            <g key={g}>
-              <line x1={padL} x2={w - padR} y1={ys(g)} y2={ys(g)} stroke="var(--rb-border-1)" />
-              <text x={padL - 6} y={ys(g) + 3} fontSize="10" fill="var(--rb-fg-3)" textAnchor="end" style={{ fontVariantNumeric: "tabular-nums" }}>{g}</text>
-            </g>
-          ))}
-          <path d={d} fill="none" stroke="#0A84FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      )}
     <div className="relative w-full" style={{ height: h }}>
       <svg
         viewBox={`0 0 ${w} ${h}`}
@@ -149,7 +121,7 @@ function PortfolioSparkline({ data }: { data: (number | null)[] }) {
           className="absolute text-[10px] tabular-nums text-fg-3"
           style={{ top: pct(g), left: 0, width: padL - 6, transform: "translateY(-50%)", textAlign: "right" }}
         >
-          {g.toFixed(1)}
+          {g}
         </span>
       ))}
     </div>
@@ -565,11 +537,6 @@ export default function DashboardPage() {
     },
     {
       icon: Star,
-      label: ratingIsLifetime ? "Store rating" : "Avg. rating",
-      value: displayRating !== null ? displayRating.toFixed(2) : "—",
-      delta: formatDelta(avgRatingDelta),
-      kind: avgRatingDeltaKind,
-      sub: ratingIsLifetime ? "all-time (store)" : "last 30 days · synced",
       label: "Avg. rating",
       value: avgRating !== null ? avgRating.toFixed(2) : "—",
       delta: formatDelta(avgRatingDelta),
@@ -686,11 +653,6 @@ export default function DashboardPage() {
       <section className="grid grid-cols-1 gap-6 rounded-2xl border border-[var(--rb-border-1)] bg-surface px-5 py-5 shadow-[var(--rb-shadow-xs)] sm:grid-cols-[minmax(0,260px)_1fr] sm:items-center sm:gap-8 sm:px-8 sm:py-7">
         <div>
           <div className="text-xs font-medium text-fg-3 uppercase tracking-[0.06em]">
-            {/* Say which number this is. "Portfolio rating" over a 30-day
-                average looked like the store rating being wrong (2.53 vs the
-                Play listing's 3.1) — the store's own figure and our synced
-                window must never be presentable as the same thing. */}
-            {ratingIsLifetime ? "Store rating · all-time" : "Synced reviews · 30-day average"}
             {ratingIsLifetime ? "Store rating · all-time" : "Store rating"}
           </div>
           <div className="mt-3 flex items-baseline gap-3">
