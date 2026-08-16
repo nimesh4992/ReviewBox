@@ -309,11 +309,45 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       return NextResponse.json({ source: "template" as ReplySource, reply }, { status: 200 });
     }
 
+    // The system prompt is built BEFORE the cache tier because it is part of
+    // the cache key: the cached value is raw model output, and the prompt
+    // bakes in this workspace's sign-off, brand voice, KB snippet and char
+    // limit. Keying by review text alone served one tenant's draft — signed
+    // with their team name, referencing their private KB — to a different
+    // tenant whose customer wrote the same short review. One small KB select
+    // per cache hit is the price of that isolation.
+    let kbEntries: Array<{ category: string; title: string; content: string }> = [];
+    if (workspaceId) {
+      const sb = getServiceClient();
+      const { data } = await sb
+        .from("knowledge_base")
+        .select("category, title, content")
+        .eq("workspace_id", workspaceId)
+        .order("created_at", { ascending: false })
+        .limit(1);
+      kbEntries = data ?? [];
+    }
+
+    const systemPrompt = buildSystemPrompt({
+      tone,
+      contextEntries: kbEntries,
+      brandVoice:     persona.brandVoice,
+      teamName:       persona.teamName,
+      charLimit,
+    });
+
+    const cacheScope = {
+      workspaceId,
+      appId: reviewAppId ?? null,
+      systemPrompt,
+    };
+
     // ══════════════════════════════════════════════════════════════════════
     // TIER 2 — Redis cache: exact match for previously AI-generated replies
-    // Checked BEFORE generating to save quota
+    // Checked BEFORE generating to save quota. Scoped to workspace + app +
+    // prompt — never shared across tenants.
     // ══════════════════════════════════════════════════════════════════════
-    const cached = await getCachedReply({ text: reviewBody, rating }, tone);
+    const cached = await getCachedReply(cacheScope, { text: reviewBody, rating }, tone);
     if (cached !== null) {
       const raw   = enforceCharLimit(cached, charLimit);
       const reply = humanizePunctuation(personalizeText(raw, persona));
@@ -334,27 +368,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const { allowed } = await checkAiRateLimit(userId, plan);
     if (!allowed) return apiError("RATE_LIMITED", 429, "AI draft limit reached for your plan");
 
-    // Fetch KB entry for context (best-effort)
-    let kbEntries: Array<{ category: string; title: string; content: string }> = [];
-    if (workspaceId) {
-      const sb = getServiceClient();
-      const { data } = await sb
-        .from("knowledge_base")
-        .select("category, title, content")
-        .eq("workspace_id", workspaceId)
-        .order("created_at", { ascending: false })
-        .limit(1);
-      kbEntries = data ?? [];
-    }
-
     const compressedBody = compressReviewText(reviewBody);
-    const systemPrompt   = buildSystemPrompt({
-      tone,
-      contextEntries: kbEntries,
-      brandVoice:     persona.brandVoice,
-      teamName:       persona.teamName,
-      charLimit,
-    });
 
     try {
       const { reply: aiReply, source: aiSource } = await generateWithFailover({
@@ -368,8 +382,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const raw   = enforceCharLimit(aiReply, charLimit);
       const reply = humanizePunctuation(personalizeText(raw, persona));
 
-      // Cache the raw AI output (before personalization — personas can change)
-      await setCachedReply({ text: reviewBody, rating }, tone, aiReply);
+      // Cache the raw AI output under the workspace/app/prompt-scoped key.
+      // A persona or KB change produces a different prompt, hence a different
+      // key — stale drafts age out rather than being served.
+      await setCachedReply(cacheScope, { text: reviewBody, rating }, tone, aiReply);
 
       log(aiSource, { hasBrandVoice: !!persona.brandVoice, hasKb: kbEntries.length > 0 });
       return NextResponse.json({ source: aiSource as ReplySource, reply }, { status: 200 });

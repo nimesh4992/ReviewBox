@@ -15,6 +15,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { getServiceClient } from "@/lib/supabase-server";
+import { getLiveAppIds } from "@/lib/live-apps";
 import { Redis } from "@upstash/redis";
 import { sendTrialDay5Nudge } from "@/lib/email/send-trial-nudge";
 import { sendTrialExpiringEmail } from "@/lib/email/send-trial-expiring";
@@ -122,16 +123,26 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const ownerInfo = await getOwnerEmail(ws.id);
     if (!ownerInfo) { skipped++; continue; }
 
-    // Fetch real review counts for this workspace
+    // Fetch real review counts for this workspace — live apps only. A
+    // trialist who connected the wrong app, removed it, and connected the
+    // right one was told "340 reviews, 118 unreplied" and then opened an
+    // inbox showing 12. This email's entire value is that the number is
+    // checkable, so it fails closed rather than quoting a workspace-wide
+    // figure the product contradicts everywhere else.
+    const liveAppIds = await getLiveAppIds(sb, ws.id);
+    if (liveAppIds === null || liveAppIds.length === 0) { skipped++; continue; }
+
     const { count: totalCount } = await sb
       .from("reviews")
       .select("id", { count: "exact", head: true })
-      .eq("workspace_id", ws.id);
+      .eq("workspace_id", ws.id)
+      .in("app_id", liveAppIds);
 
     const { count: unrepliedCount } = await sb
       .from("reviews")
       .select("id", { count: "exact", head: true })
       .eq("workspace_id", ws.id)
+      .in("app_id", liveAppIds)
       .eq("reply_status", "needs_reply");
 
     // Write dedup key BEFORE sending — prevents double-send if Redis write

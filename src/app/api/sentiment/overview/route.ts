@@ -1,6 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { getLiveAppIds, scopeAppIds } from "@/lib/live-apps";
 import { apiError } from "@/lib/api-response";
 
 export interface TopicReview {
@@ -114,12 +115,20 @@ export async function GET(req: Request): Promise<NextResponse> {
     prevWindowStart.setDate(prevWindowStart.getDate() - days * 2);
     const prevWindowEnd = windowStart;
 
+    // Every aggregate on this screen funnels through this helper, so scoping
+    // it scopes all ten queries at once. Live apps only — workspace_id alone
+    // counted a deleted app's reviews into every KPI, topic share and the
+    // critical-reviews list — and a client appId is honoured only when it is
+    // one of this workspace's own live apps (the /api/reviews contract).
+    const liveAppIds = await getLiveAppIds(sb, workspaceId);
+    if (liveAppIds === null) return NextResponse.json(EMPTY);
+    const scopedAppIds = scopeAppIds(liveAppIds, appId);
+    if (!scopedAppIds.length) return NextResponse.json(EMPTY);
+
     // base filter helper — select("*") first so .eq() is available on FilterBuilder
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const base = (): any => {
-      const q = sb.from("reviews").select("*").eq("workspace_id", workspaceId);
-      return appId ? q.eq("app_id", appId) : q;
-    };
+    const base = (): any =>
+      sb.from("reviews").select("*").eq("workspace_id", workspaceId).in("app_id", scopedAppIds);
 
     // ── 1. KPI metrics (current + previous period) ───────────────────────────
     const [ratingRows, positiveCount, repliedRows, prevRatingRows, prevPositiveCount] =

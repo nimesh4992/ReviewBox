@@ -10,6 +10,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { getLiveAppIds } from "@/lib/live-apps";
 
 export interface OnboardingProgress {
   reviewCount:   number;
@@ -35,10 +36,19 @@ export async function GET(): Promise<NextResponse> {
 
   const sb = getServiceClient();
 
+  // Live apps only. This endpoint is polled every 3s during onboarding, and
+  // the app query below already excludes deleted apps — so a re-onboarding
+  // user watched reviewCount start at a phantom non-zero number while the
+  // rating beside it was still null.
+  const liveAppIds = (await getLiveAppIds(sb, workspaceId)) ?? [];
+
   const [reviewRes, templateRes, keywordRes, appRes] = await Promise.all([
-    sb.from("reviews")
-      .select("id", { count: "exact", head: true })
-      .eq("workspace_id", workspaceId),
+    liveAppIds.length
+      ? sb.from("reviews")
+          .select("id", { count: "exact", head: true })
+          .eq("workspace_id", workspaceId)
+          .in("app_id", liveAppIds)
+      : Promise.resolve({ count: 0 }),
 
     sb.from("reply_templates")
       .select("id", { count: "exact", head: true })

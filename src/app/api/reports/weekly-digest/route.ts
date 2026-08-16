@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { getServiceClient } from "@/lib/supabase-server";
+import { getLiveApps } from "@/lib/live-apps";
 import { sendWeeklyDigest } from "@/lib/email/send-weekly-digest";
 import { notifySlack } from "@/lib/slack";
 
@@ -64,63 +65,73 @@ async function handler(req: NextRequest): Promise<NextResponse> {
       const email = clerkUser.emailAddresses[0]?.emailAddress;
       if (!email) return false;
 
+      // Live apps first — and fail CLOSED if the lookup errors. The digest
+      // used to aggregate by workspace_id alone and stamp the totals with an
+      // arbitrary app's name, so a deleted app's reviews kept steering the
+      // Monday numbers, and a two-app workspace read one app's name over a
+      // blend of both. One digest per app, each with its own figures.
+      const liveApps = await getLiveApps(sb, ws.id);
+      if (liveApps === null || liveApps.length === 0) return false;
+
       const { data: reviews } = await sb
         .from("reviews")
         .select("rating, priority, reply_status, issue_tags, app_id")
         .eq("workspace_id", ws.id)
+        .in("app_id", liveApps.map((a) => a.id))
         .gte("store_created_at", since);
 
       if (!reviews?.length) return false;
 
-      const totalReviews   = reviews.length;
-      const avgRating      = reviews.reduce((sum, r) => sum + (r.rating as number), 0) / totalReviews;
-      const urgentCount    = reviews.filter((r) => r.priority === "urgent").length;
-      const unrepliedCount = reviews.filter((r) => r.reply_status === "needs_reply").length;
+      let sentAny = false;
+      for (const app of liveApps) {
+        const appReviews = reviews.filter((r) => r.app_id === app.id);
+        if (!appReviews.length) continue;
 
-      const tagCounts: Record<string, number> = {};
-      for (const r of reviews) {
-        const tags = (r.issue_tags as string[] | null) ?? [];
-        for (const t of tags) tagCounts[t] = (tagCounts[t] ?? 0) + 1;
+        const totalReviews   = appReviews.length;
+        const avgRating      = appReviews.reduce((sum, r) => sum + (r.rating as number), 0) / totalReviews;
+        const urgentCount    = appReviews.filter((r) => r.priority === "urgent").length;
+        const unrepliedCount = appReviews.filter((r) => r.reply_status === "needs_reply").length;
+
+        const tagCounts: Record<string, number> = {};
+        for (const r of appReviews) {
+          const tags = (r.issue_tags as string[] | null) ?? [];
+          for (const t of tags) tagCounts[t] = (tagCounts[t] ?? 0) + 1;
+        }
+        const topIssue = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+
+        const appName = app.name || ws.name || "your app";
+
+        await sendWeeklyDigest(email, { totalReviews, avgRating, urgentCount, unrepliedCount, topIssue, appName });
+        sentAny = true;
+
+        void notifySlack(ws.id, {
+          text: `📊 Weekly digest — ${appName}: ${totalReviews} reviews, ${avgRating.toFixed(1)}★ avg`,
+          blocks: [
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: [
+                  `📊 *Weekly digest — ${appName}*`,
+                  `Reviews: *${totalReviews}* · Avg rating: *${avgRating.toFixed(1)}★*`,
+                  unrepliedCount > 0 ? `Needs reply: *${unrepliedCount}*` : null,
+                  urgentCount > 0    ? `🔴 Urgent: *${urgentCount}*` : null,
+                  topIssue           ? `Top issue: \`${topIssue}\`` : null,
+                ].filter(Boolean).join("\n"),
+              },
+            },
+            {
+              type: "section",
+              text: {
+                type: "mrkdwn",
+                text: `<${process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com"}/reviews|View review queue →>`,
+              },
+            },
+          ],
+        });
       }
-      const topIssue = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
-      const { data: apps } = await sb
-        .from("apps")
-        .select("name")
-        .eq("workspace_id", ws.id)
-        .is("deleted_at", null)
-        .limit(1);
-      const appName = apps?.[0]?.name ?? ws.name ?? "your app";
-
-      await sendWeeklyDigest(email, { totalReviews, avgRating, urgentCount, unrepliedCount, topIssue, appName });
-
-      void notifySlack(ws.id, {
-        text: `📊 Weekly digest — ${totalReviews} reviews, ${avgRating.toFixed(1)}★ avg`,
-        blocks: [
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: [
-                `📊 *Weekly digest — ${appName}*`,
-                `Reviews: *${totalReviews}* · Avg rating: *${avgRating.toFixed(1)}★*`,
-                unrepliedCount > 0 ? `Needs reply: *${unrepliedCount}*` : null,
-                urgentCount > 0    ? `🔴 Urgent: *${urgentCount}*` : null,
-                topIssue           ? `Top issue: \`${topIssue}\`` : null,
-              ].filter(Boolean).join("\n"),
-            },
-          },
-          {
-            type: "section",
-            text: {
-              type: "mrkdwn",
-              text: `<${process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com"}/reviews|View review queue →>`,
-            },
-          },
-        ],
-      });
-
-      return true;
+      return sentAny;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
       errors.push(`workspace ${ws.id}: ${msg}`);
