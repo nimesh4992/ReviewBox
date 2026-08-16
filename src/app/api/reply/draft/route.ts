@@ -313,7 +313,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // TIER 2 — Redis cache: exact match for previously AI-generated replies
     // Checked BEFORE generating to save quota
     // ══════════════════════════════════════════════════════════════════════
-    const cached = await getCachedReply({ text: reviewBody, rating }, tone);
+    // No workspace means no tenant to scope the cache to, and a shared bucket
+    // is exactly what this cache must never be again — so such a caller simply
+    // skips the cache rather than reading or writing a common namespace.
+    const cached = workspaceId
+      ? await getCachedReply(workspaceId, { text: reviewBody, rating }, tone)
+      : null;
     if (cached !== null) {
       const raw   = enforceCharLimit(cached, charLimit);
       const reply = humanizePunctuation(personalizeText(raw, persona));
@@ -369,7 +374,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const reply = humanizePunctuation(personalizeText(raw, persona));
 
       // Cache the raw AI output (before personalization — personas can change)
-      await setCachedReply({ text: reviewBody, rating }, tone, aiReply);
+      if (workspaceId) {
+        await setCachedReply(workspaceId, { text: reviewBody, rating }, tone, aiReply);
+      }
 
       log(aiSource, { hasBrandVoice: !!persona.brandVoice, hasKb: kbEntries.length > 0 });
       return NextResponse.json({ source: aiSource as ReplySource, reply }, { status: 200 });

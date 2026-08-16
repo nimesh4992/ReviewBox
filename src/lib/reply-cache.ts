@@ -33,22 +33,38 @@ function getRedis(): Redis | null {
 }
 
 // ── Cache key ─────────────────────────────────────────────────────────────────
+//
+// The workspace is part of the key, and `workspaceId` is a REQUIRED first
+// argument so this cannot regress silently — omitting it is a compile error,
+// not a quiet cross-tenant hit.
+//
+// It keyed on review text + rating + tone alone, in one global Redis namespace
+// with a 7-day TTL. What lands in that namespace is not generic text: the AI
+// tier builds the draft from the workspace's brand voice and its knowledge-base
+// entries. Two customers with the same app, or the same boilerplate 1-star
+// review ("app keeps crashing"), would serve each other's replies — one
+// tenant's internal KB wording delivered to another, and to the public store.
 
 /**
  * Derive a cache key using Web Crypto SHA-256.
  * Available in Node 18+ and all Edge Runtimes without any imports.
  */
 async function buildCacheKey(
+  workspaceId: string,
   review: { text: string; rating: number },
   tone: string,
 ): Promise<string> {
-  const raw = (review.text ?? "").slice(0, 200) + "|" + review.rating + "|" + tone;
+  // workspaceId is INSIDE the hash and also in the prefix. Inside, because two
+  // tenants seeing the same review text must not collide. In the prefix,
+  // because a human staring at Redis should be able to tell whose key it is.
+  const raw =
+    workspaceId + "|" + (review.text ?? "").slice(0, 200) + "|" + review.rating + "|" + tone;
   const encoder = new TextEncoder();
   const data = encoder.encode(raw);
   const hashBuffer = await crypto.subtle.digest("SHA-256", data);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const hex = hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
-  return KEY_PREFIX + hex;
+  return `${KEY_PREFIX}${workspaceId}:${hex}`;
 }
 
 // ── Public API ────────────────────────────────────────────────────────────────
@@ -58,13 +74,14 @@ async function buildCacheKey(
  * Returns the cached string on hit, or null on miss / error / missing config.
  */
 export async function getCachedReply(
+  workspaceId: string,
   review: { text: string; rating: number },
   tone: string,
 ): Promise<string | null> {
   const redis = getRedis();
   if (!redis) return null;
   try {
-    const key    = await buildCacheKey(review, tone);
+    const key    = await buildCacheKey(workspaceId, review, tone);
     const cached = await redis.get<string>(key);
     return cached ?? null;
   } catch {
@@ -77,6 +94,7 @@ export async function getCachedReply(
  * Best-effort — swallows all errors so it never blocks the response.
  */
 export async function setCachedReply(
+  workspaceId: string,
   review: { text: string; rating: number },
   tone: string,
   reply: string,
@@ -84,7 +102,7 @@ export async function setCachedReply(
   const redis = getRedis();
   if (!redis) return;
   try {
-    const key = await buildCacheKey(review, tone);
+    const key = await buildCacheKey(workspaceId, review, tone);
     await redis.setex(key, CACHE_TTL_SECONDS, reply);
   } catch {
     // Best-effort: ignore errors
@@ -96,13 +114,14 @@ export async function setCachedReply(
  * Graceful no-op if the key doesn't exist.
  */
 export async function invalidateCachedReply(
+  workspaceId: string,
   review: { text: string; rating: number },
   tone: string,
 ): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
   try {
-    const key = await buildCacheKey(review, tone);
+    const key = await buildCacheKey(workspaceId, review, tone);
     await redis.del(key);
   } catch {
     // Best-effort: ignore errors

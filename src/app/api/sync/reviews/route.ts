@@ -4,6 +4,7 @@ import { auth } from "@clerk/nextjs/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { syncWorkspace } from "@/services/review-sync";
+import { rateLimit } from "@/lib/api-rate-limit";
 
 // A workspace sync scrapes the public store, hits the Publisher/Connect APIs,
 // and runs enrichment — comfortably more than the default function budget.
@@ -51,6 +52,22 @@ async function handler(req: NextRequest): Promise<NextResponse> {
     workspaceId = await getWorkspaceId(session.userId);
     if (!workspaceId) {
       return NextResponse.json({ error: "NO_WORKSPACE" }, { status: 404 });
+    }
+
+    // Session callers only — the cron branch above stays unmetered.
+    //
+    // Each call runs syncWorkspace() inline with maxDuration = 60: a Play HTML
+    // scrape and an iTunes fetch per app, then AI enrichment. Unthrottled, a
+    // signed-in user could loop it and spend Vercel compute, the Upstash
+    // command budget and — worst — get our shared egress IP rate-limited or
+    // blocked by Google, which breaks syncing for every customer at once, not
+    // just the abuser. 4/hour is generous for the Settings "Sync now" button.
+    const rl = await rateLimit(req, workspaceId, { bucket: "sync-manual", limit: 4, window: "1 h" });
+    if (!rl.allowed) {
+      return NextResponse.json(
+        { error: "RATE_LIMITED", message: "Sync was run recently. Try again shortly." },
+        { status: 429 },
+      );
     }
   }
 

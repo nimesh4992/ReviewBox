@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { cn } from "@/lib/utils";
+import { requireAdminPage } from "@/lib/admin-auth";
 
 // Note: set ADMIN_CLERK_USER_ID in .env.local to your Clerk user ID (Clerk dashboard > Users)
 
@@ -43,6 +44,7 @@ const BASE_SELECT = `
 `;
 
 export default async function AdminCustomersPage() {
+  await requireAdminPage();
   const sb = getServiceClient();
 
   // Embedded reviews(count) needs PostgREST aggregate support; fall back to

@@ -37,6 +37,12 @@ const isPublicRoute = createRouteMatcher([
   "/api/sync/(.*)",
   "/api/reports/weekly-digest",
   "/api/reports/unreplied-alert",
+  // Every cron target must be listed. daily-digest was added later and missed,
+  // so on the app host middleware redirected it before its own fail-closed
+  // CRON_SECRET check could run — the job was scheduled in vercel.json and
+  // silently never executed. A route absent from BOTH matchers is the failure
+  // mode to watch for here; it does not error, it just stops working.
+  "/api/reports/daily-digest",
   // Cron routes authenticate themselves via CRON_SECRET (machine calls, no
   // Clerk session) — they must be public so auth.protect() doesn't reject
   // them, exactly like the two report crons above. Previously unmatched, so on
@@ -75,6 +81,7 @@ const isAppRoute = createRouteMatcher([
   "/api/apps(.*)",
   "/api/reviews(.*)",
   "/api/reply(.*)",
+  "/api/tags(.*)",
   "/api/dashboard(.*)",
   "/api/incidents(.*)",
   "/api/automations(.*)",
