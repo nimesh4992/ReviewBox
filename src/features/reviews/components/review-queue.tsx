@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useId, useRef, useDeferredValue } from "react";
+import { useState, useEffect, useCallback, useMemo, useId, useRef, useDeferredValue } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import {
@@ -23,6 +23,7 @@ import { AppReview, ReviewSentiment, AIReplyTone } from "@/types/review";
 import { avatarInitials, humanizeToken, formatReviewDate } from "@/utils/format";
 import { avatarColorVar } from "@/lib/avatar-color";
 import { canPostRepliesViaApi } from "@/lib/sync-status";
+import { isLikelyEnglish } from "@/lib/language";
 import { apiErrorMessage } from "@/lib/api-error-message";
 
 // Helper — stamp a review as replied in the infinite query cache
@@ -459,6 +460,10 @@ function ReplyComposer({
   const [sourceLang, setSourceLang]         = useState<string | null>(null);
   const [showTranslation, setShowTranslation] = useState(false);
 
+  // Decided locally, before any request: no point offering translation on a
+  // review that is already in English.
+  const needsTranslation = useMemo(() => !isLikelyEnglish(review.text), [review.text]);
+
   async function handleTranslate() {
     if (translatedText) { setShowTranslation((v) => !v); return; }
     setIsTranslating(true);
@@ -730,7 +735,10 @@ function ReplyComposer({
               {humanizeToken(tag)}
             </span>
           ))}
-          {/* Translate button */}
+          {/* Translate button. Hidden when the review is already English —
+              clicking it there spent a Groq call and an hourly rate-limit slot
+              to render the words "Already in English." */}
+          {needsTranslation && (
           <button
             onClick={handleTranslate}
             disabled={isTranslating}
@@ -743,6 +751,7 @@ function ReplyComposer({
             )}
             {showTranslation ? "Original" : "Translate"}
           </button>
+          )}
         </div>
 
         {/* Review metadata, one line.
