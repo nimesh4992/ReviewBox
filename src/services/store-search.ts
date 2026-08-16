@@ -31,6 +31,7 @@ import {
   normalizeStorefront,
   searchStorefronts,
 } from "@/lib/storefronts";
+import { parseStoreUrl, type ParsedStoreUrl } from "@/lib/store-urls";
 
 // ── Redis singleton (best-effort — null if env vars not set) ─────────────────
 
@@ -66,6 +67,7 @@ export interface StoreSearchResult {
 export type StorePlatform = "app-store" | "google-play";
 
 const APP_STORE_SEARCH_URL = "https://itunes.apple.com/search";
+const APP_STORE_LOOKUP_URL = "https://itunes.apple.com/lookup";
 const PLAY_STORE_SEARCH_URL = "https://play.google.com/store/search";
 
 /**
@@ -290,8 +292,12 @@ export async function searchGooglePlay(
   );
   if (merged.length) return merged;
 
-  // Library worked but found nothing — that's a genuine "no matches".
-  if (settled.some((s) => s.status === "fulfilled")) return [];
+  // Nothing came back. Only call that a genuine "no matches" when EVERY
+  // storefront answered cleanly — if any of them errored, the empty result is
+  // unexplained and the HTML fallback below is still worth a try. Returning []
+  // as soon as one storefront happened to succeed-empty meant a partly-blocked
+  // search was reported to the customer as "your app doesn't exist".
+  if (settled.every((s) => s.status === "fulfilled")) return [];
 
   for (const s of settled) {
     if (s.status === "rejected") {
@@ -306,6 +312,53 @@ export async function searchGooglePlay(
   return searchGooglePlayViaHtml(query, limit, countries[0] ?? DEFAULT_STOREFRONT);
 }
 
+// ── Pasted-URL resolution ────────────────────────────────────────────────────
+
+/**
+ * Turn a parsed store URL into a single search result.
+ *
+ * Google Play URLs carry the package name directly, so this is just a metadata
+ * lookup. Apple URLs carry a numeric *track* ID, but `apps.store_id` holds the
+ * *bundle* ID — so that needs one iTunes lookup to translate before we can
+ * store it.
+ */
+async function resolvePastedStoreUrl(
+  parsed: ParsedStoreUrl,
+): Promise<StoreSearchResult | null> {
+  if (parsed.kind === "package") {
+    const meta = parsed.country
+      ? await fetchAppMetadata("google-play", parsed.value, parsed.country)
+      : await findAppAcrossStorefronts("google-play", parsed.value);
+    if (!meta) return null;
+    return {
+      storeId:   meta.storeId,
+      name:      meta.name,
+      developer: meta.developer,
+      icon:      meta.icon,
+      rating:    meta.rating,
+      url:       `https://play.google.com/store/apps/details?id=${meta.storeId}`,
+      country:   meta.country,
+    };
+  }
+
+  // Apple: numeric track ID → bundle ID.
+  const country = parsed.country ?? DEFAULT_STOREFRONT;
+  const res = await fetch(
+    `${APP_STORE_LOOKUP_URL}?id=${encodeURIComponent(parsed.value)}&country=${country}`,
+    {
+      headers: { "User-Agent": "ReviewBox/1.0 (+https://tryreviewbox.com)" },
+      signal: AbortSignal.timeout(5000),
+    },
+  );
+  if (!res.ok) throw new Error(`iTunes lookup failed: ${res.status}`);
+
+  const json = (await res.json()) as ItunesResponse;
+  const hit = json.results?.[0];
+  if (!hit?.bundleId || !hit.trackName) return null;
+
+  return itunesToResult(hit, country);
+}
+
 // ── Unified entry point ──────────────────────────────────────────────────────
 
 export async function searchStore(
@@ -315,6 +368,24 @@ export async function searchStore(
 ): Promise<StoreSearchResult[]> {
   const trimmed = query.trim();
   if (!trimmed) return [];
+
+  // A pasted store URL resolves directly, before any text search.
+  //
+  // This is the escape hatch when name search is unavailable: Google Play
+  // search is an unofficial scrape and can be refused outright from a
+  // datacenter IP, in which case NO app name will ever return a result. The
+  // app lookup behind a URL is a different endpoint and can still work. It is
+  // also the path our ICP can actually follow — PRODUCT_CONTEXT says they
+  // often don't know their package name, but they always have the store page.
+  const parsedUrl = parseStoreUrl(trimmed);
+  if (parsedUrl && parsedUrl.platform === platform) {
+    try {
+      const resolved = await resolvePastedStoreUrl(parsedUrl);
+      if (resolved) return [resolved];
+    } catch {
+      // Fall through to text search — a failed lookup is not fatal.
+    }
+  }
 
   // The search box tells users they can paste a bundle/package ID, but a
   // pasted ID is not an app NAME and text search finds nothing for it. Look
