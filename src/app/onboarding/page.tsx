@@ -536,7 +536,9 @@ function Step2App({
           <ArrowLeft className="size-3" /> Back
         </button>
         <h2 className="text-xl font-semibold text-fg-1">Find your app</h2>
-        <p className="mt-1 text-sm text-fg-3">Search by name or paste the bundle/package ID.</p>
+        <p className="mt-1 text-sm text-fg-3">
+          Search by name, or paste your store link — the page address from Play Console or the App Store.
+        </p>
       </div>
 
       {/* Platform selector */}
@@ -616,7 +618,23 @@ function Step2App({
       )}
 
       {searchFailed && (
-        <p className="text-xs text-amber-400">Search unavailable — enter your package/bundle ID manually.</p>
+        <p className="text-xs text-amber-400">
+          We couldn&apos;t reach the store to search just now. Paste your app&apos;s store link
+          instead — that looks it up a different way and usually still works.
+        </p>
+      )}
+
+      {/* No matches. Worth its own message: name search on Google Play can come
+          back empty because the store refused us, not because the app is
+          missing — and telling someone their own app doesn't exist is the worst
+          possible answer. The store link resolves without searching at all. */}
+      {!searchFailed && !searching && !form.selectedApp
+        && query.trim().length >= 2 && results.length === 0 && (
+        <p className="text-xs text-fg-3">
+          No matches for “{query.trim()}”. If you know the app is published, paste its
+          store link (the address of its Play Store or App Store page) — that skips
+          search and looks the app up directly.
+        </p>
       )}
 
       {/* App category */}
