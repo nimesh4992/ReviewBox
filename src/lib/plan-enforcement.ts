@@ -1,5 +1,6 @@
 import { getServiceClient } from "@/lib/supabase-server";
 import { PLAN_LIMITS, PlanName } from "@/lib/plans";
+import { isMissingColumnError } from "@/lib/db-errors";
 
 function resolvePlan(plan: string): PlanName {
   return plan in PLAN_LIMITS ? (plan as PlanName) : "free";
@@ -13,10 +14,25 @@ export async function canAddApp(
   plan: string,
 ): Promise<boolean> {
   const sb = getServiceClient();
-  const { count, error } = await sb
+  // Deleted apps must not count against the limit. Without this filter a
+  // customer on a 1-app plan who disconnected an app could never add another:
+  // the row is still there (soft delete), so the count never drops and every
+  // attempt is refused with "you've reached your app limit" for an app they
+  // can no longer see anywhere in the product.
+  let { count, error } = await sb
     .from("apps")
     .select("id", { count: "exact", head: true })
-    .eq("workspace_id", workspaceId);
+    .eq("workspace_id", workspaceId)
+    .is("deleted_at", null);
+
+  // No `deleted_at` column (migration 015 pending) means nothing has ever been
+  // soft-deleted, so counting every row is equivalent.
+  if (isMissingColumnError(error)) {
+    ({ count, error } = await sb
+      .from("apps")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId));
+  }
 
   if (error) throw new Error(`canAddApp: ${error.message}`);
 

@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
+import { isMissingColumnError } from "@/lib/db-errors";
 
 export interface DashboardMetrics {
   unrepliedCount: number;
@@ -206,11 +207,20 @@ export async function GET(): Promise<NextResponse> {
         .order("store_created_at", { ascending: true }),
 
       // 11. Lifetime rating + review count from the store (scraped metadata).
-      //     Weighted average across all workspace apps.
+      //     Weighted average across the workspace's LIVE apps.
+      //
+      //     `.is("deleted_at", null)` is the whole point: without it a
+      //     disconnected app kept contributing its store rating forever, and
+      //     because the average is weighted by review count an old app with
+      //     thousands of ratings drowned out the one actually connected. A
+      //     brand-new workspace showed a confident 4.60 that belonged to an
+      //     app the customer had already removed. Same root cause as the
+      //     phantom 200 reviews: every query filtered on workspace alone.
       sb
         .from("apps")
         .select("lifetime_rating, lifetime_review_count")
         .eq("workspace_id", workspaceId)
+        .is("deleted_at", null)
         .not("lifetime_rating", "is", null),
     ]);
 
@@ -273,7 +283,26 @@ export async function GET(): Promise<NextResponse> {
     // Lifetime rating / review count from apps table (store-scraped, authoritative).
     // Weighted average across all workspace apps by review count.
     interface AppMeta { lifetime_rating: number; lifetime_review_count: number | null }
-    const appsMeta = (appsMetaResult.data as AppMeta[] | null) ?? [];
+    let appsMeta = (appsMetaResult.data as AppMeta[] | null) ?? [];
+
+    // On a database without migration 015 the `deleted_at` filter above fails.
+    // Retry without it: no column means no app has ever been soft-deleted, so
+    // the unfiltered result is equivalent rather than a reintroduction of the
+    // stale-rating bug.
+    if (isMissingColumnError(appsMetaResult.error)) {
+      const retry = await sb
+        .from("apps")
+        .select("lifetime_rating, lifetime_review_count")
+        .eq("workspace_id", workspaceId)
+        .not("lifetime_rating", "is", null);
+      appsMeta = (retry.data as AppMeta[] | null) ?? [];
+    } else if (appsMetaResult.error) {
+      // Not fatal — the rating falls back to the synced-review average — but
+      // it was silently swallowed before, so the dashboard would show "—" with
+      // no way to find out why.
+      console.error("[dashboard/metrics] apps metadata query failed:", appsMetaResult.error);
+    }
+
     let lifetimeRating: number | null = null;
     let lifetimeReviewCount: number | null = null;
     if (appsMeta.length > 0) {

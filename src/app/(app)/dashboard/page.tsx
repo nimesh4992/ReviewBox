@@ -589,7 +589,15 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className="mt-3 text-xs text-fg-3">
-              {avgRating !== null ? "No prior data to compare" : "Sync reviews to see your rating"}
+              {/* Say where the number came from. A big confident 4.60 sitting
+                  directly above "No reviews synced yet" reads as invented
+                  data — the figure is real, it's just the store's own
+                  all-time average rather than anything we computed. */}
+              {avgRating !== null
+                ? "No prior data to compare"
+                : ratingIsLifetime
+                  ? "Your store's all-time average — synced reviews will track changes"
+                  : "Sync reviews to see your rating"}
             </div>
           )}
           <p className="mt-4 max-w-[240px] text-[13px] leading-relaxed text-fg-3">
