@@ -67,7 +67,7 @@ function SettingsTabsInner() {
     <Tabs value={active} onValueChange={handleChange} className="gap-6">
       <TabsList
         variant="line"
-        className="h-auto w-full justify-start gap-1 overflow-x-auto border-b border-[var(--rb-border-1)] pb-0"
+        className="h-auto w-full justify-start gap-1 overflow-x-auto overflow-y-hidden border-b border-[var(--rb-border-1)] pb-0 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {TABS.map((t) => (
           <TabsTrigger

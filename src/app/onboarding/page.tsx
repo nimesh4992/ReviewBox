@@ -2,10 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useClerk } from "@clerk/nextjs";
+import { StoreMark } from "@/components/brand/store-marks";
 import {
-  Apple, ArrowLeft, Check, ChevronRight, Gamepad2, GraduationCap, HeartPulse,
+  ArrowLeft, Check, ChevronRight, Gamepad2, GraduationCap, HeartPulse,
   ListChecks, Loader2, PenLine, Plane, Plug, Search, Shapes, ShoppingBag,
-  Smartphone, Star, Users, Wallet, Wrench,
+  Star, Users, Wallet, Wrench,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
 
@@ -289,7 +290,7 @@ export default function OnboardingPage() {
         <span className="text-lg font-semibold tracking-tight text-fg-1">ReviewBox</span>
       </div>
 
-      <div className="w-full max-w-md rounded-2xl border border-[var(--rb-border-1)] bg-surface p-8">
+      <div className="w-full max-w-md rounded-2xl border border-[var(--rb-border-1)] bg-surface p-8 shadow-[var(--rb-shadow-sm)]">
         {/* Step indicator */}
         <div className="mb-8">
           <div className="mb-3 flex items-center justify-between">
@@ -300,14 +301,14 @@ export default function OnboardingPage() {
               return (
                 <div key={s.label} className="flex flex-col items-center gap-1">
                   <div className={cn(
-                    "flex size-6 items-center justify-center rounded-full text-[10px] font-semibold transition-colors",
+                    "flex size-7 items-center justify-center rounded-full text-xs font-semibold transition-colors",
                     done   && "bg-[#0A84FF] text-white",
                     active && "bg-[#0A84FF] text-white ring-2 ring-[#0A84FF]/30",
                     !done && !active && "bg-[var(--rb-bg-sunken)] text-fg-3",
                   )}>
                     {done ? <Check className="size-3.5" strokeWidth={3} /> : n}
                   </div>
-                  <span className={cn("text-[9px] font-medium hidden sm:block",
+                  <span className={cn("text-[11px] font-medium hidden sm:block",
                     active ? "text-fg-2" : "text-fg-3",
                   )}>{s.label}</span>
                 </div>
@@ -404,13 +405,13 @@ function Step1Workspace({
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-xl font-semibold text-fg-1">Name your workspace</h2>
+        <h2 className="text-2xl font-semibold tracking-[-0.01em] text-fg-1">Name your workspace</h2>
         <p className="mt-1 text-sm text-fg-3">Usually your company or app name.</p>
       </div>
 
       <div className="space-y-4">
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-fg-3">Workspace name</label>
+          <label className="mb-1.5 block text-[13px] font-medium text-fg-2">Workspace name</label>
           <Input
             value={form.workspaceName}
             onChange={(e) => set("workspaceName", e.target.value)}
@@ -420,7 +421,7 @@ function Step1Workspace({
           />
         </div>
         <div>
-          <label className="mb-1.5 block text-xs font-medium text-fg-3">Workspace URL</label>
+          <label className="mb-1.5 block text-[13px] font-medium text-fg-2">Workspace URL</label>
           <div className="flex items-center gap-2 rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3 py-2">
             <span className="shrink-0 text-xs text-fg-3">tryreviewbox.com/</span>
             <input
@@ -443,7 +444,7 @@ function Step1Workspace({
                 <button
                   key={s}
                   onClick={() => set("workspaceSlug", s)}
-                  className="rounded border border-[var(--rb-border-1)] px-2 py-0.5 text-[10px] text-fg-3 hover:text-fg-1"
+                  className="rounded border border-[var(--rb-border-1)] px-2 py-1 text-xs text-fg-3 hover:text-fg-1"
                 >
                   {s}
                 </button>
@@ -456,7 +457,7 @@ function Step1Workspace({
       <button
         onClick={onNext}
         disabled={!canContinue}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:bg-[var(--rb-bg-hover)] disabled:text-fg-3"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:border disabled:border-[var(--rb-border-2)] disabled:bg-[var(--rb-bg-sunken)] disabled:text-fg-3"
       >
         Continue <ChevronRight className="size-4" />
       </button>
@@ -532,12 +533,12 @@ function Step2App({
   return (
     <div className="space-y-6">
       <div>
-        <button onClick={onBack} className="mb-3 flex items-center gap-1 text-xs text-fg-3 hover:text-fg-2">
-          <ArrowLeft className="size-3" /> Back
+        <button onClick={onBack} className="mb-3 flex items-center gap-1.5 text-[13px] text-fg-2 hover:text-fg-1">
+          <ArrowLeft className="size-3.5" /> Back
         </button>
-        <h2 className="text-xl font-semibold text-fg-1">Find your app</h2>
-        <p className="mt-1 text-sm text-fg-3">
-          Search by name, or paste your store link — the page address from Play Console or the App Store.
+        <h2 className="text-2xl font-semibold tracking-[-0.01em] text-fg-1">Find your app</h2>
+        <p className="mt-1.5 text-[15px] leading-relaxed text-fg-2">
+          Search by name, or paste your store link: the page address from Play Console or the App Store.
         </p>
       </div>
 
@@ -548,16 +549,14 @@ function Step2App({
             key={p}
             onClick={() => set("platform", p)}
             className={cn(
-              "rounded-xl border px-4 py-3 text-xs font-semibold transition-colors",
+              "rounded-xl border px-4 py-3.5 text-sm font-semibold transition-colors",
               form.platform === p
                 ? "border-[#0A84FF] bg-[#0A84FF]/10 text-[#0A84FF]"
-                : "border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] text-fg-3 hover:border-[var(--rb-border-3)] hover:text-fg-2",
+                : "border-[var(--rb-border-2)] bg-[var(--rb-bg-sunken)] text-fg-2 hover:border-[var(--rb-border-3)] hover:text-fg-1",
             )}
           >
-            <span className="flex items-center justify-center gap-1.5">
-              {p === "google-play"
-                ? <Smartphone className="size-3.5" strokeWidth={1.5} />
-                : <Apple className="size-3.5" strokeWidth={1.5} />}
+            <span className="flex items-center justify-center gap-2">
+              <StoreMark platform={p} className="size-4.5" />
               {p === "google-play" ? "Google Play" : "App Store"}
             </span>
           </button>
@@ -571,7 +570,7 @@ function Step2App({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search your app…"
-          className="w-full rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] py-2.5 pl-9 pr-4 text-sm text-fg-1 placeholder:text-fg-3 outline-none focus:border-[#0A84FF]/50"
+          className="w-full rounded-xl border border-[var(--rb-border-2)] bg-[var(--rb-bg-sunken)] py-3 pl-10 pr-4 text-[15px] text-fg-1 placeholder:text-fg-3 outline-none focus:border-[#0A84FF]/50"
           autoFocus
         />
         {searching && <Loader2 className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-fg-3" strokeWidth={1.5} />}
@@ -664,7 +663,7 @@ function Step2App({
       <button
         onClick={onNext}
         disabled={!form.selectedApp}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:bg-[var(--rb-bg-hover)] disabled:text-fg-3"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:border disabled:border-[var(--rb-border-2)] disabled:bg-[var(--rb-bg-sunken)] disabled:text-fg-3"
       >
         Continue <ChevronRight className="size-4" />
       </button>
@@ -699,19 +698,19 @@ function Step3BrandVoice({
   return (
     <div className="space-y-6">
       <div>
-        <button onClick={onBack} className="mb-3 flex items-center gap-1 text-xs text-fg-3 hover:text-fg-2">
-          <ArrowLeft className="size-3" /> Back
+        <button onClick={onBack} className="mb-3 flex items-center gap-1.5 text-[13px] text-fg-2 hover:text-fg-1">
+          <ArrowLeft className="size-3.5" /> Back
         </button>
         <div className="flex items-center gap-2">
           <PenLine className="size-4 text-[#0A84FF]" strokeWidth={1.5} />
-          <h2 className="text-xl font-semibold text-fg-1">Your brand voice</h2>
+          <h2 className="text-2xl font-semibold tracking-[-0.01em] text-fg-1">Your brand voice</h2>
         </div>
         <p className="mt-1 text-sm text-fg-3">AI uses this to write replies that sound like you.</p>
       </div>
 
       {/* Tone */}
       <div>
-        <p className="mb-2 text-xs font-medium text-fg-3">Reply tone</p>
+        <p className="mb-2 text-[13px] font-medium text-fg-2">Reply tone</p>
         <div className="grid grid-cols-2 gap-2">
           {TONES.map((t) => (
             <button
@@ -727,7 +726,7 @@ function Step3BrandVoice({
               <div className={cn("text-sm font-semibold", bv.tone === t.id ? "text-[#0A84FF]" : "text-fg-2")}>
                 {t.label}
               </div>
-              <div className="mt-0.5 text-[10px] text-fg-3">{t.desc}</div>
+              <div className="mt-1 text-xs leading-snug text-fg-3">{t.desc}</div>
             </button>
           ))}
         </div>
@@ -735,7 +734,7 @@ function Step3BrandVoice({
 
       {/* Words to use */}
       <div>
-        <label className="mb-1.5 block text-xs font-medium text-fg-3">
+        <label className="mb-1.5 block text-[13px] font-medium text-fg-2">
           Words we love to use <span className="text-fg-3">(optional)</span>
         </label>
         <input
@@ -748,7 +747,7 @@ function Step3BrandVoice({
 
       {/* Words to avoid */}
       <div>
-        <label className="mb-1.5 block text-xs font-medium text-fg-3">
+        <label className="mb-1.5 block text-[13px] font-medium text-fg-2">
           Words we never use <span className="text-fg-3">(optional)</span>
         </label>
         <input
@@ -761,7 +760,7 @@ function Step3BrandVoice({
 
       {/* Sign-off */}
       <div>
-        <label className="mb-1.5 block text-xs font-medium text-fg-3">
+        <label className="mb-1.5 block text-[13px] font-medium text-fg-2">
           Sign off as <span className="text-fg-3">(optional)</span>
         </label>
         <input
@@ -774,7 +773,7 @@ function Step3BrandVoice({
 
       {/* Reply length */}
       <div>
-        <p className="mb-2 text-xs font-medium text-fg-3">Reply length</p>
+        <p className="mb-2 text-[13px] font-medium text-fg-2">Reply length</p>
         <div className="grid grid-cols-3 gap-2">
           {LENGTHS.map((l) => (
             <button
@@ -790,7 +789,7 @@ function Step3BrandVoice({
               <div className={cn("text-xs font-semibold", bv.replyLength === l.id ? "text-[#0A84FF]" : "text-fg-2")}>
                 {l.label}
               </div>
-              <div className="mt-0.5 text-[9px] text-fg-3">{l.desc}</div>
+              <div className="mt-1 text-xs leading-snug text-fg-3">{l.desc}</div>
             </button>
           ))}
         </div>
@@ -801,11 +800,11 @@ function Step3BrandVoice({
       <button
         onClick={onNext}
         disabled={saving}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:bg-[var(--rb-bg-hover)] disabled:text-fg-3"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:border disabled:border-[var(--rb-border-2)] disabled:bg-[var(--rb-bg-sunken)] disabled:text-fg-3"
       >
         {saving ? <><Loader2 className="size-4 animate-spin" /> Setting up…</> : <>Set up my workspace <ChevronRight className="size-4" /></>}
       </button>
-      <p className="text-center text-[11px] text-fg-3">
+      <p className="text-center text-xs text-fg-3">
         You can edit this later in Settings → Brand Voice
       </p>
     </div>
@@ -856,7 +855,7 @@ function Step4Connect({
       <div>
         <div className="flex items-center gap-2">
           <Plug className="size-4 text-[#0A84FF]" strokeWidth={1.5} />
-          <h2 className="text-xl font-semibold text-fg-1">
+          <h2 className="text-2xl font-semibold tracking-[-0.01em] text-fg-1">
             Connect {isGP ? "Google Play" : "App Store"}
           </h2>
         </div>
@@ -974,7 +973,7 @@ function Step5Ready({
         <div className="mx-auto mb-4 flex size-12 items-center justify-center rounded-2xl bg-[#0A84FF]/10">
           <PenLine className="size-6 text-[#0A84FF]" strokeWidth={1.5} />
         </div>
-        <h2 className="text-xl font-semibold text-fg-1">
+        <h2 className="text-2xl font-semibold tracking-[-0.01em] text-fg-1">
           {canLaunch ? "Your workspace is ready" : "Preparing your workspace…"}
         </h2>
         <p className="mt-1 text-sm text-fg-3">
@@ -990,19 +989,19 @@ function Step5Ready({
           {progress.rating !== null && (
             <div className="rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-3 text-center">
               <div className="text-2xl font-semibold text-fg-1">{progress.rating.toFixed(1)}</div>
-              <div className="text-[10px] text-fg-3">Store rating</div>
+              <div className="text-xs text-fg-3">Store rating</div>
             </div>
           )}
           {progress.reviewTotal !== null && (
             <div className="rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-3 text-center">
               <div className="text-2xl font-semibold text-fg-1">{progress.reviewTotal.toLocaleString()}</div>
-              <div className="text-[10px] text-fg-3">Total reviews</div>
+              <div className="text-xs text-fg-3">Total reviews</div>
             </div>
           )}
           {progress.reviewCount > 0 && (
             <div className="rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-3 text-center">
               <div className="text-2xl font-semibold text-fg-1">{progress.reviewCount}</div>
-              <div className="text-[10px] text-fg-3">In inbox</div>
+              <div className="text-xs text-fg-3">In inbox</div>
             </div>
           )}
         </div>
@@ -1033,7 +1032,7 @@ function Step5Ready({
       <button
         onClick={onLaunch}
         disabled={!canLaunch || saving}
-        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3 text-sm font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:bg-[var(--rb-bg-hover)] disabled:text-fg-3"
+        className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#0A84FF] py-3.5 text-[15px] font-semibold text-white transition-colors hover:bg-[#006EE0] disabled:cursor-not-allowed disabled:border disabled:border-[var(--rb-border-2)] disabled:bg-[var(--rb-bg-sunken)] disabled:text-fg-3"
       >
         {saving
           ? <><Loader2 className="size-4 animate-spin" /> Launching…</>
