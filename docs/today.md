@@ -41,7 +41,18 @@ axis with integer ticks. Mystery solved along the way: the "STORE RATING /
 We haven't read your store listing yet" copy the founder screenshotted was
 #90's hero, already live on production.
 
-### 3. Branch previews disabled (founder decision, this session)
+### 3. Dashboard now follows the sidebar app selector
+With two apps connected, the dashboard blended everything into one number —
+the store rating was a review-count-weighted average dominated by the newer
+app, and switching apps changed nothing, because `/api/dashboard/metrics`
+never accepted an app filter. It now takes `?appId=` under the same contract
+as `/api/reviews` (honoured only for the workspace's own live apps), the
+hook keys its cache per app, and the hero says which scope it is showing:
+"As shown on Google Play" only when the number IS one listing's figure,
+"Weighted across your N apps" otherwise. `AiSummaryPanel` remains
+workspace-wide (no app filter yet) — follow-up if it grates.
+
+### 4. Branch previews disabled (founder decision, this session)
 `vercel.json` `ignoreCommand` skips every git ref except `master`: nothing
 deploys until code merges to master, which then deploys straight to
 production. Rationale + consequences recorded in CLAUDE.md → Known Issues

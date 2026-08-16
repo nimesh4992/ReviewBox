@@ -21,16 +21,23 @@ const EMPTY_METRICS: DashboardMetrics = {
   lifetimeReviewCount: null,
 };
 
-async function fetchDashboardMetrics(): Promise<DashboardMetrics> {
-  const res = await fetch("/api/dashboard/metrics");
+async function fetchDashboardMetrics(appId?: string): Promise<DashboardMetrics> {
+  const qs = appId ? `?appId=${encodeURIComponent(appId)}` : "";
+  const res = await fetch(`/api/dashboard/metrics${qs}`);
   if (!res.ok) throw new Error(`Dashboard metrics fetch failed: ${res.status}`);
   return res.json() as Promise<DashboardMetrics>;
 }
 
-export function useDashboardMetrics() {
+/**
+ * @param appId Scope every metric to one app (from the sidebar selector, via
+ *              `resolveSelectedApp`). Undefined = all apps in the workspace.
+ */
+export function useDashboardMetrics(appId?: string) {
   const { data, isLoading, isError, refetch } = useQuery<DashboardMetrics>({
-    queryKey: ["dashboard-metrics"],
-    queryFn: fetchDashboardMetrics,
+    // appId is part of the key so switching apps refetches instead of serving
+    // the previous app's numbers from cache.
+    queryKey: ["dashboard-metrics", appId ?? "all"],
+    queryFn: () => fetchDashboardMetrics(appId),
     staleTime: 5 * 60 * 1000,
     retry: 1,
     // Show previous data while a background refetch runs so the dashboard

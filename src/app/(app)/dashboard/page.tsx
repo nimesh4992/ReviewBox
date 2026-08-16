@@ -16,6 +16,8 @@ import {
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
 import { isSyncFailureStatus } from "@/lib/sync-status";
+import { resolveSelectedApp } from "@/lib/selected-app";
+import { useWorkspaceStore } from "@/store/use-workspace-store";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
 import { useApps } from "@/hooks/use-apps";
 import { useIncidents } from "@/hooks/use-incidents";
@@ -359,8 +361,14 @@ function KpiCard({
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { data: metrics, isLoading, refetch: refetchMetrics } = useDashboardMetrics();
   const { apps, isLoading: appsLoading, isError: appsError, refetch: refetchApps } = useApps();
+  // Scope the numbers to the sidebar's app selector. The dashboard was the
+  // one screen that ignored it: a two-app workspace showed a single blended
+  // rating (dominated by whichever app has the bigger store review count) and
+  // switching apps changed nothing.
+  const selectedApp = useWorkspaceStore((s) => s.selectedApp);
+  const { appId: selectedAppId } = resolveSelectedApp(apps, selectedApp);
+  const { data: metrics, isLoading, refetch: refetchMetrics } = useDashboardMetrics(selectedAppId);
   const { data: incidents, isError: incidentsError } = useIncidents();
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
@@ -490,12 +498,19 @@ export default function DashboardPage() {
   // broken and hides that we simply have not scraped the store yet.
   const storeRating    = metrics?.lifetimeRating ?? null;
   // Name the source. "As shown on Google Play" tells the reader why this number
-  // differs from the 30-day average below it; "the store" would not.
-  const platforms      = new Set(apps.map((a) => a.platform));
+  // differs from the 30-day average below it; "the store" would not. When one
+  // app is selected, the source is that app's store — not the whole portfolio.
+  const scopedApps     = selectedAppId ? apps.filter((a) => a.id === selectedAppId) : apps;
+  const platforms      = new Set(scopedApps.map((a) => a.platform));
   const storeName      =
     platforms.size === 1
       ? (platforms.has("app_store") ? "the App Store" : "Google Play")
       : "the stores";
+  // "As shown on X" is only true when the number IS one listing's figure. The
+  // all-apps view of a multi-app workspace averages listings (weighted by
+  // review count), and claiming a store shows that number would be the exact
+  // lie the store-vs-synced split exists to prevent.
+  const ratingIsOneListing = selectedAppId !== undefined || apps.length === 1;
   const displayReviews = metrics?.lifetimeReviewCount ?? metrics?.totalReviews ?? 0;
   // What we hold in the DB for this storefront, as opposed to the store's
   // global lifetime figure above.
@@ -533,7 +548,7 @@ export default function DashboardPage() {
       value: String(unreplied),
       delta: `${urgent} urgent`,
       kind: urgent > 5 ? ("warning" as const) : ("positive" as const),
-      sub: "across all apps",
+      sub: selectedAppId ? "for this app" : "across all apps",
     },
     {
       icon: Star,
@@ -681,9 +696,11 @@ export default function DashboardPage() {
               week" tile. The 30-day movement has its own tile below. */}
           <div className="mt-3 text-xs text-fg-3">
             {storeRating !== null
-              ? `As shown on ${storeName}${
-                  reviewsAreLifetime ? ` · ${displayReviews.toLocaleString()} ratings` : ""
-                }`
+              ? `${
+                  ratingIsOneListing
+                    ? `As shown on ${storeName}`
+                    : `Weighted across your ${apps.length} apps — pick one in the sidebar for its own rating`
+                }${reviewsAreLifetime ? ` · ${displayReviews.toLocaleString()} ratings` : ""}`
               : "We haven't read your store listing yet. Run a sync from Settings → Apps."}
           </div>
           <p className="mt-4 max-w-[240px] text-[13px] leading-relaxed text-fg-3">
