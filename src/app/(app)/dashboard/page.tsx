@@ -35,8 +35,13 @@ const SEVERITY_COLOR: Record<string, string> = {
 
 // ── Sparkline ─────────────────────────────────────────────────────────────────
 
-function PortfolioSparkline({ data }: { data: number[] }) {
-  if (data.length < 2) {
+function PortfolioSparkline({ data }: { data: (number | null)[] }) {
+  // Null entries are days with no reviews in the trailing window. They keep
+  // their slot on the x-axis — that is the whole point, so the spacing between
+  // points means elapsed time — but the line must not be drawn across them.
+  const values = data.filter((v): v is number => v !== null);
+
+  if (values.length < 2) {
     return (
       <div className="flex h-[130px] items-center justify-center text-[12px] text-fg-3">
         Trend appears here once 2+ days of reviews are synced.
@@ -45,15 +50,27 @@ function PortfolioSparkline({ data }: { data: number[] }) {
   }
 
   const w = 560, h = 130, padL = 28, padR = 8, padT = 10, padB = 20;
-  const min = Math.min(...data);
-  const max = Math.max(...data);
+  const min = Math.min(...values);
+  const max = Math.max(...values);
   const lo = Math.max(1, Math.floor((min - 0.1) * 10) / 10);
   const hi = Math.min(5, Math.ceil((max + 0.1) * 10) / 10);
   const range = hi - lo || 0.5;
 
-  const xs = (i: number) => padL + (i / (data.length - 1)) * (w - padL - padR);
+  const xs = (i: number) => padL + (i / Math.max(1, data.length - 1)) * (w - padL - padR);
   const ys = (v: number) => padT + (1 - (v - lo) / range) * (h - padT - padB);
-  const d = data.map((v, i) => `${i === 0 ? "M" : "L"}${xs(i)},${ys(v)}`).join(" ");
+
+  // "M" starts a fresh subpath after every gap, so a break in the data reads as
+  // a break in the line instead of a straight run between two distant days.
+  let penDown = false;
+  const d = data
+    .map((v, i) => {
+      if (v === null) { penDown = false; return ""; }
+      const cmd = penDown ? "L" : "M";
+      penDown = true;
+      return `${cmd}${xs(i)},${ys(v)}`;
+    })
+    .filter(Boolean)
+    .join(" ");
   const ticks = [lo, lo + range * 0.33, lo + range * 0.66, hi].map(
     (v) => Math.round(v * 10) / 10,
   );
@@ -439,6 +456,7 @@ export default function DashboardPage() {
   const reviewsWeekDelta = metrics?.reviewsWeekDelta ?? null;
   const avgRatingDelta   = metrics?.avgRatingDelta ?? null;
   const ratingTrend      = metrics?.ratingTrend ?? [];
+  const reviewsThisWeek  = metrics?.reviewsThisWeek ?? 0;
   const ratingIsLifetime = metrics?.lifetimeRating != null;
 
   const reviewsDeltaKind: "positive" | "warning" | "neutral" =
@@ -473,11 +491,15 @@ export default function DashboardPage() {
     },
     {
       icon: TrendingUp,
-      label: "Reviews today",
-      value: String(reviewsToday),
+      // Was "Reviews today" with a week-over-week delta beside it — "0" next to
+      // "+8% vs last week" reads as a made-up number because the two halves are
+      // measuring different periods. The delta describes the week, so the
+      // headline does too, and today's count moves to the subtitle.
+      label: "Reviews this week",
+      value: String(reviewsThisWeek),
       delta: formatDelta(reviewsWeekDelta, "%"),
       kind: reviewsDeltaKind,
-      sub: reviewsWeekDelta !== null ? "vs last week" : "no prior week data",
+      sub: `${reviewsToday} today${reviewsWeekDelta !== null ? " · vs last week" : ""}`,
     },
     {
       icon: Sparkles,

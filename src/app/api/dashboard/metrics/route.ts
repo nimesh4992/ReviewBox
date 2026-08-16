@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
+import { buildRatingTrend } from "@/lib/rating-trend";
 import { isMissingColumnError } from "@/lib/db-errors";
 
 export interface DashboardMetrics {
@@ -11,13 +12,19 @@ export interface DashboardMetrics {
   avgRating: number | null;
   aiDraftsThisWeek: number;
   reviewsToday: number;
+  /** Reviews in the last 7 days — the figure reviewsWeekDelta compares. */
+  reviewsThisWeek: number;
   totalReviews: number;
   /** % change in reviews-this-week vs previous week. Null if no prior data. */
   reviewsWeekDelta: number | null;
   /** Avg rating change vs previous 30 days. Null if no prior data. */
   avgRatingDelta: number | null;
-  /** Daily avg rating for last 10 days (oldest → newest). Empty if no data. */
-  ratingTrend: number[];
+  /**
+   * One point per calendar day (oldest → newest), each a trailing 7-day average
+   * rating. `null` marks a day whose window held no reviews — the chart breaks
+   * the line there rather than joining across the gap.
+   */
+  ratingTrend: (number | null)[];
   /**
    * Lifetime average rating scraped from the store (matches what users see on
    * Google Play / App Store). Null if metadata not yet refreshed.
@@ -31,38 +38,6 @@ export interface DashboardMetrics {
   lifetimeReviewCount: number | null;
 }
 
-/**
- * Bucket review ratings into daily averages between `start` and `end`.
- * Returns one value per day (oldest first). Days with no reviews are skipped
- * so the sparkline doesn't show fake zero dips.
- */
-function buildDailyTrend(
-  rows: { rating: number; store_created_at: string }[],
-  start: Date,
-  end: Date,
-): number[] {
-  const buckets: Map<string, { sum: number; n: number }> = new Map();
-  for (const r of rows) {
-    const key = new Date(r.store_created_at).toISOString().slice(0, 10);
-    const b = buckets.get(key) ?? { sum: 0, n: 0 };
-    b.sum += r.rating;
-    b.n += 1;
-    buckets.set(key, b);
-  }
-  const days: number[] = [];
-  const cursor = new Date(start);
-  cursor.setHours(0, 0, 0, 0);
-  const stop = new Date(end);
-  stop.setHours(0, 0, 0, 0);
-  while (cursor <= stop) {
-    const key = cursor.toISOString().slice(0, 10);
-    const b = buckets.get(key);
-    if (b && b.n > 0) days.push(parseFloat((b.sum / b.n).toFixed(2)));
-    cursor.setDate(cursor.getDate() + 1);
-  }
-  return days;
-}
-
 // Zeroes — used when the user has no workspace yet or a query fails.
 // We never show fake numbers; an empty workspace shows real zeros so
 // the dashboard accurately reflects the state of their data.
@@ -72,6 +47,7 @@ const EMPTY_METRICS: DashboardMetrics = {
   avgRating: null,
   aiDraftsThisWeek: 0,
   reviewsToday: 0,
+  reviewsThisWeek: 0,
   totalReviews: 0,
   reviewsWeekDelta: null,
   avgRatingDelta: null,
@@ -292,7 +268,7 @@ export async function GET(): Promise<NextResponse> {
     // Daily rating trend for last 10 days
     const trendRows =
       (trendRowsResult.data as { rating: number; store_created_at: string }[] | null) ?? [];
-    const ratingTrend = buildDailyTrend(trendRows, tenDaysAgo, now);
+    const ratingTrend = buildRatingTrend(trendRows, tenDaysAgo, now);
 
     // Lifetime rating / review count from apps table (store-scraped, authoritative).
     // Weighted average across all workspace apps by review count.
@@ -343,6 +319,7 @@ export async function GET(): Promise<NextResponse> {
       reviewsWeekDelta,
       avgRatingDelta,
       ratingTrend,
+      reviewsThisWeek: thisWeek,
       lifetimeRating,
       lifetimeReviewCount,
     };
