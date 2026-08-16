@@ -107,6 +107,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .select("name")
       .eq("id", appId)
       .eq("workspace_id", workspaceId)
+      .is("deleted_at", null)
       .maybeSingle();
 
     if (!app) {

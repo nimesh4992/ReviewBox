@@ -6,6 +6,7 @@ import { sendWelcomeEmail } from "@/lib/email/send-welcome";
 import { audit } from "@/lib/audit";
 import { rateLimit } from "@/lib/api-rate-limit";
 import { apiError } from "@/lib/api-response";
+import { writeWithOptionalColumns } from "@/lib/db-errors";
 import {
   getBrandVoiceStub,
   STARTER_REPLY_TEMPLATES,
@@ -97,12 +98,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Pre-fill brand_voice from category stub so AI replies are good from day 1
     const brandVoice = appCategory ? getBrandVoiceStub(appCategory) : undefined;
 
-    let wsInsert = await sb
-      .from("workspaces")
-      .insert({
-        name:          workspaceName,
-        slug:          cleanSlug,
-        plan:          "trial",
+    const wsInsert = await writeWithOptionalColumns<{ id: string }>(
+      (payload) => sb.from("workspaces").insert(payload).select("id").single(),
+      { name: workspaceName, slug: cleanSlug, plan: "trial" },
+      {
         // Mirrors the Clerk trialEndsAt stamped below. The trial-nudge cron
         // and the admin customer pages read this column, so leaving it null
         // meant the day-5 and day-12 emails matched no workspace and silently
@@ -110,31 +109,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         trial_ends_at: new Date(Date.now() + TRIAL_DAYS * 86400000).toISOString(),
         app_category:  appCategory ?? null,
         brand_voice:   brandVoice ?? null,
-      })
-      .select("id")
-      .single();
+      },
+    );
 
-    // 42703 = "column does not exist" — migrations 007/008 not yet run in prod.
-    // Fall back to inserting without those columns so onboarding still works.
-    if (wsInsert.error?.code === "42703") {
-      wsInsert = await sb
-        .from("workspaces")
-        .insert({ name: workspaceName, slug: cleanSlug, plan: "trial" })
-        .select("id")
-        .single();
+    if (wsInsert.droppedColumns.length) {
+      console.warn(
+        "[onboarding] workspace columns not in this database — inserted without:",
+        wsInsert.droppedColumns.join(", "),
+      );
     }
 
     const { data: workspace, error: wsError } = wsInsert;
 
-    if (wsError) {
-      if (wsError.code === "23505") {
+    if (wsError || !workspace) {
+      if (wsError?.code === "23505") {
         return apiError("SLUG_TAKEN", 409);
       }
       console.error("[onboarding] workspace insert:", wsError);
       return apiError("INTERNAL_SERVER_ERROR", 500);
     }
 
-    workspaceId = workspace.id as string;
+    workspaceId = workspace.id;
 
     const { error: memberError } = await sb
       .from("workspace_members")
@@ -213,36 +208,31 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       }
     }
 
-    let appInsert = await sb
-      .from("apps")
-      .insert({
-        workspace_id:           workspaceId,
-        name:                   appName,
-        platform:               dbPlatform,
-        store_id:               storeId,
+    // Metadata columns sit behind migrations 012 and 019; drop whichever this
+    // database doesn't have rather than failing the whole insert.
+    const appInsert = await writeWithOptionalColumns<{ id: string }>(
+      (payload) => sb.from("apps").insert(payload).select("id").single(),
+      {
+        workspace_id: workspaceId,
+        name:         appName,
+        platform:     dbPlatform,
+        store_id:     storeId,
+      },
+      {
         icon_url:               metaIcon,
         developer:              metaDeveloper,
         lifetime_rating:        metaRating,
         lifetime_review_count:  metaReviewCount,
         store_country:          metaCountry,
         metadata_refreshed_at:  metaIcon || metaRating ? new Date().toISOString() : null,
-      })
-      .select("id")
-      .single();
+      },
+    );
 
-    // 42703 = column does not exist — migration 012 not yet applied. Fall
-    // back to inserting without metadata columns so onboarding still works.
-    if (appInsert.error?.code === "42703") {
-      appInsert = await sb
-        .from("apps")
-        .insert({
-          workspace_id: workspaceId,
-          name:         appName,
-          platform:     dbPlatform,
-          store_id:     storeId,
-        })
-        .select("id")
-        .single();
+    if (appInsert.droppedColumns.length) {
+      console.warn(
+        "[onboarding] app columns not in this database — inserted without:",
+        appInsert.droppedColumns.join(", "),
+      );
     }
 
     if (appInsert.error) {

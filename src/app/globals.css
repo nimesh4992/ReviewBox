@@ -39,6 +39,25 @@
   --rb-indigo-500:#5B5BD6;
   --rb-indigo-600:#4a4ac4;
 
+  /* ── Avatar palette ──
+     Reviewer avatars are tinted by a hash of the author's name so an inbox of
+     20 rows doesn't read as 20 identical tiles. Picked by index, never at
+     random at render time — the same reviewer keeps their colour.
+
+     Every value carries WHITE text at >= 4.5:1, which is what rules out the
+     pastels this kind of palette usually reaches for: at 13px the initials are
+     body text, not large text, so a soft tint under white would fail contrast
+     on every single row. These are mid-tone and hold up on both the light
+     canvas and the dark surface, so they need no dark-mode override. */
+  --rb-avatar-1: #D14343;  /* red      */
+  --rb-avatar-2: #C2410C;  /* orange   */
+  --rb-avatar-3: #A16207;  /* amber    */
+  --rb-avatar-4: #15803D;  /* green    */
+  --rb-avatar-5: #0E7490;  /* teal     */
+  --rb-avatar-6: #1D4ED8;  /* blue     */
+  --rb-avatar-7: #6D28D9;  /* violet   */
+  --rb-avatar-8: #BE185D;  /* magenta  */
+
   /* ── Type scale (DS2) ── */
   /* Use these instead of arbitrary text-[Npx] values */
   --rb-text-xs:      11px;   /* timestamps, meta labels, chips */

@@ -107,7 +107,34 @@ export async function DELETE(
   const { id: appId } = await params;
   const sb = getServiceClient();
 
-  // Soft-delete: preserves review history, can be recovered by support
+  // Remove the app's reviews FIRST, then soft-delete the app.
+  //
+  // The app row was soft-deleted and its reviews left behind, on the reasoning
+  // that this "preserves review history". But nothing downstream excludes them:
+  // every reviews query filters on workspace_id alone, so a deleted app's
+  // reviews kept counting in Sentiment, the dashboard KPIs and the inbox. A
+  // workspace with no connected apps still reported 200 reviews and a 4.32
+  // average — data the customer cannot see the source of, cannot act on, and
+  // cannot get rid of.
+  //
+  // docs/decisions.md D015 names app disconnect as one of the three valid
+  // reasons to delete review data, so this is the sanctioned behaviour.
+  // Bounded by BOTH app_id and workspace_id (D006).
+  const { count: removedReviews, error: reviewsError } = await sb
+    .from("reviews")
+    .delete({ count: "exact" })
+    .eq("app_id", appId)
+    .eq("workspace_id", workspaceId);
+
+  if (reviewsError) {
+    console.error("[apps] review cleanup failed on delete:", {
+      appId, code: reviewsError.code, message: reviewsError.message,
+    });
+    // Stop here rather than half-deleting: an app marked deleted whose reviews
+    // are still counted is exactly the state this fix exists to prevent.
+    return apiError("INTERNAL_SERVER_ERROR", 500);
+  }
+
   const { error } = await sb
     .from("apps")
     .update({ deleted_at: new Date().toISOString() })
@@ -115,7 +142,10 @@ export async function DELETE(
     .eq("workspace_id", workspaceId)
     .is("deleted_at", null); // idempotent — don't clobber existing delete timestamp
 
-  if (error) return apiError("INTERNAL_SERVER_ERROR", 500);
+  if (error) {
+    console.error("[apps] delete failed:", { appId, code: error.code, message: error.message });
+    return apiError("INTERNAL_SERVER_ERROR", 500);
+  }
 
   await audit({
     workspaceId,
@@ -123,7 +153,7 @@ export async function DELETE(
     action: "app.delete",
     targetType: "app",
     targetId: appId,
-    payload: {},
+    payload: { removedReviews: removedReviews ?? 0 },
     request: req,
   });
 

@@ -16,6 +16,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { parseStoreUrl } from "@/lib/store-urls";
+import { canPostRepliesViaApi, isSyncFailureStatus } from "@/lib/sync-status";
 import { useApps, useInvalidateApps, type WorkspaceApp } from "@/hooks/use-apps";
 import { avatarInitials, formatReviewDate } from "@/utils/format";
 import { GooglePlaySetupModal } from "@/components/dashboard/google-play-setup-modal";
@@ -362,12 +364,34 @@ function AppRow({
 
   const isAppStore = app.platform === "app_store";
 
-  const statusLabel = app.has_credentials || app.platform === "google_play"
+  // `app.platform === "google_play"` used to be enough to print "Connected" —
+  // so every Play app was reported connected the instant it was added, before
+  // the service account had been invited to Play Console and while the
+  // dashboard was simultaneously saying "can't sync yet · Finish setup". The
+  // label has to come from something the connection actually proves.
+  //
+  // Three honest states, because there really are three:
+  //   Connected        Play Console access granted (or an App Store key
+  //                    uploaded) — we can read reviews AND post replies.
+  //   Public data only Reviews are being scraped from the public listing.
+  //                    Real data, but replies aren't possible yet.
+  //   Needs setup      Nothing works yet.
+  // Same predicate the inbox composer uses to decide whether it can post a
+  // reply, so the badge and the button can't disagree about an app.
+  const fullyConnected = canPostRepliesViaApi(app);
+  const publicDataOnly =
+    !fullyConnected && !isAppStore && !isSyncFailureStatus(app.last_sync_status);
+
+  const statusLabel = fullyConnected
     ? "Connected"
-    : "Needs setup";
-  const statusClass = app.has_credentials || app.platform === "google_play"
+    : publicDataOnly
+      ? "Public data only"
+      : "Needs setup";
+  const statusClass = fullyConnected
     ? "bg-[var(--rb-green-500)]/10 text-[var(--rb-green-500)] border-[var(--rb-green-500)]/25"
-    : "bg-[var(--rb-amber-500)]/10 text-[var(--rb-amber-500)] border-[var(--rb-amber-500)]/25";
+    : publicDataOnly
+      ? "bg-[#0A84FF]/10 text-[#0A84FF] border-[#0A84FF]/25"
+      : "bg-[var(--rb-amber-500)]/10 text-[var(--rb-amber-500)] border-[var(--rb-amber-500)]/25";
 
   async function handleDelete() {
     if (!confirm(`Remove "${app.name}"? This will delete all synced reviews.`)) return;
@@ -529,6 +553,25 @@ function AddAppForm({ onAdded }: { onAdded: () => void }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  /**
+   * Switch the platform to match a pasted store link.
+   *
+   * The dropdown defaults to Google Play, so pasting an App Store link left
+   * the two contradicting each other — which is exactly the state that
+   * produced "Something went wrong on our end". The link is unambiguous about
+   * which store it belongs to, so trust it and move the dropdown.
+   */
+  function handleStoreIdChange(value: string) {
+    setStoreId(value);
+    setError(null);
+
+    const parsed = parseStoreUrl(value);
+    if (!parsed) return;
+
+    const linkPlatform = parsed.platform === "google-play" ? "google_play" : "app_store";
+    if (linkPlatform !== platform) setPlatform(linkPlatform);
+  }
+
   async function handleAdd() {
     if (!name.trim() || !storeId.trim()) {
       setError("Name and store ID are required.");
@@ -615,18 +658,21 @@ function AddAppForm({ onAdded }: { onAdded: () => void }) {
 
       <label className="block">
         <span className="text-xs font-medium text-[var(--rb-fg-2)]">
-          {platform === "google_play" ? "Package name" : "Bundle ID"}
+          {platform === "google_play" ? "Package name or Play Store link" : "Bundle ID or App Store link"}
         </span>
         <Input
           value={storeId}
-          onChange={(e) => setStoreId(e.target.value)}
+          onChange={(e) => handleStoreIdChange(e.target.value)}
           placeholder={
             platform === "google_play"
-              ? "com.yourcompany.app"
-              : "com.yourcompany.app"
+              ? "com.yourcompany.app  ·  or paste the Play Store link"
+              : "com.yourcompany.app  ·  or paste the App Store link"
           }
           className="mt-1 h-8 border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] font-mono text-sm focus:bg-surface"
         />
+        <span className="mt-1 block text-[11px] text-[var(--rb-fg-3)]">
+          Don&apos;t know your package name? Paste the app&apos;s store page address instead.
+        </span>
       </label>
 
       <div className="flex items-center gap-2">

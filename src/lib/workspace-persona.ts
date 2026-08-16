@@ -55,15 +55,29 @@ function getRedis(): Redis | null {
 // ── Fetch ─────────────────────────────────────────────────────────────────────
 
 /**
- * Fetch (and cache) the persona for a workspace.
- * Falls back to DEFAULT_PERSONA on any error.
+ * Fetch (and cache) the persona used to sign replies, for a workspace and —
+ * when known — the specific app the review belongs to.
+ *
+ * `appName` and `teamName` come from the APP, not the workspace. They used to
+ * come from `workspaces.name`, which is the customer's own internal label:
+ * a workspace called "AT WORK" containing an app called "Mumbai One" signed
+ * every public reply to a Mumbai One reviewer as "The AT WORK Team", and
+ * rendered "{appName}" as "AT WORK". The reviewer has never heard of the
+ * workspace — they left a review on an app. Whatever we sign has to be the
+ * name they recognise, because these replies are published on the store under
+ * the developer's name.
+ *
+ * Passing `appId` is preferred. Without it, a workspace with exactly one live
+ * app still resolves correctly; a multi-app workspace falls back to the
+ * workspace name rather than picking an app arbitrarily.
  */
 export async function getWorkspacePersona(
   workspaceId: string,
+  appId?: string,
 ): Promise<WorkspacePersona> {
   // 1. Try Redis cache
   const redis = getRedis();
-  const cacheKey = `persona:${workspaceId}`;
+  const cacheKey = personaCacheKey(workspaceId, appId);
   if (redis) {
     try {
       const cached = await redis.get<WorkspacePersona>(cacheKey);
@@ -76,24 +90,33 @@ export async function getWorkspacePersona(
   // 2. Query Supabase workspaces table
   try {
     const sb = getServiceClient();
-    const { data } = await sb
-      .from("workspaces")
-      .select("name, support_email, brand_voice, app_category")
-      .eq("id", workspaceId)
-      .single();
 
+    const [wsRes, appName] = await Promise.all([
+      sb
+        .from("workspaces")
+        .select("name, support_email, brand_voice, app_category")
+        .eq("id", workspaceId)
+        .maybeSingle(),
+      resolveAppName(workspaceId, appId),
+    ]);
+
+    const data = wsRes.data;
     if (data) {
-      const name        = (data.name as string | null) ?? "";
+      const workspaceName = (data.name as string | null) ?? "";
       const email       = (data.support_email as string | null) ?? DEFAULT_PERSONA.supportEmail;
       const savedVoice  = (data.brand_voice as string | null) ?? undefined;
       const category    = (data.app_category as string | null) ?? undefined;
       // If user hasn't customised brand_voice yet, use category-based stub.
       // This means every workspace gets meaningful AI voice from day 1.
       const brandVoice  = savedVoice || (category ? getBrandVoiceStub(category) : undefined);
+
+      // App name wins; workspace name is the fallback, not the source.
+      const signingName = appName || workspaceName;
+
       const persona: WorkspacePersona = {
-        appName:      name || DEFAULT_PERSONA.appName,
+        appName:      signingName || DEFAULT_PERSONA.appName,
         supportEmail: email,
-        teamName:     name ? `The ${name} Team` : DEFAULT_PERSONA.teamName,
+        teamName:     signingName ? `The ${signingName} Team` : DEFAULT_PERSONA.teamName,
         brandVoice,
       };
 
@@ -108,6 +131,43 @@ export async function getWorkspacePersona(
   }
 
   return DEFAULT_PERSONA;
+}
+
+/**
+ * Name of the app a reply is being signed for.
+ *
+ * With an appId, that app (scoped to the workspace so a foreign id can't leak
+ * a name across tenants). Without one, the workspace's single live app —
+ * which is the shape of nearly every account. Two or more live apps and there
+ * is no right answer, so it returns null and the caller falls back.
+ */
+async function resolveAppName(workspaceId: string, appId?: string): Promise<string> {
+  try {
+    const sb = getServiceClient();
+    const query = sb
+      .from("apps")
+      .select("name")
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null);
+
+    if (appId) {
+      const { data } = await query.eq("id", appId).maybeSingle();
+      return ((data?.name as string | null) ?? "").trim();
+    }
+
+    // limit(2): enough to tell "exactly one" from "more than one".
+    const { data } = await query.limit(2);
+    const rows = (data ?? []) as { name: string | null }[];
+    if (rows.length !== 1) return "";
+    return (rows[0].name ?? "").trim();
+  } catch {
+    return "";
+  }
+}
+
+/** Cache key for a persona. Exported so settings can invalidate every variant. */
+export function personaCacheKey(workspaceId: string, appId?: string): string {
+  return `persona:${workspaceId}:${appId ?? "ws"}`;
 }
 
 // ── Text personalisation ──────────────────────────────────────────────────────

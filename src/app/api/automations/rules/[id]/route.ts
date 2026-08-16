@@ -64,7 +64,8 @@ export async function PATCH(
   if (body.conditions !== undefined) updates.conditions = body.conditions;
   if (body.action !== undefined) updates.action = body.action;
   if (body.actionLabel !== undefined) updates.action_label = body.actionLabel;
-  if (body.actionConfig !== undefined) updates.action_config = body.actionConfig;
+  // Never null — the column is NOT NULL. See the note in the create route.
+  if (body.actionConfig !== undefined) updates.action_config = body.actionConfig ?? "";
   if (body.appsScope !== undefined) updates.apps_scope = body.appsScope;
   if (body.priority !== undefined) updates.priority = body.priority;
 

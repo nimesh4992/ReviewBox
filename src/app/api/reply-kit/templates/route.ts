@@ -5,6 +5,7 @@ import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
 import { rateLimit } from "@/lib/api-rate-limit";
+import { normalizeTemplateLanguage } from "@/lib/template-language";
 
 export async function GET(): Promise<NextResponse> {
   const session = await auth();
@@ -43,7 +44,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   const tags    = Array.isArray(body.tags) ? (body.tags as unknown[]).filter((t) => typeof t === "string") as string[] : [];
   const ratingMin = typeof body.ratingMin === "number" ? Math.max(1, Math.min(5, Math.floor(body.ratingMin))) : 1;
   const ratingMax = typeof body.ratingMax === "number" ? Math.max(1, Math.min(5, Math.floor(body.ratingMax))) : 5;
-  const language  = typeof body.language === "string" ? body.language.slice(0, 10) : "en";
+  // Normalised, never truncated: the column is char(5) and a display name
+  // ("Portuguese") overflowed it, failing every save with a 500.
+  const language  = normalizeTemplateLanguage(body.language);
 
   if (!name || name.length > 120)           return apiError("INVALID_INPUT", 400, "name required, max 120 chars");
   if (!content || content.length > 5950)    return apiError("INVALID_INPUT", 400, "content required, max 5950 chars");
