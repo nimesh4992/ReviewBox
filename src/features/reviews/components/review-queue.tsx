@@ -21,6 +21,7 @@ import { useApps } from "@/hooks/use-apps";
 import { AppReview, ReviewSentiment, AIReplyTone } from "@/types/review";
 import { avatarInitials, humanizeToken, formatReviewDate } from "@/utils/format";
 import { avatarColorVar } from "@/lib/avatar-color";
+import { canPostRepliesViaApi } from "@/lib/sync-status";
 import { apiErrorMessage } from "@/lib/api-error-message";
 
 // Helper — stamp a review as replied in the infinite query cache
@@ -418,18 +419,25 @@ function ReplyComposer({
   const markReplied = useMarkReplied();
   const markDraft   = useMarkDraft();
 
-  // Credential-aware action hierarchy. When the review's app has store
-  // credentials, one-click "Post reply" is the hero action — that's the whole
+  // Credential-aware action hierarchy. When the review's app can post to the
+  // store, one-click "Post reply" is the hero action — that's the whole
   // promise of the product. Draft Mode's copy-and-paste flow stays the hero
-  // only where it's genuinely the best available path (no credentials).
-  // Fallback when appId is missing (pre-deploy rows in cache): any credentialed
+  // only where it's genuinely the best available path (no connection).
+  //
+  // This asked `has_credentials` for both stores, which is the App Store's
+  // per-app key pair. A Google Play app never has one — its auth is the
+  // workspace service account — so the check was permanently false on Android
+  // and every Play customer was told to paste their reply into Play Console
+  // by hand. canPostRepliesViaApi asks the right question per platform.
+  //
+  // Fallback when appId is missing (pre-deploy rows in cache): any connected
   // app on the same platform counts.
   const { apps } = useApps();
   const reviewPlatform = review.source === "App Store" ? "app_store" : "google_play";
   const composerApp = review.appId ? apps.find((a) => a.id === review.appId) : undefined;
   const canPostViaApi = composerApp
-    ? composerApp.has_credentials
-    : apps.some((a) => a.platform === reviewPlatform && a.has_credentials);
+    ? canPostRepliesViaApi(composerApp)
+    : apps.some((a) => a.platform === reviewPlatform && canPostRepliesViaApi(a));
 
   // Translation state
   const [isTranslating, setIsTranslating] = useState(false);

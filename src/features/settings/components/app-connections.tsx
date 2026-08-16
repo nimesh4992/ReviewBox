@@ -17,7 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { parseStoreUrl } from "@/lib/store-urls";
-import { isSyncFailureStatus } from "@/lib/sync-status";
+import { canPostRepliesViaApi, isSyncFailureStatus } from "@/lib/sync-status";
 import { useApps, useInvalidateApps, type WorkspaceApp } from "@/hooks/use-apps";
 import { avatarInitials, formatReviewDate } from "@/utils/format";
 import { GooglePlaySetupModal } from "@/components/dashboard/google-play-setup-modal";
@@ -376,9 +376,9 @@ function AppRow({
   //   Public data only Reviews are being scraped from the public listing.
   //                    Real data, but replies aren't possible yet.
   //   Needs setup      Nothing works yet.
-  const fullyConnected = isAppStore
-    ? app.has_credentials
-    : app.publisher_api_connected === true;
+  // Same predicate the inbox composer uses to decide whether it can post a
+  // reply, so the badge and the button can't disagree about an app.
+  const fullyConnected = canPostRepliesViaApi(app);
   const publicDataOnly =
     !fullyConnected && !isAppStore && !isSyncFailureStatus(app.last_sync_status);
 
