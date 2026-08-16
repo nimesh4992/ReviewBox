@@ -1,4 +1,4 @@
-import { auth } from "@clerk/nextjs/server";
+import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
@@ -31,7 +31,50 @@ export async function GET(): Promise<NextResponse> {
       return apiError("INTERNAL_SERVER_ERROR", 500);
     }
 
-    return NextResponse.json({ members: data ?? [] });
+    const rows = data ?? [];
+
+    // Names live in Clerk, not in our database — `workspace_members` only holds
+    // the ID. Without this the team list rendered "user_2abc123def456ghi789…",
+    // which tells an owner nothing about who is in their workspace.
+    //
+    // One bulk call for the whole list, and best-effort: if Clerk is
+    // unreachable the list still renders with whatever we have, because a team
+    // page that 500s is worse than one showing IDs.
+    const profiles = new Map<string, { name: string | null; email: string | null; imageUrl: string | null }>();
+    if (rows.length) {
+      try {
+        const clerk = await clerkClient();
+        const { data: users } = await clerk.users.getUserList({
+          userId: rows.map((m) => m.clerk_user_id as string),
+          limit: Math.min(rows.length, 100),
+        });
+        for (const u of users) {
+          const full = [u.firstName, u.lastName].filter(Boolean).join(" ").trim();
+          profiles.set(u.id, {
+            name: full || null,
+            email: u.emailAddresses[0]?.emailAddress ?? null,
+            imageUrl: u.hasImage ? u.imageUrl : null,
+          });
+        }
+      } catch (err) {
+        console.error("[team/members] Clerk lookup failed:", err);
+      }
+    }
+
+    const members = rows.map((m) => {
+      const id = m.clerk_user_id as string;
+      const p  = profiles.get(id);
+      return {
+        ...m,
+        name: p?.name ?? null,
+        email: p?.email ?? null,
+        image_url: p?.imageUrl ?? null,
+        // So the client can mark "You" without a second identity round trip.
+        is_self: id === session.userId,
+      };
+    });
+
+    return NextResponse.json({ members });
   } catch (err) {
     return captureAndError(err, "GET /api/team/members");
   }

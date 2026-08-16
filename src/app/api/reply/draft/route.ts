@@ -1,6 +1,9 @@
 import { auth } from "@clerk/nextjs/server";
 import * as Sentry from "@sentry/nextjs";
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
+
+import { recordAiUsage } from "@/lib/ai-usage";
 
 import { generateReply } from "@/lib/groq";
 import { generateReplyWithGemini } from "@/lib/gemini";
@@ -218,8 +221,26 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       ? await getWorkspacePersona(workspaceId, reviewAppId)
       : DEFAULT_PERSONA;
 
-    const log = (source: ReplySource, extra?: Record<string, unknown>) =>
+    // One hook for both the console line and the usage row, so a tier added
+    // later cannot be metered by accident only in one of the two.
+    //
+    // Every tier is recorded, not just the ones that call a provider: the
+    // `model` column carries which tier served it, and knowing that 80% of
+    // drafts came from saved templates is the number that tells you the token
+    // budget is safe. Counting only Groq calls would have shown that as silence.
+    const log = (source: ReplySource, extra?: Record<string, unknown>) => {
       console.log(JSON.stringify({ userId, plan, source, reviewId, ...extra }));
+      // after() rather than a detached promise — Vercel freezes the invocation
+      // the moment the response returns, and a bare .catch() chain dies with it.
+      after(() =>
+        recordAiUsage({
+          workspaceId,
+          clerkUserId: userId,
+          action: "draft_reply",
+          model: source,
+        }),
+      );
+    };
 
     // ══════════════════════════════════════════════════════════════════════
     // TIER 0 — Reply-Kit: user's own saved templates

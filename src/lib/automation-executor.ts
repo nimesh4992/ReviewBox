@@ -7,6 +7,7 @@
 import type { AppReview, AutomationRule, AutomationCondition } from "@/types/review";
 import { getServiceClient } from "@/lib/supabase-server";
 import { generateReply } from "@/lib/groq";
+import { recordAiUsage } from "@/lib/ai-usage";
 import { submitReply as submitGooglePlayReply } from "@/services/google-play/publisher-api";
 import { buildJWT, submitReply as submitAppStoreReply } from "@/services/app-store/connect-api";
 
@@ -129,6 +130,16 @@ async function executeAction(
         rating:     review.rating,
         tone:       "professional",
       });
+      // Metered like a human-triggered draft. Automations can burn far more
+      // quota than a person clicking Generate, so leaving them out of ai_usage
+      // would hide exactly the traffic worth watching. No Clerk session here —
+      // the actor is the rule.
+      await recordAiUsage({
+        workspaceId,
+        clerkUserId: `automation:${rule.id}`,
+        action: "draft_reply",
+        model: "groq",
+      });
       await updateReview({ reply_text: reply, reply_status: "draft_ready", has_ai_suggestion: true });
       break;
     }
@@ -139,6 +150,13 @@ async function executeAction(
         reviewBody: review.text ?? "",
         rating:     review.rating,
         tone:       "professional",
+      });
+
+      await recordAiUsage({
+        workspaceId,
+        clerkUserId: `automation:${rule.id}`,
+        action: "draft_reply",
+        model: "groq",
       });
 
       // 2) Look up store credentials via the review's app
