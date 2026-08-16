@@ -1,7 +1,10 @@
 import type { MetadataRoute } from "next";
+import { marketingUrl } from "@/lib/site-urls";
 
-const RAW_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
-const BASE_URL = RAW_URL.startsWith("http") ? RAW_URL : `https://${RAW_URL}`;
+// The PUBLIC origin, not the app's. Canonical URLs and sitemap entries must
+// name the marketing domain even when the app sits on a subdomain — see
+// lib/site-urls.ts.
+const BASE_URL = marketingUrl();
 
 function url(path: string, priority: number, freq: MetadataRoute.Sitemap[number]["changeFrequency"]) {
   return { url: `${BASE_URL}${path}`, lastModified: new Date(), changeFrequency: freq, priority };

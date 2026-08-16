@@ -30,6 +30,8 @@
  * inbox"), never "Learn more".
  */
 
+import { appUrl, marketingUrl } from "@/lib/site-urls";
+
 export type EmailBlock =
   | { kind: "text"; text: string; muted?: boolean }
   /** App icon + name. Makes the message theirs in the first 40px. */
@@ -98,7 +100,7 @@ const C = {
 const FONT =
   "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif";
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.tryreviewbox.com";
+const APP_URL = appUrl();
 
 /**
  * Where the brand images are served from.
@@ -108,8 +110,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.tryreviewbox.com
  * inbox. Assets live in public/brand/ and are served by whichever host has the
  * marketing site.
  */
-const MARKETING_URL =
-  process.env.NEXT_PUBLIC_MARKETING_URL ?? "https://tryreviewbox.com";
+const MARKETING_URL = marketingUrl();
 
 /** Escape anything that reaches the HTML. Review text is user content. */
 export function esc(value: string): string {
