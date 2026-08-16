@@ -15,6 +15,7 @@ import {
 
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
+import { isSyncFailureStatus } from "@/lib/sync-status";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
 import { useApps } from "@/hooks/use-apps";
 import { useIncidents } from "@/hooks/use-incidents";
@@ -99,11 +100,13 @@ function WorkspaceStatusStrip({
   onConnectPlayConsole: () => void;
   onOpenSetup: () => void;
 }) {
-  const errored = apps.filter(
-    (a) => a.last_sync_status && a.last_sync_status !== "success",
-  );
+  // `isSyncFailureStatus` rather than `status !== "success"`: the latter
+  // treated `credentials_verified` — written by the connection test the user
+  // had just passed — as a broken app, so finishing setup made the "can't sync
+  // yet" banner appear rather than disappear.
+  const errored = apps.filter((a) => isSyncFailureStatus(a.last_sync_status));
   const pending = apps.filter(
-    (a) => !a.last_synced_at && !(a.last_sync_status && a.last_sync_status !== "success"),
+    (a) => !a.last_synced_at && !isSyncFailureStatus(a.last_sync_status),
   );
   const quietOk = apps.filter(
     (a) => a.last_sync_status === "success" && (a.last_sync_review_count ?? 0) === 0,

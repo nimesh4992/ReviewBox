@@ -15,6 +15,7 @@ import {
   DialogContent,
 } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
+import { useInvalidateApps } from "@/hooks/use-apps";
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -314,6 +315,7 @@ export function GooglePlaySetupModal({ open, onClose, app }: Props) {
   const [emailState, setEmailState] = useState<EmailState>("loading");
   const [verifying, setVerifying] = useState(false);
   const [verifyResult, setVerifyResult] = useState<VerifyResult | null>(null);
+  const invalidateApps = useInvalidateApps();
 
   // Load service account email when modal opens
   useEffect(() => {
@@ -340,6 +342,12 @@ export function GooglePlaySetupModal({ open, onClose, app }: Props) {
       const res = await fetch(`/api/apps/${app.id}/test-credentials`, { method: "POST" });
       const data = (await res.json()) as VerifyResult;
       setVerifyResult(data);
+      // Verifying writes last_sync_status / publisher_api_connected on the
+      // server. Without dropping the cached app list, the banner behind this
+      // modal keeps rendering the pre-connection state — so the customer saw
+      // "Connection verified!" and "Mumbai One can't sync yet" on screen at
+      // the same time, and closing the modal didn't clear it either.
+      if (data.ok) invalidateApps();
     } catch {
       setVerifyResult({ ok: false, message: "Network error — couldn't reach our server.", verifiedAt: new Date().toISOString() });
     } finally {
