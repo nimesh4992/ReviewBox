@@ -22,10 +22,13 @@ export async function checkAiRateLimit(
   }
 
   const planKey: PlanName = isPlanName(plan) ? plan : "free";
-  const limit = PLAN_LIMITS[planKey].aiDraftsPerDay;
+  const limit: number = PLAN_LIMITS[planKey].aiDraftsPerMonth;
 
-  // If the plan allows zero drafts, deny immediately without hitting Redis
-  if (limit === 0) {
+  // A plan with no AI allowance denies without touching Redis. No plan is
+  // currently zero — free deliberately gets a small allowance so the headline
+  // feature can be tried — but a future tier might be, and paying Upstash a
+  // round trip to say "no" would be silly.
+  if (limit <= 0) {
     return { allowed: false, remaining: 0 };
   }
 
@@ -33,7 +36,11 @@ export async function checkAiRateLimit(
 
   const ratelimit = new Ratelimit({
     redis,
-    limiter: Ratelimit.slidingWindow(limit, "1 d"),
+    // Monthly window. A daily cap punished the way customers actually
+    // work — sitting down once a week and clearing 40 reviews would hit a
+    // daily wall while using a fraction of the plan. 30d sliding rather than
+    // calendar-month so there is no midnight-on-the-1st cliff.
+    limiter: Ratelimit.slidingWindow(limit, "30 d"),
     prefix: "ai_draft",
   });
 

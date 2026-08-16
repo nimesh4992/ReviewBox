@@ -42,6 +42,8 @@ export type AuditAction =
   | "billing.upgrade"
   | "billing.cancel"
   | "billing.payment_failed"
+  | "trial.extended"
+  | "trial.expired"
   // GDPR
   | "gdpr.export"
   | "gdpr.delete"
