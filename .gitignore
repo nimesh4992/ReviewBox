@@ -33,6 +33,11 @@ yarn-error.log*
 .claude/worktrees/
 .claude/launch.json
 
+# test output
+/playwright-report/
+/test-results/
+/coverage/
+
 # IDE
 *.tsbuildinfo
 

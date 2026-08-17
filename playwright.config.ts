@@ -13,7 +13,13 @@ export default defineConfig({
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
-  reporter: process.env.CI ? [["github"], ["html", { open: "never" }]] : "list",
+  // JSON report added so CI can tell "N tests passed" apart from "0 tests
+  // ran" — a distinction the job's green tick does not make, and the reason
+  // this suite silently executed nothing for weeks while being cited as
+  // evidence that changes were safe (audit finding H-8).
+  reporter: process.env.CI
+    ? [["github"], ["html", { open: "never" }], ["json", { outputFile: "playwright-report/results.json" }]]
+    : "list",
   use: {
     baseURL: process.env.PLAYWRIGHT_BASE_URL ?? "http://localhost:3000",
     trace: "on-first-retry",

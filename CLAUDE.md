@@ -674,20 +674,40 @@ Likewise `last_sync_status`: `credentials_verified` is a **healthy** value, not
 a failure. `status !== "success"` marked an app broken the moment its
 connection was verified. Use `isSyncFailureStatus()`.
 
-### "E2E tests (advisory)" — no longer a false alarm (fixed by PR #94)
+### "E2E tests (advisory)" — green, but it currently runs NOTHING
 
-**This check now passes, and a failure is a real signal about your change.**
-Treat it as one.
+**Do not read this check as evidence your change works.** Every spec in both
+`tests/e2e/*.spec.ts` is **skipped** on every CI run today. The job is green
+because zero tests ran, not because anything passed.
 
-It used to fail on every commit on every branch, including documentation-only
-ones: CI ran with `pk_test_ci-placeholder`, which Clerk rejects with
-`"Invalid host"`, so every route served the error page and even the public
-smoke tests (landing, pricing, legal) failed. PR #94 replaced it with a
-**structurally valid** placeholder — Clerk base64-decodes the publishable key
-to find the frontend API domain, so it has to decode, not merely look like a
-key. `pk_test_Y2ktcGxhY2Vob2xkZXIuY2xlcmsuYWNjb3VudHMuZGV2JA==` decodes to
-`ci-placeholder.clerk.accounts.dev$`. No real Clerk test instance was needed
-after all. First observed green on PR #92, 2026-08-17.
+This section previously claimed the opposite ("this check now passes, and a
+failure is a real signal"). That was wrong, and is the same silent-success
+class as the deploy job that reported success while deploying nothing — see
+below. Corrected 2026-08-17 (audit finding H-8).
+
+**Why it skips.** CI runs with `pk_test_Y2ktcGxhY2Vob2xkZXIuY2xlcmsuYWNjb3VudHMuZGV2JA==`,
+which is *structurally* valid (it base64-decodes, so Clerk's provider can parse
+it) but decodes to `ci-placeholder.clerk.accounts.dev$` — an instance that does
+not exist. Clerk answers "Invalid host", so every route serves the error page
+and even the public smoke tests fail. `tests/e2e/clerk-env.ts` therefore skips
+the whole suite when it detects a placeholder, and both spec files call
+`test.skip(clerkKeyIsPlaceholder, …)` at module scope.
+
+**Skipping is the right call** — a check that is red on every commit, including
+documentation-only ones, trains everyone to ignore it, so the day it goes red
+for a real reason nobody looks. The defect was never the skip; it was claiming
+the skip was a pass.
+
+**To make it real** (≈10 minutes, HUMAN-REQUIRED): create a Clerk *development*
+instance for CI, put its publishable + secret keys in GitHub → Settings →
+Secrets and variables → Actions, and reference them in the `e2e-tests` job's
+`env:` block. `clerkKeyIsPlaceholder()` then returns false and the specs run.
+Tracked as BUG-037.
+
+**This claim is now enforced.** `src/ci-contract.test.ts` runs in the *blocking*
+unit-tests job, reads the Clerk key out of `ci.yml`, and fails if this file
+claims the suite runs while CI still uses a placeholder — in either direction.
+The documentation cannot silently drift from the pipeline again.
 
 ⚠️ **The same PR fixed a far more serious bug — read this before touching
 `ci.yml`.** Those placeholders used to sit in a workflow-level `env:` block,
