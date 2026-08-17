@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
 import {
   AlertTriangle,
@@ -33,6 +33,8 @@ import {
 import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
+import { useApps } from "@/hooks/use-apps";
+import { resolveSelectedApp } from "@/lib/selected-app";
 
 // ── Navigation structure ──────────────────────────────────────────────────────
 
@@ -141,39 +143,29 @@ function SidebarNavItem({
 
 // ── Sidebar ───────────────────────────────────────────────────────────────────
 
-interface App {
-  id: string;
-  name: string;
-  platform: string;
-  icon_url?: string | null;
-}
-
 export function Sidebar({ className }: { className?: string }) {
   const pathname = usePathname();
   const { user, isLoaded } = useUser();
   const { selectedApp, setSelectedApp } = useWorkspaceStore();
-  const [apps, setApps] = useState<App[]>([]);
-  const { data: metrics } = useDashboardMetrics();
+  // Shared hook, not a private fetch. The hand-rolled `fetch("/api/apps")` in
+  // a mount-once effect was a second source of truth for the app list: adding
+  // an app invalidated ["apps"] everywhere EXCEPT here, so the new app did not
+  // appear in this selector until a full page reload.
+  const { apps } = useApps();
+  const { appId: selectedAppId } = resolveSelectedApp(apps, selectedApp);
+  // Scope the Inbox badge to the same app the Inbox itself will show. The
+  // badge counted every app while the Inbox is app-scoped, so the badge said
+  // 12 and the screen it labels showed 4 — a metre from the selector that
+  // caused it.
+  const { data: metrics } = useDashboardMetrics(selectedAppId);
   const unrepliedCount = metrics?.unrepliedCount ?? 0;
 
+  // Reset to "all apps" if the persisted selection no longer exists — covers
+  // a deleted app and the migration off name-based selection.
   useEffect(() => {
-    fetch("/api/apps")
-      .then((r) => r.ok ? r.json() : null)
-      .then((data: { apps: App[] } | null) => {
-        if (data?.apps?.length) {
-          setApps(data.apps);
-          // Reset to "all apps" if the persisted selection no longer exists —
-          // covers a deleted app and the migration off name-based selection.
-          const ids = data.apps.map((a) => a.id);
-          if (selectedApp && !ids.includes(selectedApp)) {
-            setSelectedApp("");
-          }
-        }
-      })
-      .catch(() => null);
-    // selectedApp/setSelectedApp from store are stable; intentionally not in deps
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    if (!apps.length || !selectedApp) return;
+    if (!apps.some((a) => a.id === selectedApp)) setSelectedApp("");
+  }, [apps, selectedApp, setSelectedApp]);
 
   return (
     <aside

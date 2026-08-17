@@ -33,10 +33,17 @@ export async function GET(): Promise<NextResponse> {
     .is("deleted_at", null)
     .eq("workspace_id", workspaceId);
 
-  const { count: reviewCount } = await sb
-    .from("reviews")
-    .select("id", { count: "exact", head: true })
-    .eq("workspace_id", workspaceId);
+  // Count against the SAME app list this route reports above. Counting by
+  // workspace alone let this diagnostic print "reviewsInDb: 200" beside zero
+  // apps — manufacturing the exact symptom it exists to explain.
+  const liveAppIds = (apps ?? []).map((a) => a.id as string);
+  const { count: reviewCount } = liveAppIds.length
+    ? await sb
+        .from("reviews")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspaceId)
+        .in("app_id", liveAppIds)
+    : { count: 0 };
 
   const playClientEmail = process.env.GOOGLE_CLIENT_EMAIL ?? "(not configured)";
 

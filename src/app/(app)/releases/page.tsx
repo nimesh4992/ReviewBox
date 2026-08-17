@@ -4,76 +4,48 @@ import { auth } from "@clerk/nextjs/server";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { getLiveApps } from "@/lib/live-apps";
+import {
+  deriveVersions,
+  type ReleaseReviewRow,
+  type VersionRow,
+} from "@/lib/release-versions";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-
-interface VersionRow {
-  version: string;
-  reviewCount: number;
-  avgRating: number;
-  /** Average-rating change vs the previous version; null for the oldest. */
-  ratingDelta: number | null;
-  firstSeen: string;
-}
-
-/**
- * Group the workspace's synced reviews by app_version. Replaces the
- * hardcoded sample table this page shipped with — every number here is
- * computed from real rows, and versions without data simply don't appear.
- */
-function deriveVersions(
-  rows: { app_version: string | null; rating: number; store_created_at: string }[],
-): VersionRow[] {
-  const byVersion = new Map<string, { ratings: number[]; firstSeen: string }>();
-  for (const row of rows) {
-    const version = row.app_version?.trim();
-    if (!version) continue;
-    const entry = byVersion.get(version);
-    if (entry) {
-      entry.ratings.push(row.rating);
-      if (row.store_created_at < entry.firstSeen) entry.firstSeen = row.store_created_at;
-    } else {
-      byVersion.set(version, { ratings: [row.rating], firstSeen: row.store_created_at });
-    }
-  }
-
-  const versions = [...byVersion.entries()]
-    .map(([version, { ratings, firstSeen }]) => ({
-      version,
-      reviewCount: ratings.length,
-      avgRating: ratings.reduce((a, b) => a + b, 0) / ratings.length,
-      ratingDelta: null as number | null,
-      firstSeen,
-    }))
-    .sort((a, b) => (a.firstSeen < b.firstSeen ? -1 : 1));
-
-  for (let i = 1; i < versions.length; i++) {
-    versions[i].ratingDelta = versions[i].avgRating - versions[i - 1].avgRating;
-  }
-  return versions.reverse(); // newest first
-}
 
 export default async function ReleasesPage() {
   const { userId } = await auth();
   let versions: VersionRow[] = [];
   let unversionedCount = 0;
   let hasWorkspace = false;
+  let multiApp = false;
 
   if (userId) {
     const workspaceId = await getWorkspaceId(userId);
     if (workspaceId) {
       hasWorkspace = true;
       const sb = getServiceClient();
-      const { data } = await sb
-        .from("reviews")
-        .select("app_version, rating, store_created_at")
-        .eq("workspace_id", workspaceId)
-        .order("store_created_at", { ascending: false })
-        .limit(5000);
-      const rows = data ?? [];
-      versions = deriveVersions(rows);
-      unversionedCount = rows.filter((r) => !r.app_version?.trim()).length;
+      // Live apps only — a disconnected app's releases lingered in this table
+      // forever. `app_id` is selected because version numbers are unique only
+      // WITHIN an app: keying the buckets on the version string alone fused
+      // two apps' "2.1.0" into one fabricated row.
+      const liveApps = (await getLiveApps(sb, workspaceId)) ?? [];
+      multiApp = liveApps.length > 1;
+      const appNames = new Map(liveApps.map((a) => [a.id, a.name]));
+
+      if (liveApps.length) {
+        const { data } = await sb
+          .from("reviews")
+          .select("app_id, app_version, rating, store_created_at")
+          .eq("workspace_id", workspaceId)
+          .in("app_id", [...appNames.keys()])
+          .order("store_created_at", { ascending: false })
+          .limit(5000);
+        const rows = (data ?? []) as ReleaseReviewRow[];
+        versions = deriveVersions(rows, appNames);
+        unversionedCount = rows.filter((r) => !r.app_version?.trim()).length;
+      }
     }
   }
 
@@ -104,6 +76,9 @@ export default async function ReleasesPage() {
               <thead>
                 <tr className="border-b border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] text-left">
                   <th className="px-4 py-2.5 text-rb-xs font-medium uppercase tracking-[0.08em] text-fg-3">Version</th>
+                  {multiApp && (
+                    <th className="px-4 py-2.5 text-rb-xs font-medium uppercase tracking-[0.08em] text-fg-3">App</th>
+                  )}
                   <th className="px-4 py-2.5 text-right text-rb-xs font-medium uppercase tracking-[0.08em] text-fg-3">Reviews</th>
                   <th className="px-4 py-2.5 text-right text-rb-xs font-medium uppercase tracking-[0.08em] text-fg-3">Avg rating</th>
                   <th className="px-4 py-2.5 text-right text-rb-xs font-medium uppercase tracking-[0.08em] text-fg-3">vs previous</th>
@@ -113,17 +88,20 @@ export default async function ReleasesPage() {
               <tbody>
                 {versions.map((v) => (
                   <tr
-                    key={v.version}
+                    key={`${v.appId}|${v.version}`}
                     className="border-b border-[var(--rb-border-1)] last:border-b-0 hover:bg-[var(--rb-bg-hover)]"
                   >
                     <td className="px-4 py-2.5">
                       <Link
-                        href={`/releases/${encodeURIComponent(v.version)}`}
+                        href={`/releases/${encodeURIComponent(v.version)}?appId=${encodeURIComponent(v.appId)}`}
                         className="font-medium text-fg-1 hover:text-[var(--rb-blue-600)] hover:underline"
                       >
                         {v.version}
                       </Link>
                     </td>
+                    {multiApp && (
+                      <td className="px-4 py-2.5 text-fg-2">{v.appName}</td>
+                    )}
                     <td className="px-4 py-2.5 text-right tabular-nums text-fg-2">
                       {v.reviewCount.toLocaleString()}
                     </td>

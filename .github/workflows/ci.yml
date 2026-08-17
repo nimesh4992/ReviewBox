@@ -30,27 +30,50 @@ env:
   # the only thing you have to add is VERCEL_TOKEN.
   VERCEL_ORG_ID: "team_mQlD3mcz32rsA4HcPOBRiW6b"
   VERCEL_PROJECT_ID: "prj_OE66Qpr8IdTXwLG6BOzevWYagRcl"
-  # Build-time fallbacks so build doesn't fail when secrets aren't wired.
-  # Real values come from Vercel env at deploy time.
-  #
-  # The publishable key must be STRUCTURALLY valid, not just a placeholder
-  # string. Clerk base64-decodes it to find the frontend API domain; the old
-  # `pk_test_ci-placeholder` threw "Publishable key not valid" on every
-  # request, so `next dev` never became ready and the e2e job would have timed
-  # out after 120s. This value decodes to `ci-placeholder.clerk.accounts.dev$`.
-  NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2ktcGxhY2Vob2xkZXIuY2xlcmsuYWNjb3VudHMuZGV2JA==
-  CLERK_SECRET_KEY: sk_test_ci-placeholder
-  NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
-  NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
-  NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
-  NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
-  SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
+
+# ⚠️ THE CI PLACEHOLDER KEYS BELOW MUST NEVER BE WORKFLOW-LEVEL `env`.
+#
+# They used to be, and it took production down on 2026-08-17.
+#
+# A workflow-level `env` block applies to EVERY job, including
+# `deploy-production`. `NEXT_PUBLIC_*` values are inlined into the browser
+# bundle at BUILD time, and a variable already present in the process
+# environment WINS over the values `vercel pull` writes to
+# `.vercel/.env.production.local`. So `vercel build --prod` compiled the real
+# production bundle with `ci-placeholder.clerk.accounts.dev` as the Clerk
+# publishable key, `vercel deploy --prebuilt --prod` promoted it, and every
+# page on app.tryreviewbox.com answered:
+#
+#   {"errors":[{"message":"Invalid host","code":"host_invalid"}]}
+#
+# The deploy job reported SUCCESS the whole time — it deployed exactly what it
+# was told to build.
+#
+# Rule: any job that DEPLOYS must inherit no build-time app config from CI.
+# Placeholders belong to the jobs that compile or run the app for TESTS only,
+# which is why each one now carries its own copy.
+#
+# The publishable key must be STRUCTURALLY valid, not just a placeholder
+# string: Clerk base64-decodes it to find the frontend API domain, and the old
+# `pk_test_ci-placeholder` threw "Publishable key not valid" on every request,
+# so `next dev` never became ready and the e2e job timed out after 120s. The
+# value below decodes to `ci-placeholder.clerk.accounts.dev$`.
 
 jobs:
   build-and-typecheck:
     name: Build + type-check
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    # Test-only placeholders — see the warning above the `jobs:` key. These
+    # compile a throwaway bundle that is never deployed.
+    env:
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2ktcGxhY2Vob2xkZXIuY2xlcmsuYWNjb3VudHMuZGV2JA==
+      CLERK_SECRET_KEY: sk_test_ci-placeholder
+      NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+      NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
     steps:
       - uses: actions/checkout@v4
 
@@ -74,6 +97,15 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Test-only placeholders — see the warning above the `jobs:` key.
+    env:
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2ktcGxhY2Vob2xkZXIuY2xlcmsuYWNjb3VudHMuZGV2JA==
+      CLERK_SECRET_KEY: sk_test_ci-placeholder
+      NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+      NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -87,6 +119,15 @@ jobs:
     name: Unit tests
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    # Test-only placeholders — see the warning above the `jobs:` key.
+    env:
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2ktcGxhY2Vob2xkZXIuY2xlcmsuYWNjb3VudHMuZGV2JA==
+      CLERK_SECRET_KEY: sk_test_ci-placeholder
+      NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+      NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -121,6 +162,15 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     continue-on-error: true
+    # Test-only placeholders — see the warning above the `jobs:` key.
+    env:
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2ktcGxhY2Vob2xkZXIuY2xlcmsuYWNjb3VudHMuZGV2JA==
+      CLERK_SECRET_KEY: sk_test_ci-placeholder
+      NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
+      NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
+      NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      SUPABASE_SERVICE_ROLE_KEY: ci-placeholder
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -286,11 +336,40 @@ jobs:
           # env block and are already present in every step's environment.
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
+      # The check that would have caught the 2026-08-17 outage before it
+      # reached a customer. `vercel pull` writes the real production values
+      # here; if the Clerk publishable key is missing or still points at the
+      # CI placeholder instance, building would bake a dead key into the
+      # browser bundle and every page would answer "Invalid host". Fail here,
+      # loudly, instead of deploying it and reporting success.
+      - name: Verify pulled production env is real
+        run: |
+          envfile=".vercel/.env.production.local"
+          if [ ! -f "$envfile" ]; then
+            echo "::error::$envfile is missing — vercel pull did not fetch the production environment." >&2
+            exit 1
+          fi
+          key=$(grep -m1 '^NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=' "$envfile" | cut -d= -f2- | tr -d '"'"'"'')
+          if [ -z "$key" ]; then
+            echo "::error::NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is absent from the pulled production env. Set it in Vercel → Project → Settings → Environment Variables (Production)." >&2
+            exit 1
+          fi
+          case "$key" in
+            *ci-placeholder*|*Y2ktcGxhY2Vob2xkZXI*)
+              echo "::error::The pulled Clerk key is the CI placeholder. Refusing to deploy — this is what took production down on 2026-08-17." >&2
+              exit 1
+              ;;
+          esac
+          echo "Production Clerk key present and not a placeholder."
+
       - name: Build
         run: vercel build --prod --token="$VERCEL_TOKEN"
         env:
           # VERCEL_ORG_ID and VERCEL_PROJECT_ID come from the workflow-level
           # env block and are already present in every step's environment.
+          # NOTHING app-related is injected here on purpose: a variable already
+          # in the environment overrides .vercel/.env.production.local, which
+          # is exactly how the CI placeholder key shipped to production.
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
       - name: Deploy

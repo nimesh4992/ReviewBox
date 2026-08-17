@@ -1,5 +1,6 @@
 import { getResend, FROM } from "./client";
 import { getServiceClient } from "@/lib/supabase-server";
+import { getLiveAppIds } from "@/lib/live-apps";
 import { trialEndingEmail } from "./templates";
 import { MAX_TRIAL_EXTENSIONS } from "@/lib/plans";
 
@@ -50,6 +51,11 @@ export async function sendTrialExpiringEmail(params: {
       .maybeSingle();
     extensionsUsed = Number(ext.data?.trial_extensions_used ?? 0) || 0;
 
+    // `reviewsHandled` is the "look what you accomplished" figure in the
+    // conversion email, so it must not credit work done on an app the
+    // customer has since removed — live apps only, as everywhere else.
+    const liveAppIds = await getLiveAppIds(sb, workspaceId);
+
     const [appRes, repliesRes, reviewsRes] = await Promise.all([
       sb.from("apps").select("name")
         .eq("workspace_id", workspaceId).is("deleted_at", null)
@@ -59,8 +65,11 @@ export async function sendTrialExpiringEmail(params: {
       // counter to drift from it.
       sb.from("audit_log").select("id", { count: "exact", head: true })
         .eq("workspace_id", workspaceId).eq("action", "reply.publish"),
-      sb.from("reviews").select("id", { count: "exact", head: true })
-        .eq("workspace_id", workspaceId).neq("reply_status", "needs_reply"),
+      liveAppIds && liveAppIds.length
+        ? sb.from("reviews").select("id", { count: "exact", head: true })
+            .eq("workspace_id", workspaceId).in("app_id", liveAppIds)
+            .neq("reply_status", "needs_reply")
+        : Promise.resolve({ count: 0 }),
     ]);
 
     appName          = (appRes.data?.name as string | undefined) || appName;

@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
 import { getServiceClient } from "@/lib/supabase-server";
+import { getLiveApps } from "@/lib/live-apps";
 import { sendWeeklyDigest } from "@/lib/email/send-weekly-digest";
 import { notifySlack } from "@/lib/slack";
 
@@ -64,13 +65,33 @@ async function handler(req: NextRequest): Promise<NextResponse> {
       const email = clerkUser.emailAddresses[0]?.emailAddress;
       if (!email) return false;
 
+      // Live apps first — and fail CLOSED if the lookup errors. The digest
+      // used to aggregate by workspace_id alone and stamp the totals with an
+      // arbitrary app's name, so a deleted app's reviews kept steering the
+      // Monday numbers, and a two-app workspace read one app's name over a
+      // blend of both. One digest per app, each with its own figures.
+      const liveApps = await getLiveApps(sb, ws.id);
+      if (liveApps === null || liveApps.length === 0) return false;
+
       const { data: reviews } = await sb
         .from("reviews")
         .select("rating, priority, reply_status, issue_tags, app_id")
         .eq("workspace_id", ws.id)
+        .in("app_id", liveApps.map((a) => a.id))
         .gte("store_created_at", since);
 
       if (!reviews?.length) return false;
+
+      // ONE digest per workspace, as before — but the figures now cover only
+      // live apps, and the label says what they cover. Sending one digest per
+      // app would mean five Monday emails for a five-app owner; the previous
+      // behaviour (workspace-wide totals stamped with one arbitrary app's
+      // name) was the actual bug, and naming the scope fixes it.
+      const appsWithReviews = liveApps.filter((a) => reviews.some((r) => r.app_id === a.id));
+      const appName =
+        appsWithReviews.length === 1
+          ? appsWithReviews[0].name || ws.name || "your app"
+          : `your ${appsWithReviews.length} apps`;
 
       const totalReviews   = reviews.length;
       const avgRating      = reviews.reduce((sum, r) => sum + (r.rating as number), 0) / totalReviews;
@@ -84,18 +105,10 @@ async function handler(req: NextRequest): Promise<NextResponse> {
       }
       const topIssue = Object.entries(tagCounts).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
 
-      const { data: apps } = await sb
-        .from("apps")
-        .select("name")
-        .eq("workspace_id", ws.id)
-        .is("deleted_at", null)
-        .limit(1);
-      const appName = apps?.[0]?.name ?? ws.name ?? "your app";
-
       await sendWeeklyDigest(email, { totalReviews, avgRating, urgentCount, unrepliedCount, topIssue, appName });
 
       void notifySlack(ws.id, {
-        text: `📊 Weekly digest — ${totalReviews} reviews, ${avgRating.toFixed(1)}★ avg`,
+        text: `📊 Weekly digest — ${appName}: ${totalReviews} reviews, ${avgRating.toFixed(1)}★ avg`,
         blocks: [
           {
             type: "section",

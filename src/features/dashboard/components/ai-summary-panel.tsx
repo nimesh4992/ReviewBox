@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { useAiSummary } from "@/hooks/use-ai-summary";
 
@@ -12,8 +13,22 @@ function relativeTime(iso: string): string {
   return h === 1 ? "1 hour ago" : `${h} hours ago`;
 }
 
-export function AiSummaryPanel() {
-  const { data, isLoading, isFetching, refetch } = useAiSummary();
+export function AiSummaryPanel({ appId, enabled = true }: { appId?: string; enabled?: boolean }) {
+  const { data, isLoading, isFetching, refresh } = useAiSummary(appId, { enabled });
+  const [refreshing, setRefreshing] = useState(false);
+  const busy = isFetching || refreshing;
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    try {
+      await refresh();
+    } catch {
+      // The panel keeps showing the last good summary; a failed refresh is
+      // not worth an error state of its own.
+    } finally {
+      setRefreshing(false);
+    }
+  }
 
   return (
     <div className="rounded-xl border border-[var(--rb-border-1)] bg-surface p-5 flex flex-col gap-3 shadow-[var(--rb-shadow-xs)]">
@@ -59,8 +74,8 @@ export function AiSummaryPanel() {
           <span />
         )}
         <button
-          onClick={() => void refetch()}
-          disabled={isFetching}
+          onClick={() => void handleRefresh()}
+          disabled={busy}
           className="flex items-center gap-1 text-[12px] font-medium transition-opacity hover:opacity-70 disabled:opacity-40"
           style={{ color: "#0A84FF" }}
           aria-label="Refresh AI summary"
@@ -68,7 +83,7 @@ export function AiSummaryPanel() {
           <RefreshCw
             size={12}
             strokeWidth={1.5}
-            className={isFetching ? "animate-spin" : ""}
+            className={busy ? "animate-spin" : ""}
           />
           Refresh
         </button>

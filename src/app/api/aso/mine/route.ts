@@ -14,6 +14,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { getLiveAppIds, scopeAppIds } from "@/lib/live-apps";
 
 // ── Stop words (purely grammatical — we keep meaningful nouns/verbs) ──────────
 
@@ -119,11 +120,17 @@ export async function GET(req: Request): Promise<NextResponse> {
     const sb = getServiceClient();
 
     // ── Fetch up to 500 recent reviews ───────────────────────────────────────
+    // Live apps only, client appId honoured only when it's the workspace's
+    // own — otherwise a deleted app's vocabulary keeps driving the keyword
+    // list and gap count for an app that is still connected.
+    const liveAppIds = await getLiveAppIds(sb, workspaceId);
+    if (liveAppIds === null) return NextResponse.json(EMPTY);
+    const scopedAppIds = scopeAppIds(liveAppIds, appId);
+    if (!scopedAppIds.length) return NextResponse.json(EMPTY);
+
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const base = (): any => {
-      const q = sb.from("reviews").select("*").eq("workspace_id", workspaceId);
-      return appId ? q.eq("app_id", appId) : q;
-    };
+    const base = (): any =>
+      sb.from("reviews").select("*").eq("workspace_id", workspaceId).in("app_id", scopedAppIds);
 
     const { data: rows } = await base()
       .select("id, text:body, sentiment")

@@ -126,8 +126,9 @@ End every review with a single summary comment:
 **Files reviewed:** 12/12
 
 If the coder addresses the 3 BLOCKERs, this is good to ship.
-Founder should verify the test plan in the PR description on the
-Vercel preview before merging.
+Founder should merge only once Build + type-check are green (the only
+pre-merge gate — previews are disabled), then verify the test plan on
+production right after.
 ```
 
 ## When to escalate to architect
