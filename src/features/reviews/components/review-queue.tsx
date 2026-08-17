@@ -402,6 +402,51 @@ function ToneSelector({ tone, onChange }: {
   );
 }
 
+// ── Reply POST ────────────────────────────────────────────────────────────────
+
+/**
+ * POST a reply state change for one review. Returns `null` on success, or a
+ * human-readable failure message.
+ *
+ * Every reply action goes through here so a fix lands once. They used to each
+ * hand-roll the fetch, and only `handleSend` was ever hardened: the two Draft
+ * Mode actions beside it checked `res.ok` with no else branch and swallowed
+ * throws in an empty catch, so a failure just reverted the button label with
+ * no message anywhere.
+ *
+ * That mattered most for "Mark as replied" — the core action of the D018
+ * launch tier, where the customer has ALREADY posted their reply on the store
+ * and is only telling us about it. A silent failure there leaves the review
+ * sitting in `needs_reply` forever while the customer believes it's recorded,
+ * with nothing on screen to suggest otherwise.
+ */
+async function postReplyState(
+  reviewId: string,
+  body: Record<string, unknown>,
+): Promise<{ message: string; code?: string } | null> {
+  try {
+    const res = await fetch(`/api/reviews/${reviewId}/reply`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    if (res.ok) return null;
+
+    // The API returns { error: { code, message } } — a nested object. Reading
+    // it as a flat string is what once made a whole branch of specific,
+    // actionable messages unreachable, so parse the real shape.
+    const data = (await res.json().catch(() => null)) as
+      | { error?: { code?: string } }
+      | null;
+    return {
+      code: data?.error?.code,
+      message: apiErrorMessage(data, "Something went wrong."),
+    };
+  } catch {
+    return { message: "Network error — check your connection." };
+  }
+}
+
 // ── ReplyComposer ─────────────────────────────────────────────────────────────
 
 function ReplyComposer({
@@ -575,24 +620,18 @@ function ReplyComposer({
     setSendError(null);
     setSendErrorLink(null);
     try {
-      const res = await fetch(`/api/reviews/${review.id}/reply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          replyText:   text,
-          status:      "sent",
-          draftSource: draftSource ?? "manual",
-          draftEdited: originalDraft !== null && text.trim() !== originalDraft.trim(),
-        }),
+      const failure = await postReplyState(review.id, {
+        replyText:   text,
+        status:      "sent",
+        draftSource: draftSource ?? "manual",
+        draftEdited: originalDraft !== null && text.trim() !== originalDraft.trim(),
       });
-      if (!res.ok) {
-        // The API returns { error: { code, message } }. This block used to
-        // compare data.error (an OBJECT) against code strings, so every
-        // comparison was false and the user always got "Something went
-        // wrong." — the specific, actionable messages below were dead code.
-        const data = await res.json().catch(() => null) as
-          { error?: { code?: string } } | null;
-        const code = data?.error?.code;
+
+      if (failure) {
+        // Switch on error.code, never the message (D004). Comparing the
+        // nested error OBJECT against code strings is what once made every
+        // one of these specific, actionable messages unreachable dead code.
+        const code = failure.code;
         const isCredentialError =
           code === "APP_STORE_NOT_CONNECTED" ||
           code === "GOOGLE_PLAY_NOT_CONFIGURED";
@@ -603,7 +642,7 @@ function ReplyComposer({
           code === "REVIEW_NOT_FOUND_ON_STORE" ? "Review no longer available on the store."   :
           code === "STORE_SUBMIT_FAILED"       ? "Store rejected the reply — check credentials." :
           code === "REPLY_TOO_LONG"            ? "Reply exceeds the store's character limit."  :
-          apiErrorMessage(data, "Something went wrong.");
+          failure.message;
         setSendFeedback("error");
         setSendError(msg);
         if (isCredentialError) {
@@ -652,31 +691,36 @@ function ReplyComposer({
   async function handleMarkReplied() {
     if (!text.trim() || isMarking) return;
     setIsMarking(true);
+    setSendFeedback(null);
+    setSendError(null);
+    setSendErrorLink(null);
     try {
-      const res = await fetch(`/api/reviews/${review.id}/reply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          replyText:   text,
-          status:      "manual_replied",
-          draftSource: draftSource ?? "manual",
-          draftEdited: originalDraft !== null && text.trim() !== originalDraft.trim(),
-        }),
+      const failure = await postReplyState(review.id, {
+        replyText:   text,
+        status:      "manual_replied",
+        draftSource: draftSource ?? "manual",
+        draftEdited: originalDraft !== null && text.trim() !== originalDraft.trim(),
       });
-      if (res.ok) {
-        markReplied(review.id, text.trim());
-        setReplyDone(true);
-        track({
-          name: "reply_sent",
-          properties: {
-            app_platform: review.source === "App Store" ? "app_store" : "google_play",
-            method: "manual",
-          },
-        });
-        setTimeout(() => onAdvance(review.id), 1000);
+
+      if (failure) {
+        // Stays on screen. The user has already posted this reply on the
+        // store — telling them we failed to record it is the whole point,
+        // and auto-clearing the message would put them back where they were.
+        setSendFeedback("error");
+        setSendError(`Couldn't record your reply — ${failure.message}`);
+        return;
       }
-    } catch {
-      // best-effort — leave the composer open so the user can retry
+
+      markReplied(review.id, text.trim());
+      setReplyDone(true);
+      track({
+        name: "reply_sent",
+        properties: {
+          app_platform: review.source === "App Store" ? "app_store" : "google_play",
+          method: "manual",
+        },
+      });
+      setTimeout(() => onAdvance(review.id), 1000);
     } finally {
       setIsMarking(false);
     }
@@ -686,19 +730,24 @@ function ReplyComposer({
     if (!text.trim() || isSavingDraft) return;
     setIsSavingDraft(true);
     setDraftSaved(false);
+    setSendFeedback(null);
+    setSendError(null);
     try {
-      const res = await fetch(`/api/reviews/${review.id}/reply`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ replyText: text, status: "draft" }),
+      const failure = await postReplyState(review.id, {
+        replyText: text,
+        status:    "draft",
       });
-      if (res.ok) {
-        markDraft(review.id, text.trim());
-        setDraftSaved(true);
-        setTimeout(() => setDraftSaved(false), 3000);
+
+      if (failure) {
+        setSendFeedback("error");
+        setSendError(`Couldn't save your draft — ${failure.message}`);
+        setTimeout(() => { setSendFeedback(null); setSendError(null); }, 6000);
+        return;
       }
-    } catch {
-      // best-effort — silent fail on draft save
+
+      markDraft(review.id, text.trim());
+      setDraftSaved(true);
+      setTimeout(() => setDraftSaved(false), 3000);
     } finally {
       setIsSavingDraft(false);
     }
@@ -1441,6 +1490,7 @@ export function InboxScreen({
   const [selectMode, setSelectMode]           = useState(false);
   const [manuallySelected, setManuallySelected] = useState<Set<string>>(new Set());
   const [bulkWorking, setBulkWorking]         = useState(false);
+  const [bulkError, setBulkError]             = useState<string | null>(null);
   const [groupReviewsOverride, setGroupReviewsOverride] = useState<AppReview[] | null>(null);
   const markRepliedBulk                       = useMarkReplied();
   const markDraftQuick                        = useMarkDraft();
@@ -1564,20 +1614,36 @@ export function InboxScreen({
   async function handleBulkMarkReplied() {
     if (manuallySelected.size === 0) return;
     setBulkWorking(true);
+    setBulkError(null);
+    const ids = Array.from(manuallySelected);
     try {
-      const ids = Array.from(manuallySelected);
       const res = await fetch("/api/reviews/bulk-action", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ids, action: "mark_replied" }),
       });
-      if (res.ok) {
-        // Update cache for each selected review
-        for (const id of ids) {
-          markRepliedBulk(id, "");
-        }
-        exitSelectMode();
+
+      if (!res.ok) {
+        // Had no failure branch and no catch at all: a rejected bulk action
+        // left the selection intact and the bar unchanged, which looks
+        // identical to "nothing happened yet". The user would reasonably
+        // click again, and keep clicking.
+        const data = (await res.json().catch(() => null)) as
+          | { error?: { code?: string } }
+          | null;
+        setBulkError(
+          `Couldn't mark ${ids.length} ${ids.length === 1 ? "review" : "reviews"} replied — ${apiErrorMessage(data, "please try again.")}`,
+        );
+        return;
       }
+
+      // Update cache for each selected review
+      for (const id of ids) {
+        markRepliedBulk(id, "");
+      }
+      exitSelectMode();
+    } catch {
+      setBulkError("Network error — check your connection and try again.");
     } finally {
       setBulkWorking(false);
     }
@@ -1895,6 +1961,14 @@ export function InboxScreen({
         {/* ── Bulk action bar — floats above review list when items selected ─ */}
         {selectMode && manuallySelected.size > 0 && (
           <div className="absolute bottom-4 left-1/2 z-10 -translate-x-1/2">
+            {bulkError && (
+              <div
+                role="alert"
+                className="mb-2 rounded-[10px] border border-[var(--rb-red-500)] bg-[var(--rb-bg-surface)] px-3 py-2 text-[11px] text-[var(--rb-red-500)] shadow-[var(--rb-shadow-sm)]"
+              >
+                {bulkError}
+              </div>
+            )}
             <div className="flex items-center gap-2 rounded-[10px] border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] px-3 py-2 shadow-[var(--rb-shadow-sm)]">
               <span className="text-[12px] font-semibold text-[var(--rb-fg-1)]">
                 {manuallySelected.size} selected
