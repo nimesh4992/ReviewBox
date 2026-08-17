@@ -71,8 +71,19 @@ export function planSyncWrites<T extends FetchedReviewRow>(
     // Only ever move needs_reply → replied. `draft_ready` and an existing
     // `replied` are user-owned states and outrank anything inferred from the
     // store listing.
-    if (row.reply_status === "replied" && known.reply_status === "needs_reply") {
-      promotions.push({ id: known.id, replyText: row.reply_text });
+    //
+    // A promotion also requires the reply TEXT, not just the status. Promoting
+    // on the status alone wrote `replied` with a null body — a review that
+    // reads as answered with nothing to show — and promotions are one-way, so
+    // it never self-heals. If the text is missing, leave it needing a reply and
+    // let a later sync promote it properly.
+    const incomingText = row.reply_text?.trim() ? row.reply_text : null;
+    if (
+      row.reply_status === "replied" &&
+      known.reply_status === "needs_reply" &&
+      incomingText !== null
+    ) {
+      promotions.push({ id: known.id, replyText: incomingText });
     }
   }
 

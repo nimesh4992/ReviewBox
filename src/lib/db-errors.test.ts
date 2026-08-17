@@ -5,6 +5,7 @@ import {
   isMissingTableError,
   missingColumnName,
   writeWithOptionalColumns,
+  isNoRowsError,
 } from "./db-errors";
 
 /** The exact error Vercel logged when onboarding 500'd for every new signup. */
@@ -198,5 +199,31 @@ describe("writeWithOptionalColumns", () => {
     const result = await writeWithOptionalColumns(run, { name: "Acme" }, {});
     expect(run).toHaveBeenCalledTimes(1);
     expect(result.data).toEqual({ id: "a1" });
+  });
+});
+
+describe("isNoRowsError", () => {
+  // `.single()` reports "nothing matched" AS an error, with the same shape as a
+  // genuine database fault. Four PATCH routes checked `if (error) return 500`
+  // before their `if (!data) return 404`, so the 404 branch was unreachable for
+  // the one case it existed for: editing a row already deleted in another tab
+  // answered "Something went wrong on our end. We've been notified" — which was
+  // also false, since those branches notify nothing.
+
+  it("recognises PostgREST's no-single-row code", () => {
+    expect(isNoRowsError({ code: "PGRST116" })).toBe(true);
+  });
+
+  it("does not mistake a real database fault for a missing row", () => {
+    expect(isNoRowsError({ code: "08006" })).toBe(false);   // connection failure
+    expect(isNoRowsError({ code: "23514" })).toBe(false);   // check violation
+    expect(isNoRowsError({ code: "42703" })).toBe(false);   // missing column
+    expect(isNoRowsError({ code: "PGRST204" })).toBe(false);
+  });
+
+  it("treats no error as no missing row", () => {
+    expect(isNoRowsError(null)).toBe(false);
+    expect(isNoRowsError(undefined)).toBe(false);
+    expect(isNoRowsError({})).toBe(false);
   });
 });

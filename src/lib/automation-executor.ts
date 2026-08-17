@@ -58,8 +58,17 @@ function evaluateCondition(condition: AutomationCondition, review: AppReview): b
       if (operator === "contains") return typeof value === "string" && review.appVersion.includes(value);
       return false;
 
-    default:
+    default: {
+      // Compile-time exhaustiveness. A new AutomationConditionField added to
+      // the union without a case here would otherwise evaluate to false for
+      // every review — the rule silently never fires, evaluateRule
+      // short-circuits before any log is written, and the founder sees
+      // "0 times run" with no diagnostic trail. This turns that into a build
+      // failure, which is the one gate the autopilot actually relies on.
+      const _exhaustive: never = field;
+      void _exhaustive;
       return false;
+    }
   }
 }
 

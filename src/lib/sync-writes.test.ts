@@ -109,6 +109,40 @@ describe("planSyncWrites", () => {
   });
 });
 
+  // ── H-6: a promotion needs the reply TEXT, not just the status ─────────────
+  //
+  // App Store Connect's `relationships.response` says a reply EXISTS without
+  // carrying its body. A sync that read only that flag promoted rows to
+  // `replied` with reply_text = null — a review that reads as answered with
+  // nothing to show. Promotions are one-way, so it never self-healed.
+
+  it("does NOT promote to replied when the store gave no reply text", () => {
+    const existing = new Map([["a", known("row-a", "needs_reply")]]);
+
+    const plan = planSyncWrites([row("a", "replied", null)], existing);
+
+    expect(plan.promotions).toEqual([]);
+  });
+
+  it("does NOT promote on a blank or whitespace-only reply", () => {
+    const existing = new Map([["a", known("row-a", "needs_reply")]]);
+
+    expect(planSyncWrites([row("a", "replied", "")], existing).promotions).toEqual([]);
+    expect(planSyncWrites([row("a", "replied", "   ")], existing).promotions).toEqual([]);
+  });
+
+  it("leaves such a review needing a reply so a later sync can promote it", () => {
+    // The recoverable direction: "still needs an answer" can be corrected by
+    // the next sync; "answered, but blank" cannot.
+    const existing = new Map([["a", known("row-a", "needs_reply")]]);
+
+    const first = planSyncWrites([row("a", "replied", null)], existing);
+    expect(first.promotions).toEqual([]);
+
+    const later = planSyncWrites([row("a", "replied", "Thanks — fixed in 4.2.1")], existing);
+    expect(later.promotions).toEqual([{ id: "row-a", replyText: "Thanks — fixed in 4.2.1" }]);
+  });
+
 describe("mergeReviewRows", () => {
   it("returns one row per external_id", () => {
     const merged = mergeReviewRows([row("a"), row("b")], [row("b"), row("c")]);

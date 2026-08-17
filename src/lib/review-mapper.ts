@@ -30,11 +30,27 @@ export function buildEnrichedRow(
       ? Math.min(5, Math.max(1, Math.round(numericRating)))
       : 3
   ) as 1 | 2 | 3 | 4 | 5;
+  // "Replied" requires an actual reply.
+  //
+  // Callers pass a presence flag and the text separately, and the two can
+  // disagree: App Store Connect's `relationships.response` says a reply EXISTS
+  // without carrying its body, so a caller that doesn't resolve the text ends
+  // up asserting hasDevReply=true, devReplyText=null. That combination renders
+  // as a review marked replied with no reply visible and an empty edit box —
+  // and because known rows are never re-promoted or content-refreshed, it never
+  // self-heals.
+  //
+  // Rather than trust the flag, require both. A review whose reply text we
+  // could not obtain stays `needs_reply`: showing it as still needing an answer
+  // is recoverable, showing it as answered with nothing there is not.
+  const replyText = devReplyText?.trim() ? devReplyText : null;
+  const isReplied = hasDevReply && replyText !== null;
+
   const partial = {
     rating: clampedRating,
     text: body,
     createdAt: storeCreatedAt,
-    replyStatus: (hasDevReply ? "replied" : "needs_reply") as AppReview["replyStatus"],
+    replyStatus: (isReplied ? "replied" : "needs_reply") as AppReview["replyStatus"],
   } as AppReview;
   const enriched = enrichReview(partial);
 
@@ -57,8 +73,8 @@ export function buildEnrichedRow(
     priority:          enriched.priority,
     issue_tags:        enriched.issueTags,
     escalation_state:  enriched.escalationState,
-    reply_status:      hasDevReply ? "replied" : "needs_reply",
-    reply_text:        devReplyText,
+    reply_status:      isReplied ? "replied" : "needs_reply",
+    reply_text:        replyText,
     has_ai_suggestion: false,
   };
 }

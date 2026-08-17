@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
+import { isNoRowsError } from "@/lib/db-errors";
 import { audit } from "@/lib/audit";
 import {
   SELECTABLE_ACTIONS_SENTENCE,
@@ -73,6 +74,11 @@ export async function PATCH(
     .eq("workspace_id", workspaceId)
     .select("*")
     .single();
+
+  // `.single()` reports "no rows matched" AS an error, so a rule already
+  // deleted in another tab is a 404, not a server fault. This route had no
+  // not-found branch at all — every stale edit answered 500.
+  if (isNoRowsError(error) || !data) return apiError("NOT_FOUND", 404);
 
   if (error) {
     console.error("automations/rules PATCH error:", error);
