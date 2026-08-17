@@ -928,6 +928,33 @@ Consequences to respect:
 - To re-enable previews: remove `ignoreCommand` from `vercel.json` AND do LT2
   first, or previews stay un-testable.
 
+### ⚠️ Vercel free plan: ~5,000 file uploads per 24h, shared across ALL deploys
+
+Hit on 2026-08-17. Two master merges built green and then failed to deploy:
+
+> `Too many requests - try again in 24 hours (more than 5000, code: "api-upload-free")`
+
+**This is a rolling 24-hour budget, not a per-deploy limit.** Each deploy of
+this app uploads thousands of files (~41MB of build output), so **merging
+several PRs in one evening can exhaust it** and leave master green but not in
+production — the same "merged but not shipped" outcome the `VERCEL_TOKEN`
+check exists to make visible.
+
+Two things to know:
+
+1. **It is a quota, not a flake.** Re-running the job fails identically until
+   the window resets. `rerun_failed_jobs` is the wrong instinct here.
+2. **The real error is invisible in the log.** The CLI retries the upload ~12
+   times and prints a generic `Error: Upload aborted` stack for each, so the
+   one actionable line scrolls off the end. It looks exactly like a network
+   blip. Read the *head* of the Deploy step, not the tail.
+
+Mitigated by `--archive=tgz` in the deploy step (one tarball per deploy
+instead of thousands of requests) plus a step-summary that surfaces the real
+message. **If it recurs anyway, the answer is to wait for the window or
+upgrade the plan — not to re-run.** The previous deployment stays live
+throughout, so the site is never down; it is just stale.
+
 ### ⚠️ Vercel Hobby plan: cron jobs MUST be daily-or-less-frequent
 
 `vercel.json` cron schedules cannot fire more than once per day on the Hobby plan. Schedules like `0 */4 * * *` or `*/30 * * * *` will be rejected at deploy time with:
