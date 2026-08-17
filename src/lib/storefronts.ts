@@ -35,6 +35,29 @@ export function searchStorefronts(): string[] {
   return parsed.length ? [...new Set(parsed)] : [DEFAULT_STOREFRONT];
 }
 
+/**
+ * Storefronts offered in the Settings → Apps override, most relevant first.
+ *
+ * Deliberately wider than `searchStorefronts()`, which is the list we PROBE
+ * automatically and is kept short because each entry is another request against
+ * a store that rate-limits our datacenter IPs. This list costs nothing — the
+ * customer picks one — so it can cover places we would not probe on spec.
+ */
+export const STOREFRONT_OPTIONS: ReadonlyArray<{ code: string; label: string }> = [
+  { code: "in", label: "India" },
+  { code: "us", label: "United States" },
+  { code: "gb", label: "United Kingdom" },
+  { code: "ae", label: "United Arab Emirates" },
+  { code: "sg", label: "Singapore" },
+  { code: "au", label: "Australia" },
+  { code: "ca", label: "Canada" },
+  { code: "de", label: "Germany" },
+  { code: "fr", label: "France" },
+  { code: "br", label: "Brazil" },
+  { code: "id", label: "Indonesia" },
+  { code: "ph", label: "Philippines" },
+];
+
 /** Normalize a stored/user-supplied country to a usable storefront code. */
 export function normalizeStorefront(value: string | null | undefined): string {
   const c = (value ?? "").trim().toLowerCase();

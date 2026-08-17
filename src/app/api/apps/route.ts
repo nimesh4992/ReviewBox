@@ -29,7 +29,7 @@ export async function GET() {
   const full = await sb
     .from("apps")
     .select(
-      "id, name, platform, store_id, last_synced_at, access_token, refresh_token, icon_url, developer, lifetime_rating, lifetime_review_count, last_sync_attempted_at, last_sync_status, last_sync_error, last_sync_review_count, publisher_api_connected, deleted_at",
+      "id, name, platform, store_id, last_synced_at, access_token, refresh_token, icon_url, developer, lifetime_rating, lifetime_review_count, last_sync_attempted_at, last_sync_status, last_sync_error, last_sync_review_count, publisher_api_connected, store_country, deleted_at",
     )
     .eq("workspace_id", workspaceId)
     .is("deleted_at", null)
@@ -87,6 +87,9 @@ export async function GET() {
     lifetime_review_count:  (r.lifetime_review_count as number | null) ?? null,
     has_credentials:        !!(r.access_token && r.refresh_token),
     publisher_api_connected: (r.publisher_api_connected as boolean | null) ?? null,
+    // Which country's listing we read ratings from. Both stores publish
+    // per-country ratings, so Settings needs to show and change this.
+    store_country:          (r.store_country as string | null) ?? null,
     last_sync_attempted_at: (r.last_sync_attempted_at as string | null) ?? null,
     last_sync_status:       (r.last_sync_status as string | null) ?? null,
     last_sync_error:        (r.last_sync_error as string | null) ?? null,

@@ -13,6 +13,8 @@ export interface WorkspaceApp {
   developer: string | null;
   lifetime_rating: number | null;
   lifetime_review_count: number | null;
+  /** Storefront the rating/review count are read from. Null until sync resolves one. */
+  store_country: string | null;
   /** Visible-status fields for the dashboard sync banner. Null until migration 013. */
   last_sync_attempted_at: string | null;
   last_sync_status: string | null;
