@@ -30,6 +30,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url("/help/connect-google-play",       0.6, "monthly"),
     url("/help/connect-app-store",         0.6, "monthly"),
     url("/help/ai-replies",                0.6, "monthly"),
+    url("/help/review-history",            0.6, "monthly"),
     url("/help/automation",                0.6, "monthly"),
 
     // Blog

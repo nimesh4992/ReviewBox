@@ -25,6 +25,14 @@ const FAQ_SECTIONS = [
         a: "The first sync fetches your most recent reviews immediately, typically under two minutes. After that we sync once a day automatically, and you can trigger a sync yourself any time from Settings.",
       },
       {
+        q: "Why does ReviewBox show fewer reviews than my Play Console?",
+        a: "Because Google's Play Developer API only returns recent reviews — roughly the last week — and offers no way to ask for older ones. The call that lists reviews has no date parameter at all, so there is no request we could make differently. Every review tool sits behind that same API: on an app with 2,064 rated reviews we measured AppFollow at 272 and ReviewBox at 202. The large number on your dashboard is your store's lifetime rating count; the \"synced\" figure below it is what we hold and can search, tag and reply to. Full explanation: tryreviewbox.com/help/review-history.",
+      },
+      {
+        q: "My rating in ReviewBox doesn't match the one I see on Google Play. Why?",
+        a: "Both stores publish ratings per country, so an app can read 4.3 in the US and 3.1 in India at the same moment — neither is wrong, they are different listings. ReviewBox picks the storefront with the most reviews when you connect an app, but you can set it explicitly under Settings → Apps → Store country. If the rating looks nothing like yours, that setting is almost always the reason.",
+      },
+      {
         q: "Can I try ReviewBox before paying?",
         a: "Yes — every account starts with a 14-day free trial at Pro tier. No credit card required. You can downgrade, upgrade, or cancel at any time from Billing settings.",
       },
@@ -68,7 +76,11 @@ const FAQ_SECTIONS = [
       },
       {
         q: "Is there an annual billing option?",
-        a: "Yes — annual billing is 2 months free (equivalent to ~17% off). Contact us to switch; we&apos;ll prorate your current plan.",
+        // Plain string rendered as text (see `{a}` below) and copied verbatim
+        // into FAQ_JSON_LD — so an HTML entity here renders as the literal
+        // characters "&apos;" on the page AND in Google's rich result. Use a
+        // real apostrophe in these strings, never an entity.
+        a: "Yes — annual billing is 2 months free (equivalent to ~17% off). Contact us to switch; we'll prorate your current plan.",
       },
     ],
   },

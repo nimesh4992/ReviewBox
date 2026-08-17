@@ -55,6 +55,13 @@ The platform limit is settled and verified: Google's API has no way to request o
 
 **Still open from this item:** show the detected storefront on the onboarding confirmation step ("Found on the India store · change") — confirm, don't ask. Deliberately not bundled: it touches the onboarding wizard, which is a critical path, and it wanted its own PR rather than riding along with a backend fix.
 
+### [ ] W6D · The iOS 200-review ceiling is ours, not Apple's · ICE 42 (6×7÷1)
+**Added 2026-08-17 while documenting the Google Play history limit.** **Effort:** ~2h.
+`fetchReviews()` in `src/services/app-store/connect-api.ts` defaults to `limit = 200`, and `syncAppStore()` (`review-sync.ts:341`) passes no override. App Store Connect's `customerReviews` endpoint paginates properly via `links.next`, so unlike Google Play there is **no platform wall here** — an App Store customer's history depth is capped by our own default.
+**Done when:** the initial import for a newly connected App Store app goes deeper than 200 (paged, with a serverless time budget like the one in `/api/apps`), and steady-state syncs stay cheap by stopping early once they reach reviews already stored.
+**Why it matters beyond depth:** it is the exact wrong-layer mistake this codebase keeps making — an in-house limit read as an upstream one. The customer-facing copy in `/help/review-history` says so explicitly rather than hiding behind "the stores only give us ~200", so shipping this also settles a promise already in public.
+**Careful:** deeper paging on first connect competes with `maxDuration` on the same routes as W5's app-create retry. Budget it; don't just raise the number.
+
 ### [!] W5A · Decide the review-volume limit before Stripe goes live · HUMAN-REQUIRED
 **Added 2026-08-17 by Wave 5 (audit finding M-6). Blocked on a founder decision — see `docs/adr/009-review-volume-limit.md`.**
 `PLAN_LIMITS.reviewsPerMonth` is advertised on `/pricing` and Billing and enforced nowhere: `checkReviewLimit()` is fully implemented and has zero call sites. Three options are written up in the ADR; the recommendation is **B — soft cap** (never stop ingesting; show an upgrade banner over the limit). D009 puts this call with the founder, not with me.
