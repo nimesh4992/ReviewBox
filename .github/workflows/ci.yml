@@ -184,6 +184,13 @@ jobs:
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
 
+      # A green tick on this job has meant "0 tests ran" for weeks. This step
+      # makes the job state its own result in the checks UI, and fails if the
+      # suite went vacuous for a reason nobody declared. See BUG-037 / audit H-8.
+      - name: Report what actually executed
+        if: always()
+        run: node scripts/e2e-execution-report.mjs
+
       - name: Upload Playwright report
         if: failure()
         uses: actions/upload-artifact@v4
