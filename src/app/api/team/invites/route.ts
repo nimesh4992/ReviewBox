@@ -119,6 +119,20 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .select("id, expires_at")
       .single();
 
+    // A unique violation here means another admin invited the same person
+    // between our DELETE above and this INSERT (migration 030 enforces one
+    // pending invite per workspace+email). That is a race between two people
+    // doing something reasonable, not a server fault — and "Something went
+    // wrong on our end" would send the admin looking for a bug that isn't
+    // there. Their colleague's invite is live and valid.
+    if (error?.code === "23505") {
+      return apiError(
+        "INVALID_INPUT",
+        409,
+        "Someone else just invited this person. Their invite is already on its way.",
+      );
+    }
+
     if (error || !invite) {
       console.error("[team/invites POST]", error);
       return apiError("INTERNAL_SERVER_ERROR", 500);

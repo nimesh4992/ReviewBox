@@ -13,8 +13,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { clerkClient } from "@clerk/nextjs/server";
 import { getServiceClient } from "@/lib/supabase-server";
+import { resolveWorkspaceOwners } from "@/lib/owner-emails";
 import { getLiveAppIds } from "@/lib/live-apps";
 import { Redis } from "@upstash/redis";
 import { sendTrialDay5Nudge } from "@/lib/email/send-trial-nudge";
@@ -39,11 +39,6 @@ interface WorkspaceRow {
   id: string;
   name: string;
   trial_ends_at: string;
-}
-
-interface MemberRow {
-  clerk_user_id: string;
-  role: string;
 }
 
 export async function GET(req: NextRequest): Promise<NextResponse> {
@@ -82,34 +77,22 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   const day5Workspaces  = (day5Result.data  ?? []) as WorkspaceRow[];
   const day12Workspaces = (day12Result.data ?? []) as WorkspaceRow[];
 
-  const clerk = await clerkClient();
   let sent = 0;
   let skipped = 0;
 
-  // ── Helper: get owner email from Clerk ───────────────────────────────────────
-  async function getOwnerEmail(workspaceId: string): Promise<{ email: string; name: string } | null> {
-    const { data: members } = await sb
-      .from("workspace_members")
-      .select("clerk_user_id, role")
-      .eq("workspace_id", workspaceId);
+  // Resolve every owner up front — one member query and one Clerk call per 100
+  // workspaces, rather than two round trips per workspace inside the two loops
+  // below. `fallbackToAnyMember` preserves this route's existing behaviour: it
+  // was the only one of the three that addressed a non-owner member when a
+  // workspace had no owner row, and this change is a de-duplication, not a
+  // decision about who receives trial mail.
+  const owners = await resolveWorkspaceOwners(
+    [...day5Workspaces, ...day12Workspaces].map((w) => w.id),
+    { fallbackToAnyMember: true },
+  );
 
-    const members_ = (members ?? []) as MemberRow[];
-    const owner = members_.find((m) => m.role === "owner") ?? members_[0];
-    if (!owner) return null;
-
-    try {
-      const user = await clerk.users.getUser(owner.clerk_user_id);
-      const email = user.emailAddresses[0]?.emailAddress;
-      if (!email) return null;
-      const name =
-        [user.firstName, user.lastName].filter(Boolean).join(" ") ||
-        user.username ||
-        email.split("@")[0] ||
-        "there";
-      return { email, name };
-    } catch {
-      return null;
-    }
+  function getOwnerEmail(workspaceId: string): { email: string; name: string } | null {
+    return owners.get(workspaceId) ?? null;
   }
 
   // ── Day-5: engagement nudge ──────────────────────────────────────────────────
@@ -120,7 +103,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       if (alreadySent) { skipped++; continue; }
     }
 
-    const ownerInfo = await getOwnerEmail(ws.id);
+    const ownerInfo = getOwnerEmail(ws.id);
     if (!ownerInfo) { skipped++; continue; }
 
     // Fetch real review counts for this workspace — live apps only. A
@@ -170,7 +153,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       if (alreadySent) { skipped++; continue; }
     }
 
-    const ownerInfo = await getOwnerEmail(ws.id);
+    const ownerInfo = getOwnerEmail(ws.id);
     if (!ownerInfo) { skipped++; continue; }
 
     // Write dedup key BEFORE sending — same reasoning as day-5 loop above.

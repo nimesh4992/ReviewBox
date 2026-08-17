@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { AlertOctagon, Loader2, Sparkles } from "lucide-react";
 
@@ -20,6 +21,15 @@ import { useApps } from "@/hooks/use-apps";
 // one into the other's signature. If you are here again: keep THIS version,
 // delete the per-app `apps.map()` body, and render the strip once.
 
+/**
+ * The Retry / "Sync now" button keeps its own busy + message state here rather
+ * than taking them as props. dashboard/page.tsx has been mangled by bad merges
+ * six times; widening its component signatures is how that keeps happening, so
+ * the page hands over one async function and nothing else.
+ *
+ * `onRetry` resolves to a short message to show, or null for "done, nothing to
+ * say". It is contracted never to reject.
+ */
 export function WorkspaceStatusStrip({
   apps,
   onRetry,
@@ -27,10 +37,51 @@ export function WorkspaceStatusStrip({
   onOpenSetup,
 }: {
   apps: ReturnType<typeof useApps>["apps"];
-  onRetry: () => void;
+  onRetry: () => Promise<string | null>;
   onConnectPlayConsole: () => void;
   onOpenSetup: () => void;
 }) {
+  const [retrying, setRetrying] = useState(false);
+  const [retryNote, setRetryNote] = useState<string | null>(null);
+
+  async function runRetry() {
+    if (retrying) return;
+    setRetrying(true);
+    setRetryNote(null);
+    try {
+      setRetryNote(await onRetry());
+    } catch {
+      // The contract says this can't happen; if it ever does, a wedged
+      // spinner would be the worst outcome, so say something and move on.
+      setRetryNote("Sync failed. Try again in a moment.");
+    } finally {
+      setRetrying(false);
+    }
+  }
+
+  /**
+   * Shared retry control — same behaviour wherever the strip offers one.
+   *
+   * A plain function returning JSX, NOT a nested component. A component
+   * declared inside a render body is a new type on every render, so React
+   * unmounts and remounts it — which would drop keyboard focus from this
+   * button the instant `retrying` flips, i.e. exactly when someone has just
+   * pressed it.
+   */
+  function retryControl(label: string, className: string) {
+    return (
+      <div className="flex shrink-0 items-center gap-2">
+        {retryNote && (
+          <span className="hidden text-rb-xs text-fg-3 sm:inline" role="status">
+            {retryNote}
+          </span>
+        )}
+        <button onClick={runRetry} disabled={retrying} className={`${className} disabled:opacity-60`}>
+          {retrying ? "Syncing…" : label}
+        </button>
+      </div>
+    );
+  }
   // `isSyncFailureStatus` rather than `status !== "success"`: the latter
   // treated `credentials_verified` — written by the connection test the user
   // had just passed — as a broken app, so finishing setup made the "can't sync
@@ -72,9 +123,7 @@ export function WorkspaceStatusStrip({
               Setup guide
             </Link>
           )}
-          <button onClick={onRetry} className={quietBtn}>
-            Retry
-          </button>
+          {retryControl("Retry", quietBtn)}
         </div>
       </div>
     );
@@ -92,9 +141,7 @@ export function WorkspaceStatusStrip({
             First sync takes about 30 seconds — reviews appear automatically.
           </span>
         </div>
-        <button onClick={onRetry} className={quietBtn}>
-          Sync now
-        </button>
+        {retryControl("Sync now", quietBtn)}
       </div>
     );
   }

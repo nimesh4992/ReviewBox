@@ -11,8 +11,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { clerkClient } from "@clerk/nextjs/server";
 import { getServiceClient } from "@/lib/supabase-server";
+import { resolveWorkspaceOwners } from "@/lib/owner-emails";
 import { getLiveApps } from "@/lib/live-apps";
 import { sendWeeklyDigest } from "@/lib/email/send-weekly-digest";
 import { notifySlack } from "@/lib/slack";
@@ -42,6 +42,14 @@ async function handler(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ message: "No workspaces", sent: 0 });
   }
 
+  // Resolve every owner's email up front: one member query and one Clerk call
+  // per 100 workspaces, instead of two round trips inside each workspace's
+  // turn. At the "200+ workspaces" this loop is written for, the per-workspace
+  // version spent most of its 60s budget waiting on Clerk — and a timeout here
+  // is invisible, because Promise.allSettled reports a cancelled batch the
+  // same way it reports a workspace with no reviews.
+  const owners = await resolveWorkspaceOwners(workspaces.map((w) => w.id as string));
+
   // Process workspaces in parallel batches of 10 — keeps total runtime under
   // Vercel's 60s function limit even for 200+ workspaces.
   const BATCH_SIZE = 10;
@@ -50,19 +58,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
 
   async function processWorkspace(ws: { id: string; name: string }): Promise<boolean> {
     try {
-      const { data: member } = await sb
-        .from("workspace_members")
-        .select("clerk_user_id")
-        .eq("workspace_id", ws.id)
-        .eq("role", "owner")
-        .limit(1)
-        .maybeSingle();
-
-      if (!member) return false;
-
-      const clerk = await clerkClient();
-      const clerkUser = await clerk.users.getUser(member.clerk_user_id as string);
-      const email = clerkUser.emailAddresses[0]?.emailAddress;
+      const email = owners.get(ws.id)?.email;
       if (!email) return false;
 
       // Live apps first — and fail CLOSED if the lookup errors. The digest

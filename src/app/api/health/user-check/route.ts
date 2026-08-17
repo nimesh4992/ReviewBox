@@ -17,10 +17,10 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { clerkClient } from "@clerk/nextjs/server";
 import { Redis } from "@upstash/redis";
 
 import { getServiceClient } from "@/lib/supabase-server";
+import { resolveWorkspaceOwners } from "@/lib/owner-emails";
 import { isSyncFailureStatus } from "@/lib/sync-status";
 import {
   sendNeverSyncedNudge,
@@ -59,53 +59,6 @@ async function alreadySent(redis: Redis | null, key: string): Promise<boolean> {
 async function markSent(redis: Redis | null, key: string, ttl: number): Promise<void> {
   if (!redis) return;
   await redis.set(key, "1", { ex: ttl });
-}
-
-/**
- * Batch-resolve owner emails for all given workspace IDs.
- * One DB query + one Clerk batch call — no N+1.
- */
-async function resolveOwnerEmails(
-  workspaceIds: string[],
-): Promise<Map<string, string>> {
-  const result = new Map<string, string>();
-  if (!workspaceIds.length) return result;
-
-  try {
-    const sb = getServiceClient();
-    const { data: members } = await sb
-      .from("workspace_members")
-      .select("workspace_id, clerk_user_id")
-      .in("workspace_id", workspaceIds)
-      .eq("role", "owner");
-
-    if (!members?.length) return result;
-
-    // Map workspaceId → clerkUserId
-    const wsToClerk = new Map(
-      members.map((m) => [m.workspace_id as string, m.clerk_user_id as string]),
-    );
-    const clerkIds = [...new Set(members.map((m) => m.clerk_user_id as string))];
-
-    const clerk = await clerkClient();
-    const { data: users } = await clerk.users.getUserList({
-      userId: clerkIds,
-      limit: clerkIds.length,
-    });
-
-    const clerkEmailMap = new Map(
-      users.map((u) => [u.id, u.emailAddresses[0]?.emailAddress ?? null]),
-    );
-
-    for (const [wsId, clerkId] of wsToClerk) {
-      const email = clerkEmailMap.get(clerkId);
-      if (email) result.set(wsId, email);
-    }
-  } catch (err) {
-    console.error("[health/user-check] resolveOwnerEmails:", err);
-  }
-
-  return result;
 }
 
 interface NudgeSummary {
@@ -165,7 +118,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
 
   // Batch-resolve all owner emails upfront — one DB query + one Clerk call.
   // Only for live workspaces; deleted ones are dropped above.
-  const ownerEmails = await resolveOwnerEmails([...wsCreatedAt.keys()]);
+  const ownerEmails = await resolveWorkspaceOwners([...wsCreatedAt.keys()]);
 
   // ── Signal 1: Never synced ────────────────────────────────────────────────
 
@@ -181,7 +134,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
     if (await alreadySent(redis, key)) { summary.skipped++; continue; }
 
     try {
-      const email = ownerEmails.get(app.workspace_id as string) ?? null;
+      const email = ownerEmails.get(app.workspace_id as string)?.email ?? null;
       if (!email) continue;
 
       await sendNeverSyncedNudge(email, app.name as string, app.platform as "google_play" | "app_store");
@@ -206,7 +159,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
     if (await alreadySent(redis, key)) { summary.skipped++; continue; }
 
     try {
-      const email = ownerEmails.get(app.workspace_id as string) ?? null;
+      const email = ownerEmails.get(app.workspace_id as string)?.email ?? null;
       if (!email) continue;
 
       await sendSyncFailingNudge(
@@ -255,7 +208,7 @@ async function handler(req: NextRequest): Promise<NextResponse> {
       if (await alreadySent(redis, key)) { summary.skipped++; continue; }
 
       try {
-        const email = ownerEmails.get(app.workspace_id as string) ?? null;
+        const email = ownerEmails.get(app.workspace_id as string)?.email ?? null;
         if (!email) continue;
 
         await sendSpikeUnrepliedNudge(email, app.name as string, count);

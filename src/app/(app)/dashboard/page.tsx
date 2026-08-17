@@ -190,9 +190,43 @@ export default function DashboardPage() {
     }
   }
 
-  function handleRetry() {
-    void fetch("/api/sync/reviews");
-    setTimeout(() => { refetchApps(); refetchMetrics(); }, 3000);
+  /**
+   * Retry / "Sync now" on the status strip.
+   *
+   * Resolves to a short message to show the user, or null when there is
+   * nothing worth saying. It never rejects — the strip renders whatever comes
+   * back and clears its busy state either way.
+   *
+   * The previous version fired an un-awaited fetch with no `.catch()` at all,
+   * then refetched on a blind 3-second timer. This is the button shown *when a
+   * sync has already failed*, so it was the one place a second failure most
+   * needed to be visible — and it was the only place in this file that
+   * discarded it. Awaiting the request also means the refetch happens when the
+   * sync has actually finished rather than 3 seconds later, whatever the state.
+   */
+  async function handleRetry(): Promise<string | null> {
+    let res: Response;
+    try {
+      res = await fetch("/api/sync/reviews");
+    } catch {
+      return "Couldn’t reach the server. Check your connection and try again.";
+    }
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => null);
+      return apiErrorMessage(body, "Sync failed. Try again in a moment.");
+    }
+
+    const body = (await res.json().catch(() => null)) as { skipped?: string } | null;
+    refetchApps();
+    refetchMetrics();
+
+    // Syncs are serialised per workspace (lib/sync-lock.ts). A declined run is
+    // not a failure — the run holding the lock is fetching the same reviews —
+    // but saying nothing makes the button look broken.
+    return body?.skipped
+      ? "A sync is already running — results will appear shortly."
+      : null;
   }
 
   const now = new Date();
