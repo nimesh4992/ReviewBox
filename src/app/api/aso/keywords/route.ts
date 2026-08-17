@@ -1,9 +1,10 @@
 import { auth } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
 import { estimateKeywordVolume } from "@/lib/gemini";
 import type { AsoKeyword } from "@/types/review";
+import { rateLimit } from "@/lib/api-rate-limit";
 
 function mapRow(row: Record<string, unknown>): AsoKeyword {
   return {
@@ -65,7 +66,7 @@ export async function GET(req: Request): Promise<NextResponse> {
   }
 }
 
-export async function POST(req: Request): Promise<NextResponse> {
+export async function POST(req: NextRequest): Promise<NextResponse> {
   try {
     const session = await auth();
     const userId = session?.userId;
@@ -81,6 +82,21 @@ export async function POST(req: Request): Promise<NextResponse> {
     };
     const keyword = body.keyword?.trim();
     if (!keyword) return apiError("INVALID_INPUT", 400, "keyword is required");
+    // An app-store keyword is a short phrase. Capping it bounds the prompt we
+    // hand Gemini, so a caller cannot turn this endpoint into a way to bill us
+    // for arbitrary-length model input.
+    if (keyword.length > 80) {
+      return apiError("INVALID_INPUT", 400, "Keyword must be 80 characters or fewer.");
+    }
+
+    // This route had NO limit while its sibling /api/aso/suggest has one — an
+    // omission, not a policy. Every request can reach estimateKeywordVolume(),
+    // which calls Gemini, and Gemini's free tier is 1,500 requests/day shared
+    // by the whole platform. One loop here drains it for every customer.
+    const rl = await rateLimit(req, workspaceId, { bucket: "aso-keyword-add", limit: 20, window: "1 h" });
+    if (!rl.allowed) {
+      return apiError("RATE_LIMITED", 429, "Too many keywords added. Try again shortly.");
+    }
 
     const sb = getServiceClient();
 

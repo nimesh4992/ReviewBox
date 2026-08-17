@@ -132,6 +132,123 @@ served its old translation for 7 days.
 
 ## Notes for the next session
 
+- `src/app/(app)/dashboard/page.tsx` edited this session (sparkline + labels).
+  It is one of the two files repeatedly mangled by auto-merges — if another
+  branch touches it, merge locally and run `npx tsc --noEmit` before pushing.
+- The connected Supabase/Vercel MCP accounts belong to other products
+  (fieldlog etc.), NOT ReviewBox — prod DB/deploys can't be inspected from
+  here. Diagnosis above is from code + the founder's screenshots.
+
+---
+---
+
+# Session 4 (same day) — security round + the sixth mangling
+
+On `claude/product-audit-testing-toum42` → **PR #92**. 377 tests, lint 0
+errors, build clean. Session 3's notes above are already in master; this
+section is additive, not a replacement.
+
+**Master builds again.** An earlier version of this section said it did not —
+that was true of `1d53409` and is now stale: master repaired the #90/#91
+dashboard fusion itself in `2ea42cc`, so #92 is no longer load-bearing for it.
+
+## The sixth mangling — same file, same cause, now on this branch
+
+"Update branch" on PR #92 merged master in, and the fusion happened again in
+`3c7bacf`: `tsc` red, three CI checks red. Sixth occurrence for
+`dashboard/page.tsx`, and the second in a row where **both sides were fixes
+for the same bug** — which is precisely why each side was green alone and the
+merge was not.
+
+This time it hit two files:
+
+| File | What fused | Resolution |
+|---|---|---|
+| `dashboard/page.tsx` | My repair of the broken base vs. master's independent repair of the same base, plus master's newer app-selector work on top | Took master's file whole. Both repairs cured the founder-reported squeezed axis fonts — mine by measuring the container (`ResizeObserver`), master's by lifting the tick labels out of the stretched SVG into HTML. Master's also carries the app-selector work, so mine had nothing left to contribute. |
+| `reply-cache.ts` | Both sides independently closed the cross-tenant cache leak; git spliced the two function signatures together | Took master's whole. Its `ReplyCacheScope` is a strict superset of my `workspaceId` argument — it also keys on the app and the full system prompt, and hashes the entire review body rather than the first 200 characters. |
+
+`reply-cache.test.ts` was ported to the scope object rather than deleted: it
+drives the **public** API against a fake Redis, where master's tests drive the
+key builder directly. The guards that skip the cache entirely — no workspace,
+no Redis configured — are invisible from the key builder, so a test at that
+level can pass while the real call path still shares a namespace. One test of
+mine was dropped as genuinely obsolete (master's key no longer puts the
+workspace id in the visible prefix) and replaced with two that hold under the
+new design: identical system prompts must still not cross tenants, and a
+workspace-less caller must not touch Redis at all.
+
+`export/route.ts` also had edits from both sides — hardened CSV escaping from
+mine, live-app scoping from master's — but in disjoint regions, and both
+survived intact. Verified rather than assumed: the check that matters is that
+no *local* `escapeCsv` was left behind to shadow the hardened import.
+
+**Lesson worth keeping:** `tsc` caught the syntax damage and the duplicate
+object keys. It could NOT see the doubled hero label from the fifth mangling —
+valid JSX that renders wrong — and it would not have seen a shadowed
+`escapeCsv` either. After any merge of these files: run `tsc`, then diff each
+side against the merge base and confirm *both* intents are still present, then
+scan for adjacent near-identical expressions. Green checks are necessary here,
+not sufficient.
+
+## Security fixes in #92
+
+The 8-dimension audit workflow died before its verification pass, so findings
+were recovered from its journal and **verified by hand**. Three were dropped
+for overstating what the code does; one was left as a product decision.
+
+| Finding | Note |
+|---|---|
+| **AI reply cache had no tenant in its key** | Global Redis namespace, 7d TTL. Drafts are built from the workspace's brand voice + KB, so two customers with the same app served each other's drafts — which then get published to a public store. `workspaceId` now a required arg (omitting it is a compile error). 5 tests. |
+| **6 of 7 `/admin` pages had no auth of their own** | Only the layout checked. A layout is not a security boundary — RSC partial rendering can resolve a page without it. Every page calls `getServiceClient()` (bypasses RLS). |
+| **`/api/reports/daily-digest` and `/api/tags` in NEITHER matcher** | Both mine. Digest cron never executed; tag renaming broken in prod. A route in neither list does not error — it stops working. |
+| **`/api/aso/keywords`, `/api/sync/reviews` unthrottled** | Gemini's 1,500/day is platform-wide; unthrottled sync risks Google blocking our shared egress IP for every customer. |
+| **CSV formula injection** | Review bodies are public-written; `=`/`+`/`-`/`@` executes on open. Quoting does not prevent it. → `lib/csv.ts`, 7 tests. |
+| **Slack webhook URL returned to any member** | Bearer credential; writing was owner-gated, reading was not. Now a flag + masked tail. |
+| Leaked exception, unvalidated cursor, unescaped email icon URL | — |
+| 5 dependency advisories | `postcss`/`sharp` NOT taken — only fix via `--force` → next@16.3.1. Neither CVE class is reachable here. |
+
+## GDPR (the dimension that never ran)
+
+Enumerated all 18 tables and diffed against both routes.
+
+- **Export covered 10 of 18.** Added `incidents`, `workspace_invites` (invitee
+  email addresses), `support_tickets`, `support_ticket_messages`.
+- **Deletion:** workspace row is hard-deleted and 14 tables cascade — but
+  `support_tickets` uses `on delete set null` **deliberately** ("must not
+  destroy support history"). Those rows keep requester email, name, clerk id
+  and every message. Cascading would destroy the history the schema means to
+  keep, so the person is removed and the shell stays: email → sentinel, name
+  and clerk id null, subject replaced, message bodies deleted.
+
+## ⚠️ Founder decisions — code cannot proceed without these
+
+1. **Slack is an undisclosed sub-processor.** `slack.ts:199-209` sends the
+   review author's NAME and full review TEXT to Slack on every urgent review.
+   Personal data about someone who never signed up for this product, going to
+   an undisclosed US processor. One row on `/sub-processors` fixes it — NOT
+   edited here, D009 forbids touching legal pages without approval.
+   (Checked and cleared: Apple/Google Play are outbound *reads* of public
+   data, not sub-processors. Google is listed anyway.)
+2. **`.p8` credential encryption.** Needs a key-management decision first —
+   where the key lives, how it rotates, what happens when it is lost (answer:
+   every customer's store connection becomes unrecoverable). ADR, not a quiet
+   addition. The schema comment claiming Vault encryption was false and is now
+   corrected; the privacy page claim is accurate and was left alone.
+3. **`auto_reply` publishes un-reviewed model output** to public stores. A
+   reviewer's text reaches the model and the output becomes your official
+   reply. Guardrails are possible; removing the capability may be honest.
+4. **Deletion does not propagate to processors** — Clerk, Resend, Upstash,
+   Sentry, PostHog, Groq/Gemini.
+5. **Reviewer personal data has no retention limit.** Author names, devices,
+   countries about people who never signed up. No expiry at all.
+
+## Carried, still true
+
+`NEXT_PUBLIC_APP_URL`, migrations 021/023/024, and "check Vercel is deploying
+master" from session 3 — all still outstanding. Note session 3 observed
+production serving hero copy present at no commit in this repo; combined with
+the production domain having been pointed at a PR branch earlier today, the
+Vercel wiring is worth a proper look.
 - `dashboard/page.tsx` and `review-queue.tsx` are the two auto-merge casualties.
   Before touching the dashboard hero/sparkline, check open PRs for a competing
   rewrite (that is what broke master today), merge three-way locally, and run

@@ -1,7 +1,9 @@
 ﻿import { StatCard } from "@/features/admin/components/stat-card";
 import { getServiceClient } from "@/lib/supabase-server";
+import { requireAdminPage } from "@/lib/admin-auth";
 
 export default async function AdminAnalyticsPage() {
+  await requireAdminPage();
   const sb = getServiceClient();
 
   // Total workspaces and breakdown by plan

@@ -347,6 +347,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Checked BEFORE generating to save quota. Scoped to workspace + app +
     // prompt — never shared across tenants.
     // ══════════════════════════════════════════════════════════════════════
+    // A caller with no workspace has no tenant to scope the cache to; the
+    // cache functions themselves skip such a call rather than read or write a
+    // shared namespace, which is exactly what this cache must never be again.
     const cached = await getCachedReply(cacheScope, { text: reviewBody, rating }, tone);
     if (cached !== null) {
       const raw   = enforceCharLimit(cached, charLimit);

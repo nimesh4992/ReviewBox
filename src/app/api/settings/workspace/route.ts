@@ -71,12 +71,25 @@ export async function GET(): Promise<NextResponse> {
 
   if (error || !data) return apiError("NOT_FOUND", 404);
 
+  const slackUrl = (data as Record<string, unknown>).slack_webhook_url ?? null;
+
   return NextResponse.json({
     name:            data.name              ?? "",
     supportEmail:    data.support_email      ?? "",
     brandVoice:      data.brand_voice        ?? "",
     defaultTone:     data.default_tone       ?? "professional",
-    slackWebhookUrl: (data as Record<string, unknown>).slack_webhook_url ?? null,
+    // The webhook URL is a BEARER SECRET — anyone holding it can post into the
+    // customer's Slack channel as ReviewBox. Writing it is owner/admin-gated,
+    // but this GET was not: any member — a contractor, an intern, someone
+    // leaving next week — could read it back and keep it.
+    //
+    // So it is never returned. The UI needs to know whether one is configured
+    // and to show enough of it for a human to recognise which channel, and
+    // both of those are satisfiable without handing back the credential.
+    // Changing it means pasting a fresh URL, which is the correct ceremony for
+    // rotating a secret.
+    slackWebhookConfigured: !!slackUrl,
+    slackWebhookHint: slackUrl ? `…${String(slackUrl).slice(-8)}` : null,
   });
 }
 

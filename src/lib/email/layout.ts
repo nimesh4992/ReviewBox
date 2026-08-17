@@ -138,8 +138,14 @@ function renderBlock(b: EmailBlock): string {
       // Images are blocked by default in a lot of clients, so the icon is
       // decoration and the name beside it carries the meaning. Never put
       // information only in an image.
-      const icon = b.iconUrl
-        ? `<img src="${b.iconUrl}" width="40" height="40" alt="" style="display:block;width:40px;height:40px;border-radius:9px;border:1px solid ${C.border};" />`
+      // Escaped and scheme-constrained. A value containing a double quote
+      // would close the attribute and inject markup into every email carrying
+      // an appHeader block. The URL comes from a store scrape, which is not a
+      // trusted source just because it is not the customer.
+      const safeIcon =
+        b.iconUrl && /^https:\/\//i.test(b.iconUrl) ? esc(b.iconUrl) : null;
+      const icon = safeIcon
+        ? `<img src="${safeIcon}" width="40" height="40" alt="" style="display:block;width:40px;height:40px;border-radius:9px;border:1px solid ${C.border};" />`
         : "";
       return `<tr><td style="padding:0 0 18px;">
         <table cellpadding="0" cellspacing="0" border="0"><tr>

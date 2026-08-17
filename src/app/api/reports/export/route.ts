@@ -22,20 +22,8 @@ import { getLiveAppIds, scopeAppIds } from "@/lib/live-apps";
 import { exportFileName } from "@/lib/export-filename";
 import { apiError } from "@/lib/api-response";
 import { rateLimit } from "@/lib/api-rate-limit";
+import { escapeCsv, rowToCsv } from "@/lib/csv";
 
-function escapeCsv(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  const str = String(value);
-  // Wrap in quotes if contains comma, newline, or double-quote
-  if (str.includes(",") || str.includes("\n") || str.includes('"')) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
-}
-
-function rowToCsv(cols: unknown[]): string {
-  return cols.map(escapeCsv).join(",");
-}
 
 const CSV_HEADERS = [
   "id",

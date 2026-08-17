@@ -6,6 +6,7 @@ import { TicketReplyForm } from "@/features/admin/components/ticket-reply-form";
 import { cn } from "@/lib/utils";
 import { isMissingTableError, mapTicketMessageRow, mapTicketRow } from "@/lib/support-tickets";
 import { getServiceClient } from "@/lib/supabase-server";
+import { requireAdminPage } from "@/lib/admin-auth";
 
 const SOURCE_LABEL: Record<string, string> = {
   in_app: "Filed in-app",
@@ -27,6 +28,7 @@ export default async function AdminTicketDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireAdminPage();
   const { id } = await params;
   const sb = getServiceClient();
 

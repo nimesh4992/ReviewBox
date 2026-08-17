@@ -4,6 +4,7 @@ import { StatCard } from "@/features/admin/components/stat-card";
 import { isMissingTableError, mapTicketRow } from "@/lib/support-tickets";
 import { getServiceClient } from "@/lib/supabase-server";
 import type { SupportTicket } from "@/types/review";
+import { requireAdminPage } from "@/lib/admin-auth";
 
 // Displayed revenue is an estimate from the D002 list prices — Stripe stays
 // untouched until the founder wires it (D013). Change prices there, not here.
@@ -18,6 +19,7 @@ interface WorkspaceLite {
 }
 
 export default async function AdminOverviewPage() {
+  await requireAdminPage();
   const sb = getServiceClient();
   const sevenDaysAgo = new Date(Date.now() - 7 * 86400_000).toISOString();
 

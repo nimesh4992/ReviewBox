@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils";
 import { isMissingTableError, mapTicketRow, TICKET_STATUSES } from "@/lib/support-tickets";
 import { getServiceClient } from "@/lib/supabase-server";
 import type { SupportTicket, SupportTicketStatus } from "@/types/review";
+import { requireAdminPage } from "@/lib/admin-auth";
 
 const STATUS_BADGE: Record<SupportTicketStatus, string> = {
   open:     "bg-blue-50 text-blue-600 border border-blue-200",
@@ -42,6 +43,7 @@ export default async function AdminTicketsPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
+  await requireAdminPage();
   const { status } = await searchParams;
   const activeFilter = (TICKET_STATUSES as string[]).includes(status ?? "")
     ? (status as SupportTicketStatus)

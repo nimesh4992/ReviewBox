@@ -626,9 +626,24 @@ since PR #88-era the canonical shape IS one `WorkspaceStatusStrip` rendered
 once (see the comment inside the component) — trust the in-file comment over
 this section when they disagree.
 
+**2026-08-17, the SIXTH: "Update branch" on PR #92.** Not two PRs racing this
+time — one PR pulling master in. Master had repaired the fifth mangling itself
+(`2ea42cc`) while #92 carried its own repair of the same broken base, so git
+fused two independent fixes for the SAME bug. Three checks went red.
+`src/lib/reply-cache.ts` fused the same way in the same merge: both sides had
+independently closed the cross-tenant cache leak.
+
+**The pattern to internalise: two fixes for one bug collide worse than two
+features.** Each side is green alone — that is precisely why nobody catches it
+until the merge. When a bug is being fixed on more than one branch, expect the
+merge to be manual, and check master for an existing repair before writing
+yours. Resolution rule that worked twice now: take ONE side's file whole,
+never hand-blend the two.
+
 ### Open PRs
 
-#86 (docs + reply/AI fixes). #73, #76–#85, #87, #88 are merged.
+#92 (security round, GDPR, tag/device/language work). #93 and #94 merged
+2026-08-17; #86, #73, #76–#85, #87, #88, #90, #91 are merged.
 
 ### ⚠️ Two error codes mean "column missing", not one
 
@@ -660,15 +675,36 @@ Likewise `last_sync_status`: `credentials_verified` is a **healthy** value, not
 a failure. `status !== "success"` marked an app broken the moment its
 connection was verified. Use `isSyncFailureStatus()`.
 
-### Known false alarm: "E2E tests (advisory)"
+### "E2E tests (advisory)" — no longer a false alarm (fixed by PR #94)
 
-This check fails on **every** commit on every branch, including ones that only
-touch documentation. CI runs with placeholder Clerk keys (`pk_test_ci-placeholder…`)
-which Clerk now rejects outright with `"Invalid host"`, so the error page is
-served for every route and even public smoke tests (landing, pricing, legal)
-fail. It is not a signal about your change. Fixing it needs a real Clerk test
-instance and its keys added as repo secrets — founder action, ~10 min. Do not
-silence the check to make it green.
+**This check now passes, and a failure is a real signal about your change.**
+Treat it as one.
+
+It used to fail on every commit on every branch, including documentation-only
+ones: CI ran with `pk_test_ci-placeholder`, which Clerk rejects with
+`"Invalid host"`, so every route served the error page and even the public
+smoke tests (landing, pricing, legal) failed. PR #94 replaced it with a
+**structurally valid** placeholder — Clerk base64-decodes the publishable key
+to find the frontend API domain, so it has to decode, not merely look like a
+key. `pk_test_Y2ktcGxhY2Vob2xkZXIuY2xlcmsuYWNjb3VudHMuZGV2JA==` decodes to
+`ci-placeholder.clerk.accounts.dev$`. No real Clerk test instance was needed
+after all. First observed green on PR #92, 2026-08-17.
+
+⚠️ **The same PR fixed a far more serious bug — read this before touching
+`ci.yml`.** Those placeholders used to sit in a workflow-level `env:` block,
+which applies to *every* job including `deploy-production`. `NEXT_PUBLIC_*`
+values are inlined into the browser bundle at **build** time, and a variable
+already in the process environment beats whatever `vercel pull` writes to
+`.vercel/.env.production.local`. So `vercel build --prod` compiled the real
+production bundle with the CI placeholder Clerk key, and every page on
+app.tryreviewbox.com answered `{"errors":[{"message":"Invalid host"}]}` —
+while the deploy job reported **success**, because it deployed exactly what it
+was told to.
+
+**Rule: any job that deploys must inherit no build-time app config from CI.**
+Placeholders belong only to jobs that compile or run the app for tests, which
+is why each such job now carries its own copy. Never hoist them back up to the
+workflow level to remove the duplication.
 
 ### Design-system notes
 
