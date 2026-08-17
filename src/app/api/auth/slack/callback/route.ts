@@ -18,6 +18,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { cookies } from "next/headers";
+import * as Sentry from "@sentry/nextjs";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { audit } from "@/lib/audit";
 import { rateLimit } from "@/lib/api-rate-limit";
@@ -135,14 +136,36 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   if (upsertErr) {
     console.error("[slack/callback] upsert:", upsertErr);
+    Sentry.captureException(upsertErr, {
+      tags: { route: "auth/slack/callback" },
+      extra: { workspaceId },
+    });
     return errorRedirect("db_error");
   }
 
-  // Write the webhook URL so the existing notification path works unchanged
-  await sb
+  // Write the webhook URL so the existing notification path works unchanged.
+  //
+  // Checked, not fire-and-forget: `notifySlack()` reads ONLY
+  // workspaces.slack_webhook_url — it never looks at the workspace_slack row
+  // verified above. So if this write fails and we redirect to
+  // ?slack=connected anyway, Settings shows a green "Connected" state, the
+  // workspace_slack row genuinely exists, and every future alert silently
+  // no-ops forever with no error anywhere to explain why. Connecting Slack is
+  // one logical operation across two writes; both have to succeed for the
+  // success page to be true.
+  const { error: webhookErr } = await sb
     .from("workspaces")
     .update({ slack_webhook_url: slackData.incoming_webhook.url })
     .eq("id", workspaceId);
+
+  if (webhookErr) {
+    console.error("[slack/callback] webhook url write:", webhookErr);
+    Sentry.captureException(webhookErr, {
+      tags: { route: "auth/slack/callback" },
+      extra: { workspaceId },
+    });
+    return errorRedirect("db_error");
+  }
 
   await audit({
     workspaceId,

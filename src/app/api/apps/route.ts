@@ -279,11 +279,27 @@ export async function POST(request: NextRequest) {
   // Vercel freezes the lambda on response, and without CRON_SECRET the sync
   // route rejects cookieless server-to-server calls in production.
   after(async () => {
-    try {
-      await syncWorkspace(workspaceId);
-    } catch (err) {
-      console.error("[apps] first sync failed:", err);
+    // Syncs are serialised per workspace (lib/sync-lock.ts). If another run
+    // already holds the lock it may have loaded the workspace's app list a
+    // moment BEFORE this app was inserted, so it won't cover the new app — and
+    // a declined sync would leave it empty until the daily cron. Retry a
+    // couple of times, spaced so the whole loop stays comfortably inside
+    // maxDuration = 60 even when the final attempt has a full sync to run.
+    //
+    // This is only needed here: the onboarding routes sync a workspace that is
+    // seconds old, so nothing else can be holding its lock.
+    const RETRY_DELAY_MS = 12_000;
+    for (let attempt = 0; attempt < 3; attempt++) {
+      try {
+        const summary = await syncWorkspace(workspaceId);
+        if (!summary.skipped) return;
+      } catch (err) {
+        console.error("[apps] first sync failed:", err);
+        return;
+      }
+      if (attempt < 2) await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
     }
+    console.warn("[apps] first sync skipped — another sync held the lock; the daily cron will pick it up");
   });
 
   // 8. Audit

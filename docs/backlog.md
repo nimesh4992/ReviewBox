@@ -40,6 +40,17 @@ correct and rename tags, not to author new tagging rules.
 ### [x] AU2 · Resolve the `aso_keywords` schema ambiguity — CLOSED 2026-08-16
 Production has `volume_estimate` / `trend_data` / `added_at` / `updated_at`, matching `007_aso_keywords.sql` and the code. `pending_combined.sql` deleted.
 
+### [!] W5A · Decide the review-volume limit before Stripe goes live · HUMAN-REQUIRED
+**Added 2026-08-17 by Wave 5 (audit finding M-6). Blocked on a founder decision — see `docs/adr/009-review-volume-limit.md`.**
+`PLAN_LIMITS.reviewsPerMonth` is advertised on `/pricing` and Billing and enforced nowhere: `checkReviewLimit()` is fully implemented and has zero call sites. Three options are written up in the ADR; the recommendation is **B — soft cap** (never stop ingesting; show an upgrade banner over the limit). D009 puts this call with the founder, not with me.
+**Why it can't wait for M2:** once a paid plan exists to compare against, the gap between what the pricing page promises and what the product does stops being tidiness.
+
+### [ ] W5B · Apply migrations 027–029 · HUMAN-REQUIRED
+**Added 2026-08-17 by Wave 5.** All three are idempotent and safe to paste in any order.
+- **027** — two RLS policies ask `auth.uid()` (Supabase-native) instead of the Clerk subject. Currently dormant, because nothing reaches RLS; a trap for the first client-side read.
+- **028** — `NOT NULL` on the nine tenant-scoping columns migration 001 left nullable. Self-checking: reports and skips rather than failing if any NULL rows exist.
+- **029** — repairs reviews stored as `replied` with no reply text. Section A applies automatically (unambiguous); **Section B is commented out on purpose** — that population is indistinguishable from a deliberate bulk "mark as replied", so read the diagnostic SELECT first.
+
 ### [ ] LT1 · Sweep every write for the PGRST204 class · ICE 72 (8×9÷1) 
 **Added 2026-08-16 after PR #85.** **Effort:** 3h.
 **Done when:** every `.insert(` / `.update(` whose payload contains a column from migration 012 or later either goes through `writeWithOptionalColumns()` or is confirmed to need no fallback, with a test for each.
@@ -70,11 +81,14 @@ Written via `after()`, not a detached promise, which Vercel would cut off.
 **Done when:** these screens distinguish "failed to load" from "no data", and their mutations report failure. Same shape as the dashboard/inbox/automations fixes already shipped in AU1: hooks stop casting `{ error?: string }` over the `{ error: { code, message } }` envelope, and each screen gets one error branch.
 **Why now:** on these screens a 500 still reads as "you have no keywords / no tags / this feature isn't shipped yet" — Competitors literally shows "coming soon" on a transient failure.
 
-### [ ] AS1 · Per-workspace sync lock · ICE 40 (6×10÷1.5)
-**Added 2026-07-28 by audit round 1 (`docs/AUDIT_SYSTEM.md` A4).**
-**Effort:** 2h.
-**Done when:** `syncWorkspace()` takes a Redis `SET NX EX 120` lock per workspace and returns early (with a `skipped: "already_running"` summary field) when held. Three triggers can currently run it concurrently for the same workspace (dashboard self-heal + onboarding after() + daily cron): the reviews upsert is race-safe, but metadata writes, spike alerts, and Gemini enrichment rely on best-effort dedup only.
-**Why now:** Cheap, and the trigger fan-in shipped this week.
+### [x] AS1 · Per-workspace sync lock · ICE 40 — SHIPPED 2026-08-17
+*Wave 5. `src/lib/sync-lock.ts` — Redis `SET NX EX 90`, released with a Lua compare-and-delete so a run that overran its TTL cannot delete the next holder's lock. Wired inside `syncWorkspace()` itself rather than at the four call sites, so a fifth trigger cannot bypass it; the private `syncWorkspaceApps()` is the only unlocked path and is not exported. Skipped runs return `skipped: "already_running"` and are not errors. Fails open when Redis is unreachable (an unlocked sync is exactly today's behaviour; a lock that can take sync offline is a worse trade).*
+
+*TTL is 90s, not the 120 proposed here: the sync route declares `maxDuration = 60`, so 90 covers a full run with headroom while keeping the worst-case wedge short. 11 tests, each mutation-verified.*
+
+***Correction to this item's original rationale:*** *it listed spike alerts and metadata writes as the exposure. Both are already deduped (spike email and Slack each take their own Redis `SET NX` claim per app+version). The real exposure is `runAutomationRules()` running twice over the same reviews, `enrichOnboarding()` double-filling a new workspace's knowledge base past its read-then-write guard, and every store fetch happening twice against a shared egress IP. Review rows were never at risk — `unique (app_id, external_id)` plus `ignoreDuplicates: true`.*
+
+**This unblocks `auto_reply`** (`SELECTABLE_AUTOMATION_ACTIONS`), but does not by itself make it safe to enable — see ADR 009 and the fail-open note above. Publishing to a live store listing needs a decision about what happens when Redis is down, not just a lock.
 
 ### [ ] AS2 · Finish the interrupted deep-audit round · ICE 36 (9×8÷2)
 **Added 2026-07-28. The four-lens agent sweep (`docs/AUDIT_SYSTEM.md`) was cut off by a usage limit; a scheduled resume is armed.**

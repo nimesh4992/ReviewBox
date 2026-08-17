@@ -674,6 +674,28 @@ Likewise `last_sync_status`: `credentials_verified` is a **healthy** value, not
 a failure. `status !== "success"` marked an app broken the moment its
 connection was verified. Use `isSyncFailureStatus()`.
 
+### ⚠️ `syncWorkspace()` is the only way to run a sync
+
+Four triggers reach it (daily cron, "Sync now", the dashboard self-heal kick,
+onboarding / app-create), so it holds a per-workspace Redis lock —
+`withWorkspaceSyncLock()` in `src/lib/sync-lock.ts`. The unlocked body is the
+private `syncWorkspaceApps()` and is deliberately **not exported**: adding a
+fifth trigger must not be able to bypass the lock. A declined run returns
+`skipped: "already_running"`, which is **not** an error — don't push it into
+`summary.errors` or surface it as a red banner.
+
+The lock **fails open** when Redis is unreachable. That is correct for
+everything the sync does today, and it is why AS1 shipping does **not** on its
+own make `auto_reply` safe to add to `SELECTABLE_AUTOMATION_ACTIONS` —
+publishing to a live store listing needs an answer for "what happens when
+Redis is down". See `docs/adr/009-review-volume-limit.md`'s sibling reasoning
+and the module header.
+
+Read the module header before "simplifying" the release path: it uses a Lua
+compare-and-delete, not `DEL`, because a run that overran its TTL would
+otherwise delete the *next* holder's lock and cause the exact race the lock
+exists to prevent.
+
 ### "E2E tests (advisory)" — green, but it currently runs NOTHING
 
 **Do not read this check as evidence your change works.** Every spec in both

@@ -2,6 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { getIncidentDetail } from "@/services/incident-service";
 import { apiError } from "@/lib/api-response";
 import { isNoRowsError } from "@/lib/db-errors";
 import { audit } from "@/lib/audit";
@@ -30,17 +31,12 @@ export async function GET(
 
   const { id } = await params;
 
-  const sb = getServiceClient();
-  const { data, error } = await sb
-    .from("incidents")
-    .select("*")
-    .eq("id", id)
-    .eq("workspace_id", workspaceId)
-    .single();
+  // Same read as the incident detail page — see services/incident-service.ts
+  // for why this is one function rather than two hand-kept column lists.
+  const incident = await getIncidentDetail(workspaceId, id);
+  if (!incident) return apiError("NOT_FOUND", 404);
 
-  if (error || !data) return apiError("NOT_FOUND", 404);
-
-  return NextResponse.json({ incident: data }, { status: 200 });
+  return NextResponse.json({ incident }, { status: 200 });
 }
 
 export async function PATCH(
