@@ -236,7 +236,11 @@ export default clerkMiddleware(async (auth, request) => {
   // every trial user was bounced off the one feature the trial exists to
   // demonstrate, with no way to pay for it (Stripe is deferred, D013).
   // Expiry of that trial is enforced by the check directly above.
-  const entitledPlans = new Set(["trial", "starter", "pro", "team"]);
+  // "team" is gone from the lineup (lib/plans.ts) and could never have been
+  // sold — it's removed here too. "enterprise" is quote-only and assigned by
+  // hand, so it MUST entitle: a customer who signed a contract cannot be the
+  // one plan locked out of the features they bought.
+  const entitledPlans = new Set(["trial", "starter", "pro", "enterprise"]);
   if (isBilledRoute(request) && !entitledPlans.has(plan)) {
     return billingBlock("PLAN_REQUIRED", "This feature requires an active plan.", { required: "1" });
   }

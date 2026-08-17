@@ -4,8 +4,11 @@ import { stripe, PRICE_IDS } from "@/lib/stripe";
 import { rateLimit } from "@/lib/api-rate-limit";
 import { apiError, captureAndError } from "@/lib/api-response";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { PAID_PLANS, type PaidPlanName } from "@/lib/plans";
 
-type Plan = "starter" | "pro" | "team";
+function isPaidPlan(value: unknown): value is PaidPlanName {
+  return typeof value === "string" && (PAID_PLANS as readonly string[]).includes(value);
+}
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,8 +23,7 @@ export async function POST(request: NextRequest) {
       return apiError("RATE_LIMITED", 429);
     }
 
-    const body = (await request.json()) as { plan: Plan };
-    const { plan } = body;
+    const body = (await request.json()) as { plan?: unknown };
 
     // Configuration is checked BEFORE the price lookup. PRICE_IDS values are
     // "" when the Stripe env vars are unset, so checking the price first meant
@@ -33,9 +35,10 @@ export async function POST(request: NextRequest) {
       return apiError("STRIPE_NOT_CONFIGURED", 503);
     }
 
-    if (!plan || !PRICE_IDS[plan]) {
+    if (!isPaidPlan(body.plan) || !PRICE_IDS[body.plan]) {
       return apiError("INVALID_INPUT", 400, "Invalid plan.");
     }
+    const plan = body.plan;
 
     const user = await currentUser();
     const userEmail = user?.emailAddresses?.[0]?.emailAddress;

@@ -214,7 +214,8 @@ export default function PricingPage() {
                   <>
                     <div className="flex items-baseline gap-2">
                       <span className="text-4xl font-bold text-gray-900 dark:text-[#F5F5F7]">${plan.annual}</span>
-                      <span className="text-sm text-gray-400 dark:text-[#636366]">/month</span>
+                      {/* Stripe's site review asks for an explicit currency code, not a bare "$" */}
+                      <span className="text-sm text-gray-400 dark:text-[#636366]">USD / month</span>
                       <span className="text-sm text-gray-400 line-through dark:text-[#636366]">${plan.monthly}</span>
                     </div>
                     <p className="mt-1 text-xs text-gray-500 dark:text-[#86868B]">

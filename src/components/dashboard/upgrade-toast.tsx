@@ -8,7 +8,6 @@ import { track } from "@/lib/analytics";
 const PLAN_LABEL: Record<string, string> = {
   starter: "Starter",
   pro: "Pro",
-  team: "Team",
 };
 
 export function UpgradeToast() {
@@ -22,7 +21,7 @@ export function UpgradeToast() {
       const p = searchParams.get("plan") ?? "";
       setPlan(p);
       setVisible(true);
-      if (p === "starter" || p === "pro" || p === "team") {
+      if (p === "starter" || p === "pro") {
         track({ name: "upgrade_completed", properties: { plan: p } });
       }
       // Clean the URL so a refresh doesn't re-show the toast
