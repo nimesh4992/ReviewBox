@@ -1,7 +1,7 @@
-# Today — 2026-08-17 (audit Waves 1–6, LT1, then a live-testing round)
+# Today — 2026-08-17 (audit Waves 1–6, LT1, a live-testing round, then the overnight queue)
 
-**State of master:** healthy, `86e0577`. Production deploys green. `tsc` clean,
-lint 0 errors, full `next build` passes, **518 unit tests**.
+**State of master:** healthy, `0c7a74d`. **Production deploy green and current.**
+`tsc` clean, lint 0 errors, full `next build` passes, **539 unit tests**.
 
 Audit waves merged: **#97, #98, #99, #101, #102, #105** (+ #103, #106 docs).
 Migrations **025–030 applied and verified by query.** **LT1** — the PGRST204
@@ -10,8 +10,83 @@ write sweep — shipped after them.
 Then a founder testing round produced **#108, #109, #110** and a platform
 finding that became **ADR 010**. See "Live-testing round" at the end.
 
-**One audit finding remains open, and it needs the founder:** W5A, the
-review-volume limit — `docs/adr/009-review-volume-limit.md`.
+**Overnight session (founder asleep, standing merge-on-green authority):**
+**#112** (W6C), **#113** (review-history docs), **#114** (AU4), **#115** (deploy
+quota). All merged and deployed. See "Overnight queue" below.
+
+**Two audit findings remain open and both need the founder:** W5A
+(`docs/adr/009-review-volume-limit.md`) and W6B (ADR 010's four questions).
+
+---
+
+## Overnight queue — 2026-08-17 night
+
+### The one that mattered most: production stopped shipping
+
+**#113 and #114 merged green and did not reach production.** Vercel's free plan
+caps upload API requests at ~5,000 per rolling 24h, shared across all deploys;
+each deploy of this app uploads thousands of files. The evening's merge cadence
+exhausted it.
+
+Two things made it worse than the outage itself:
+
+1. **It reads as a flake.** The CLI retries ~12 times and prints a generic
+   `Error: Upload aborted` stack for each, so the one actionable line
+   (`more than 5000, code: "api-upload-free"`) is at the *head* of ~40 lines of
+   noise. I re-ran the job before reading it. It failed identically — a quota is
+   not a blip.
+2. **Nothing said which commit was live.** A red deploy reads as "CI problem",
+   not "production is running older code".
+
+Fixed in **#115**: `--archive=tgz` (one tarball per deploy instead of thousands
+of requests) plus a step summary that leads with *"this commit is NOT in
+production"* and the real error. Deploy went green immediately after; all four
+merges are live. Known Issues entry added to `CLAUDE.md`.
+
+**Lesson for the loop:** merging many PRs in one evening has a cost that is
+invisible until it isn't. Watch the deploy job, not just CI.
+
+### #112 — W6C, the storefront ranking never ran
+
+#109's most-reviews-wins ranking was unreachable on the one path that decides an
+app's storefront for life. `resolveAppMetadata` fetched the onboarding search's
+hint and returned the moment it answered; onboarding *always* supplies a hint and
+search tries `us` first. That is the mechanism that pinned Mumbai One to `us`.
+The hint is now a candidate, not a verdict.
+
+### #113 — the review-history limit, documented where customers hit it
+
+New `/help/review-history`, two FAQ entries, a "Why not all 2,945?" link on the
+dashboard beside the synced count, and the API facts in `PRODUCT_CONTEXT.md`.
+
+**Correction it carries:** the ~200 ceiling is *not* symmetric across stores.
+Google's `reviews.list` has no date parameter — a genuine wall. App Store Connect
+paginates properly and our own `fetchReviews()` defaults to `limit = 200`. **On
+iOS the ceiling is ours.** Filed as **W6D**; the help page says so in those words
+rather than blaming Apple.
+
+No retention policy was published: ADR 010 is still `Proposed` with four open
+questions, and putting "365 days" on the public site would commit to behaviour
+that isn't built.
+
+### #114 — AU4, a failed load no longer renders as an empty state
+
+ASO, Sentiment, Competitors and both Reply Kit tabs treated a 500 as "no data".
+The copy is what made it expensive — not "nothing here" but *"No gaps found — all
+top phrases are already tracked"*, *"No templates yet. Create your first one
+above"*, *"Add competitor · coming soon"*. Two invite the customer to rebuild a
+library they still have; one denies a shipped feature exists.
+
+**The Reply Kit root cause was a layer below the backlog item's description.**
+Those tabs did `fetch().then(r => r.json()).catch(console.error)`. These routes
+return a JSON error envelope on 500, so `res.json()` **resolves** — the promise
+never rejects and the `.catch` was *unreachable dead code* for every HTTP
+failure. Their mutation handlers already checked `res.ok`, which is exactly why
+the load path's omission survived review.
+
+12 contract tests, each mutation-verified.
+
+---
 
 ---
 
