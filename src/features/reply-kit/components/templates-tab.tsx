@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Pencil, Plus, Search, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { LoadErrorState } from "@/components/load-error-state";
 
 // Shape returned from the API (snake_case from Supabase)
 interface ApiTemplate {
@@ -364,6 +365,9 @@ function TemplateCard({
 export function TemplatesTab() {
   const [templates, setTemplates] = useState<ApiTemplate[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  /** Bumped by "Try again" — the effect re-runs rather than duplicating the fetch. */
+  const [reloadToken, setReloadToken] = useState(0);
   const [search, setSearch] = useState("");
 
   // Exactly one of these is non-null at a time
@@ -373,16 +377,34 @@ export function TemplatesTab() {
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // `.then(r => r.json())` without checking `r.ok` is why the `.catch` below
+  // never fired on a real failure: a 500 returns a JSON error envelope, so
+  // parsing SUCCEEDS, `data.templates` is undefined, and `?? []` turns the
+  // outage into "you have no templates". Check the status first — that is
+  // the whole bug.
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
+    setLoadError(false);
     fetch("/api/reply-kit/templates")
-      .then((r) => r.json())
-      .then((data: { templates: ApiTemplate[] }) => {
+      .then((r) => {
+        if (!r.ok) throw new Error(`templates ${r.status}`);
+        return r.json();
+      })
+      .then((data: { templates?: ApiTemplate[] }) => {
+        if (cancelled) return;
         setTemplates(data.templates ?? []);
       })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(err);
+        setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [reloadToken]);
 
   const filtered = templates.filter(
     (t) =>
@@ -551,6 +573,15 @@ export function TemplatesTab() {
               />
             ))}
           </div>
+        ) : loadError ? (
+          /* "No templates yet. Create your first one above." is the single
+             most expensive thing this screen could say on a failed load —
+             it invites the customer to rebuild a library they still have. */
+          <LoadErrorState
+            subject="your reply templates"
+            onRetry={() => setReloadToken((n) => n + 1)}
+            retrying={loading}
+          />
         ) : filtered.length > 0 ? (
           filtered.map((template) => (
             <TemplateCard

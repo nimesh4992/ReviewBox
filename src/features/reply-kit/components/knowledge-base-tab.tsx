@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { Info, Pencil, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { LoadErrorState } from "@/components/load-error-state";
 
 type KbCategory = "product" | "known_issue" | "faq" | "roadmap";
 
@@ -41,9 +42,11 @@ interface EntryFormProps {
   submitLabel: string;
   onSubmit: (form: EntryFormState) => void;
   onCancel: () => void;
+  /** Server-side save failure, mirrored from templates-tab's TemplateForm. */
+  error?: string | null;
 }
 
-function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel }: EntryFormProps) {
+function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel, error }: EntryFormProps) {
   const [form, setForm] = useState<EntryFormState>(initial);
 
   function set<K extends keyof EntryFormState>(key: K, val: EntryFormState[K]) {
@@ -113,6 +116,9 @@ function EntryForm({ initial, saving, submitLabel, onSubmit, onCancel }: EntryFo
         >
           Cancel
         </Button>
+        {error && (
+          <p role="alert" className="mr-auto self-center text-[12px] text-[var(--rb-red-500)]">{error}</p>
+        )}
       </div>
     </form>
   );
@@ -205,20 +211,40 @@ function EntryCard({
 export function KnowledgeBaseTab() {
   const [entries, setEntries] = useState<ApiKbEntry[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
+  /** Bumped by "Try again" — the effect re-runs rather than duplicating the fetch. */
+  const [reloadToken, setReloadToken] = useState(0);
   const [showAdd, setShowAdd] = useState(false);
   const [editingEntry, setEditingEntry] = useState<ApiKbEntry | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
 
+  // See templates-tab: without the `r.ok` check a 500 parses fine as an error
+  // envelope, `data.entries` is undefined, and `?? []` renders an empty
+  // knowledge base. The `.catch` was unreachable for HTTP failures.
   useEffect(() => {
+    let cancelled = false;
     setLoading(true);
+    setLoadError(false);
     fetch("/api/reply-kit/knowledge-base")
-      .then((r) => r.json())
-      .then((data: { entries: ApiKbEntry[] }) => {
+      .then((r) => {
+        if (!r.ok) throw new Error(`knowledge-base ${r.status}`);
+        return r.json();
+      })
+      .then((data: { entries?: ApiKbEntry[] }) => {
+        if (cancelled) return;
         setEntries(data.entries ?? []);
       })
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
+      .catch((err) => {
+        if (cancelled) return;
+        console.error(err);
+        setLoadError(true);
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [reloadToken]);
 
   function handleDelete(id: string) {
     setEntries((prev) => prev.filter((e) => e.id !== id));
@@ -232,6 +258,7 @@ export function KnowledgeBaseTab() {
 
   async function handleCreate(form: EntryFormState) {
     setSubmitting(true);
+    setFormError(null);
     try {
       const res = await fetch("/api/reply-kit/knowledge-base", {
         method: "POST",
@@ -246,7 +273,11 @@ export function KnowledgeBaseTab() {
       setEntries((prev) => [data.entry as ApiKbEntry, ...prev]);
       setShowAdd(false);
     } catch (err) {
+      // Was console.error alone: the form stayed open with the customer's
+      // text in it and no indication the save had been rejected, which is
+      // indistinguishable from the button not having registered the click.
       console.error(err);
+      setFormError("Couldn't save — try again.");
     } finally {
       setSubmitting(false);
     }
@@ -255,6 +286,7 @@ export function KnowledgeBaseTab() {
   async function handleEditSave(form: EntryFormState) {
     if (!editingEntry) return;
     setSubmitting(true);
+    setFormError(null);
     try {
       const res = await fetch(`/api/reply-kit/knowledge-base/${editingEntry.id}`, {
         method: "PATCH",
@@ -273,6 +305,7 @@ export function KnowledgeBaseTab() {
       setEditingEntry(null);
     } catch (err) {
       console.error(err);
+      setFormError("Couldn't save — try again.");
     } finally {
       setSubmitting(false);
     }
@@ -313,7 +346,8 @@ export function KnowledgeBaseTab() {
           saving={submitting}
           submitLabel="Save entry"
           onSubmit={handleCreate}
-          onCancel={() => setShowAdd(false)}
+          onCancel={() => { setShowAdd(false); setFormError(null); }}
+          error={formError}
         />
       )}
 
@@ -324,7 +358,8 @@ export function KnowledgeBaseTab() {
           saving={submitting}
           submitLabel="Save changes"
           onSubmit={handleEditSave}
-          onCancel={() => setEditingEntry(null)}
+          onCancel={() => { setEditingEntry(null); setFormError(null); }}
+          error={formError}
         />
       )}
 
@@ -339,6 +374,16 @@ export function KnowledgeBaseTab() {
               />
             ))}
           </>
+        ) : loadError ? (
+          /* "No entries yet. Add your first one above." on a failed load
+             invites the customer to retype a knowledge base they still
+             have — and these entries feed AI replies, so an apparently
+             empty KB also silently degrades every draft. */
+          <LoadErrorState
+            subject="your knowledge base"
+            onRetry={() => setReloadToken((n) => n + 1)}
+            retrying={loading}
+          />
         ) : entries.length > 0 ? (
           entries.map((entry) => (
             <EntryCard key={entry.id} entry={entry} onEdit={openEdit} onDelete={handleDelete} />

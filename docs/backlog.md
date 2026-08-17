@@ -109,10 +109,16 @@ mixed them could not. Automation drafts are attributed to the rule rather than
 a user, since a rule can burn far more quota than a person clicking Generate.
 Written via `after()`, not a detached promise, which Vercel would cut off.
 
-### [ ] AU4 · Finish the swallowed-error sweep (ASO / Sentiment / Reply Kit / Competitors) · ICE 40 (8×5÷1)
-**Added 2026-08-15 by the audit round.** **Effort:** 3h.
-**Done when:** these screens distinguish "failed to load" from "no data", and their mutations report failure. Same shape as the dashboard/inbox/automations fixes already shipped in AU1: hooks stop casting `{ error?: string }` over the `{ error: { code, message } }` envelope, and each screen gets one error branch.
-**Why now:** on these screens a 500 still reads as "you have no keywords / no tags / this feature isn't shipped yet" — Competitors literally shows "coming soon" on a transient failure.
+### [x] AU4 · Finish the swallowed-error sweep · SHIPPED 2026-08-17
+*ASO (both panels), Sentiment, Competitors and both Reply Kit tabs now separate "failed to load" from "no data", via a shared `LoadErrorState` (`src/components/load-error-state.tsx`) with a retry.*
+
+*The copy is what made this expensive. These screens didn't fall through to "nothing here" — they fell through to* **"No gaps found — all top phrases are already tracked"**, **"No keywords tracked yet"**, **"Tags appear here once reviews are synced"**, **"Add competitor · coming soon"**, **"No templates yet. Create your first one above"** *and* **"No entries yet"**. *Two of those invite a customer to rebuild a library they still have; one announces that a shipped feature does not exist. Counts that asserted `0` on an unknown now read `—`.*
+
+***Root cause in Reply Kit was one layer down from the item's description.*** *Those tabs did `fetch(...).then(r => r.json()).catch(console.error)`. A 500 from these routes returns a JSON error envelope, so `res.json()` **resolves** — the promise never rejects and the `.catch` was unreachable dead code for every HTTP failure, not merely incomplete. Fixed by checking `r.ok` before parsing. Their mutation handlers already checked it, which is exactly why the load path's omission survived review.*
+
+*Also fixed while in there: `handleRemove` on Competitors had `if (res.ok)` with no else, so a rejected delete left the row, stopped the spinner and reported nothing; and the knowledge-base create/save handlers logged to console only, leaving the customer's text in an open form with no sign the save was refused (templates already had `formError`).*
+
+*12 contract tests in `src/load-error-contract.test.ts`, each mutation-verified. 539 total.*
 
 ### [x] AS1 · Per-workspace sync lock · ICE 40 — SHIPPED 2026-08-17
 *Wave 5. `src/lib/sync-lock.ts` — Redis `SET NX EX 90`, released with a Lua compare-and-delete so a run that overran its TTL cannot delete the next holder's lock. Wired inside `syncWorkspace()` itself rather than at the four call sites, so a fifth trigger cannot bypass it; the private `syncWorkspaceApps()` is the only unlocked path and is not exported. Skipped runs return `skipped: "already_running"` and are not errors. Fails open when Redis is unreachable (an unlocked sync is exactly today's behaviour; a lock that can take sync offline is a worse trade).*

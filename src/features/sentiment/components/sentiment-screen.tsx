@@ -4,6 +4,7 @@ import { Fragment, useState } from "react";
 import { ChevronDown, ChevronRight, Loader2, MessageSquare, Sparkles, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { LoadErrorState } from "@/components/load-error-state";
 import { useSentimentAnalysis } from "@/hooks/use-sentiment-analysis";
 import { useSentimentOverview } from "@/hooks/use-sentiment-overview";
 import { useReviewQueue } from "@/hooks/use-review-queue";
@@ -469,7 +470,13 @@ export function SentimentScreen() {
   // the app selector. See src/lib/selected-app.ts.
   const { appId, appName } = resolveSelectedApp(apps, selectedApp);
 
-  const { data: overview, isLoading } = useSentimentOverview(appId, range);
+  const {
+    data: overview,
+    isLoading,
+    isError,
+    refetch,
+    isFetching,
+  } = useSentimentOverview(appId, range);
   // Both queues carry the app filter. The overview above was correctly
   // scoped but these two were not, so with app B selected the AI results
   // panel re-classified app A's critical reviews and rendered them directly
@@ -546,14 +553,17 @@ export function SentimentScreen() {
               deltaPositive={ratingDelta?.positive}
               sub={`last ${range}`}
             />
+            {/* On a failed overview these `?? 0` fallbacks assert "0 reviews,
+                0% positive" — a far worse claim than admitting we don't know.
+                Avg rating and reply time already degrade to "—" on null. */}
             <MetricCard
               label="Reviews"
-              value={(overview?.totalReviews ?? 0).toLocaleString()}
+              value={isError ? "—" : (overview?.totalReviews ?? 0).toLocaleString()}
               sub={`last ${range}`}
             />
             <MetricCard
               label="Positive share"
-              value={`${overview?.positiveShare ?? 0}%`}
+              value={isError ? "—" : `${overview?.positiveShare ?? 0}%`}
               delta={posShareDelta?.label}
               deltaPositive={posShareDelta?.positive}
               sub="of all reviews"
@@ -591,6 +601,15 @@ export function SentimentScreen() {
           <div className="p-5">
             {isLoading ? (
               <div className="h-[200px] animate-pulse rounded-lg bg-[var(--rb-bg-sunken)]" />
+            ) : isError ? (
+              <div className="flex h-[200px] items-center justify-center">
+                <LoadErrorState
+                  subject="the sentiment trend"
+                  onRetry={() => void refetch()}
+                  retrying={isFetching}
+                  compact
+                />
+              </div>
             ) : hasChartData ? (
               <SentimentChart pos={trendPos} neg={trendNeg} />
             ) : (
@@ -695,7 +714,16 @@ export function SentimentScreen() {
           </div>
         )}
 
-        {!isLoading && topics.length === 0 ? (
+        {/* A failed overview left `topics` empty, which rendered "Tags appear
+            here once reviews are synced and enriched" — telling a customer
+            with a fully-synced workspace that their sync hasn't happened. */}
+        {!isLoading && isError ? (
+          <LoadErrorState
+            subject="your topic breakdown"
+            onRetry={() => void refetch()}
+            retrying={isFetching}
+          />
+        ) : !isLoading && topics.length === 0 ? (
           <div className="py-12 text-center text-[13px] text-fg-3">
             Tags appear here once reviews are synced and enriched.
           </div>
