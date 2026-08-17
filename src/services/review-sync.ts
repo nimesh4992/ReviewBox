@@ -336,6 +336,10 @@ async function fetchAppStoreApiRows(
   return ascReviews
     .filter((r) => !!r.id)
     .map((r) => {
+      // Both halves, not just the flag. A response relationship with no
+      // resolvable body is NOT a reply we can show — see buildEnrichedRow,
+      // which refuses to mark such a review "replied".
+      const replyText = r.responseBody?.trim() ? r.responseBody : null;
       const hasReply = !!r.relationships?.response?.data;
       return buildEnrichedRow(
         app.id, app.workspace_id,
@@ -349,7 +353,7 @@ async function fetchAppStoreApiRows(
         r.attributes.territory ?? null,
         r.attributes.createdDate,
         hasReply,
-        null,
+        replyText,
       );
     });
 }

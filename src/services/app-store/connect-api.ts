@@ -107,6 +107,25 @@ export interface AscReview {
       data: { id: string; type: string } | null;
     };
   };
+  /**
+   * The developer reply's actual text, resolved from the JSON:API `included`
+   * array by fetchReviews().
+   *
+   * Apple's `relationships.response` carries only linkage — an id and a type,
+   * never the body. Treating "a response relationship exists" as "we have the
+   * reply" is what wrote every pre-existing App Store reply into the database
+   * as `reply_status: "replied", reply_text: null`, which renders as a review
+   * marked replied with no reply visible and an empty edit box. Resolve the
+   * text, or leave the review as needing one.
+   */
+  responseBody?: string | null;
+}
+
+/** A `customerReviewResponses` record as it appears in `included`. */
+interface AscResponseResource {
+  id: string;
+  type: string;
+  attributes?: { responseBody?: string | null };
 }
 
 /**
@@ -138,12 +157,32 @@ export async function fetchReviews(
   limit = 200,
 ): Promise<AscReview[]> {
   const results: AscReview[] = [];
+  // `include=response` is what actually returns the reply. Listing `response`
+  // in fields[customerReviews] only asks for the RELATIONSHIP (id + type) —
+  // the body arrives as a separate `customerReviewResponses` resource in the
+  // top-level `included` array, and only when explicitly included.
   let url: string | null =
-    `/apps/${appStoreId}/customerReviews?sort=-createdDate&limit=${Math.min(limit, 200)}&fields[customerReviews]=rating,title,body,reviewerNickname,createdDate,territory,response`;
+    `/apps/${appStoreId}/customerReviews?sort=-createdDate&limit=${Math.min(limit, 200)}` +
+    `&fields[customerReviews]=rating,title,body,reviewerNickname,createdDate,territory,response` +
+    `&include=response&fields[customerReviewResponses]=responseBody`;
 
-  type PageResp = { data: AscReview[]; links?: { next?: string } };
+  type PageResp = { data: AscReview[]; links?: { next?: string }; included?: AscResponseResource[] };
   while (url && results.length < limit) {
     const page: PageResp = await asc<PageResp>(url, jwt);
+
+    // Resolve each review's reply text from `included`, per page — the array
+    // only ever covers the rows on that page.
+    const bodyById = new Map<string, string | null>();
+    for (const inc of page.included ?? []) {
+      if (inc.type === "customerReviewResponses") {
+        bodyById.set(inc.id, inc.attributes?.responseBody ?? null);
+      }
+    }
+    for (const review of page.data) {
+      const responseId = review.relationships?.response?.data?.id;
+      review.responseBody = responseId ? bodyById.get(responseId) ?? null : null;
+    }
+
     results.push(...page.data);
     const next: string | undefined = page.links?.next;
     url = next ? next.replace(BASE, "") : null;
