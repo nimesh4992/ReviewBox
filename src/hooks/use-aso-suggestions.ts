@@ -9,6 +9,8 @@
 
 import { useMutation } from "@tanstack/react-query";
 
+import { apiErrorMessage } from "@/lib/api-error-message";
+
 export interface AsoSuggestResult {
   keywords: string[];
   lastUpdated: string;
@@ -22,8 +24,8 @@ async function fetchAsoSuggestions(appId: string): Promise<AsoSuggestResult> {
     body:    JSON.stringify({ appId }),
   });
   if (!res.ok) {
-    const data = (await res.json()) as { error?: string };
-    throw new Error(data.error ?? "ASO suggestions failed");
+    const body = await res.json().catch(() => null);
+    throw new Error(apiErrorMessage(body, "ASO suggestions failed"));
   }
   return (await res.json()) as AsoSuggestResult;
 }

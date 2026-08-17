@@ -126,7 +126,7 @@ function AddKeywordRow({
 }) {
   const [kw, setKw] = useState("");
   const [vol, setVol] = useState("");
-  const { mutate: add, isPending } = useAddKeyword();
+  const { mutate: add, isPending, error: addError } = useAddKeyword();
   const inputRef = useRef<HTMLInputElement>(null);
 
   const submit = () => {
@@ -192,6 +192,11 @@ function AddKeywordRow({
             <X size={13} />
           </button>
         </div>
+        {addError && (
+          <div role="alert" className="mt-1 text-[11px] text-[var(--rb-red-500)]">
+            {addError.message}
+          </div>
+        )}
       </td>
     </tr>
   );

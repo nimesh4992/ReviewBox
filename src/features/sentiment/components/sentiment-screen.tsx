@@ -460,7 +460,7 @@ export function SentimentScreen() {
   const [range, setRange] = useState<"7d" | "30d" | "90d">("30d");
   const [aiResults, setAiResults] = useState<AnalysisResult[] | null>(null);
   const [expandedTopic, setExpandedTopic] = useState<string | null>(null);
-  const { mutate: analyze, isPending } = useSentimentAnalysis();
+  const { mutate: analyze, isPending, error: analyzeError } = useSentimentAnalysis();
 
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
   const { apps } = useApps();
@@ -685,6 +685,15 @@ export function SentimentScreen() {
             {isPending ? "Analysing…" : "Re-cluster with AI"}
           </button>
         </div>
+
+        {/* Groq/Gemini calls are rate-limited and can genuinely fail. Without
+            this the button just returned to idle and a real quota rejection
+            was indistinguishable from a mis-click. */}
+        {analyzeError && (
+          <div role="alert" className="mt-2 text-[12px] text-[var(--rb-red-500)]">
+            Couldn&apos;t re-cluster — {analyzeError.message}
+          </div>
+        )}
 
         {!isLoading && topics.length === 0 ? (
           <div className="py-12 text-center text-[13px] text-fg-3">

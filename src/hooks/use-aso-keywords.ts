@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { apiErrorMessage } from "@/lib/api-error-message";
 import type { AsoKeyword } from "@/types/review";
 
 export interface AsoKeywordsData {
@@ -43,8 +44,8 @@ export function useAddKeyword() {
         body: JSON.stringify(payload),
       });
       if (!res.ok) {
-        const err = await res.json().catch(() => ({})) as { error?: string };
-        throw new Error(err.error ?? "Failed to add keyword");
+        const body = await res.json().catch(() => null);
+        throw new Error(apiErrorMessage(body, "Failed to add keyword"));
       }
       return res.json() as Promise<AsoKeyword>;
     },
