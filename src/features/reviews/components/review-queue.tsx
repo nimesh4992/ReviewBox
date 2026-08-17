@@ -13,6 +13,8 @@ import { ReviewRow } from "./review-row";
 import { ReplyComposer } from "./reply-composer-panel";
 import { GroupReplyPanel } from "./group-reply-panel";
 import { useMarkReplied, useMarkDraft } from "../hooks/use-review-cache";
+import { isNarrowingFilter, type InboxFilter } from "@/lib/inbox-filter";
+import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
 
 function EmptyDetail({ className }: { className?: string }) {
   return (
@@ -30,7 +32,6 @@ function EmptyDetail({ className }: { className?: string }) {
 
 // ── InboxScreen ───────────────────────────────────────────────────────────────
 
-type InboxFilter = "all" | "unreplied" | "low_rating" | "app_store" | "play_store";
 type InboxSort   = "newest" | "lowest";
 
 interface InboxScreenProps {
@@ -48,6 +49,13 @@ interface InboxScreenProps {
    * and version chip derived from the leaked set.
    */
   appId?: string;
+  /**
+   * Controlled by the page, because the chip drives the FETCH — see
+   * lib/inbox-filter.ts. Local state here meant the chips filtered whatever
+   * page happened to be loaded.
+   */
+  activeFilter: InboxFilter;
+  onFilterChange: (filter: InboxFilter) => void;
 }
 
 export function InboxScreen({
@@ -58,13 +66,14 @@ export function InboxScreen({
   loadError = false,
   fetchNextPage,
   appId,
+  activeFilter,
+  onFilterChange,
 }: InboxScreenProps) {
   // Seed search from ?search= so the global header search box actually
   // filters the inbox when it navigates here.
   const urlSearch = useSearchParams().get("search") ?? "";
   const [selectedId, setSelectedId]         = useState<string | null>(reviews[0]?.id ?? null);
   const [mobilePane, setMobilePane]         = useState<"list" | "detail">("list");
-  const [activeFilter, setActiveFilter]     = useState<InboxFilter>("all");
   const [sort, setSort]                     = useState<InboxSort>("newest");
   const [search, setSearch]                 = useState(urlSearch);
   const [versionFilter, setVersionFilter]   = useState<string>("all");
@@ -160,33 +169,76 @@ export function InboxScreen({
     new Set(effectiveReviews.map((r) => r.appVersion).filter(Boolean)),
   ).slice(0, 4);
 
-  const unrepliedCount = effectiveReviews.filter((r) => r.replyStatus === "needs_reply").length;
-  const lowRatingCount = effectiveReviews.filter((r) => r.rating <= 2).length;
+  // ── Chip counts come from the SCOPE, not from what happens to be loaded ─────
+  //
+  // These were `effectiveReviews.filter(...).length` — counted over the first
+  // page of 20. So an app with 260 reviews and 117 unreplied showed "All · 20 /
+  // Unreplied · 20", and the header said "20 reviews". Every number on the
+  // screen described the page rather than the app.
+  //
+  // The counts are NOT recomputed here from a new query. `/api/dashboard/metrics`
+  // already returns them, scoped by appId and validated against the workspace's
+  // live apps — and the sidebar badge already reads from it, which is why the
+  // badge (117) and this header (20) disagreed. Adding a second implementation
+  // would be finding M-2 again: two hand-maintained answers to one question,
+  // drifting silently. One source, so they cannot.
+  //
+  // Free, too: the sidebar mounts this same query on every page, and the key is
+  // ["dashboard-metrics", appId ?? "all"] — so this is a cache read.
+  const { data: scope } = useDashboardMetrics(appId);
+  const scopeTotal     = scope?.totalReviews ?? null;
+  const unrepliedCount = scope?.unrepliedCount ?? null;
+  const lowRatingCount = scope?.lowRatingCount ?? null;
+
+  /** `· N` when the scope count is known, nothing while it loads. */
+  const count = (n: number | null) => (n === null ? "" : ` · ${n}`);
+
+  /**
+   * The scope total that matches the ACTIVE chip — what the header compares
+   * the loaded rows against.
+   *
+   * Null for the platform chips: `/api/dashboard/metrics` is scoped by app, not
+   * by store, so there is no honest total to show there. The header falls back
+   * to a plain count rather than quoting the all-stores figure, which would be
+   * a bigger number than the filter can ever reach.
+   */
+  /**
+   * Is the empty list the FILTER's doing rather than an empty workspace?
+   *
+   * Includes `versionFilter`, not just the chip — the version dropdown narrows
+   * the same list and produced the same misleading "connect an app" message.
+   */
+  const filterIsNarrowing = isNarrowingFilter(activeFilter) || versionFilter !== "all";
+
+  const activeScopeTotal =
+    activeFilter === "all"        ? scopeTotal
+    : activeFilter === "unreplied"  ? unrepliedCount
+    : activeFilter === "low_rating" ? lowRatingCount
+    : null;
 
   const FILTERS: { value: InboxFilter; label: React.ReactNode }[] = [
-    { value: "all",        label: `All · ${reviews.length}` },
+    { value: "all",        label: `All${count(scopeTotal)}` },
     {
       value: "unreplied",
       label: (
         <>
           <span className="inline-block size-1.5 rounded-full bg-[var(--rb-blue-500)]" />
-          {` Unreplied · ${unrepliedCount}`}
+          {` Unreplied${count(unrepliedCount)}`}
         </>
       ),
     },
-    { value: "low_rating", label: `1–2 ★ · ${lowRatingCount}` },
+    { value: "low_rating", label: `1–2 ★${count(lowRatingCount)}` },
     { value: "app_store",  label: "App Store" },
     { value: "play_store", label: "Play Store" },
   ];
 
+  // No chip filter here any more — `/api/reviews` applied it before these rows
+  // were fetched (lib/inbox-filter.ts). Re-filtering client-side would be a
+  // no-op at best, and at worst a second, drifting definition of "unreplied".
+  //
+  // The VERSION dropdown stays client-side: its options are derived from the
+  // loaded rows, so it can only ever narrow what is already here.
   const filtered = effectiveReviews
-    .filter((r) => {
-      if (activeFilter === "unreplied")  return r.replyStatus === "needs_reply";
-      if (activeFilter === "low_rating") return r.rating <= 2;
-      if (activeFilter === "app_store")  return r.source === "App Store";
-      if (activeFilter === "play_store") return r.source === "Google Play";
-      return true;
-    })
     .filter((r) => versionFilter !== "all" ? r.appVersion === versionFilter : true)
     // Client-side text filter only when server search isn't active (< 3 chars)
     .filter((r) => {
@@ -363,12 +415,21 @@ export function InboxScreen({
                     </span>
                   ) : (
                     <>
-                      {effectiveReviews.length} review{effectiveReviews.length !== 1 ? "s" : ""}
-                      {serverResults !== null && (
-                        <span className="ml-1 text-[var(--rb-blue-500)]">· search results</span>
-                      )}
-                      {sorted.length !== effectiveReviews.length && serverResults === null && (
-                        <span className="ml-1 text-[var(--rb-blue-500)]">· {sorted.length} shown</span>
+                      {serverResults !== null ? (
+                        <>
+                          {sorted.length} search result{sorted.length !== 1 ? "s" : ""}
+                        </>
+                      ) : activeScopeTotal === null ? (
+                        // Platform chips, or metrics still loading: no scope
+                        // total to compare against, so don't invent one.
+                        <>{sorted.length} review{sorted.length !== 1 ? "s" : ""}</>
+                      ) : sorted.length < activeScopeTotal ? (
+                        // The number the founder asked for: what you can see,
+                        // out of what exists. This said "20 reviews" for an app
+                        // with 260 of them.
+                        <>Showing {sorted.length} of {activeScopeTotal}</>
+                      ) : (
+                        <>{activeScopeTotal} review{activeScopeTotal !== 1 ? "s" : ""}</>
                       )}
                     </>
                   )}
@@ -471,7 +532,7 @@ export function InboxScreen({
             {FILTERS.map((f) => (
               <button
                 key={f.value}
-                onClick={() => setActiveFilter(f.value)}
+                onClick={() => onFilterChange(f.value)}
                 className={cn(
                   "inline-flex h-7 items-center gap-1.5 rounded-[7px] border px-3 text-[12px] font-semibold transition-colors",
                   activeFilter === f.value
@@ -522,17 +583,39 @@ export function InboxScreen({
               <Inbox className="size-10 text-[var(--rb-fg-4)]" strokeWidth={1.5} />
               <div>
                 <p className="text-sm font-semibold text-[var(--rb-fg-1)]">
-                  {loadError ? "We couldn't load your reviews" : search ? "No results" : "No reviews"}
+                  {loadError
+                    ? "We couldn't load your reviews"
+                    : search
+                      ? "No results"
+                      : filterIsNarrowing
+                        ? "Nothing matches this filter"
+                        : "No reviews"}
                 </p>
                 <p className="mt-1 text-xs text-[var(--rb-fg-3)]">
                   {loadError
                     ? "Something went wrong on our side — your reviews are still here. Try refreshing in a moment."
                     : search
                       ? `Nothing matched "${search}"`
-                      : "Connect an app in Settings to start syncing."}
+                      : filterIsNarrowing
+                        ? "Your reviews are still here — this filter just doesn't match any of them."
+                        : "Connect an app in Settings to start syncing."}
                 </p>
               </div>
-              {!search && !loadError && (
+              {/*
+                A filtered-to-zero list used to fall through to "No reviews —
+                Connect an app in Settings", offering to onboard a customer who
+                already had 130 reviews. The component knew: the header printed
+                "0 shown" three lines up. It just never asked.
+              */}
+              {!search && !loadError && filterIsNarrowing && (
+                <button
+                  onClick={() => { onFilterChange("all"); setVersionFilter("all"); }}
+                  className="rounded-lg border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)]"
+                >
+                  Clear filters
+                </button>
+              )}
+              {!search && !loadError && !filterIsNarrowing && (
                 <Link
                   href="/settings"
                   className="rounded-lg border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] px-3 py-1.5 text-xs font-medium text-[var(--rb-fg-2)] hover:bg-[var(--rb-bg-hover)]"

@@ -9,6 +9,7 @@ import type { DashboardMetrics } from "@/app/api/dashboard/metrics/route";
 const EMPTY_METRICS: DashboardMetrics = {
   unrepliedCount: 0,
   urgentCount: 0,
+  lowRatingCount: 0,
   avgRating: null,
   aiDraftsThisWeek: 0,
   reviewsToday: 0,

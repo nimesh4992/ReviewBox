@@ -8,6 +8,9 @@ export interface ReviewFiltersQuery {
   status?: string;
   sentiment?: string;
   rating?: number;
+  /** Upper bound on rating — the "1-2 ★" chip. Distinct from `rating`, which is exact. */
+  maxRating?: number;
+  /** Storage enum: "google_play" | "app_store". NOT the display name. */
   platform?: string;
   /** Server-side full-text search on review body + author. Pass when ≥3 chars. */
   search?: string;
@@ -31,6 +34,7 @@ async function fetchReviews(
   if (filters.status) params.set("status", filters.status);
   if (filters.sentiment) params.set("sentiment", filters.sentiment);
   if (filters.rating !== undefined) params.set("rating", String(filters.rating));
+  if (filters.maxRating !== undefined) params.set("maxRating", String(filters.maxRating));
   if (filters.platform) params.set("platform", filters.platform);
   if (filters.search)   params.set("search", filters.search);
   if (filters.appId)    params.set("appId", filters.appId);
