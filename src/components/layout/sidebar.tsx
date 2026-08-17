@@ -35,6 +35,7 @@ import { useWorkspaceStore } from "@/store/use-workspace-store";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
 import { useApps } from "@/hooks/use-apps";
 import { resolveSelectedApp } from "@/lib/selected-app";
+import { platformLabel } from "@/lib/platform-label";
 
 // ── Navigation structure ──────────────────────────────────────────────────────
 
@@ -153,6 +154,11 @@ export function Sidebar({ className }: { className?: string }) {
   // appear in this selector until a full page reload.
   const { apps } = useApps();
   const { appId: selectedAppId } = resolveSelectedApp(apps, selectedApp);
+  // Resolved id, not the raw persisted one — a dangling selection (app
+  // disconnected, id still in localStorage) must read as "All apps" here just
+  // as it does everywhere else. CLAUDE.md: never resolve the selector by name.
+  const selectedAppRow = apps.find((a) => a.id === selectedAppId);
+  const selectedStore  = platformLabel(selectedAppRow?.platform);
   // Scope the Inbox badge to the same app the Inbox itself will show. The
   // badge counted every app while the Inbox is app-scoped, so the badge said
   // 12 and the screen it labels showed 4 — a metre from the selector that
@@ -203,8 +209,19 @@ export function Sidebar({ className }: { className?: string }) {
               variant="ghost"
               className="h-8 w-full justify-between rounded-md border border-[var(--rb-border-2)] bg-surface px-2.5 text-left text-rb-sm text-fg-2 hover:bg-[var(--rb-bg-hover)] hover:text-fg-1"
             >
-              <span className="min-w-0 truncate">
-                {apps.find((a) => a.id === selectedApp)?.name ?? "All apps"}
+              {/*
+                The store label is `shrink-0` and the NAME truncates, not the
+                other way round. Two apps in this workspace are both called
+                "Mumbai One" — one Google Play, one App Store — so the store is
+                the only part that tells them apart. Truncating it would leave
+                the trigger reading "Mumbai One · Goo…", which is no better
+                than the name alone.
+              */}
+              <span className="flex min-w-0 items-baseline gap-1.5">
+                <span className="min-w-0 truncate">{selectedAppRow?.name ?? "All apps"}</span>
+                {selectedStore && (
+                  <span className="shrink-0 text-rb-xs text-fg-3">{selectedStore}</span>
+                )}
               </span>
               <ChevronDown className="size-3 shrink-0 text-fg-3" strokeWidth={1.5} />
             </Button>
@@ -236,7 +253,12 @@ export function Sidebar({ className }: { className?: string }) {
                     {app.name[0]?.toUpperCase()}
                   </span>
                 )}
-                <span className="truncate">{app.name}</span>
+                <span className="min-w-0 truncate">{app.name}</span>
+                {platformLabel(app.platform) && (
+                  <span className="shrink-0 text-rb-xs text-fg-3">
+                    {platformLabel(app.platform)}
+                  </span>
+                )}
                 {selectedApp === app.id && (
                   <span className="ml-auto text-[var(--rb-blue-500)]">✓</span>
                 )}

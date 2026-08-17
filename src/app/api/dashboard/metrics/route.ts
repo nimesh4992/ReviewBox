@@ -9,6 +9,13 @@ import { isMissingColumnError } from "@/lib/db-errors";
 export interface DashboardMetrics {
   unrepliedCount: number;
   urgentCount: number;
+  /**
+   * Reviews rated 1-2 stars. Distinct from `urgentCount`, which is
+   * `priority = 'urgent'` — a rules-engine verdict that weighs text and tags,
+   * not the star count. The Inbox's "1-2 ★" chip means literally 1-2 stars, so
+   * it needs this rather than the urgent count that happens to sit near it.
+   */
+  lowRatingCount: number;
   avgRating: number | null;
   aiDraftsThisWeek: number;
   reviewsToday: number;
@@ -53,6 +60,7 @@ export interface DashboardMetrics {
 // the dashboard accurately reflects the state of their data.
 const EMPTY_METRICS: DashboardMetrics = {
   unrepliedCount: 0,
+  lowRatingCount: 0,
   urgentCount: 0,
   avgRating: null,
   aiDraftsThisWeek: 0,
@@ -156,6 +164,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     const [
       unrepliedResult,
       urgentResult,
+      lowRatingResult,
       avgRatingResult,
       aiDraftsResult,
       reviewsTodayResult,
@@ -174,6 +183,11 @@ export async function GET(request: Request): Promise<NextResponse> {
       reviewsIn()
         .eq("priority", "urgent")
         .neq("reply_status", "replied"),
+
+      // 2b. Reviews rated 1-2 stars, replied or not. The Inbox chip counts
+      // every low-rated review in scope, not just the outstanding ones.
+      reviewsIn()
+        .lte("rating", 2),
 
       // 3. Avg rating last 30 days (by store posting date)
       sb
@@ -247,6 +261,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     if (
       unrepliedResult.error ||
       urgentResult.error ||
+      lowRatingResult.error ||
       avgRatingResult.error ||
       aiDraftsResult.error ||
       reviewsTodayResult.error ||
@@ -255,6 +270,7 @@ export async function GET(request: Request): Promise<NextResponse> {
       console.error("Dashboard metrics query error", {
         unreplied: unrepliedResult.error,
         urgent: urgentResult.error,
+        lowRating: lowRatingResult.error,
         avgRating: avgRatingResult.error,
         aiDrafts: aiDraftsResult.error,
         reviewsToday: reviewsTodayResult.error,
@@ -343,6 +359,7 @@ export async function GET(request: Request): Promise<NextResponse> {
     const metrics: DashboardMetrics = {
       unrepliedCount: unrepliedResult.count ?? 0,
       urgentCount: urgentResult.count ?? 0,
+      lowRatingCount: lowRatingResult.count ?? 0,
       avgRating,
       aiDraftsThisWeek: aiDraftsResult.count ?? 0,
       reviewsToday: reviewsTodayResult.count ?? 0,

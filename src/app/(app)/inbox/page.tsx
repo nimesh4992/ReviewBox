@@ -1,6 +1,9 @@
 "use client";
 
+import { useState } from "react";
+
 import { InboxScreen } from "@/features/reviews/components/review-queue";
+import { inboxFilterToQuery, type InboxFilter } from "@/lib/inbox-filter";
 import { useReviewQueue } from "@/hooks/use-review-queue";
 import { useApps } from "@/hooks/use-apps";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
@@ -21,8 +24,17 @@ export default function InboxPage() {
   const { apps } = useApps();
   const { appId } = resolveSelectedApp(apps, selectedApp);
 
+  // The chip lives here, not in InboxScreen, because it has to reach the
+  // fetch. While it was component-local the chips filtered whatever page had
+  // loaded: "App Store" under All apps matched none of the first 20 rows and
+  // rendered the empty state, on a workspace with 130 reviews.
+  const [activeFilter, setActiveFilter] = useState<InboxFilter>("all");
+
   const { reviews, fetchNextPage, hasNextPage, isFetchingNextPage, isFetching, isLoading, isError } =
-    useReviewQueue(appId ? { appId } : {});
+    useReviewQueue({
+      ...(appId ? { appId } : {}),
+      ...inboxFilterToQuery(activeFilter),
+    });
 
   return (
     <div className="flex h-[calc(100vh-52px)] flex-col overflow-hidden">
@@ -37,6 +49,8 @@ export default function InboxPage() {
           loadError={isError}
           fetchNextPage={fetchNextPage}
           appId={appId}
+          activeFilter={activeFilter}
+          onFilterChange={setActiveFilter}
         />
       )}
     </div>

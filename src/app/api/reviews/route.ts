@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { apiError, captureAndError } from "@/lib/api-response";
 import { isMissingColumnError } from "@/lib/db-errors";
+import { isStorePlatform } from "@/lib/platform-label";
 import { effectiveTags } from "@/lib/tag-labels";
 import type { AppReview } from "@/types/review";
 
@@ -99,6 +100,9 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     const status     = searchParams.get("status") ?? undefined;
     const sentiment  = searchParams.get("sentiment") ?? undefined;
     const rating     = searchParams.get("rating") ? parseInt(searchParams.get("rating")!, 10) : undefined;
+    // Upper bound, for the inbox's "1-2 ★" chip. `rating` is an exact match
+    // and cannot express it.
+    const maxRating  = searchParams.get("maxRating") ? parseInt(searchParams.get("maxRating")!, 10) : undefined;
     const platform   = searchParams.get("platform") ?? undefined;
     const search     = searchParams.get("search")?.trim() ?? undefined;
     const appId      = searchParams.get("appId")?.trim() || undefined;
@@ -178,7 +182,15 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (status)    query = query.eq("reply_status", status);
     if (sentiment) query = query.eq("sentiment", sentiment);
     if (rating !== undefined && !isNaN(rating)) query = query.eq("rating", rating);
-    if (platform)  query = query.eq("source", platform === "Google Play" ? "google_play" : "app_store");
+    if (maxRating !== undefined && !isNaN(maxRating)) query = query.lte("rating", maxRating);
+    // Storage enum, validated. This was
+    //   platform === "Google Play" ? "google_play" : "app_store"
+    // which silently mapped EVERY unrecognised value — including the storage
+    // enum "google_play" itself — to app_store. A caller passing the value the
+    // database actually holds would have been answered with the other store's
+    // reviews and no error. Unknown values are now ignored, like `rating`'s
+    // NaN guard, rather than guessed at.
+    if (isStorePlatform(platform)) query = query.eq("source", platform);
     // Full-text search: ilike on body + author (case-insensitive pattern match)
     // A GIN index on body can be added later for performance at scale.
     // Strip PostgREST filter-string special characters (,().'") before
