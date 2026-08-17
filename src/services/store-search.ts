@@ -695,18 +695,22 @@ export async function findAppAcrossStorefronts(
  * per-country ratings, so the storefront is not a label on the number; it IS
  * the number. Mumbai One reads 4.3 in the US and 3.1 in India.
  *
- * ── A caveat that matters more than the rule ────────────────────────────────
+ * ── On the review count ─────────────────────────────────────────────────────
  *
- * This ranks on `reviewCount`, and the Google Play listing scrape does not
- * currently extract one — it came back null even on a fetch that read the
- * rating fine. So for every Play app this tie-breaks straight back to probe
- * order, i.e. today's behaviour. The App Store path gets its count from the
- * iTunes JSON API and is unaffected.
+ * An earlier version of this comment claimed the Google Play listing scrape
+ * never yields a `reviewCount`, so the ranking would be inert for Play apps.
+ * **That was wrong**, and it was wrong because it generalised from a single
+ * failed fetch: the US listing for Mumbai One returned a rating with no count,
+ * and the theory built on top of that came from how AppFollow RENDERS the
+ * number ("2.9k"), not from Google's HTML.
  *
- * That is not a reason to rank on something else: a count we can't parse is a
- * bug to fix, and ranking on a signal we don't trust would be worse. Until it
- * is fixed, the Settings → Apps storefront override is the working answer for
- * a Play app we've placed in the wrong country.
+ * The India listing for the same package returned `2,945` exactly. The parse
+ * works. The earlier null was a partial or throttled response (BUG-021), not a
+ * parser gap.
+ *
+ * A storefront that genuinely returns no count still ties at zero and falls
+ * back to probe order, which is the correct conservative behaviour — but that
+ * is the exception, not the rule.
  *
  * Ties keep the earlier candidate, so `searchStorefronts()` order still decides
  * when there is nothing to compare — the caller's priority list, unchanged.
@@ -734,9 +738,44 @@ export async function resolveAppMetadata(
   storeId: string,
   preferred?: string | null,
 ): Promise<AppMetadata | null> {
-  if (preferred) {
-    const meta = await fetchAppMetadata(platform, storeId, normalizeStorefront(preferred));
-    if (meta && (meta.rating !== null || meta.name !== storeId)) return meta;
-  }
-  return findAppAcrossStorefronts(platform, storeId);
+  // The hint is a CANDIDATE, not a verdict.
+  //
+  // This used to fetch `preferred` and return the moment it answered, so
+  // `findAppAcrossStorefronts` — and therefore the most-reviews-wins ranking —
+  // never ran for a newly connected app. Onboarding always supplies a hint (the
+  // storefront its search happened to find the app on, and that search tries
+  // `us` first), so in practice the ranking was unreachable on the one path
+  // that decides an app's storefront for the rest of its life.
+  //
+  // That is exactly how Mumbai One was pinned to `us`: it IS listed in the US,
+  // the US listing answered, and nobody ever looked at India — where the same
+  // app has 2,945 ratings against a handful.
+  //
+  // Probing the hint FIRST is still worth doing: `pickHomeStorefront` keeps the
+  // earlier candidate on a tie, so a hint that ties on review count still wins,
+  // and a hint that is the only storefront carrying the app still wins. What it
+  // no longer does is win against a storefront with more reviews.
+  return findAppAcrossStorefronts(platform, storeId, storefrontProbeOrder(preferred));
+}
+
+/**
+ * The storefronts to probe, hint first.
+ *
+ * Pure and exported so the ordering can be tested without a network layer —
+ * the bug this replaces was in the control flow, and a test of the ranking
+ * alone passed happily while it was broken.
+ *
+ * The hint is de-duplicated out of the rest of the list: it is prepended, so
+ * leaving it in place would cost an extra request per onboarding against a
+ * store that rate-limits our datacenter IPs (BUG-021).
+ */
+export function storefrontProbeOrder(preferred?: string | null): string[] {
+  const configured = searchStorefronts();
+  if (!preferred) return configured;
+
+  // normalizeStorefront falls back to DEFAULT_STOREFRONT for anything unusable,
+  // so a malformed hint costs a probe of "us" rather than a request for a
+  // nonsense country code.
+  const hint = normalizeStorefront(preferred);
+  return [hint, ...configured.filter((c) => c !== hint)];
 }

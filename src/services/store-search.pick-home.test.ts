@@ -11,12 +11,15 @@
  *
  * ── Read this before "fixing" the tie case ──────────────────────────────────
  *
- * Ties fall back to probe order, and one test below pins that a Google Play
- * app — where `reviewCount` is null on every storefront because the listing
- * scrape doesn't extract one — therefore behaves exactly as it did before.
- * That is not the rule failing; it is the rule being honest about a signal it
- * doesn't have. The fix is to make the count parse, not to rank on something
- * we don't trust.
+ * Ties fall back to probe order. An earlier version of this comment said that
+ * meant every Google Play app, "because the listing scrape doesn't extract a
+ * count". **That was wrong** — generalised from one failed fetch, and from how
+ * AppFollow renders the number rather than from Google's HTML. The India
+ * listing for the same package returned 2,945 exactly.
+ *
+ * A storefront that genuinely returns no count still ties at zero and keeps
+ * probe order, which is the right conservative behaviour. It is the exception,
+ * not the rule.
  */
 
 import { describe, expect, it } from "vitest";
@@ -64,11 +67,10 @@ describe("pickHomeStorefront", () => {
     expect(pickHomeStorefront([hit("in", 260), hit("us", null)])?.country).toBe("in");
   });
 
-  it("keeps probe order when nothing can be compared — today's Google Play case", () => {
-    // Every Play storefront yields reviewCount: null, so this ties at 0 and
-    // falls back to the caller's priority order. Documented, not accidental:
-    // until the Play listing count parses, the Settings override is the working
-    // answer for a Play app in the wrong country.
+  it("keeps probe order when nothing can be compared", () => {
+    // Every candidate ties at 0, so the caller's priority order decides.
+    // Reached when a storefront is throttled mid-probe (BUG-021) and returns a
+    // rating without a count — not, as I first claimed, on every Play app.
     const picked = pickHomeStorefront([hit("us", null), hit("in", null), hit("gb", null)]);
     expect(picked?.country).toBe("us");
   });

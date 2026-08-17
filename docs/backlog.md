@@ -46,9 +46,14 @@ The platform limit is settled and verified: Google's API has no way to request o
 **Needs answering:** (A) hide or delete at 365 days — *recommend hide, deletion destroys the archive that is the selling point*; (B) free/trial behaviour — *recommend retain, restrict view*; (C) 365 days from capture date or review date — *recommend capture*; (D) does this replace the `reviewsPerMonth` cap — *recommend yes, which resolves W5A*.
 **Note:** retention is packaging, not cost. The `embedding vector(384)` column that would have dominated storage is never populated, so a review is ~0.5–1KB and a year of 50/day is 10–18MB per app.
 
-### [ ] W6C · Storefront: close the onboarding short-circuit · ICE 60 (8×9÷1.2)
-**Added 2026-08-17.** `resolveAppMetadata` returns as soon as the search's storefront hint answers, so the most-reviews-wins ranking shipped in #109 **never runs for a newly added app** — which is how Mumbai One was pinned to `us` at onboarding. Treat the hint as a candidate, not a verdict. Also: show the detected storefront on the onboarding confirmation step ("Found on the India store · change") — confirm, don't ask; a blank country field is friction and most customers don't know which storefront their ratings come from.
-**Also fix:** the caveat I wrote into #109's comments and `store-search.pick-home.test.ts` claiming Play never yields a review count. The India listing returned 2,945 exactly — the claim is contradicted by evidence and is now a stale doc of my own making.
+### [x] W6C · Storefront: close the onboarding short-circuit · SHIPPED 2026-08-17
+*`resolveAppMetadata` fetched the search's storefront hint and returned the moment it answered, so `findAppAcrossStorefronts` — and the most-reviews-wins ranking shipped in #109 — **never ran for a newly connected app**. Onboarding always supplies a hint, and search tries `us` first, so the ranking was unreachable on the one path that decides an app's storefront for life. That is how Mumbai One was pinned to `us`: it IS listed in the US, the US listing answered, and nobody looked at India.*
+
+*The hint is now a candidate, not a verdict — probed first (so it still wins a tie, and still wins when it's the only storefront carrying the app), then the rest, ranked. Ordering extracted as the pure `storefrontProbeOrder()` so the control flow is testable without a network layer.*
+
+***Also corrected a stale claim of my own:*** *#109's comments and `store-search.pick-home.test.ts` said Google Play never yields a review count, so the ranking would be inert there. Wrong — generalised from one throttled fetch, and from AppFollow's rendering rather than Google's HTML. The India listing returned 2,945 exactly.*
+
+**Still open from this item:** show the detected storefront on the onboarding confirmation step ("Found on the India store · change") — confirm, don't ask. Deliberately not bundled: it touches the onboarding wizard, which is a critical path, and it wanted its own PR rather than riding along with a backend fix.
 
 ### [!] W5A · Decide the review-volume limit before Stripe goes live · HUMAN-REQUIRED
 **Added 2026-08-17 by Wave 5 (audit finding M-6). Blocked on a founder decision — see `docs/adr/009-review-volume-limit.md`.**
