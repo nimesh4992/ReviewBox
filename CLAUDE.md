@@ -626,9 +626,24 @@ since PR #88-era the canonical shape IS one `WorkspaceStatusStrip` rendered
 once (see the comment inside the component) — trust the in-file comment over
 this section when they disagree.
 
+**2026-08-17, the SIXTH: "Update branch" on PR #92.** Not two PRs racing this
+time — one PR pulling master in. Master had repaired the fifth mangling itself
+(`2ea42cc`) while #92 carried its own repair of the same broken base, so git
+fused two independent fixes for the SAME bug. Three checks went red.
+`src/lib/reply-cache.ts` fused the same way in the same merge: both sides had
+independently closed the cross-tenant cache leak.
+
+**The pattern to internalise: two fixes for one bug collide worse than two
+features.** Each side is green alone — that is precisely why nobody catches it
+until the merge. When a bug is being fixed on more than one branch, expect the
+merge to be manual, and check master for an existing repair before writing
+yours. Resolution rule that worked twice now: take ONE side's file whole,
+never hand-blend the two.
+
 ### Open PRs
 
-#86 (docs + reply/AI fixes). #73, #76–#85, #87, #88 are merged.
+#92 (security round, GDPR, tag/device/language work). #93 and #94 merged
+2026-08-17; #86, #73, #76–#85, #87, #88, #90, #91 are merged.
 
 ### ⚠️ Two error codes mean "column missing", not one
 
