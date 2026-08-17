@@ -3,6 +3,7 @@
 import { useState, useRef } from "react";
 import { Loader2, Sparkles, X, Plus, TrendingUp, Minus, Pencil, Check } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LoadErrorState } from "@/components/load-error-state";
 import { useAsoSuggestions } from "@/hooks/use-aso-suggestions";
 import { useAsoKeywords, useAddKeyword, useDeleteKeyword, useUpdateKeyword } from "@/hooks/use-aso-keywords";
 import { useMinedKeywords } from "@/hooks/use-mined-keywords";
@@ -286,7 +287,7 @@ function PhraseChip({
 // ── Opportunities panel ───────────────────────────────────────────────────────
 
 function OpportunitiesPanel({ appId }: { appId?: string }) {
-  const { data, isLoading } = useMinedKeywords(appId);
+  const { data, isLoading, isError, refetch, isFetching } = useMinedKeywords(appId);
   const { mutate: addKw, isPending: addPending } = useAddKeyword();
   const [tracking, setTracking] = useState<Set<string>>(new Set());
 
@@ -344,7 +345,20 @@ function OpportunitiesPanel({ appId }: { appId?: string }) {
             </div>
           )}
 
-          {!isLoading && gaps.length === 0 && (
+          {/* Error BEFORE empty. On a failed mine `data` is undefined, so
+              `data?.reviewsAnalyzed === 0` is false and the old code fell
+              through to "all top phrases are already tracked" — a confident
+              claim about keywords we never received. */}
+          {!isLoading && isError && (
+            <LoadErrorState
+              subject="keyword opportunities"
+              onRetry={() => void refetch()}
+              retrying={isFetching}
+              compact
+            />
+          )}
+
+          {!isLoading && !isError && gaps.length === 0 && (
             <div className="py-12 text-center text-[13px] text-fg-3">
               {data?.reviewsAnalyzed === 0
                 ? "No reviews synced yet. Run a sync to mine keywords."
@@ -352,7 +366,7 @@ function OpportunitiesPanel({ appId }: { appId?: string }) {
             </div>
           )}
 
-          {!isLoading && gaps.length > 0 && (
+          {!isLoading && !isError && gaps.length > 0 && (
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
               {gaps.map((p) => (
                 <PhraseChip
@@ -488,7 +502,13 @@ export function ASOScreen() {
   // this is not open-coded per screen.
   const { appId, appName } = resolveSelectedApp(apps, selectedApp);
 
-  const { data: kwData, isLoading } = useAsoKeywords(appId);
+  const {
+    data: kwData,
+    isLoading,
+    isError: kwError,
+    refetch: refetchKeywords,
+    isFetching: kwFetching,
+  } = useAsoKeywords(appId);
   const { mutate: deleteKw } = useDeleteKeyword();
   const { mutate: updateKw, isPending: bulkSaving } = useUpdateKeyword();
   const { mutate: addFromSuggestion } = useAddKeyword();
@@ -549,9 +569,12 @@ export function ASOScreen() {
           </>
         ) : (
           <>
+            {/* "0" is an assertion; "—" is an absence. On a failed load we
+                know nothing about these counts, and printing 0 tracked / 0
+                top-10 tells the customer their keyword list is empty. */}
             <MetricCard
               label="Tracked keywords"
-              value={String(metrics?.total ?? 0)}
+              value={kwError ? "—" : String(metrics?.total ?? 0)}
               sub={appName}
             />
             <MetricCard
@@ -567,7 +590,7 @@ export function ASOScreen() {
             />
             <MetricCard
               label="Top-10 keywords"
-              value={String(metrics?.top10Count ?? 0)}
+              value={kwError ? "—" : String(metrics?.top10Count ?? 0)}
               sub="current rank ≤ 10"
             />
           </>
@@ -587,7 +610,9 @@ export function ASOScreen() {
             <div className="mt-0.5 text-[12px] text-fg-3">
               {isLoading
                 ? "Loading…"
-                : `${keywords.length} keyword${keywords.length === 1 ? "" : "s"} tracked`}
+                : kwError
+                  ? "Couldn't load"
+                  : `${keywords.length} keyword${keywords.length === 1 ? "" : "s"} tracked`}
             </div>
           </div>
           <div className="ml-auto flex items-center gap-2">
@@ -667,7 +692,22 @@ export function ASOScreen() {
                 </tr>
               ))}
 
-            {!isLoading && keywords.length === 0 && !showAddRow && (
+            {/* "No keywords tracked yet — add your first" invites someone to
+                re-enter a list they already have, because the request for it
+                failed. Error wins over empty. */}
+            {!isLoading && kwError && (
+              <tr>
+                <td colSpan={6}>
+                  <LoadErrorState
+                    subject="your tracked keywords"
+                    onRetry={() => void refetchKeywords()}
+                    retrying={kwFetching}
+                  />
+                </td>
+              </tr>
+            )}
+
+            {!isLoading && !kwError && keywords.length === 0 && !showAddRow && (
               <tr>
                 <td colSpan={6} className="py-16 text-center text-[13px] text-fg-3">
                   No keywords tracked yet.{" "}

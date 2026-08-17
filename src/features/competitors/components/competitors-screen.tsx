@@ -6,6 +6,7 @@ import { Loader2, Plus, Search, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
+import { LoadErrorState } from "@/components/load-error-state";
 import { useApps } from "@/hooks/use-apps";
 import { resolveSelectedApp } from "@/lib/selected-app";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
@@ -319,6 +320,7 @@ function AddCompetitorDialog({
 export function CompetitorsScreen() {
   const [addOpen, setAddOpen] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removeError, setRemoveError] = useState<string | null>(null);
   const qc = useQueryClient();
 
   // "You" in the benchmark is the selected app — it used to be whichever row
@@ -328,7 +330,7 @@ export function CompetitorsScreen() {
   const { apps } = useApps();
   const { appId: selectedAppId } = resolveSelectedApp(apps, selectedApp);
 
-  const { data, isLoading } = useQuery<CompetitorsResponse>({
+  const { data, isLoading, isError, refetch, isFetching } = useQuery<CompetitorsResponse>({
     queryKey: ["competitors", selectedAppId ?? "all"],
     queryFn: () => fetchCompetitors(selectedAppId),
     staleTime: 5 * 60_000,
@@ -340,11 +342,18 @@ export function CompetitorsScreen() {
   const rows: CompetitorBenchmarkRow[] = yourApp ? [yourApp, ...competitors] : competitors;
   const hasIllustrative = competitors.some((c) => c.illustrative);
 
+  // `if (res.ok)` with no else meant a rejected delete did nothing at all:
+  // the row stayed, the spinner stopped, and the only difference between
+  // "failed" and "you didn't click it" was in the network tab.
   async function handleRemove(id: string) {
     setRemovingId(id);
+    setRemoveError(null);
     try {
       const res = await fetch(`/api/competitors/${id}`, { method: "DELETE" });
-      if (res.ok) await qc.invalidateQueries({ queryKey: ["competitors"] });
+      if (!res.ok) throw new Error(String(res.status));
+      await qc.invalidateQueries({ queryKey: ["competitors"] });
+    } catch {
+      setRemoveError("Couldn't remove that competitor — try again.");
     } finally {
       setRemovingId(null);
     }
@@ -360,7 +369,11 @@ export function CompetitorsScreen() {
               the request is in flight we know nothing — saying "No app
               connected" to someone who has one is worse than saying nothing. */}
           <div className="text-[12px] font-medium text-fg-3">
-            {isLoading ? " " : (yourApp?.name ?? "No app connected")}
+            {/* isError joins isLoading for the same reason: a failed
+                request tells us nothing about whether an app is
+                connected, so the fallback would be a guess stated as
+                fact. */}
+            {isLoading || isError ? " " : (yourApp?.name ?? "No app connected")}
           </div>
           <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.022em] text-fg-1">
             Competitors
@@ -391,7 +404,11 @@ export function CompetitorsScreen() {
               Ratings refresh from the store every few hours
             </div>
           </div>
-          {!canAdd && (
+          {/* `canAdd` comes off the response, so a 500 made it false and the
+              screen announced "coming soon" — telling the customer a shipped
+              feature does not exist yet. It is only an honest label when we
+              actually heard back. */}
+          {!canAdd && !isError && (
             <span
               title="Competitor tracking needs a database update — it ships with the next release"
               className="ml-auto flex h-7 cursor-default items-center rounded-[7px] border border-dashed border-[var(--rb-border-2)] px-3 text-[12px] font-medium text-fg-3"
@@ -400,6 +417,15 @@ export function CompetitorsScreen() {
             </span>
           )}
         </div>
+
+        {removeError && (
+          <div
+            role="alert"
+            className="border-b border-[var(--rb-border-1)] bg-[var(--rb-red-500)]/5 px-5 py-2.5 text-[12px] text-[var(--rb-red-500)]"
+          >
+            {removeError}
+          </div>
+        )}
 
         {/* Illustrative data notice (only while migration 016 is pending) */}
         {hasIllustrative && (
@@ -412,6 +438,12 @@ export function CompetitorsScreen() {
 
         {isLoading ? (
           <div className="px-5 py-8 text-center text-[13px] text-fg-3">Loading…</div>
+        ) : isError ? (
+          <LoadErrorState
+            subject="competitor ratings"
+            onRetry={() => void refetch()}
+            retrying={isFetching}
+          />
         ) : canAdd && competitors.length === 0 ? (
           <div className="flex flex-col items-center gap-3 px-5 py-14 text-center">
             <p className="text-[14px] font-semibold text-fg-1">No competitors tracked yet</p>
