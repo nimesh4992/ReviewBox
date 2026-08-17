@@ -282,14 +282,23 @@ export async function POST(request: NextRequest) {
     // Syncs are serialised per workspace (lib/sync-lock.ts). If another run
     // already holds the lock it may have loaded the workspace's app list a
     // moment BEFORE this app was inserted, so it won't cover the new app — and
-    // a declined sync would leave it empty until the daily cron. Retry a
-    // couple of times, spaced so the whole loop stays comfortably inside
-    // maxDuration = 60 even when the final attempt has a full sync to run.
+    // a declined sync would leave it empty until the daily cron. So retry.
     //
     // This is only needed here: the onboarding routes sync a workspace that is
     // seconds old, so nothing else can be holding its lock.
-    const RETRY_DELAY_MS = 12_000;
-    for (let attempt = 0; attempt < 3; attempt++) {
+    //
+    // Budgeted rather than a fixed number of attempts. `after()` work counts
+    // against maxDuration = 60, and a retry that starts with too little left is
+    // worse than not retrying: it gets frozen mid-sync, having already stamped
+    // last_sync_attempted_at, which shows the customer "sync attempted but no
+    // result recorded". Only start an attempt with a full sync's worth of
+    // budget left; otherwise stand down and leave the app for the next trigger,
+    // which still sees it as never-synced.
+    const RETRY_DELAY_MS   = 10_000;
+    const SYNC_BUDGET_MS   = 35_000;  // room for one full sync
+    const DEADLINE         = Date.now() + 55_000;
+
+    for (;;) {
       try {
         const summary = await syncWorkspace(workspaceId);
         if (!summary.skipped) return;
@@ -297,7 +306,9 @@ export async function POST(request: NextRequest) {
         console.error("[apps] first sync failed:", err);
         return;
       }
-      if (attempt < 2) await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
+
+      if (Date.now() + RETRY_DELAY_MS + SYNC_BUDGET_MS > DEADLINE) break;
+      await new Promise((r) => setTimeout(r, RETRY_DELAY_MS));
     }
     console.warn("[apps] first sync skipped — another sync held the lock; the daily cron will pick it up");
   });
