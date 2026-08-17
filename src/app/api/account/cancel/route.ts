@@ -4,7 +4,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { audit } from "@/lib/audit";
 import { rateLimit } from "@/lib/api-rate-limit";
-import { apiError, captureAndError } from "@/lib/api-response";
+import { apiError, migrationPendingError, captureAndError } from "@/lib/api-response";
 
 /**
  * POST /api/account/cancel
@@ -54,6 +54,10 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .eq("id", workspaceId);
 
     if (error) {
+      // Never drop `deleted_at` and continue: the account would stay live
+      // while this route reported it cancelled.
+      const pending = migrationPendingError(error, "Cancelling your account");
+      if (pending) return pending;
       console.error("[account/cancel] update:", error);
       return apiError("INTERNAL_SERVER_ERROR", 500);
     }

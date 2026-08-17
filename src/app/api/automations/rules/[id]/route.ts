@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
-import { apiError } from "@/lib/api-response";
+import { apiError, migrationPendingError } from "@/lib/api-response";
 import { isNoRowsError } from "@/lib/db-errors";
 import { audit } from "@/lib/audit";
 import {
@@ -81,6 +81,8 @@ export async function PATCH(
   if (isNoRowsError(error) || !data) return apiError("NOT_FOUND", 404);
 
   if (error) {
+    const pending = migrationPendingError(error, "Saving this automation rule");
+    if (pending) return pending;
     console.error("automations/rules PATCH error:", error);
     return apiError("INTERNAL_SERVER_ERROR", 500);
   }

@@ -1,7 +1,7 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId, isWorkspaceAdmin } from "@/lib/supabase-server";
-import { apiError } from "@/lib/api-response";
+import { apiError, migrationPendingError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
 import { bustWorkspaceDerivedCaches } from "@/lib/cache-bust";
 
@@ -144,6 +144,10 @@ export async function DELETE(
     .is("deleted_at", null); // idempotent — don't clobber existing delete timestamp
 
   if (error) {
+    // `deleted_at` IS the delete. Dropping it would leave the app connected,
+    // still counted against the plan's app limit, while the UI says it's gone.
+    const pending = migrationPendingError(error, "Disconnecting this app");
+    if (pending) return pending;
     console.error("[apps] delete failed:", { appId, code: error.code, message: error.message });
     return apiError("INTERNAL_SERVER_ERROR", 500);
   }

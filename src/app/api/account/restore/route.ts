@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { audit } from "@/lib/audit";
-import { apiError, captureAndError } from "@/lib/api-response";
+import { apiError, migrationPendingError, captureAndError } from "@/lib/api-response";
 
 /**
  * POST /api/account/restore
@@ -48,6 +48,8 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       .eq("id", workspace.id);
 
     if (error) {
+      const pending = migrationPendingError(error, "Restoring your account");
+      if (pending) return pending;
       console.error("[account/restore] update:", error);
       return apiError("INTERNAL_SERVER_ERROR", 500);
     }

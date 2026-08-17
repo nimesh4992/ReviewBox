@@ -19,6 +19,7 @@ import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { buildJWT, fetchAppStoreId } from "@/services/app-store/connect-api";
 import { fetchReviews as fetchGooglePlayReviews } from "@/services/google-play/publisher-api";
 import { rateLimit } from "@/lib/api-rate-limit";
+import { isMissingColumnError } from "@/lib/db-errors";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -92,12 +93,33 @@ export async function POST(
         .update({ last_sync_status: "credentials_verified", last_sync_error: null })
         .eq("id", appId);
       // Durable connection flag for the "connect Play Console" banner.
-      // Separate statement so a pending migration 016 (42703) can't void
-      // the status update above.
-      await sb
+      // Separate statement so a pending migration 016 can't void the status
+      // update above — but NOT unchecked: this flag is what the whole route
+      // exists to set. Losing it means the customer passes the connection test
+      // and still sees "connect your Play Console" forever, with the test
+      // cheerfully reporting success every time they retry.
+      const { error: flagErr } = await sb
         .from("apps")
         .update({ publisher_api_connected: true })
         .eq("id", appId);
+
+      if (flagErr) {
+        // This route answers in its own {ok, message} shape, so report the
+        // failure that way rather than switching envelopes mid-route — the
+        // Settings dialog renders `message` verbatim and would show nothing
+        // for an apiError() body.
+        console.error("[apps/test-credentials] publisher_api_connected:", flagErr);
+        return NextResponse.json(
+          {
+            ok: false,
+            message: isMissingColumnError(flagErr)
+              ? "Your credentials are valid, but we couldn't record the connection — the database is missing an update. Try again shortly; if it persists, contact support."
+              : "Your credentials are valid, but we couldn't save the connection. Please try again.",
+            verifiedAt,
+          },
+          { status: 200 },
+        );
+      }
       return NextResponse.json(
         {
           ok: true,

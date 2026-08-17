@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
-import { apiError } from "@/lib/api-response";
+import { apiError, migrationPendingError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
 import type { AutomationAction, AutomationCondition } from "@/types/review";
 import {
@@ -100,6 +100,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .single();
 
   if (error) {
+    // `action_label` arrives from migration 020. Dropping it would store a
+    // rule the Automations list renders with a blank action — a rule that
+    // exists, runs, and cannot be read.
+    const pending = migrationPendingError(error, "Creating this automation rule");
+    if (pending) return pending;
     console.error("automations/rules POST error:", error);
     return apiError("INTERNAL_SERVER_ERROR", 500);
   }

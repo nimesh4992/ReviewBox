@@ -3,7 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { defer } from "@/lib/defer";
 import { audit } from "@/lib/audit";
-import { apiError } from "@/lib/api-response";
+import { apiError, migrationPendingError } from "@/lib/api-response";
 import { rateLimit } from "@/lib/api-rate-limit";
 
 export const dynamic = "force-dynamic";
@@ -47,11 +47,23 @@ export async function DELETE(req: NextRequest): Promise<NextResponse> {
   // Delete the workspace_slack row
   await sb.from("workspace_slack").delete().eq("workspace_id", workspaceId);
 
-  // Clear the webhook URL so notifications stop
-  await sb
+  // Clear the webhook URL so notifications stop.
+  //
+  // Checked, for the same reason the CONNECT side is (Wave 6 / M-8): this
+  // column is the only thing notifySlack() reads. If the clear silently fails,
+  // Settings shows Slack as disconnected and alerts keep arriving — a customer
+  // who disconnected because the noise was unwanted has no way to make it stop.
+  const { error: clearErr } = await sb
     .from("workspaces")
     .update({ slack_webhook_url: null })
     .eq("id", workspaceId);
+
+  if (clearErr) {
+    const pending = migrationPendingError(clearErr, "Disconnecting Slack");
+    if (pending) return pending;
+    console.error("[settings/slack] clear webhook url:", clearErr);
+    return apiError("INTERNAL_SERVER_ERROR", 500);
+  }
 
   await audit({
     workspaceId,

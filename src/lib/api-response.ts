@@ -1,6 +1,8 @@
 import * as Sentry from "@sentry/nextjs";
 import { NextResponse } from "next/server";
 
+import { isMissingColumnError, missingColumnName, type DbError } from "@/lib/db-errors";
+
 /**
  * Canonical error codes returned from API routes.
  * Clients should switch on `error.code`, never on `error.message`.
@@ -57,6 +59,55 @@ export function apiError(
   return NextResponse.json(
     { error: { code, message: message ?? defaultMessage(code) } },
     { status },
+  );
+}
+
+/**
+ * A database write failed. If the cause was a column the schema doesn't have,
+ * return an accurate 503; otherwise return null so the caller falls through to
+ * whatever it already did.
+ *
+ * ── Why this is not `writeWithOptionalColumns` ───────────────────────────────
+ *
+ * There are two honest responses to "this column isn't available", and picking
+ * the wrong one is worse than doing nothing:
+ *
+ *   - **Drop the column and carry on** — correct when the column is enrichment.
+ *     A synced app is still a synced app without `store_country`. That is what
+ *     `writeWithOptionalColumns()` is for.
+ *   - **Fail, and say why** — correct when the column IS the write. Dropping
+ *     `deleted_at` from "cancel my account" leaves the account live while the
+ *     UI says it's gone; dropping `slack_webhook_url` from "connect Slack"
+ *     produces a green badge that never delivers an alert. Silently succeeding
+ *     at nothing is the exact failure this codebase keeps having to remove.
+ *
+ * So most writes belong here, not in `writeWithOptionalColumns`. Blanket
+ * wrapping every write in the retry helper would convert a loud failure into a
+ * silent no-op across half the product.
+ *
+ * The message avoids naming the column: PGRST204 also fires when the column
+ * EXISTS but PostgREST hasn't reloaded its schema cache since the migration,
+ * which resolves on its own. The column name goes to the server log, where
+ * whoever is debugging can act on it.
+ *
+ * @param feature Sentence-initial description of what the user was doing, e.g.
+ *                "Cancelling your account".
+ */
+export function migrationPendingError(
+  error: DbError,
+  feature: string,
+): NextResponse<ApiErrorBody> | null {
+  if (!isMissingColumnError(error)) return null;
+
+  console.error(
+    `[migration-pending] ${feature}: column "${missingColumnName(error) ?? "unknown"}" is not in the schema`,
+    error,
+  );
+
+  return apiError(
+    "MIGRATION_PENDING",
+    503,
+    `${feature} needs a database update that hasn't been applied yet. If one was just applied, this clears by itself once the schema cache reloads.`,
   );
 }
 

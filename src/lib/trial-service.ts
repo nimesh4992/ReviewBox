@@ -133,8 +133,16 @@ export async function extendTrial(
     .eq("id", workspaceId);
 
   if (error) {
+    // trial_ends_at / trial_extensions_used / trial_ended_at come from
+    // migrations 022-023 and ARE the extension. A dropped write here would
+    // report the trial extended while it carries on expiring on the old date.
     console.error("[trial] extend failed:", error);
-    return { ok: false, reason: "Something went wrong on our end. Try again in a moment." };
+    return {
+      ok: false,
+      reason: isMissingColumnError(error)
+        ? "Trial extension needs a database update that hasn't been applied yet."
+        : "Something went wrong on our end. Try again in a moment.",
+    };
   }
 
   return { ok: true, newEndsAt: decision.newEndsAt! };
