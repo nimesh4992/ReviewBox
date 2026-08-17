@@ -834,6 +834,22 @@ workflow level to remove the duplication.
   - Weekly digest cron now processes workspaces in parallel batches of 10
   - `/api/health` actually pings Supabase, returns 503 on failure
 
+**DB migrations applied 2026-08-17** (founder ran, verified by query):
+- `025_plan_vocabulary_reconcile` — constraint now allows `free`…`canceled`
+- `026_drop_superseded_alert_columns` — the four dead `alert_preferences` columns are gone
+- `027_rls_identity_reconcile` — verified: **zero** policies mention `auth.uid()`
+- `028_tenant_columns_not_null` — verified: all nine tenant columns report `is_nullable = NO`
+- `029_repair_blank_replies` — Section A ran; **the diagnostic returned zero rows**, so
+  no review was ever stored as `replied` with blank text. Nothing needed repairing and
+  Section B is moot. Don't re-run it looking for something to fix.
+
+All 12 insert/upsert sites on the tables 028 constrains were checked to set
+`workspace_id` before it was applied. A new insert path on `apps`, `reviews`,
+`automation_rules`, `reply_templates`, `knowledge_base`, `ai_usage`, `incidents`
+or `alert_preferences` that omits `workspace_id` (or `reviews.app_id`) will now
+fail at the database instead of silently creating a tenant-less row — that is
+the point, but it means the error is a bug in the new code, not in the schema.
+
 **DB migration applied 2026-05-21** (founder ran):
 - `supabase/migrations/007_aso_keywords.sql` (correct schema: `volume_estimate INT`, `trend_data INT[]`, `added_at`, `updated_at`)
 - `automation_rules.action_label TEXT` column
