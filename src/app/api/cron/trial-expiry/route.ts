@@ -17,6 +17,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
+import * as Sentry from "@sentry/nextjs";
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { isMissingColumnError } from "@/lib/db-errors";
@@ -120,6 +121,29 @@ async function handler(req: NextRequest): Promise<NextResponse> {
     } catch (err) {
       summary.errors.push(`${workspaceId}: ${err instanceof Error ? err.message : String(err)}`);
     }
+  }
+
+  // Failures must be loud.
+  //
+  // Every downgrade in this loop was rejected by Postgres (23514) for months —
+  // `free` was not in the workspaces_plan_check constraint (fixed by migration
+  // 025) — and nobody noticed, because the only record of it was this array,
+  // returned in a cron response body that nothing reads. A cron that reports
+  // "complete" while having changed nothing is the same silent-success failure
+  // this codebase has now been bitten by three times.
+  if (summary.errors.length) {
+    console.error(
+      `[trial-expiry] ${summary.errors.length}/${summary.scanned} downgrades FAILED:`,
+      summary.errors,
+    );
+    Sentry.captureException(
+      new Error(`trial-expiry: ${summary.errors.length} of ${summary.scanned} downgrades failed`),
+      {
+        level: "error",
+        tags: { route: "cron/trial-expiry" },
+        extra: { errors: summary.errors.slice(0, 20), scanned: summary.scanned, downgraded: summary.downgraded },
+      },
+    );
   }
 
   return NextResponse.json({ message: "Trial expiry complete", ...summary });

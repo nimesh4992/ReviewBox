@@ -12,6 +12,7 @@
 
 import { auth, clerkClient } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse, after } from "next/server";
+import * as Sentry from "@sentry/nextjs";
 
 import { getServiceClient } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
@@ -315,8 +316,27 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         storeId,
       });
       if (eligibility.previouslyClaimed) {
-        await sb.from("workspaces").update({ plan: eligibility.plan }).eq("id", workspaceId);
-        trialGranted = false;
+        // Checked, not fire-and-forget. This write was rejected by the
+        // workspaces_plan_check constraint on every attempt until migration
+        // 025 (it writes `free`, which the constraint did not allow), and
+        // because the result was never inspected the downgrade silently
+        // no-opped: the workspace kept a full trial and `trialGranted` was
+        // set to false anyway, so the UI reported the opposite of what
+        // happened. A failure here must not be silent again.
+        const downgrade = await sb
+          .from("workspaces")
+          .update({ plan: eligibility.plan })
+          .eq("id", workspaceId);
+
+        if (downgrade.error) {
+          console.error("[onboarding/setup] trial-abuse downgrade failed:", downgrade.error);
+          Sentry.captureException(downgrade.error, {
+            tags: { route: "onboarding/setup", op: "trial_downgrade" },
+            extra: { workspaceId, targetPlan: eligibility.plan },
+          });
+        } else {
+          trialGranted = false;
+        }
       }
     }
     appId = appInsert.data!.id as string;

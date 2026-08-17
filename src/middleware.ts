@@ -1,6 +1,8 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
+import { isEntitledPlan } from "@/lib/plans";
+
 const APP_HOST    = "app.tryreviewbox.com";
 const MARKETING_HOST = "tryreviewbox.com";
 
@@ -237,18 +239,12 @@ export default clerkMiddleware(async (auth, request) => {
 
   // Entitlement gate for billed routes.
   //
-  // "trial" MUST be entitled. Onboarding stamps every new user with
-  // plan: "trial", and the billed set covers /api/reply(.*) — the AI draft
-  // endpoint that is the product's core value. Gating it to paid-only meant
-  // every trial user was bounced off the one feature the trial exists to
-  // demonstrate, with no way to pay for it (Stripe is deferred, D013).
-  // Expiry of that trial is enforced by the check directly above.
-  // "team" is gone from the lineup (lib/plans.ts) and could never have been
-  // sold — it's removed here too. "enterprise" is quote-only and assigned by
-  // hand, so it MUST entitle: a customer who signed a contract cannot be the
-  // one plan locked out of the features they bought.
-  const entitledPlans = new Set(["trial", "starter", "pro", "enterprise"]);
-  if (isBilledRoute(request) && !entitledPlans.has(plan)) {
+  // The set itself lives in lib/plans.ts (ENTITLED_PLANS), typed against the
+  // plan vocabulary, so adding or renaming a tier can't silently leave this
+  // gate behind. It used to be a bare string literal Set here — the one
+  // untyped copy that, if missed when a tier was added, would lock a paying
+  // customer out of every billed route with nothing in CI to catch it.
+  if (isBilledRoute(request) && !isEntitledPlan(plan)) {
     return billingBlock("PLAN_REQUIRED", "This feature requires an active plan.", { required: "1" });
   }
 

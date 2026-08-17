@@ -1,6 +1,19 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { join } from "node:path";
+
 import { describe, expect, it } from "vitest";
 
-import { PAID_PLANS, PLAN_LIMITS, PLAN_PRICING, type PlanName } from "./plans";
+import {
+  ENTITLED_PLANS,
+  PAID_PLANS,
+  PLAN_AFTER_TRIAL,
+  PLAN_LIMITS,
+  PLAN_PRICING,
+  WORKSPACE_PLANS,
+  isEntitledPlan,
+  isWorkspacePlan,
+  type PlanName,
+} from "./plans";
 
 describe("PLAN_LIMITS", () => {
   it("defines every plan tier, including trial", () => {
@@ -72,6 +85,94 @@ describe("PLAN_LIMITS", () => {
 
   it("free plan caps at 1 app", () => {
     expect(PLAN_LIMITS.free.appsMax).toBe(1);
+  });
+});
+
+/**
+ * The regression guard for C-1 (docs/adr/008-plan-vocabulary.md).
+ *
+ * `workspaces.plan` carried a CHECK constraint that allowed neither `free` nor
+ * `enterprise`, while the application wrote both. Every trial-expiry downgrade
+ * and every trial-abuse downgrade was rejected by Postgres for months, so no
+ * trial ever ended — and nothing caught it, because TypeScript cannot see a
+ * SQL constraint and the unit suite asserted only the TypeScript side.
+ *
+ * This block closes that gap by reading the migration itself. If the SQL and
+ * WORKSPACE_PLANS ever disagree again, `npm run test` fails — which is the one
+ * gate this project's autopilot actually relies on (D000).
+ */
+describe("workspaces.plan constraint matches the app vocabulary", () => {
+  const MIGRATIONS_DIR = join(process.cwd(), "supabase", "migrations");
+
+  /** The plan list from the LAST migration that (re)defines the constraint. */
+  function constraintPlansFromMigrations(): string[] {
+    const files = readdirSync(MIGRATIONS_DIR).filter((f) => f.endsWith(".sql")).sort();
+
+    let latest: string[] | null = null;
+    for (const file of files) {
+      const sql = readFileSync(join(MIGRATIONS_DIR, file), "utf8");
+      // Match the CHECK that belongs to the constraint being added, not the
+      // `update ... where plan = 'team'` data fix that may sit above it.
+      const match = sql.match(
+        /add\s+constraint\s+workspaces_plan_check\s+check\s*\(\s*plan\s+in\s*\(([^)]*)\)/i,
+      );
+      if (match) {
+        latest = [...match[1].matchAll(/'([^']+)'/g)].map((m) => m[1]);
+      }
+    }
+    return latest ?? [];
+  }
+
+  it("finds the constraint in the migrations", () => {
+    expect(constraintPlansFromMigrations().length).toBeGreaterThan(0);
+  });
+
+  it("allows exactly the values the application can write", () => {
+    expect([...constraintPlansFromMigrations()].sort()).toEqual([...WORKSPACE_PLANS].sort());
+  });
+
+  it("can store the plan an expired trial drops to", () => {
+    // The exact write the cron performs every day. Rejected for months.
+    expect(constraintPlansFromMigrations()).toContain(PLAN_AFTER_TRIAL);
+  });
+
+  it("can store every tier that has limits", () => {
+    const allowed = constraintPlansFromMigrations();
+    for (const name of Object.keys(PLAN_LIMITS)) {
+      expect(allowed).toContain(name);
+    }
+  });
+
+  it("no longer carries the retired `team` tier", () => {
+    expect(constraintPlansFromMigrations()).not.toContain("team");
+    expect(Object.keys(PLAN_LIMITS)).not.toContain("team");
+  });
+});
+
+describe("plan vocabulary helpers", () => {
+  it("accepts every legal column value and rejects anything else", () => {
+    for (const p of WORKSPACE_PLANS) expect(isWorkspacePlan(p)).toBe(true);
+    expect(isWorkspacePlan("team")).toBe(false);
+    expect(isWorkspacePlan("")).toBe(false);
+    expect(isWorkspacePlan("PRO")).toBe(false);
+  });
+
+  it("entitles trial and every paid tier, but not free or lapsed billing states", () => {
+    // `trial` and `enterprise` are the two that have previously been broken by
+    // a hand-maintained copy of this list: trial users were bounced off the AI
+    // draft endpoint the trial exists to demonstrate, and enterprise (assigned
+    // by hand, no Stripe product) would have been locked out after signing.
+    expect(isEntitledPlan("trial")).toBe(true);
+    expect(isEntitledPlan("enterprise")).toBe(true);
+    for (const p of PAID_PLANS) expect(isEntitledPlan(p)).toBe(true);
+
+    expect(isEntitledPlan("free")).toBe(false);
+    expect(isEntitledPlan("past_due")).toBe(false);
+    expect(isEntitledPlan("canceled")).toBe(false);
+  });
+
+  it("only entitles plans that are storable in the column", () => {
+    for (const p of ENTITLED_PLANS) expect(isWorkspacePlan(p)).toBe(true);
   });
 });
 
