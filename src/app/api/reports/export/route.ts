@@ -18,22 +18,12 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { getLiveAppIds, scopeAppIds } from "@/lib/live-apps";
+import { exportFileName } from "@/lib/export-filename";
 import { apiError } from "@/lib/api-response";
 import { rateLimit } from "@/lib/api-rate-limit";
+import { escapeCsv, rowToCsv } from "@/lib/csv";
 
-function escapeCsv(value: unknown): string {
-  if (value === null || value === undefined) return "";
-  const str = String(value);
-  // Wrap in quotes if contains comma, newline, or double-quote
-  if (str.includes(",") || str.includes("\n") || str.includes('"')) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
-}
-
-function rowToCsv(cols: unknown[]): string {
-  return cols.map(escapeCsv).join(",");
-}
 
 const CSV_HEADERS = [
   "id",
@@ -75,21 +65,33 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
 
   const sb = getServiceClient();
 
-  // First: get total count matching filters (for X-Total-Count header)
+  // Live apps only, and a client appId honoured only when it is one of them —
+  // the same contract as /api/reviews. Without this the CSV silently included
+  // every deleted app's review bodies and reply text, and pasting a
+  // disconnected app's UUID exported its whole corpus.
+  const liveAppIds = await getLiveAppIds(sb, workspaceId);
+  if (liveAppIds === null) return apiError("INTERNAL_SERVER_ERROR", 500);
+  const scopedAppIds = scopeAppIds(liveAppIds, appId);
+
+  // First: get total count matching filters (for X-Total-Count header).
+  // Count and row queries MUST share the identical filter set or the
+  // `truncated` flag lies.
   let countQuery = sb
     .from("reviews")
     .select("id", { count: "exact", head: true })
-    .eq("workspace_id", workspaceId);
+    .eq("workspace_id", workspaceId)
+    .in("app_id", scopedAppIds);
 
   if (days !== "all") {
     const since = new Date(Date.now() - Number(days) * 24 * 60 * 60 * 1000).toISOString();
     countQuery = countQuery.gte("store_created_at", since);
   }
-  if (appId)    countQuery = countQuery.eq("app_id", appId);
   if (priority) countQuery = countQuery.eq("priority", priority);
   if (rating)   countQuery = countQuery.eq("rating", Number(rating));
 
-  const { count: totalMatching } = await countQuery;
+  const { count: totalMatching } = scopedAppIds.length
+    ? await countQuery
+    : { count: 0 };
 
   // Then: fetch up to 5000 rows for the actual export
   let query = sb
@@ -98,6 +100,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       "external_id, source, author, rating, sentiment, priority, reply_status, issue_tags, app_version, country, store_created_at, body, reply_text",
     )
     .eq("workspace_id", workspaceId)
+    .in("app_id", scopedAppIds)
     .order("store_created_at", { ascending: false })
     .limit(5000); // hard cap — no one needs more than 5K in one export
 
@@ -106,11 +109,14 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     query = query.gte("store_created_at", since);
   }
 
-  if (appId)    query = query.eq("app_id", appId);
   if (priority) query = query.eq("priority", priority);
   if (rating)   query = query.eq("rating", Number(rating));
 
-  const { data, error } = await query;
+  // An empty scope (no live apps, or an appId that isn't this workspace's)
+  // exports an empty file — never the whole workspace.
+  const { data, error } = scopedAppIds.length
+    ? await query
+    : { data: [], error: null };
 
   if (error) {
     console.error("[export]", error);
@@ -153,13 +159,27 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
   }
 
   const csv = lines.join("\n");
-  const date = new Date().toISOString().split("T")[0];
+
+  // Name the scope here too, not just in the client's download attribute —
+  // anything that follows this URL directly (curl, a link, the JSON path)
+  // gets the same self-describing filename. No column in the CSV says which
+  // app it covers.
+  let scopeName = "";
+  if (scopedAppIds.length === 1) {
+    const { data: scopedApp } = await sb
+      .from("apps")
+      .select("name")
+      .eq("id", scopedAppIds[0])
+      .maybeSingle();
+    scopeName = (scopedApp?.name as string | undefined) ?? "";
+  }
+  const filename = exportFileName(scopeName, scopeName ? scopedAppIds[0] : undefined);
 
   return new NextResponse(csv, {
     status: 200,
     headers: {
       "Content-Type":        "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="reviews-${date}.csv"`,
+      "Content-Disposition": `attachment; filename="${filename}"`,
       "Cache-Control":       "no-store",
       "X-Total-Count":       String(totalMatching ?? rows.length),
       "X-Returned-Count":    String(rows.length),

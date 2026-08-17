@@ -1,8 +1,11 @@
 import Link from "next/link";
 
 import { NewTicketForm } from "@/features/admin/components/new-ticket-form";
+import { requireAdminPage } from "@/lib/admin-auth";
 
-export default function AdminNewTicketPage() {
+export default async function AdminNewTicketPage() {
+  await requireAdminPage();
+
   return (
     <div>
       <Link href="/admin/tickets" className="text-xs text-gray-400 hover:text-gray-600">← Tickets</Link>

@@ -81,7 +81,7 @@ If any fails, fix before pushing. Never `--no-verify` your commits.
 The founder is a non-coder. Every PR description must:
 
 - **What changed:** 1–2 sentences in user language (not "refactored X" but "Users can now Y")
-- **How to test on Vercel preview:** numbered steps, plain English, <5 min total
+- **How to test (production, right after merge):** numbered steps, plain English, <5 min total — branch previews are disabled; only master builds
 - **What could break:** honest failure modes + mitigation each
 - **What's NOT covered:** scope limits + linked future backlog items
 - **How to undo:** rollback plan in 1 line

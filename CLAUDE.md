@@ -32,7 +32,7 @@ The founder is a non-coder. The product ships via this loop:
 4. **Tester agent** writes Vitest + Playwright tests for new logic
 5. **Reviewer agent** comments BLOCKER/NIT on the PR before founder merge
 6. CI on every PR (`.github/workflows/ci.yml`): build, type-check, lint, unit tests, e2e tests, security audit. Failure blocks the merge button
-7. Founder verifies on the Vercel preview using the plain-English "How to test" section of the PR template, then merges
+7. Founder merges once every CI check is green — **never on red; CI is the only pre-merge gate** (branch previews are disabled, see Known Issues) — then verifies behavior on production right after, using the plain-English "How to test" section of the PR template
 8. Vercel auto-deploys main to production. Founder gets ~60s to roll back via Vercel if needed
 
 Hard rules (`docs/decisions.md` D009):
@@ -613,9 +613,36 @@ master. If two branches touch this file, do the three-way merge locally
 (`git merge-file --diff3`), resolve by hand, and never merge a PR whose
 Build + type-check is red — the check being red IS the conflict detector.
 
+**2026-08-16 (later, the FIFTH dashboard mangling): PRs #90 and #91 both
+rewrote `PortfolioSparkline` in parallel.** The "Update branch" auto-merge
+fused the two function bodies (unclosed div, dead `tsc`), #91 was merged
+about a minute after opening — before CI could turn red — and every
+production deploy failed until the repair commit. Two lessons on top of the
+standing one: (a) with previews disabled there is no second net, wait for CI
+before merging; (b) if the dashboard hero/sparkline needs changing, check
+open PRs for a competing rewrite first. Note the strip note above is stale:
+since PR #88-era the canonical shape IS one `WorkspaceStatusStrip` rendered
+once (see the comment inside the component) — trust the in-file comment over
+this section when they disagree.
+
+**2026-08-17, the SIXTH: "Update branch" on PR #92.** Not two PRs racing this
+time — one PR pulling master in. Master had repaired the fifth mangling itself
+(`2ea42cc`) while #92 carried its own repair of the same broken base, so git
+fused two independent fixes for the SAME bug. Three checks went red.
+`src/lib/reply-cache.ts` fused the same way in the same merge: both sides had
+independently closed the cross-tenant cache leak.
+
+**The pattern to internalise: two fixes for one bug collide worse than two
+features.** Each side is green alone — that is precisely why nobody catches it
+until the merge. When a bug is being fixed on more than one branch, expect the
+merge to be manual, and check master for an existing repair before writing
+yours. Resolution rule that worked twice now: take ONE side's file whole,
+never hand-blend the two.
+
 ### Open PRs
 
-#86 (docs + reply/AI fixes). #73, #76–#85, #87, #88 are merged.
+#92 (security round, GDPR, tag/device/language work). #93 and #94 merged
+2026-08-17; #86, #73, #76–#85, #87, #88, #90, #91 are merged.
 
 ### ⚠️ Two error codes mean "column missing", not one
 
@@ -647,15 +674,36 @@ Likewise `last_sync_status`: `credentials_verified` is a **healthy** value, not
 a failure. `status !== "success"` marked an app broken the moment its
 connection was verified. Use `isSyncFailureStatus()`.
 
-### Known false alarm: "E2E tests (advisory)"
+### "E2E tests (advisory)" — no longer a false alarm (fixed by PR #94)
 
-This check fails on **every** commit on every branch, including ones that only
-touch documentation. CI runs with placeholder Clerk keys (`pk_test_ci-placeholder…`)
-which Clerk now rejects outright with `"Invalid host"`, so the error page is
-served for every route and even public smoke tests (landing, pricing, legal)
-fail. It is not a signal about your change. Fixing it needs a real Clerk test
-instance and its keys added as repo secrets — founder action, ~10 min. Do not
-silence the check to make it green.
+**This check now passes, and a failure is a real signal about your change.**
+Treat it as one.
+
+It used to fail on every commit on every branch, including documentation-only
+ones: CI ran with `pk_test_ci-placeholder`, which Clerk rejects with
+`"Invalid host"`, so every route served the error page and even the public
+smoke tests (landing, pricing, legal) failed. PR #94 replaced it with a
+**structurally valid** placeholder — Clerk base64-decodes the publishable key
+to find the frontend API domain, so it has to decode, not merely look like a
+key. `pk_test_Y2ktcGxhY2Vob2xkZXIuY2xlcmsuYWNjb3VudHMuZGV2JA==` decodes to
+`ci-placeholder.clerk.accounts.dev$`. No real Clerk test instance was needed
+after all. First observed green on PR #92, 2026-08-17.
+
+⚠️ **The same PR fixed a far more serious bug — read this before touching
+`ci.yml`.** Those placeholders used to sit in a workflow-level `env:` block,
+which applies to *every* job including `deploy-production`. `NEXT_PUBLIC_*`
+values are inlined into the browser bundle at **build** time, and a variable
+already in the process environment beats whatever `vercel pull` writes to
+`.vercel/.env.production.local`. So `vercel build --prod` compiled the real
+production bundle with the CI placeholder Clerk key, and every page on
+app.tryreviewbox.com answered `{"errors":[{"message":"Invalid host"}]}` —
+while the deploy job reported **success**, because it deployed exactly what it
+was told to.
+
+**Rule: any job that deploys must inherit no build-time app config from CI.**
+Placeholders belong only to jobs that compile or run the app for tests, which
+is why each such job now carries its own copy. Never hoist them back up to the
+workflow level to remove the duplication.
 
 ### Design-system notes
 
@@ -792,6 +840,29 @@ silence the check to make it green.
 ---
 
 ## Known Issues (read before debugging)
+
+### ⚠️ Branch/preview deployments are intentionally DISABLED (2026-08-16, founder decision)
+
+`vercel.json` carries an `ignoreCommand` that skips the build for every git
+ref except `master`. Only master builds, straight to production. Why:
+
+- Clerk isn't configured for preview URLs (backlog **LT2**), so previews could
+  not be signed into and every fix was verified on production anyway.
+- Preview builds queued ahead of production builds on the Hobby plan and
+  spammed PRs with bot comments.
+- Preview deployments were the fail-open risk surface flagged in
+  `docs/ROLE_AUDIT.md` #6 (sync route authorizes when `CRON_SECRET` is unset
+  outside production).
+
+Consequences to respect:
+- **CI green is the ONLY pre-merge gate. Never merge a PR while Build +
+  type-check is red** — the red check is the conflict detector (see the
+  dashboard-corruption warning above; #91 shipped a broken master exactly
+  this way).
+- The rollback lever is unchanged: Vercel → Deployments → previous green →
+  Promote to Production.
+- To re-enable previews: remove `ignoreCommand` from `vercel.json` AND do LT2
+  first, or previews stay un-testable.
 
 ### ⚠️ Vercel Hobby plan: cron jobs MUST be daily-or-less-frequent
 

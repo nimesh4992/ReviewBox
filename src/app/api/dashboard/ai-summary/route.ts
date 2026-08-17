@@ -33,11 +33,48 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
       return apiError("RATE_LIMITED", 429, "Too many refreshes. Try again later.");
     }
 
-    const redis = getRedis();
-    const cacheKey = `ai_summary_text:${workspaceId}`;
+    // Scope to the workspace's LIVE apps — and, when the sidebar has one app
+    // selected, to that app alone. Same contract as /api/reviews and
+    // /api/dashboard/metrics: a client appId is only honoured if it belongs to
+    // this workspace. The live-apps filter also stops the summary reading
+    // reviews left behind by a deleted app, which every other review query
+    // already excludes.
+    const sb = getServiceClient();
+    const { data: liveApps, error: appsError } = await sb
+      .from("apps")
+      .select("id")
+      .eq("workspace_id", workspaceId)
+      .is("deleted_at", null);
 
-    // Check Redis cache first
-    if (redis) {
+    if (appsError) {
+      return captureAndError(appsError, "GET /api/dashboard/ai-summary (apps)");
+    }
+
+    let liveAppIds = (liveApps ?? []).map((a) => a.id as string);
+    const appId = req.nextUrl.searchParams.get("appId")?.trim() || undefined;
+    if (appId) {
+      if (!liveAppIds.includes(appId)) {
+        return NextResponse.json({
+          summary: "Not enough recent review data to generate a summary.",
+          reviewCount: 0,
+          generatedAt: new Date().toISOString(),
+          cached: false,
+        });
+      }
+      liveAppIds = [appId];
+    }
+
+    const redis = getRedis();
+    // Scope is part of the key — a summary of one app must never be served
+    // for another app (or for the all-apps view) out of the hour-long cache.
+    const cacheKey = `ai_summary_text:${workspaceId}:${appId ?? "all"}`;
+
+    // Check Redis cache first — unless the user explicitly asked to refresh.
+    // The panel's Refresh button returned the identical cached payload for a
+    // full hour: the spinner turned and "Updated N minutes ago" never moved.
+    // The 10/hour rate limit above already bounds the cost of a real refresh.
+    const forceRefresh = req.nextUrl.searchParams.get("refresh") === "1";
+    if (redis && !forceRefresh) {
       const cached = await redis.get<{
         summary: string;
         reviewCount: number;
@@ -50,11 +87,11 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     }
 
     // Fetch last 50 review bodies from Supabase
-    const sb = getServiceClient();
     const { data: reviews, error: reviewsError } = await sb
       .from("reviews")
       .select("body, rating, created_at")
       .eq("workspace_id", workspaceId)
+      .in("app_id", liveAppIds)
       .order("created_at", { ascending: false })
       .limit(50);
 

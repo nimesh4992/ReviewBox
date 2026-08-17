@@ -51,10 +51,12 @@ export function SlackIntegration() {
       // Paste-URL mode: load saved webhook from workspace settings
       fetch("/api/settings/workspace")
         .then((r) => r.json())
-        .then((d: { slackWebhookUrl?: string | null }) => {
-          const url = d.slackWebhookUrl ?? null;
-          setSaved(url);
-          setWebhookUrl(url ?? "");
+        .then((d: { slackWebhookConfigured?: boolean; slackWebhookHint?: string | null }) => {
+          // The saved URL is deliberately not returned by the API — it is a
+          // bearer secret. We show that one is configured and a tail hint;
+          // changing it requires pasting a new URL in full.
+          setSaved(d.slackWebhookConfigured ? (d.slackWebhookHint ?? "configured") : null);
+          setWebhookUrl("");
         })
         .catch(() => undefined)
         .finally(() => setLoading(false));
@@ -161,7 +163,11 @@ export function SlackIntegration() {
   }
 
   const isConnectedViaUrl = !!saved;
-  const isDirty           = webhookUrl.trim() !== (saved ?? "");
+  // `saved` is a masked hint now, not the URL, so it cannot be compared against
+  // the input. There is something to save exactly when the field has content —
+  // which is also the correct rule for rotating a secret you can no longer read
+  // back.
+  const isDirty           = webhookUrl.trim().length > 0;
 
   return (
     <div className="rounded-[14px] border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">

@@ -5,11 +5,18 @@ import type { IncidentAlert, IncidentStatus } from "@/types/review";
 
 // ── List ──────────────────────────────────────────────────────────────────────
 
-export function useIncidents() {
+/**
+ * @param appId Scope to one app (sidebar selector, via `resolveSelectedApp`).
+ *              Workspace-level incidents — those with no app — are always
+ *              included. Undefined = every live app.
+ */
+export function useIncidents(appId?: string) {
   return useQuery<IncidentAlert[]>({
-    queryKey: ["incidents"],
+    // appId in the key: without it, switching apps served the previous app's
+    // incidents from cache.
+    queryKey: ["incidents", appId ?? "all"],
     queryFn: async () => {
-      const res = await fetch("/api/incidents");
+      const res = await fetch(`/api/incidents${appId ? `?appId=${encodeURIComponent(appId)}` : ""}`);
       if (!res.ok) throw new Error("Failed to fetch incidents");
       const json = (await res.json()) as { incidents?: ApiIncident[] };
       return (json.incidents ?? []).map(mapRow);
@@ -25,6 +32,8 @@ export interface CreateIncidentInput {
   description?: string;
   severity:     "critical" | "high" | "medium";
   appName?:     string;
+  /** Which app this incident is about; omitted = workspace-level. */
+  appId?:       string;
 }
 
 export function useCreateIncident() {

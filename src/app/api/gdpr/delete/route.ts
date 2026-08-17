@@ -101,6 +101,46 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       });
     }
 
+    // Support tickets do NOT cascade — migration 017 deliberately uses
+    // `on delete set null` so support history survives a workspace deletion.
+    // That is a reasonable operational choice and a direct conflict with an
+    // erasure request, because those rows hold requester_email,
+    // requester_name, requester_clerk_id and the full text of what the person
+    // wrote to us. Cascading instead would destroy the history the schema
+    // deliberately keeps.
+    //
+    // So the person is removed and the ticket shell stays: the standard
+    // resolution when there is a legitimate reason to retain the record but no
+    // reason to retain the identity. Counts and timelines still work; nothing
+    // in the row points at a human any more.
+    const { data: doomedTickets } = await sb
+      .from("support_tickets")
+      .select("id")
+      .eq("workspace_id", workspaceId);
+
+    const ticketIds = ((doomedTickets ?? []) as { id: string }[]).map((t) => t.id);
+
+    if (ticketIds.length) {
+      const { error: anonError } = await sb
+        .from("support_tickets")
+        .update({
+          requester_email:    "deleted@gdpr.invalid",
+          requester_name:     null,
+          requester_clerk_id: null,
+          subject:            "[deleted at user request]",
+        })
+        .in("id", ticketIds);
+      if (anonError) console.error("[gdpr/delete] ticket anonymisation:", anonError);
+
+      // The message bodies are the person's own words and carry no retention
+      // interest of their own, so they go entirely.
+      const { error: msgError } = await sb
+        .from("support_ticket_messages")
+        .delete()
+        .in("ticket_id", ticketIds);
+      if (msgError) console.error("[gdpr/delete] ticket messages:", msgError);
+    }
+
     const { error: deleteError } = await sb
       .from("workspaces")
       .delete()

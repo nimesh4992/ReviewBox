@@ -8,6 +8,7 @@ import { getServiceClient } from "@/lib/supabase-server";
 import { isMissingColumnError } from "@/lib/db-errors";
 import { cn } from "@/lib/utils";
 import type { SupportTicket } from "@/types/review";
+import { requireAdminPage } from "@/lib/admin-auth";
 
 const UUID_SHAPE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -55,6 +56,7 @@ export default async function AdminCustomerDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
+  await requireAdminPage();
   const { id } = await params;
   if (!UUID_SHAPE.test(id)) notFound();
 

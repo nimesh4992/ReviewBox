@@ -135,7 +135,7 @@ sentiment scoring, and enrichment idempotency.
 - `src/lib/rules-engine.ts`: 0% → 78%
 - Overall: 12% → 15%
 
-## How to test on Vercel preview
+## How to test (production, right after merge)
 N/A (test-only change; no user-facing behavior)
 
 ## What could break

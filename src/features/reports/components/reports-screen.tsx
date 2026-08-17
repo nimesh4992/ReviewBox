@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useWorkspaceStore } from "@/store/use-workspace-store";
 import { useApps } from "@/hooks/use-apps";
 import { resolveSelectedApp } from "@/lib/selected-app";
+import { exportFileName } from "@/lib/export-filename";
 
 interface Report {
   id:          string;
@@ -62,7 +63,15 @@ const REPORTS: Report[] = [
   },
 ];
 
-function ReportCard({ report }: { report: Report }) {
+function ReportCard({
+  report,
+  appId,
+  appName,
+}: {
+  report: Report;
+  appId?: string;
+  appName: string;
+}) {
   const [running,    setRunning]    = useState(false);
   const [runResult,  setRunResult]  = useState<"ok" | "err" | null>(null);
   const [runMessage, setRunMessage] = useState<string | null>(null);
@@ -76,14 +85,19 @@ function ReportCard({ report }: { report: Report }) {
       const res = await fetch("/api/reports/send-now", {
         method:  "POST",
         headers: { "Content-Type": "application/json" },
-        body:    JSON.stringify({ report: report.id }),
+        // Send the report for what this screen says it is showing. The
+        // header prints the selected app's name, but the email was computed
+        // over the whole workspace and titled with an arbitrary app's name.
+        body:    JSON.stringify({ report: report.id, appId }),
       });
       const data = (await res.json().catch(() => null)) as
         | { sent?: boolean; message?: string; error?: { message?: string } }
         | null;
       if (res.ok && data?.sent) {
         setRunResult("ok");
-        setRunMessage("Sent — check your inbox");
+        // Name the scope: the same button sends a different email depending
+        // on the sidebar selection, and the two are easy to confuse later.
+        setRunMessage(`Sent ${appId ? appName : "all apps"} — check your inbox`);
       } else if (res.ok && data?.message) {
         // No data to send is a fine outcome, not an error
         setRunResult("ok");
@@ -181,14 +195,16 @@ const EXPORT_RANGES = [
   { label: "All time",     value: "all" },
 ];
 
-function CsvExportCard() {
+function CsvExportCard({ appId, appName }: { appId?: string; appName: string }) {
   const [days,        setDays]        = useState<string>("30");
   const [downloading, setDownloading] = useState(false);
 
   async function handleExport() {
     setDownloading(true);
     try {
-      const url = `/api/reports/export?days=${days}`;
+      // The export route has always accepted appId; this screen simply never
+      // sent it, so the CSV ignored the app whose name is in the header.
+      const url = `/api/reports/export?days=${days}${appId ? `&appId=${encodeURIComponent(appId)}` : ""}`;
       const res = await fetch(url);
       if (!res.ok) throw new Error("Export failed");
 
@@ -196,7 +212,7 @@ function CsvExportCard() {
       const href = URL.createObjectURL(blob);
       const a    = document.createElement("a");
       a.href     = href;
-      a.download = `reviews-${new Date().toISOString().split("T")[0]}.csv`;
+      a.download = exportFileName(appName, appId);
       a.click();
       URL.revokeObjectURL(href);
     } finally {
@@ -247,7 +263,7 @@ function CsvExportCard() {
         </button>
 
         <span className="text-[11px] text-fg-3 ml-auto">
-          Up to 5,000 rows · UTF-8
+          {appId ? `Exports ${appName}` : "Exports all apps"} · up to 5,000 rows · UTF-8
         </span>
       </div>
     </div>
@@ -258,7 +274,7 @@ export function ReportsScreen() {
   const selectedApp = useWorkspaceStore((s) => s.selectedApp);
   // Printing selectedApp raw put a UUID in the header. See src/lib/selected-app.ts.
   const { apps } = useApps();
-  const { appName: selectedAppName } = resolveSelectedApp(apps, selectedApp);
+  const { appId: selectedAppId, appName: selectedAppName } = resolveSelectedApp(apps, selectedApp);
   return (
     <div className="flex w-full flex-col gap-6 overflow-auto p-8 max-w-[1240px] mx-auto">
 
@@ -279,12 +295,12 @@ export function ReportsScreen() {
       {/* Report cards */}
       <div className="grid gap-4 md:grid-cols-2">
         {REPORTS.map((r) => (
-          <ReportCard key={r.id} report={r} />
+          <ReportCard key={r.id} report={r} appId={selectedAppId} appName={selectedAppName} />
         ))}
       </div>
 
       {/* CSV Export */}
-      <CsvExportCard />
+      <CsvExportCard appId={selectedAppId} appName={selectedAppName} />
     </div>
   );
 }
