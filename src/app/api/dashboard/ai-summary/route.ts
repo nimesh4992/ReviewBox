@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { apiError, captureAndError } from "@/lib/api-response";
 import { rateLimit } from "@/lib/api-rate-limit";
-import { generateSummary } from "@/lib/groq";
+import { generateSummary, SUMMARY_NO_DATA } from "@/lib/groq";
 import { Redis } from "@upstash/redis";
 
 const CACHE_TTL_SECONDS = 60 * 60; // 1 hour
@@ -55,7 +55,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     if (appId) {
       if (!liveAppIds.includes(appId)) {
         return NextResponse.json({
-          summary: "Not enough recent review data to generate a summary.",
+          summary: SUMMARY_NO_DATA,
           reviewCount: 0,
           generatedAt: new Date().toISOString(),
           cached: false,
