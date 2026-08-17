@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { clerkClient } from "@clerk/nextjs/server";
+import * as Sentry from "@sentry/nextjs";
 import { stripe } from "@/lib/stripe";
 import Stripe from "stripe";
 import { sendPaymentFailedEmail } from "@/lib/email/send-payment-failed";
@@ -8,6 +9,22 @@ import { getServiceClient } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * Mirror the plan onto `workspaces.plan`.
+ *
+ * THROWS on failure — deliberately. This write was previously fire-and-forget:
+ * supabase-js returns `{data,error}` rather than throwing, so a rejected write
+ * (RLS, a transient blip, the plan-vocabulary constraint before migration 025)
+ * left the row stale with no exception, no log and no Sentry event, while the
+ * handler still returned 200 and Stripe marked the event delivered forever.
+ *
+ * The staleness propagates: resolveByCustomer() reads `workspaces.plan` back
+ * out as the fallback plan for Stripe-originated events, and feeds it into
+ * Clerk's publicMetadata.plan — the actual entitlement source of truth. So a
+ * silent failure here can eventually downgrade a customer who paid.
+ *
+ * Throwing lets the caller return 500 so Stripe retries.
+ */
 async function syncPlanToSupabase(clerkUserId: string, plan: string): Promise<string | null> {
   const sb = getServiceClient();
   const { data } = await sb
@@ -17,8 +34,36 @@ async function syncPlanToSupabase(clerkUserId: string, plan: string): Promise<st
     .limit(1);
   if (!data?.length) return null;
   const workspaceId = data[0].workspace_id as string;
-  await sb.from("workspaces").update({ plan }).eq("id", workspaceId);
+
+  const { error } = await sb.from("workspaces").update({ plan }).eq("id", workspaceId);
+  if (error) {
+    throw new Error(
+      `syncPlanToSupabase: failed to set plan=${plan} on workspace ${workspaceId}: ${error.message}`,
+    );
+  }
   return workspaceId;
+}
+
+/**
+ * Release the idempotency marker so Stripe's retry is actually allowed to
+ * reprocess this event.
+ *
+ * The marker is written BEFORE processing so two concurrent deliveries of the
+ * same event can't both run. That is correct for concurrency but wrong for
+ * failure: without this release, an event that failed halfway was permanently
+ * recorded as handled, and every subsequent retry short-circuited on the
+ * duplicate check.
+ */
+async function releaseEventMarker(eventId: string): Promise<void> {
+  try {
+    const sb = getServiceClient();
+    const { error } = await sb.from("webhook_events").delete().eq("id", eventId);
+    if (error) {
+      console.error("[stripe/webhook] could not release dedup marker:", error);
+    }
+  } catch (err) {
+    console.error("[stripe/webhook] could not release dedup marker:", err);
+  }
 }
 
 async function updateUserPlan(
@@ -116,6 +161,7 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  try {
   switch (event.type) {
     case "checkout.session.completed": {
       const session = event.data.object as Stripe.Checkout.Session;
@@ -281,6 +327,20 @@ export async function POST(request: NextRequest) {
 
     default:
       break;
+  }
+  } catch (err) {
+    // A 200 here would tell Stripe the event is handled and it would never be
+    // delivered again — which is how a transiently-failed plan write became a
+    // permanently stale plan on a paying customer. Release the marker, report
+    // it, and 500 so Stripe's automatic retry can genuinely retry.
+    console.error(`[stripe/webhook] processing ${event.type} (${event.id}) failed:`, err);
+    Sentry.captureException(err, {
+      level: "error",
+      tags: { route: "stripe/webhook", eventType: event.type },
+      extra: { eventId: event.id },
+    });
+    await releaseEventMarker(event.id);
+    return NextResponse.json({ received: false, error: "PROCESSING_FAILED" }, { status: 500 });
   }
 
   return NextResponse.json({ received: true }, { status: 200 });

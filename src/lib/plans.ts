@@ -40,6 +40,72 @@ export type PlanName = keyof typeof PLAN_LIMITS;
 export const PAID_PLANS = ["starter", "pro"] as const;
 export type PaidPlanName = (typeof PAID_PLANS)[number];
 
+// ── The `workspaces.plan` column vocabulary ───────────────────────────────────
+//
+// `PlanName` above is "a tier that has limits". The database column holds a
+// wider set: it also carries billing states, which have no allowances of their
+// own and resolve to `free` via resolvePlan()/isPlanName().
+//
+// These two being different is real, not accidental — but conflating them is
+// what broke the trial. The column had a CHECK constraint that allowed neither
+// `free` nor `enterprise`, so every trial-expiry downgrade and every
+// trial-abuse downgrade was rejected by Postgres (23514) and no trial ever
+// ended. See docs/adr/008-plan-vocabulary.md.
+//
+// WORKSPACE_PLANS is the single source of truth for that column. It is asserted
+// against the live CHECK constraint by plans.test.ts, which parses the
+// migration — if you change one without the other, `npm run test` fails.
+
+/** States the column can hold that are not tiers with limits of their own. */
+export const BILLING_STATES = ["past_due", "canceled"] as const;
+export type BillingState = (typeof BILLING_STATES)[number];
+
+/** Every value `workspaces.plan` may legally hold. Must match migration 025. */
+export const WORKSPACE_PLANS = [
+  "free",
+  "trial",
+  "starter",
+  "pro",
+  "enterprise",
+  "past_due",
+  "canceled",
+] as const;
+export type WorkspacePlan = (typeof WORKSPACE_PLANS)[number];
+
+/**
+ * Compile-time guard: every tier with limits must be storable in the column.
+ * Adding a key to PLAN_LIMITS without adding it to WORKSPACE_PLANS (and to the
+ * migration) fails `tsc` here rather than at runtime in Postgres.
+ */
+type _PlanNamesAreStorable = PlanName extends WorkspacePlan ? true : never;
+const _assertPlanNamesAreStorable: _PlanNamesAreStorable = true;
+void _assertPlanNamesAreStorable;
+
+export function isWorkspacePlan(value: string): value is WorkspacePlan {
+  return (WORKSPACE_PLANS as readonly string[]).includes(value);
+}
+
+/**
+ * Plans that entitle access to billed routes.
+ *
+ * `trial` MUST be here — onboarding stamps every new user with it, and the
+ * billed set covers the AI draft endpoint the trial exists to demonstrate.
+ * `enterprise` MUST be here — it is quote-only and assigned by hand, so a
+ * customer who signed a contract would otherwise be the one plan locked out
+ * of what they bought. `free` is deliberately absent: it is the post-trial
+ * resting state, usable but not entitled to billed routes.
+ */
+export const ENTITLED_PLANS = [
+  "trial",
+  "starter",
+  "pro",
+  "enterprise",
+] as const satisfies readonly WorkspacePlan[];
+
+export function isEntitledPlan(value: string): boolean {
+  return (ENTITLED_PLANS as readonly string[]).includes(value);
+}
+
 /**
  * Display prices.
  *

@@ -42,6 +42,16 @@ Their role is **NOT** to read code.
 
 ## D002 — Plan vocabulary (2026-05-17) — IMMUTABLE
 
+> **⚠️ SUPERSEDED 2026-08-17 by ADR 008 — see D021 below and
+> `docs/adr/008-plan-vocabulary.md`. The list in this entry is NOT current.
+> It is kept verbatim because this log is append-only.**
+>
+> Do not "restore" the rule below by removing `free` from the codebase. It is
+> load-bearing in three places (post-trial resting state, and the fail-closed
+> default in both `resolvePlan()` and `isPlanName()`), and this entry's
+> instruction to remove it is exactly the trap that made the divergence
+> dangerous — the code and the doc disagreed, and the doc was the wrong one.
+
 Plan states across the system (Clerk metadata, workspaces.plan, UI):
 
 - `trial` — new signup, 14 days, no card required
@@ -314,3 +324,44 @@ personally and instructing the merge of #82 directly.
 Reason: the founder reviews on production directly and wants the loop
 shortened; CI is the correctness gate (D000), and Vercel rollback bounds the
 blast radius at ~60 seconds.
+
+---
+
+## D021 — Plan vocabulary, corrected (2026-08-17) — supersedes D002's list
+
+Founder decision in-session ("keep free post trial state"), after the
+architecture audit found finding C-1: the `workspaces.plan` CHECK constraint
+allowed neither `free` nor `enterprise` while the application wrote both, so
+**no trial had ever ended** and the trial-abuse downgrade silently no-opped.
+
+Full reasoning and enforcement in `docs/adr/008-plan-vocabulary.md`.
+
+The vocabulary is now defined **in code**, not here, so it cannot drift from
+the database again — `src/lib/plans.ts` is the source of truth and
+`src/lib/plans.test.ts` asserts it against the migration:
+
+- Tiers with allowances (`PlanName`): `free`, `trial`, `starter`, `pro`,
+  `enterprise`
+- Billing states: `past_due`, `canceled`
+- Storable in `workspaces.plan` (`WORKSPACE_PLANS`): all of the above
+- Entitled to billed routes (`ENTITLED_PLANS`): `trial`, `starter`, `pro`,
+  `enterprise` — deliberately **not** `free`
+
+`free` is the usable resting state for a lapsed trial (1 app, 10 AI drafts,
+25 published replies/month), not a state to be removed. `team` is retired and
+replaced by `enterprise` (quote-only, assigned by hand).
+
+**Rule going forward:** a plan is added or renamed in `src/lib/plans.ts` AND in
+a new migration, in the same PR. The unit suite fails if you do one without the
+other. Do not re-declare the plan list anywhere else — import the helpers.
+
+### Why this entry exists at all
+
+D002 was marked IMMUTABLE and every agent session is told to obey it before
+writing code. It had diverged from shipped behaviour in two directions with
+nobody noticing for months, and an agent following it literally would have
+broken the rate limiter's and middleware's fail-closed defaults. A governing
+document that silently stops matching the code is worse than no document,
+because it is trusted. When code and an IMMUTABLE decision disagree in future:
+**stop and reconcile them in a new entry — do not "fix" the code to match a
+stale rule, and do not silently change the code and leave the rule.**
