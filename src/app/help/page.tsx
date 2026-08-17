@@ -20,7 +20,7 @@ const CATEGORIES = [
       { title: "Connect Google Play", href: "/help/connect-google-play", mins: 5 },
       { title: "Connect the App Store", href: "/help/connect-app-store", mins: 5 },
       { title: "Your first AI reply", href: "/help/ai-replies", mins: 3 },
-      { title: "Invite a team member", href: "#", mins: 2 },
+      { title: "How much review history you get", href: "/help/review-history", mins: 4 },
     ],
   },
   {
@@ -67,6 +67,7 @@ const CATEGORIES = [
 const POPULAR = [
   { title: "How do I connect Google Play?", href: "/help/connect-google-play", category: "Getting started" },
   { title: "How do I connect the App Store?", href: "/help/connect-app-store", category: "Getting started" },
+  { title: "Why do I see fewer reviews than my store dashboard?", href: "/help/review-history", category: "Getting started" },
   { title: "How does AI reply generation work?", href: "/help/ai-replies", category: "AI replies" },
   { title: "Can ReviewBox auto-publish replies?", href: "/help/automation", category: "Automation" },
   { title: "What happens when I hit my plan limit?", href: "/faq#billing", category: "Billing" },

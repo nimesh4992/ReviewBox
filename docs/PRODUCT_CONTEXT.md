@@ -68,7 +68,22 @@ the code or the promise is a defect — do not leave the gap silent.
 ## Known reality about the data
 
 - Google Play's Publisher API returns only ~7 days of reviews, and only for
-  customers who invited our service account.
+  customers who invited our service account. **This is structural, not a quota:**
+  `reviews.list` accepts `maxResults`, `packageName`, `startIndex`, `token`,
+  `translationLanguage` — there is **no date parameter**, so no request exists
+  that asks for older reviews. `androidpublisher` v3 has no ratings, statistics
+  or reports resource at all, and `playdeveloperreporting` v1beta1 is vitals
+  only. Verified against the installed API definitions, 2026-08-17.
+  - Corroborated externally: on an app with 2,064 rated reviews, AppFollow — a
+    funded paid competitor — returns **272**; we hold 202. Same wall.
+  - The full history exists only in **Play Console → Download reports**, monthly
+    CSVs in a customer-owned GCS bucket. Not in any API. `googleapis` already
+    ships the `storage` client, so reading it needs permission, not a purchase.
+- **The App Store is not the same story, and conflating them misleads.** App
+  Store Connect's `customerReviews` paginates properly; our `fetchReviews()`
+  defaults to `limit = 200` and `syncAppStore()` passes no override. On iOS the
+  depth ceiling is **ours** and raisable; on Android it is Google's and is not.
+  Never write "the stores only give us ~200" — half of that sentence is us.
 - The public Play listing is **per-country**; an India-only app returns
   nothing on the US storefront — including zero reviews, forever, with no
   error (this was the Mumbai One bug).

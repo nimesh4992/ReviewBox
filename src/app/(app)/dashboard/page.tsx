@@ -701,13 +701,30 @@ export default function DashboardPage() {
           {reviewsAreLifetime && (
             <div className="text-[11px] text-fg-3">all-time (store)</div>
           )}
-          <div className="flex gap-3 text-[11px] text-fg-3">
+          <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-fg-3">
             <span>{syncedReviews.toLocaleString()} synced</span>
             <span>·</span>
             <span>{unreplied} unreplied</span>
             <span>·</span>
             <span>{urgent} urgent</span>
           </div>
+          {/* The gap between the two numbers is the single most-asked support
+              question, and without an answer next to it the honest reading is
+              "the sync lost my reviews". Only shown when there IS a gap —
+              offering to explain a discrepancy that isn't on screen invents
+              a doubt rather than settling one. Opens in a new tab because
+              /help is outside the app shell and losing the dashboard to read
+              a help page is its own small annoyance. */}
+          {reviewsAreLifetime && syncedReviews < displayReviews && (
+            <a
+              href="/help/review-history"
+              target="_blank"
+              rel="noreferrer"
+              className="self-start text-[11px] font-medium text-[#0A84FF] hover:underline"
+            >
+              Why not all {displayReviews.toLocaleString()}?
+            </a>
+          )}
         </div>
 
         {/* Feedback */}
