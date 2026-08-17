@@ -10,7 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId, isWorkspaceAdmin } from "@/lib/supabase-server";
 import { Redis } from "@upstash/redis";
 import { getBrandVoiceStub } from "@/lib/brand-voice-stubs";
-import { apiError } from "@/lib/api-response";
+import { apiError, migrationPendingError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
 
 const VALID_APP_CATEGORIES = [
@@ -163,6 +163,11 @@ export async function PATCH(req: NextRequest): Promise<NextResponse> {
     .eq("id", workspaceId);
 
   if (error) {
+    // brand_voice / support_email / app_category all arrive here from
+    // migration 022. They are what the user just typed — reporting "saved"
+    // after discarding them is the failure this branch exists to prevent.
+    const pending = migrationPendingError(error, "Saving your workspace settings");
+    if (pending) return pending;
     console.error("workspace update failed:", error);
     return apiError("INTERNAL_SERVER_ERROR", 500);
   }

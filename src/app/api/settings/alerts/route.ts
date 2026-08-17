@@ -2,7 +2,7 @@ import { auth } from "@clerk/nextjs/server";
 import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
-import { apiError } from "@/lib/api-response";
+import { apiError, migrationPendingError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
 import type { AlertPreference, AlertType } from "@/types/review";
 
@@ -102,6 +102,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .upsert(rows, { onConflict: "workspace_id,type" });
 
   if (error) {
+    // channels / schedule_day_of_* come from migration 020 and carry the whole
+    // preference. "Preferences saved" over a discarded write is precisely how
+    // the Slack webhook URL went nowhere before.
+    const pending = migrationPendingError(error, "Saving your alert preferences");
+    if (pending) return pending;
     console.error("settings/alerts POST error:", error);
     return apiError("INTERNAL_SERVER_ERROR", 500);
   }

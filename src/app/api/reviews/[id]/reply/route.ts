@@ -6,6 +6,7 @@ import { audit } from "@/lib/audit";
 import { rateLimit } from "@/lib/api-rate-limit";
 import { canPublishReply } from "@/lib/plan-enforcement";
 import { apiError, captureAndError } from "@/lib/api-response";
+import { writeWithOptionalColumns } from "@/lib/db-errors";
 import { submitReply as submitGooglePlayReply } from "@/services/google-play/publisher-api";
 import {
   buildJWT,
@@ -163,17 +164,34 @@ export async function POST(
     // mean the reply is live on the store → reply_status = "replied".
     const isReplied = status === "sent" || status === "manual_replied";
 
-    const { error: updateError } = await sb
-      .from("reviews")
-      .update({
+    // `draft_source` / `draft_edited` (migration 008) feed the draft-quality
+    // learning loop. They are attribution, not the reply — but they rode in the
+    // same payload as `reply_text`, so if PostgREST couldn't see them the WHOLE
+    // update failed and the customer's reply was lost to a generic 500. By this
+    // point the reply may already be live on the store, which makes losing our
+    // copy of it worse than merely annoying.
+    //
+    // So they're optional: the reply always saves, and the analytics columns
+    // drop out if the schema can't take them. This is the case
+    // `writeWithOptionalColumns` exists for — unlike the writes elsewhere in
+    // this sweep, where the late column IS the point and must fail loudly.
+    const { error: updateError, droppedColumns } = await writeWithOptionalColumns(
+      (payload) =>
+        sb.from("reviews").update(payload).eq("id", reviewId).eq("workspace_id", workspaceId),
+      {
         reply_text:   replyText.trim(),
         reply_status: isReplied ? "replied" : "draft_ready",
         replied_at:   isReplied ? new Date().toISOString() : null,
+      },
+      {
         ...(draftSource !== undefined && { draft_source: draftSource }),
         ...(draftEdited !== undefined && { draft_edited: draftEdited }),
-      })
-      .eq("id", reviewId)
-      .eq("workspace_id", workspaceId);
+      },
+    );
+
+    if (droppedColumns.length) {
+      console.warn("[reply] saved without analytics columns:", droppedColumns.join(", "));
+    }
 
     if (updateError) {
       console.error("[reply] Supabase update failed:", updateError);

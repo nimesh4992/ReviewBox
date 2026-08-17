@@ -55,7 +55,14 @@ Verified by query, not assumed:
 - **029** — the diagnostic returned **zero rows**: no review had ever been stored as `replied` with blank text on this database. Section A was a no-op and Section B never applied. The PR #101 code fix stands; there was simply nothing persisted to repair.
 - **026** — the four dead `alert_preferences` columns dropped.
 
-### [ ] LT1 · Sweep every write for the PGRST204 class · ICE 72 (8×9÷1) 
+### [x] LT1 · Sweep every write for the PGRST204 class · ICE 72 — SHIPPED 2026-08-17
+*Every write touching a column added to an already-existing table now states what happens when that column is unavailable, and `src/schema-write-contract.test.ts` fails the build if a new one doesn't.*
+
+***This item's "Done when" was wrong, and following it literally would have caused a bug.*** *It said to route every such write through `writeWithOptionalColumns()`. That helper DROPS the column and continues — correct when the column is enrichment (a synced app is still a synced app without `store_country`), and catastrophic when the column IS the write. Dropping `deleted_at` from "cancel my account" leaves the account live while the API reports it cancelled; dropping `slack_webhook_url` from "connect Slack" recreates M-8 exactly. Of the write sites found, **one** wanted the retry helper (`draft_source`/`draft_edited` on the reply save, where the analytics columns were taking the customer's reply down with them); the rest needed to fail loudly, via the new `migrationPendingError()`.*
+
+*Also note the framing "pending migration" is now stale: all migrations are applied. **PGRST204 fires whenever PostgREST's schema cache is stale after a migration**, so this window reopens on every future migration — it is a property each write has to keep, not a one-off cleanup.*
+
+### [x] LT1 (original text, for the record) · Sweep every write for the PGRST204 class
 **Added 2026-08-16 after PR #85.** **Effort:** 3h.
 **Done when:** every `.insert(` / `.update(` whose payload contains a column from migration 012 or later either goes through `writeWithOptionalColumns()` or is confirmed to need no fallback, with a test for each.
 **Why now:** this class took onboarding down for **every** signup and nothing in the repo could see it. PostgREST answers `PGRST204` (not `42703`) when a write names a column missing from its schema cache, so every fallback written against 42703 alone is unreachable on the write path. `db-errors.ts` and `writeWithOptionalColumns()` now exist; onboarding, `/api/apps` and the sync status write are converted. Everything else is still latent — it just hasn't met a database missing that particular column yet.

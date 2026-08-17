@@ -1,10 +1,12 @@
-# Today — 2026-08-17 (audit remediation, Waves 1–6 — complete)
+# Today — 2026-08-17 (audit remediation Waves 1–6, then LT1)
 
-**State of master:** healthy, `dfdde19`. Production deploys green. `tsc` clean,
-lint 0 errors, full `next build` passes, **481 unit tests**.
+**State of master:** healthy, `4738482`. Production deploys green. `tsc` clean,
+lint 0 errors, full `next build` passes, **490 unit tests**.
 
-All six waves merged: **#97, #98, #99, #101, #102, #105**. Migrations **025–030
-applied and verified by query.**
+All six waves merged: **#97, #98, #99, #101, #102, #105** (+ #103, #106 docs).
+Migrations **025–030 applied and verified by query.** **LT1** — the PGRST204
+write sweep, top of the backlog — shipped after them; see the section near the
+end.
 
 **One audit finding remains open, and it needs the founder:** W5A, the
 review-volume limit — `docs/adr/009-review-volume-limit.md`.
@@ -187,8 +189,51 @@ Two of these are worth remembering rather than re-deriving:
   in the agent environment, and shipping tests that cannot be executed is the
   same class of defect this audit flagged in H-8.
 
+---
+
+## LT1 — the PGRST204 write sweep (shipped 2026-08-17)
+
+Every write that touches a column added to an **already-existing** table now
+states what happens when that column is unavailable, and
+`src/schema-write-contract.test.ts` fails the build when a new write doesn't.
+
+**The backlog item's "Done when" was wrong, and following it literally would
+have caused a bug.** It said to route every such write through
+`writeWithOptionalColumns()`. That helper *drops* the column and continues —
+right when the column is enrichment, catastrophic when the column IS the write:
+
+- dropping `deleted_at` from "cancel my account" leaves the account live while
+  the API reports it cancelled;
+- dropping `slack_webhook_url` from "connect Slack" recreates M-8 exactly.
+
+So most sites got the opposite treatment — a new `migrationPendingError()` that
+returns **503 MIGRATION_PENDING** with an accurate sentence instead of
+"Something went wrong on our end. We've been notified" (which was also untrue;
+those branches notify nothing). Exactly one site wanted the retry helper: the
+reply save, where `draft_source`/`draft_edited` rode in the same payload as
+`reply_text` and could take the customer's reply down with them — after it may
+already be live on the store.
+
+Two writes turned out not to be checked at all: **Slack disconnect** (the
+mirror of the connect-side bug fixed in Wave 6 — a failed clear meant alerts
+kept arriving for someone who had just turned them off) and
+**test-credentials** (`publisher_api_connected`, where losing the flag means
+the customer passes the connection test and still sees "connect your Play
+Console" forever, with the test reporting success every retry).
+
+**The "pending migration" framing is now stale.** All migrations are applied.
+PGRST204 also fires when the column exists but PostgREST hasn't reloaded its
+schema cache — so this window reopens on every future migration. It's a
+property each write keeps, not a cleanup that finishes.
+
+The enforcing test was itself mutation-tested, and the first version failed:
+deleting a `writeWithOptionalColumns` call left the words
+"`writeWithOptionalColumns`" in the comment above it, and the substring check
+stayed true. It now blanks comments before looking. A guard you can satisfy by
+mentioning it is not a guard.
+
 ## Up next
 
-1. **LT1** — sweep every write for the PGRST204 class. ICE 72, highest queued.
-2. **CM1** — multi-language reviews + replies. ICE 60, and the same class of
+1. **CM1** — multi-language reviews + replies. ICE 60, and the same class of
    blind spot as the US-storefront bug one layer up.
+2. **AU4** — finish the swallowed-error sweep on the remaining screens.
