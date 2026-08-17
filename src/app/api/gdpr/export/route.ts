@@ -52,6 +52,10 @@ async function handler(req: NextRequest): Promise<NextResponse> {
       automationRulesRes,
       aiUsageRes,
       auditLogRes,
+      incidentsRes,
+      invitesRes,
+      ticketsRes,
+      ticketMessagesRes,
     ] = await Promise.all([
       sb.from("workspaces").select("*").eq("id", workspaceId).single(),
       sb.from("workspace_members").select("*").eq("workspace_id", workspaceId),
@@ -68,7 +72,25 @@ async function handler(req: NextRequest): Promise<NextResponse> {
       sb.from("automation_rules").select("*").eq("workspace_id", workspaceId),
       sb.from("ai_usage").select("*").eq("workspace_id", workspaceId).limit(50000),
       sb.from("audit_log").select("*").eq("workspace_id", workspaceId).limit(50000),
+      // Four tables were missing from the export. A subject-access request has
+      // to return everything held about the person, and these hold plenty:
+      // `workspace_invites` stores the email addresses of people who were
+      // invited, and `support_tickets` stores the requester's email, name and
+      // the full text of what they wrote to us.
+      sb.from("incidents").select("*").eq("workspace_id", workspaceId).limit(50000),
+      sb.from("workspace_invites").select("*").eq("workspace_id", workspaceId),
+      sb.from("support_tickets").select("*").eq("workspace_id", workspaceId),
+      // Messages hang off tickets, not off the workspace, so they need the
+      // ticket ids rather than a workspace filter.
+      sb.from("support_tickets").select("id").eq("workspace_id", workspaceId),
     ]);
+
+    // Second hop for ticket message bodies — the customer's own words are the
+    // part of a support thread they are most entitled to receive back.
+    const ticketIds = ((ticketMessagesRes.data ?? []) as { id: string }[]).map((t) => t.id);
+    const messagesRes = ticketIds.length
+      ? await sb.from("support_ticket_messages").select("*").in("ticket_id", ticketIds).limit(50000)
+      : { data: [] as unknown[] };
 
     const payload = {
       exportedAt: new Date().toISOString(),
@@ -85,6 +107,10 @@ async function handler(req: NextRequest): Promise<NextResponse> {
         automationRules:   automationRulesRes.data ?? [],
         aiUsage:           aiUsageRes.data ?? [],
         auditLog:          auditLogRes.data ?? [],
+        incidents:         incidentsRes.data ?? [],
+        invites:           invitesRes.data ?? [],
+        supportTickets:    ticketsRes.data ?? [],
+        supportMessages:   messagesRes.data ?? [],
       },
     };
 
