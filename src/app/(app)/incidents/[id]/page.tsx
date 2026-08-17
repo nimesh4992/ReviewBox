@@ -4,25 +4,16 @@ import { auth } from "@clerk/nextjs/server";
 
 import { PageHeader } from "@/components/layout/page-header";
 import { IncidentStatusActions } from "@/features/incidents/components/incident-status-actions";
-import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { getWorkspaceId } from "@/lib/supabase-server";
+import { getIncidentDetail, type DbIncident } from "@/services/incident-service";
 import { cn } from "@/lib/utils";
 import type { IncidentAlert } from "@/types/review";
 
 export const dynamic = "force-dynamic";
 
-// ── DB row ─────────────────────────────────────────────────────────────────────
-
-interface DbIncident {
-  id: string;
-  title: string;
-  description: string | null;
-  severity: "critical" | "high" | "medium";
-  status: "active" | "investigating" | "resolved";
-  owner: string | null;
-  detected_at: string;
-  resolved_at: string | null;
-  created_at: string;
-}
+// ── DB row → view model ───────────────────────────────────────────────────────
+// The row shape and the query both live in services/incident-service.ts so this
+// page and GET /api/incidents/[id] cannot drift apart.
 
 function mapIncident(row: DbIncident): IncidentAlert & { resolvedAt?: string } {
   return {
@@ -97,14 +88,8 @@ export default async function IncidentDetailPage({
   if (userId) {
     const workspaceId = await getWorkspaceId(userId);
     if (workspaceId) {
-      const sb = getServiceClient();
-      const { data } = await sb
-        .from("incidents")
-        .select("id,title,description,severity,status,owner,detected_at,resolved_at,created_at")
-        .eq("id", id)
-        .eq("workspace_id", workspaceId)
-        .single();
-      if (data) incident = mapIncident(data as DbIncident);
+      const row = await getIncidentDetail(workspaceId, id);
+      if (row) incident = mapIncident(row);
     }
   }
 

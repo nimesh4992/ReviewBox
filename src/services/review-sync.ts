@@ -37,6 +37,7 @@ import { STARTER_REPLY_TEMPLATES } from "@/lib/brand-voice-stubs";
 import { sendRatingSpikeAlert } from "@/lib/email/send-rating-spike-alert";
 import { notifyRatingSpike, notifyUrgentReview } from "@/lib/slack";
 import { runAutomationRules } from "@/lib/automation-executor";
+import { withWorkspaceSyncLock } from "@/lib/sync-lock";
 import {
   generateKbEntriesFromReviews,
   generateTemplatesFromReviews,
@@ -72,6 +73,12 @@ export interface SyncSummary {
   reviewsUpserted: number;
   spikesDetected: number;
   errors: string[];
+  /**
+   * Set when another sync for this workspace was already running and this one
+   * stood down (see lib/sync-lock.ts). Deliberately NOT an entry in `errors`:
+   * nothing failed, and the run holding the lock is fetching the same reviews.
+   */
+  skipped?: "already_running";
 }
 
 // Per-app outcome returned by each sync function. Used to record per-app status
@@ -745,7 +752,44 @@ async function loadWorkspaceApps(
   return [];
 }
 
+/**
+ * Sync every app in a workspace.
+ *
+ * Serialised per workspace: four separate triggers can call this (daily cron,
+ * "Sync now", the dashboard self-heal kick, and onboarding/app-create), and
+ * the body below reads which reviews already exist before inserting the rest.
+ * Two overlapping runs both read before either writes, so both treat the same
+ * fetched review as new — duplicate rows, duplicate automation executions,
+ * duplicate spike emails. See lib/sync-lock.ts for the full account.
+ *
+ * When another run holds the lock this returns an empty summary marked
+ * `skipped: "already_running"` rather than throwing. Callers that only care
+ * about "did it blow up" need no change.
+ */
 export async function syncWorkspace(workspaceId: string): Promise<SyncSummary> {
+  const outcome = await withWorkspaceSyncLock(workspaceId, () =>
+    syncWorkspaceApps(workspaceId),
+  );
+
+  if (!outcome.ran) {
+    return {
+      appsProcessed: 0,
+      reviewsUpserted: 0,
+      spikesDetected: 0,
+      errors: [],
+      skipped: "already_running",
+    };
+  }
+
+  return outcome.result;
+}
+
+/**
+ * The actual sync. Private on purpose — every caller must go through
+ * `syncWorkspace()` so the lock can never be bypassed by adding a fifth
+ * trigger later.
+ */
+async function syncWorkspaceApps(workspaceId: string): Promise<SyncSummary> {
   const sb = getServiceClient();
   const summary: SyncSummary = { appsProcessed: 0, reviewsUpserted: 0, spikesDetected: 0, errors: [] };
 
