@@ -40,6 +40,16 @@ correct and rename tags, not to author new tagging rules.
 ### [x] AU2 · Resolve the `aso_keywords` schema ambiguity — CLOSED 2026-08-16
 Production has `volume_estimate` / `trend_data` / `added_at` / `updated_at`, matching `007_aso_keywords.sql` and the code. `pending_combined.sql` deleted.
 
+### [!] W6B · Answer ADR 010's four questions before retention is built · HUMAN-REQUIRED
+**Added 2026-08-17 from the live-testing round.** See `docs/adr/010-review-history-and-retention.md`.
+The platform limit is settled and verified: Google's API has no way to request older reviews, and AppFollow holds 272 for the same app where Play Console reports 2,064 — this is universal, not a ReviewBox gap. The founder's answer is a retention product: capture whatever the store exposes at connect time (10 or 500, never a promised number), then keep new reviews 365 days on paid plans.
+**Needs answering:** (A) hide or delete at 365 days — *recommend hide, deletion destroys the archive that is the selling point*; (B) free/trial behaviour — *recommend retain, restrict view*; (C) 365 days from capture date or review date — *recommend capture*; (D) does this replace the `reviewsPerMonth` cap — *recommend yes, which resolves W5A*.
+**Note:** retention is packaging, not cost. The `embedding vector(384)` column that would have dominated storage is never populated, so a review is ~0.5–1KB and a year of 50/day is 10–18MB per app.
+
+### [ ] W6C · Storefront: close the onboarding short-circuit · ICE 60 (8×9÷1.2)
+**Added 2026-08-17.** `resolveAppMetadata` returns as soon as the search's storefront hint answers, so the most-reviews-wins ranking shipped in #109 **never runs for a newly added app** — which is how Mumbai One was pinned to `us` at onboarding. Treat the hint as a candidate, not a verdict. Also: show the detected storefront on the onboarding confirmation step ("Found on the India store · change") — confirm, don't ask; a blank country field is friction and most customers don't know which storefront their ratings come from.
+**Also fix:** the caveat I wrote into #109's comments and `store-search.pick-home.test.ts` claiming Play never yields a review count. The India listing returned 2,945 exactly — the claim is contradicted by evidence and is now a stale doc of my own making.
+
 ### [!] W5A · Decide the review-volume limit before Stripe goes live · HUMAN-REQUIRED
 **Added 2026-08-17 by Wave 5 (audit finding M-6). Blocked on a founder decision — see `docs/adr/009-review-volume-limit.md`.**
 `PLAN_LIMITS.reviewsPerMonth` is advertised on `/pricing` and Billing and enforced nowhere: `checkReviewLimit()` is fully implemented and has zero call sites. Three options are written up in the ADR; the recommendation is **B — soft cap** (never stop ingesting; show an upgrade banner over the limit). D009 puts this call with the founder, not with me.
