@@ -65,7 +65,11 @@ const EXPECTED: ReadonlyArray<{
 
   { table: "reviews", column: "issue_tags",              migration: "001",  breaks: "tagging" },
   { table: "reviews", column: "escalation_state",        migration: "001",  breaks: "escalation" },
-  { table: "reviews", column: "draft_source",            migration: "001",  breaks: "automation attribution" },
+  // Migration 008 (learning loop), not 001 — a wrong number here sends the
+  // founder to re-run the wrong migration when the probe reports a gap.
+  { table: "reviews", column: "draft_source",            migration: "008",  breaks: "automation attribution" },
+  { table: "reviews", column: "draft_edited",            migration: "008",  breaks: "draft-quality learning loop" },
+  { table: "reviews", column: "issue_tags_override",     migration: "024",  breaks: "editing a review's tags" },
 
   { table: "automation_rules", column: "action_config",  migration: "001",  breaks: "automation actions" },
   { table: "automation_rules", column: "action_label",   migration: "020",  breaks: "creating automation rules" },

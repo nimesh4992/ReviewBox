@@ -65,6 +65,24 @@ export function isMissingTableError(error: DbError): boolean {
   return error?.code === PG_UNDEFINED_TABLE || error?.code === PGRST_UNKNOWN_TABLE;
 }
 
+/** PostgREST: `.single()` matched zero rows (or more than one). */
+const PGRST_NO_SINGLE_ROW = "PGRST116";
+
+/**
+ * True when an error means "nothing matched", not "the query failed".
+ *
+ * `.single()` conflates the two: an UPDATE that matches no rows returns a
+ * non-null error with the same shape as a genuine database fault. Routes that
+ * checked `if (error) return 500` before `if (!data) return 404` therefore
+ * always took the 500 branch, and their 404 branch was unreachable for the one
+ * case it existed to handle — so editing an item already deleted in another
+ * tab answered "Something went wrong on our end. We've been notified," which
+ * was also untrue, since those branches notify nothing.
+ */
+export function isNoRowsError(error: DbError): boolean {
+  return error?.code === PGRST_NO_SINGLE_ROW;
+}
+
 /**
  * Pull the offending column name out of a missing-column error so a retry can
  * drop just that one field instead of every optional field.

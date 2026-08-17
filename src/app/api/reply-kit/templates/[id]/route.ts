@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
+import { isNoRowsError } from "@/lib/db-errors";
 import { audit } from "@/lib/audit";
 import { normalizeTemplateLanguage } from "@/lib/template-language";
 
@@ -64,8 +65,11 @@ export async function PATCH(req: NextRequest, { params }: RouteParams): Promise<
     .select("*")
     .single();
 
+  // Order matters: `.single()` reports "no rows matched" AS an error, so
+  // checking `error` first made the 404 below unreachable for the one case it
+  // exists for — a row already deleted in another tab answered 500.
+  if (isNoRowsError(error) || !data) return apiError("NOT_FOUND", 404);
   if (error) return apiError("INTERNAL_SERVER_ERROR", 500);
-  if (!data)  return apiError("NOT_FOUND", 404);
 
   await audit({
     workspaceId,
