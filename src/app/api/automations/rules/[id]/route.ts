@@ -4,16 +4,11 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
-import type { AutomationAction } from "@/types/review";
+import {
+  SELECTABLE_ACTIONS_SENTENCE,
+  isSelectableAutomationAction,
+} from "@/lib/automation-actions";
 
-// Allowlist — must stay in sync with AutomationAction union in types/review.ts
-const VALID_ACTIONS: AutomationAction[] = [
-  "ai_reply",
-  "template_reply",
-  "apply_tag",
-  "escalate",
-  "report_spam",
-];
 
 const NAME_MAX_LEN = 120;
 const CONDITIONS_MAX = 10;
@@ -48,8 +43,8 @@ export async function PATCH(
   const body = (await req.json()) as PatchRuleBody;
 
   // Validate action if provided
-  if (body.action !== undefined && !VALID_ACTIONS.includes(body.action as AutomationAction)) {
-    return apiError("INVALID_INPUT", 400, `action must be one of: ${VALID_ACTIONS.join(", ")}`);
+  if (body.action !== undefined && !isSelectableAutomationAction(body.action)) {
+    return apiError("INVALID_INPUT", 400, `action must be one of: ${SELECTABLE_ACTIONS_SENTENCE}`);
   }
 
   if (body.conditions !== undefined && Array.isArray(body.conditions) && body.conditions.length > CONDITIONS_MAX) {
