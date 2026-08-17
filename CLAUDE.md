@@ -842,6 +842,12 @@ workflow level to remove the duplication.
 - `029_repair_blank_replies` — Section A ran; **the diagnostic returned zero rows**, so
   no review was ever stored as `replied` with blank text. Nothing needed repairing and
   Section B is moot. Don't re-run it looking for something to fix.
+- `030_pending_invite_uniqueness` — verified: `workspace_invites_one_pending_idx`
+  exists, no duplicates were found so nothing was skipped. **A second pending
+  invite to the same address now raises 23505**, which `/api/team/invites` POST
+  turns into a 409 with a readable sentence. If you add another write path to
+  `workspace_invites`, handle that code — it is a race between two admins doing
+  something reasonable, not a server fault.
 
 All 12 insert/upsert sites on the tables 028 constrains were checked to set
 `workspace_id` before it was applied. A new insert path on `apps`, `reviews`,
