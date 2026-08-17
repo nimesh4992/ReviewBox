@@ -379,9 +379,44 @@ jobs:
           # is exactly how the CI placeholder key shipped to production.
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
 
+      # `--archive=tgz` uploads ONE tarball instead of every file individually.
+      #
+      # Without it, two master merges failed to deploy on 2026-08-17 with:
+      #
+      #   Too many requests - try again in 24 hours
+      #   (more than 5000, code: "api-upload-free")
+      #
+      # That is a per-24h cap on upload API requests on the free plan, and each
+      # deploy of this app uploads thousands of files (41MB of build output).
+      # Several merges in one evening exhausted it, so master built green and
+      # then did not ship — the same "merged but not in production" outcome the
+      # VERCEL_TOKEN check above exists to make visible.
+      #
+      # It is a quota, NOT a flake: re-running the job fails identically until
+      # the window resets. Archive mode is Vercel's own documented remedy and
+      # costs one upload request per deploy instead of thousands.
+      #
+      # The error is also captured below because it was invisible: the CLI
+      # retries the upload ~12 times and prints a generic "Upload aborted"
+      # stack for each, so the one actionable line scrolls off the end of the
+      # log. The retry noise looked exactly like a network blip, which is why
+      # the first instinct was to re-run it.
       - name: Deploy
         run: |
-          url=$(vercel deploy --prebuilt --prod --token="$VERCEL_TOKEN")
+          set +e
+          url=$(vercel deploy --prebuilt --prod --archive=tgz --token="$VERCEL_TOKEN" 2>/tmp/deploy.err)
+          code=$?
+          cat /tmp/deploy.err >&2
+          if [ "$code" -ne 0 ]; then
+            {
+              echo "### ❌ Production deploy failed — this commit is NOT in production"
+              echo ""
+              echo '```'
+              grep -m 3 -i "error" /tmp/deploy.err || tail -3 /tmp/deploy.err
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit "$code"
+          fi
           echo "Deployed: $url"
           echo "### Production deploy" >> "$GITHUB_STEP_SUMMARY"
           echo "$url" >> "$GITHUB_STEP_SUMMARY"
