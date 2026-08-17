@@ -470,12 +470,17 @@ export function SentimentScreen() {
   const { appId, appName } = resolveSelectedApp(apps, selectedApp);
 
   const { data: overview, isLoading } = useSentimentOverview(appId, range);
-  // Pull recent real reviews for the "Re-cluster with AI" button.
-  // Without real workspace data, we don't surface the button at all.
-  const { reviews: workspaceReviews } = useReviewQueue();
+  // Both queues carry the app filter. The overview above was correctly
+  // scoped but these two were not, so with app B selected the AI results
+  // panel re-classified app A's critical reviews and rendered them directly
+  // under app B's heading. `appId` is a member of the filters object, so it
+  // lands in the React Query key automatically.
+  const { reviews: workspaceReviews } = useReviewQueue(appId ? { appId } : {});
 
   // Fetch real reviews for Re-cluster button (critical + negative, first page)
-  const { reviews: reclusterReviews } = useReviewQueue({ sentiment: "critical" });
+  const { reviews: reclusterReviews } = useReviewQueue(
+    appId ? { sentiment: "critical", appId } : { sentiment: "critical" },
+  );
 
   const topics: SentimentTopic[] = overview?.topics ?? [];
   const trendPos = overview?.trend.positive ?? [];

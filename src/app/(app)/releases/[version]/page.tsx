@@ -5,6 +5,7 @@ import { auth } from "@clerk/nextjs/server";
 import { PageHeader } from "@/components/layout/page-header";
 import { ReleaseActions } from "@/features/releases/components/release-actions";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
+import { getLiveApps } from "@/lib/live-apps";
 import { cn } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -157,33 +158,75 @@ function RatingBar({ star, count, total }: { star: number; count: number; total:
 
 interface ReleaseDetailPageProps {
   params: Promise<{ version: string }>;
+  searchParams: Promise<{ appId?: string }>;
 }
 
-export default async function ReleaseDetailPage({ params }: ReleaseDetailPageProps) {
+export default async function ReleaseDetailPage({ params, searchParams }: ReleaseDetailPageProps) {
   const { version: rawVersion } = await params;
   const version = decodeURIComponent(rawVersion);
+  const { appId: requestedAppId } = await searchParams;
 
   // ── Auth + workspace ──────────────────────────────────────────────────────
   const session     = await auth();
   const userId      = session?.userId;
   let stats: ReleaseStats = deriveStats(version, []);
   let hasData = false;
+  let appName = "";
 
   if (userId) {
     const workspaceId = await getWorkspaceId(userId);
     if (workspaceId) {
       const sb = getServiceClient();
-      const { data } = await sb
-        .from("reviews")
-        .select("id,author,rating,body,sentiment,issue_tags,reply_status,store_created_at,source,country")
-        .eq("workspace_id", workspaceId)
-        .eq("app_version", version)
-        .order("store_created_at", { ascending: false })
-        .limit(100);
+      // A version number identifies a release only within one app, so this
+      // page honours the appId the releases table links with. Without it,
+      // two apps that both shipped this version rendered as a single release.
+      // Live apps only, and an appId is accepted only if the workspace owns
+      // it — the /api/reviews contract.
+      const liveApps = (await getLiveApps(sb, workspaceId)) ?? [];
+      const selected = requestedAppId
+        ? liveApps.find((a) => a.id === requestedAppId)
+        : undefined;
+      const scopedAppIds = selected ? [selected.id] : liveApps.map((a) => a.id);
 
-      if (data && data.length > 0) {
-        stats = deriveStats(version, data as DbReview[]);
-        hasData = true;
+      if (scopedAppIds.length && !(requestedAppId && !selected)) {
+        const { data } = await sb
+          .from("reviews")
+          .select("app_id,id,author,rating,body,sentiment,issue_tags,reply_status,store_created_at,source,country")
+          .eq("workspace_id", workspaceId)
+          .in("app_id", scopedAppIds)
+          .eq("app_version", version)
+          .order("store_created_at", { ascending: false })
+          .limit(100);
+
+        let rows = (data ?? []) as (DbReview & { app_id: string })[];
+
+        // Reached without ?appId= — a bookmark, or a link from before the
+        // releases table started carrying it. A version number is unique only
+        // within an app, so rendering every app's rows as one release would
+        // reintroduce exactly the blend this page was fixed to stop. Pick the
+        // app with the most reviews for this version and say which one it is,
+        // rather than silently merging.
+        let resolvedApp = selected;
+        if (!resolvedApp && rows.length) {
+          const counts = new Map<string, number>();
+          for (const r of rows) counts.set(r.app_id, (counts.get(r.app_id) ?? 0) + 1);
+          const winner = liveApps
+            .filter((a) => counts.has(a.id))
+            .sort((a, b) => (counts.get(b.id) ?? 0) - (counts.get(a.id) ?? 0))[0];
+          if (winner) {
+            resolvedApp = winner;
+            rows = rows.filter((r) => r.app_id === winner.id);
+          }
+        }
+
+        appName = resolvedApp?.name ?? (liveApps.length === 1 ? liveApps[0].name : "");
+
+        if (rows.length > 0) {
+          stats = deriveStats(version, rows as DbReview[]);
+          hasData = true;
+        }
+      } else {
+        appName = selected?.name ?? (liveApps.length === 1 ? liveApps[0].name : "");
       }
     }
   }
@@ -193,7 +236,7 @@ export default async function ReleaseDetailPage({ params }: ReleaseDetailPagePro
   return (
     <div className="min-w-0">
       <PageHeader
-        eyebrow="Release monitor"
+        eyebrow={appName ? `Release monitor · ${appName}` : "Release monitor"}
         title={`Release ${version}`}
         description={
           stats.firstSeen

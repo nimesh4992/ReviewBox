@@ -18,7 +18,10 @@ Their role is **NOT** to read code.
 - If a PR can't be described that way, it's too big — split it.
 - I never use the founder's "approval" as evidence the code is correct.
   The CI checks are that evidence. The founder's role is to verify
-  *behavior* on the Vercel preview.
+  *behavior* on production right after merging. (Amended 2026-08-16 at
+  the founder's direction: branch previews are disabled — only master
+  builds. CI green is therefore the only pre-merge gate; a PR is never
+  merged while Build + type-check is red.)
 - I never push to `main`. PRs only.
 - I never deploy to production. Vercel auto-deploys on merge.
 - I never run database migrations against production. The founder

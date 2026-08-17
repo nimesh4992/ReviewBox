@@ -32,7 +32,7 @@ The founder is a non-coder. The product ships via this loop:
 4. **Tester agent** writes Vitest + Playwright tests for new logic
 5. **Reviewer agent** comments BLOCKER/NIT on the PR before founder merge
 6. CI on every PR (`.github/workflows/ci.yml`): build, type-check, lint, unit tests, e2e tests, security audit. Failure blocks the merge button
-7. Founder verifies on the Vercel preview using the plain-English "How to test" section of the PR template, then merges
+7. Founder merges once every CI check is green — **never on red; CI is the only pre-merge gate** (branch previews are disabled, see Known Issues) — then verifies behavior on production right after, using the plain-English "How to test" section of the PR template
 8. Vercel auto-deploys main to production. Founder gets ~60s to roll back via Vercel if needed
 
 Hard rules (`docs/decisions.md` D009):
@@ -614,6 +614,18 @@ master. If two branches touch this file, do the three-way merge locally
 (`git merge-file --diff3`), resolve by hand, and never merge a PR whose
 Build + type-check is red — the check being red IS the conflict detector.
 
+**2026-08-16 (later, the FIFTH dashboard mangling): PRs #90 and #91 both
+rewrote `PortfolioSparkline` in parallel.** The "Update branch" auto-merge
+fused the two function bodies (unclosed div, dead `tsc`), #91 was merged
+about a minute after opening — before CI could turn red — and every
+production deploy failed until the repair commit. Two lessons on top of the
+standing one: (a) with previews disabled there is no second net, wait for CI
+before merging; (b) if the dashboard hero/sparkline needs changing, check
+open PRs for a competing rewrite first. Note the strip note above is stale:
+since PR #88-era the canonical shape IS one `WorkspaceStatusStrip` rendered
+once (see the comment inside the component) — trust the in-file comment over
+this section when they disagree.
+
 ### Open PRs
 
 #86 (docs + reply/AI fixes). #73, #76–#85, #87, #88 are merged.
@@ -793,6 +805,29 @@ silence the check to make it green.
 ---
 
 ## Known Issues (read before debugging)
+
+### ⚠️ Branch/preview deployments are intentionally DISABLED (2026-08-16, founder decision)
+
+`vercel.json` carries an `ignoreCommand` that skips the build for every git
+ref except `master`. Only master builds, straight to production. Why:
+
+- Clerk isn't configured for preview URLs (backlog **LT2**), so previews could
+  not be signed into and every fix was verified on production anyway.
+- Preview builds queued ahead of production builds on the Hobby plan and
+  spammed PRs with bot comments.
+- Preview deployments were the fail-open risk surface flagged in
+  `docs/ROLE_AUDIT.md` #6 (sync route authorizes when `CRON_SECRET` is unset
+  outside production).
+
+Consequences to respect:
+- **CI green is the ONLY pre-merge gate. Never merge a PR while Build +
+  type-check is red** — the red check is the conflict detector (see the
+  dashboard-corruption warning above; #91 shipped a broken master exactly
+  this way).
+- The rollback lever is unchanged: Vercel → Deployments → previous green →
+  Promote to Production.
+- To re-enable previews: remove `ignoreCommand` from `vercel.json` AND do LT2
+  first, or previews stay un-testable.
 
 ### ⚠️ Vercel Hobby plan: cron jobs MUST be daily-or-less-frequent
 

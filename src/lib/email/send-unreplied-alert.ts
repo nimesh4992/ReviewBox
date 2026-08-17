@@ -2,17 +2,63 @@ import { getResend, FROM } from "./client";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://tryreviewbox.com";
 
+/** One app's slice of the alert. */
+export interface UnrepliedAppSummary {
+  appName: string;
+  count: number;
+  urgentCount: number;
+}
+
+/**
+ * One email per workspace, broken down per app.
+ *
+ * This used to take a single (appName, count) pair, which forced a choice
+ * between two wrong answers on a multi-app workspace: label the workspace-wide
+ * total with one arbitrary app's name, or send one email per app and put five
+ * messages a day in the owner's inbox. Neither is acceptable, so the email
+ * itself now carries the breakdown.
+ */
 export async function sendUnrepliedAlert(
   to: string,
-  appName: string,
-  count: number,
-  urgentCount: number,
+  apps: UnrepliedAppSummary[],
 ): Promise<void> {
   if (!process.env.RESEND_API_KEY) return;
   const r = getResend();
   if (!r) return;
+  if (!apps.length) return;
 
-  const urgentLine = urgentCount > 0
+  const count       = apps.reduce((sum, a) => sum + a.count, 0);
+  const urgentCount = apps.reduce((sum, a) => sum + a.urgentCount, 0);
+  if (count === 0) return;
+
+  const escape = (s: string) =>
+    s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  // One app reads as a sentence; several read as a list. Never a total with
+  // one app's name on it.
+  const bodyCopy = apps.length === 1
+    ? `<strong>${escape(apps[0].appName)}</strong> has ${count} review${count === 1 ? "" : "s"} that
+       ${count === 1 ? "has" : "have"} been waiting for a reply for more than 48 hours.
+       Responding promptly improves your store rating and shows users you care.`
+    : `${count} reviews across <strong>${apps.length} apps</strong> have been waiting for a reply
+       for more than 48 hours. Responding promptly improves your store rating and shows users you care.`;
+
+  const perAppList = apps.length === 1
+    ? ""
+    : `<table cellpadding="0" cellspacing="0" style="margin:0 0 16px;width:100%;">
+        ${apps
+          .map(
+            (a) => `<tr>
+              <td style="padding:6px 0;font-size:14px;color:#0f172a;">${escape(a.appName)}</td>
+              <td style="padding:6px 0;font-size:14px;color:#475569;text-align:right;">
+                ${a.count} waiting${a.urgentCount > 0 ? ` · <span style="color:#dc2626;font-weight:600;">${a.urgentCount} urgent</span>` : ""}
+              </td>
+            </tr>`,
+          )
+          .join("")}
+      </table>`;
+
+  const urgentLine = urgentCount > 0 && apps.length === 1
     ? `<p style="margin:0 0 16px;font-size:14px;font-weight:600;color:#dc2626;">
         🔴 ${urgentCount} of these are marked urgent
       </p>`
@@ -40,10 +86,9 @@ export async function sendUnrepliedAlert(
                 ${count} review${count === 1 ? "" : "s"} still waiting
               </h1>
               <p style="margin:0 0 16px;font-size:15px;color:#475569;line-height:1.6;">
-                <strong>${appName}</strong> has ${count} review${count === 1 ? "" : "s"} that
-                ${count === 1 ? "has" : "have"} been waiting for a reply for more than 48 hours.
-                Responding promptly improves your store rating and shows users you care.
+                ${bodyCopy}
               </p>
+              ${perAppList}
               ${urgentLine}
               <table cellpadding="0" cellspacing="0">
                 <tr>
@@ -72,9 +117,16 @@ export async function sendUnrepliedAlert(
 </body>
 </html>`;
 
+  // Subject names the app only when there IS one app — otherwise it says how
+  // many, rather than picking one and implying the total is its own.
+  const scopeLabel = apps.length === 1 ? apps[0].appName : `${apps.length} apps`;
+
   const text = [
-    `${count} review${count === 1 ? "" : "s"} waiting for reply — ${appName}`,
+    `${count} review${count === 1 ? "" : "s"} waiting for reply — ${scopeLabel}`,
     ``,
+    ...(apps.length === 1
+      ? []
+      : apps.map((a) => `· ${a.appName}: ${a.count} waiting${a.urgentCount > 0 ? ` (${a.urgentCount} urgent)` : ""}`)),
     urgentCount > 0 ? `🔴 ${urgentCount} urgent` : null,
     `Reply now: ${APP_URL}/reviews?filter=needs_reply`,
   ].filter(Boolean).join("\n");
@@ -82,7 +134,7 @@ export async function sendUnrepliedAlert(
   const { error } = await r.emails.send({
     from: FROM,
     to,
-    subject: `⏰ ${count} review${count === 1 ? "" : "s"} waiting 48h+ — ${appName}`,
+    subject: `⏰ ${count} review${count === 1 ? "" : "s"} waiting 48h+ — ${scopeLabel}`,
     html,
     text,
   });

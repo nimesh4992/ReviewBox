@@ -7,6 +7,9 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { IncidentList } from "@/features/incidents/components/incident-list";
 import { useIncidents, useCreateIncident } from "@/hooks/use-incidents";
+import { useApps } from "@/hooks/use-apps";
+import { resolveSelectedApp } from "@/lib/selected-app";
+import { useWorkspaceStore } from "@/store/use-workspace-store";
 import { cn } from "@/lib/utils";
 
 const SEVERITY_OPTIONS = [
@@ -17,7 +20,15 @@ const SEVERITY_OPTIONS = [
 
 // ── Declare incident dialog ───────────────────────────────────────────────────
 
-function DeclareDialog({ onClose }: { onClose: () => void }) {
+function DeclareDialog({
+  onClose,
+  appId,
+  appName,
+}: {
+  onClose: () => void;
+  appId?: string;
+  appName: string;
+}) {
   const [title,       setTitle]       = useState("");
   const [description, setDescription] = useState("");
   const [severity,    setSeverity]    = useState<"critical" | "high" | "medium">("high");
@@ -30,7 +41,15 @@ function DeclareDialog({ onClose }: { onClose: () => void }) {
     if (!title.trim()) { setError("Title is required"); return; }
     setError(null);
     try {
-      await create.mutateAsync({ title: title.trim(), description: description.trim(), severity });
+      // Attribute the incident to the app the user is looking at. Until now
+      // `incidents.app_id` was never written, so nothing could be scoped.
+      await create.mutateAsync({
+        title: title.trim(),
+        description: description.trim(),
+        severity,
+        appId,
+        appName: appId ? appName : undefined,
+      });
       onClose();
     } catch {
       setError("Failed to create incident. Try again.");
@@ -194,11 +213,20 @@ function DeclareDialog({ onClose }: { onClose: () => void }) {
 
 export default function IncidentsPage() {
   const [showDialog, setShowDialog] = useState(false);
-  const { data: incidents, isLoading, error } = useIncidents();
+  const selectedApp = useWorkspaceStore((s) => s.selectedApp);
+  const { apps } = useApps();
+  const { appId: selectedAppId, appName: selectedAppName } = resolveSelectedApp(apps, selectedApp);
+  const { data: incidents, isLoading, error } = useIncidents(selectedAppId);
 
   return (
     <>
-      {showDialog && <DeclareDialog onClose={() => setShowDialog(false)} />}
+      {showDialog && (
+        <DeclareDialog
+          onClose={() => setShowDialog(false)}
+          appId={selectedAppId}
+          appName={selectedAppName}
+        />
+      )}
 
       <div className="min-w-0">
         <PageHeader

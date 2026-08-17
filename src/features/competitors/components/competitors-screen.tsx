@@ -6,6 +6,9 @@ import { Loader2, Plus, Search, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
+import { useApps } from "@/hooks/use-apps";
+import { resolveSelectedApp } from "@/lib/selected-app";
+import { useWorkspaceStore } from "@/store/use-workspace-store";
 import {
   Dialog,
   DialogContent,
@@ -24,8 +27,8 @@ import type { CompetitorBenchmarkRow, CompetitorsResponse } from "@/types/review
  * illustrative rows and the add flow stays disabled.
  */
 
-async function fetchCompetitors(): Promise<CompetitorsResponse> {
-  const res = await fetch("/api/competitors");
+async function fetchCompetitors(appId?: string): Promise<CompetitorsResponse> {
+  const res = await fetch(`/api/competitors${appId ? `?appId=${encodeURIComponent(appId)}` : ""}`);
   if (!res.ok) throw new Error("Failed to fetch competitors");
   return res.json() as Promise<CompetitorsResponse>;
 }
@@ -318,9 +321,16 @@ export function CompetitorsScreen() {
   const [removingId, setRemovingId] = useState<string | null>(null);
   const qc = useQueryClient();
 
+  // "You" in the benchmark is the selected app — it used to be whichever row
+  // Postgres returned first, so a two-app workspace benchmarked an app the
+  // user had not chosen, under that app's name.
+  const selectedApp = useWorkspaceStore((s) => s.selectedApp);
+  const { apps } = useApps();
+  const { appId: selectedAppId } = resolveSelectedApp(apps, selectedApp);
+
   const { data, isLoading } = useQuery<CompetitorsResponse>({
-    queryKey: ["competitors"],
-    queryFn: fetchCompetitors,
+    queryKey: ["competitors", selectedAppId ?? "all"],
+    queryFn: () => fetchCompetitors(selectedAppId),
     staleTime: 5 * 60_000,
   });
 
@@ -345,7 +355,13 @@ export function CompetitorsScreen() {
       {/* Header */}
       <header className="flex items-end justify-between gap-6">
         <div>
-          <div className="text-[12px] font-medium text-fg-3">{yourApp?.name ?? "All apps"}</div>
+          {/* Never "All apps": the benchmark's "You" row is always ONE app,
+              so labelling it as the portfolio was simply untrue. And while
+              the request is in flight we know nothing — saying "No app
+              connected" to someone who has one is worse than saying nothing. */}
+          <div className="text-[12px] font-medium text-fg-3">
+            {isLoading ? " " : (yourApp?.name ?? "No app connected")}
+          </div>
           <h1 className="mt-1 text-[28px] font-semibold tracking-[-0.022em] text-fg-1">
             Competitors
           </h1>

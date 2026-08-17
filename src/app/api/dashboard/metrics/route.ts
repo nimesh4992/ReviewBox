@@ -36,6 +36,16 @@ export interface DashboardMetrics {
    * not the count of rows we've synced). Null if metadata not yet refreshed.
    */
   lifetimeReviewCount: number | null;
+  /**
+   * How many apps actually contributed to `lifetimeRating`.
+   *
+   * Not the same as "how many apps you have": an app whose store listing has
+   * not been read yet has no rating and cannot be part of the average. The UI
+   * needs this number to caption the figure truthfully — saying "weighted
+   * across your 2 apps" over a single app's rating is the same mislabelling
+   * this endpoint's scoping work exists to remove.
+   */
+  lifetimeRatingAppCount: number;
 }
 
 // Zeroes — used when the user has no workspace yet or a query fails.
@@ -54,9 +64,10 @@ const EMPTY_METRICS: DashboardMetrics = {
   ratingTrend: [],
   lifetimeRating: null,
   lifetimeReviewCount: null,
+  lifetimeRatingAppCount: 0,
 };
 
-export async function GET(): Promise<NextResponse> {
+export async function GET(request: Request): Promise<NextResponse> {
   try {
     // 1. Auth
     const session = await auth();
@@ -91,10 +102,25 @@ export async function GET(): Promise<NextResponse> {
       .eq("workspace_id", workspaceId)
       .is("deleted_at", null);
 
-    const liveAppIds = ((liveApps.data as { id: string }[] | null) ?? []).map((a) => a.id);
+    let liveAppIds = ((liveApps.data as { id: string }[] | null) ?? []).map((a) => a.id);
 
     if (liveApps.error) {
       console.error("[dashboard/metrics] live app lookup failed:", liveApps.error);
+    }
+
+    // Scope to the sidebar's selected app, same contract as /api/reviews: an
+    // appId from the client is only honoured if it is one of this workspace's
+    // live apps — never trusted as a filter on its own. Without this the
+    // dashboard was the one screen that ignored the app selector entirely, so
+    // a two-app workspace showed one blended number that never changed when
+    // the user switched apps (and the blend was dominated by whichever app
+    // had the bigger store review count).
+    const appId = new URL(request.url).searchParams.get("appId")?.trim() || undefined;
+    if (appId) {
+      if (!liveAppIds.includes(appId)) {
+        return NextResponse.json(EMPTY_METRICS);
+      }
+      liveAppIds = [appId];
     }
 
     // No live apps means no reviews to count. Returning zeros is correct and
@@ -210,6 +236,10 @@ export async function GET(): Promise<NextResponse> {
         .from("apps")
         .select("lifetime_rating, lifetime_review_count")
         .eq("workspace_id", workspaceId)
+        // Same scope as every review query above — when the sidebar has a
+        // single app selected, the store rating must be THAT app's, not a
+        // workspace-wide weighted blend.
+        .in("id", liveAppIds)
         .is("deleted_at", null)
         .not("lifetime_rating", "is", null),
     ]);
@@ -284,6 +314,7 @@ export async function GET(): Promise<NextResponse> {
         .from("apps")
         .select("lifetime_rating, lifetime_review_count")
         .eq("workspace_id", workspaceId)
+        .in("id", liveAppIds)
         .not("lifetime_rating", "is", null);
       appsMeta = (retry.data as AppMeta[] | null) ?? [];
     } else if (appsMetaResult.error) {
@@ -322,6 +353,7 @@ export async function GET(): Promise<NextResponse> {
       reviewsThisWeek: thisWeek,
       lifetimeRating,
       lifetimeReviewCount,
+      lifetimeRatingAppCount: appsMeta.length,
     };
 
     return NextResponse.json(metrics);

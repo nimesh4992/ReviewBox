@@ -36,6 +36,7 @@ export default function InboxPage() {
           isFetching={isFetching}
           loadError={isError}
           fetchNextPage={fetchNextPage}
+          appId={appId}
         />
       )}
     </div>

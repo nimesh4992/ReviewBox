@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getServiceClient, getWorkspaceId, isWorkspaceAdmin } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
 import { audit } from "@/lib/audit";
+import { bustWorkspaceDerivedCaches } from "@/lib/cache-bust";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -146,6 +147,12 @@ export async function DELETE(
     console.error("[apps] delete failed:", { appId, code: error.code, message: error.message });
     return apiError("INTERNAL_SERVER_ERROR", 500);
   }
+
+  // The AI summary (1h) and ASO suggestions (24h) were generated FROM the
+  // reviews just deleted. Without this they keep describing a disconnected
+  // app — and the summary's Refresh button reads the same cached payload, so
+  // the user has no way to clear it.
+  await bustWorkspaceDerivedCaches(workspaceId);
 
   await audit({
     workspaceId,

@@ -16,6 +16,9 @@ import {
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
 import { isSyncFailureStatus } from "@/lib/sync-status";
+import { resolveSelectedApp } from "@/lib/selected-app";
+import { exportFileName } from "@/lib/export-filename";
+import { useWorkspaceStore } from "@/store/use-workspace-store";
 import { useDashboardMetrics } from "@/hooks/use-dashboard-metrics";
 import { useApps } from "@/hooks/use-apps";
 import { useIncidents } from "@/hooks/use-incidents";
@@ -41,32 +44,20 @@ function PortfolioSparkline({ data }: { data: (number | null)[] }) {
   // points means elapsed time — but the line must not be drawn across them.
   const values = data.filter((v): v is number => v !== null);
 
-  // Measured, not stretched: this SVG used to be drawn at a fixed 560 units
-  // and stretched to the container with preserveAspectRatio="none", which
-  // scales the axis text along with the line — squeezed glyphs on narrow
-  // screens, smeared on wide ones. Rendering at the container's real pixel
-  // width keeps text undistorted at every size. The wrapper div (and this
-  // observer) stay mounted even in the too-little-data state so the width is
-  // already correct the moment enough data arrives.
-  const containerRef = useRef<HTMLDivElement | null>(null);
-  const [w, setW] = useState(560);
-  useEffect(() => {
-    const el = containerRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver((entries) => {
-      const width = entries[0]?.contentRect.width;
-      if (width) setW(Math.max(120, Math.round(width)));
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  if (values.length < 2) {
+    return (
+      <div className="flex h-[130px] items-center justify-center text-[12px] text-fg-3">
+        Trend appears here once 2+ days of reviews are synced.
+      </div>
+    );
+  }
 
-  const h = 130, padL = 28, padR = 8, padT = 10, padB = 20;
+  const w = 560, h = 130, padL = 28, padR = 8, padT = 10, padB = 20;
 
-  // Ratings live on a fixed 1–5 star scale, and the axis must say so. The old
-  // domain auto-zoomed to the data (min→max), so a rough month rendered as a
-  // 1.4–2.5 window — which reads as "my rating axis ends at 2.5", not as a
-  // trend on a 5-star scale.
+  // Fixed 1–5 domain — ratings live on a five-star scale and the axis must say
+  // so. The old domain auto-zoomed to the data (min→max), so a rough month
+  // rendered as a 1.4–2.5 window, which reads as "the rating axis ends at 2.5"
+  // rather than as a trend on a 5-star scale.
   const ticks = [1, 2, 3, 4, 5];
 
   const xs = (i: number) => padL + (i / Math.max(1, data.length - 1)) * (w - padL - padR);
@@ -97,22 +88,6 @@ function PortfolioSparkline({ data }: { data: (number | null)[] }) {
   const pct = (v: number) => `${(ys(v) / h) * 100}%`;
 
   return (
-    <div ref={containerRef} className="w-full">
-      {values.length < 2 ? (
-        <div className="flex h-[130px] items-center justify-center text-[12px] text-fg-3">
-          Trend appears here once 2+ days of reviews are synced.
-        </div>
-      ) : (
-        <svg width={w} height={h} viewBox={`0 0 ${w} ${h}`} style={{ display: "block" }}>
-          {ticks.map((g) => (
-            <g key={g}>
-              <line x1={padL} x2={w - padR} y1={ys(g)} y2={ys(g)} stroke="var(--rb-border-1)" />
-              <text x={padL - 6} y={ys(g) + 3} fontSize="10" fill="var(--rb-fg-3)" textAnchor="end" style={{ fontVariantNumeric: "tabular-nums" }}>{g}</text>
-            </g>
-          ))}
-          <path d={d} fill="none" stroke="#0A84FF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-        </svg>
-      )}
     <div className="relative w-full" style={{ height: h }}>
       <svg
         viewBox={`0 0 ${w} ${h}`}
@@ -149,7 +124,7 @@ function PortfolioSparkline({ data }: { data: (number | null)[] }) {
           className="absolute text-[10px] tabular-nums text-fg-3"
           style={{ top: pct(g), left: 0, width: padL - 6, transform: "translateY(-50%)", textAlign: "right" }}
         >
-          {g.toFixed(1)}
+          {g}
         </span>
       ))}
     </div>
@@ -387,9 +362,28 @@ function KpiCard({
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
-  const { data: metrics, isLoading, refetch: refetchMetrics } = useDashboardMetrics();
   const { apps, isLoading: appsLoading, isError: appsError, refetch: refetchApps } = useApps();
-  const { data: incidents, isError: incidentsError } = useIncidents();
+  // Scope the numbers to the sidebar's app selector. The dashboard was the
+  // one screen that ignored it: a two-app workspace showed a single blended
+  // rating (dominated by whichever app has the bigger store review count) and
+  // switching apps changed nothing.
+  const selectedApp = useWorkspaceStore((s) => s.selectedApp);
+  const { appId: selectedAppId, appName: selectedAppName } = resolveSelectedApp(apps, selectedApp);
+  // A saved selection can't be resolved until the app list arrives. Firing
+  // before then would request the UNSCOPED figures first and the scoped ones
+  // a moment later — two round trips per page view, and for the AI summary
+  // two generations against a 10/hour limit.
+  const selectionResolved = !(appsLoading && !!selectedApp);
+  const {
+    data: metrics,
+    isLoading,
+    refetch: refetchMetrics,
+    isStaleForApp,
+  } = useDashboardMetrics(selectedAppId, { enabled: selectionResolved });
+  const { data: incidents, isError: incidentsError } = useIncidents(selectedAppId);
+  // Numbers belong to another app (or aren't loaded yet) → render them as
+  // loading rather than as this app's figures.
+  const metricsPending = isLoading || isStaleForApp || !selectionResolved;
   const [exporting, setExporting] = useState(false);
   const [exportError, setExportError] = useState<string | null>(null);
   const [aiEnriching, setAiEnriching] = useState<boolean | null>(null);
@@ -479,7 +473,12 @@ export default function DashboardPage() {
     setExporting(true);
     setExportError(null);
     try {
-      const res  = await fetch("/api/reports/export?days=30");
+      // Export what the screen is showing. Every KPI above this button is
+      // scoped to the selected app; the CSV was not, so a user looking at
+      // app B's numbers downloaded a file containing app A as well.
+      const res  = await fetch(
+        `/api/reports/export?days=30${selectedAppId ? `&appId=${encodeURIComponent(selectedAppId)}` : ""}`,
+      );
       // On failure this route returns a JSON error envelope. Without this
       // check it was blobbed and saved as `reviews-<date>.csv`, so the user
       // got a file full of {"error":…} and believed the export had worked.
@@ -492,7 +491,9 @@ export default function DashboardPage() {
       const href = URL.createObjectURL(blob);
       const a    = document.createElement("a");
       a.href     = href;
-      a.download = `reviews-${new Date().toISOString().split("T")[0]}.csv`;
+      // Name the scope in the filename — the file outlives the screen that
+      // produced it, and no column inside says which app it covers.
+      a.download = exportFileName(selectedAppName, selectedAppId);
       a.click();
       URL.revokeObjectURL(href);
     } finally {
@@ -518,12 +519,25 @@ export default function DashboardPage() {
   // broken and hides that we simply have not scraped the store yet.
   const storeRating    = metrics?.lifetimeRating ?? null;
   // Name the source. "As shown on Google Play" tells the reader why this number
-  // differs from the 30-day average below it; "the store" would not.
-  const platforms      = new Set(apps.map((a) => a.platform));
+  // differs from the 30-day average below it; "the store" would not. When one
+  // app is selected, the source is that app's store — not the whole portfolio.
+  const scopedApps     = selectedAppId ? apps.filter((a) => a.id === selectedAppId) : apps;
+  const platforms      = new Set(scopedApps.map((a) => a.platform));
   const storeName      =
     platforms.size === 1
       ? (platforms.has("app_store") ? "the App Store" : "Google Play")
       : "the stores";
+  // "As shown on X" is only true when the number IS one listing's figure. The
+  // all-apps view of a multi-app workspace averages listings (weighted by
+  // review count), and claiming a store shows that number would be the exact
+  // lie the store-vs-synced split exists to prevent.
+  //
+  // Count the apps that actually CONTRIBUTED to the average, not the apps the
+  // workspace owns: an app whose listing we haven't read yet has no rating and
+  // is not in it. Captioning a single app's rating "weighted across your 2
+  // apps" is the same species of untruth.
+  const ratingAppCount     = metrics?.lifetimeRatingAppCount ?? 0;
+  const ratingIsOneListing = selectedAppId !== undefined || apps.length === 1;
   const displayReviews = metrics?.lifetimeReviewCount ?? metrics?.totalReviews ?? 0;
   // What we hold in the DB for this storefront, as opposed to the store's
   // global lifetime figure above.
@@ -561,15 +575,10 @@ export default function DashboardPage() {
       value: String(unreplied),
       delta: `${urgent} urgent`,
       kind: urgent > 5 ? ("warning" as const) : ("positive" as const),
-      sub: "across all apps",
+      sub: selectedAppId ? "for this app" : "across all apps",
     },
     {
       icon: Star,
-      label: ratingIsLifetime ? "Store rating" : "Avg. rating",
-      value: displayRating !== null ? displayRating.toFixed(2) : "—",
-      delta: formatDelta(avgRatingDelta),
-      kind: avgRatingDeltaKind,
-      sub: ratingIsLifetime ? "all-time (store)" : "last 30 days · synced",
       label: "Avg. rating",
       value: avgRating !== null ? avgRating.toFixed(2) : "—",
       delta: formatDelta(avgRatingDelta),
@@ -686,11 +695,6 @@ export default function DashboardPage() {
       <section className="grid grid-cols-1 gap-6 rounded-2xl border border-[var(--rb-border-1)] bg-surface px-5 py-5 shadow-[var(--rb-shadow-xs)] sm:grid-cols-[minmax(0,260px)_1fr] sm:items-center sm:gap-8 sm:px-8 sm:py-7">
         <div>
           <div className="text-xs font-medium text-fg-3 uppercase tracking-[0.06em]">
-            {/* Say which number this is. "Portfolio rating" over a 30-day
-                average looked like the store rating being wrong (2.53 vs the
-                Play listing's 3.1) — the store's own figure and our synced
-                window must never be presentable as the same thing. */}
-            {ratingIsLifetime ? "Store rating · all-time" : "Synced reviews · 30-day average"}
             {ratingIsLifetime ? "Store rating · all-time" : "Store rating"}
           </div>
           <div className="mt-3 flex items-baseline gap-3">
@@ -719,9 +723,16 @@ export default function DashboardPage() {
               week" tile. The 30-day movement has its own tile below. */}
           <div className="mt-3 text-xs text-fg-3">
             {storeRating !== null
-              ? `As shown on ${storeName}${
-                  reviewsAreLifetime ? ` · ${displayReviews.toLocaleString()} ratings` : ""
-                }`
+              ? `${
+                  ratingIsOneListing
+                    ? `As shown on ${storeName}`
+                    : ratingAppCount > 1
+                      ? `Weighted across ${ratingAppCount} apps — pick one in the sidebar for its own rating`
+                      // Several apps, but only one listing has been read. The
+                      // figure is that one app's, so it must not be described
+                      // as covering the portfolio.
+                      : `From the one app whose listing we've read — pick an app in the sidebar for its own rating`
+                }${reviewsAreLifetime ? ` · ${displayReviews.toLocaleString()} ratings` : ""}`
               : "We haven't read your store listing yet. Run a sync from Settings → Apps."}
           </div>
           <p className="mt-4 max-w-[240px] text-[13px] leading-relaxed text-fg-3">
@@ -742,7 +753,7 @@ export default function DashboardPage() {
       {/* ── KPI strip ── */}
       <section className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {kpis.map((s) => (
-          <KpiCard key={s.label} {...s} loading={isLoading} />
+          <KpiCard key={s.label} {...s} loading={metricsPending} />
         ))}
       </section>
 
@@ -893,8 +904,8 @@ export default function DashboardPage() {
 
       </section>
 
-      {/* ── AI Review Summary ── */}
-      <AiSummaryPanel />
+      {/* ── AI Review Summary — scoped to the same app selection as the metrics ── */}
+      <AiSummaryPanel appId={selectedAppId} enabled={selectionResolved} />
 
       {/* ── 3-column bottom ── */}
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
