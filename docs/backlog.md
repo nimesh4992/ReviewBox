@@ -45,11 +45,12 @@ Production has `volume_estimate` / `trend_data` / `added_at` / `updated_at`, mat
 `PLAN_LIMITS.reviewsPerMonth` is advertised on `/pricing` and Billing and enforced nowhere: `checkReviewLimit()` is fully implemented and has zero call sites. Three options are written up in the ADR; the recommendation is **B — soft cap** (never stop ingesting; show an upgrade banner over the limit). D009 puts this call with the founder, not with me.
 **Why it can't wait for M2:** once a paid plan exists to compare against, the gap between what the pricing page promises and what the product does stops being tidiness.
 
-### [ ] W5B · Apply migrations 027–029 · HUMAN-REQUIRED
-**Added 2026-08-17 by Wave 5.** All three are idempotent and safe to paste in any order.
-- **027** — two RLS policies ask `auth.uid()` (Supabase-native) instead of the Clerk subject. Currently dormant, because nothing reaches RLS; a trap for the first client-side read.
-- **028** — `NOT NULL` on the nine tenant-scoping columns migration 001 left nullable. Self-checking: reports and skips rather than failing if any NULL rows exist.
-- **029** — repairs reviews stored as `replied` with no reply text. Section A applies automatically (unambiguous); **Section B is commented out on purpose** — that population is indistinguishable from a deliberate bulk "mark as replied", so read the diagnostic SELECT first.
+### [x] W5B · Apply migrations 026–029 · DONE 2026-08-17 (founder ran)
+Verified by query, not assumed:
+- **027** — `pg_policies` returns **zero** rows mentioning `auth.uid()`.
+- **028** — all nine tenant columns report `is_nullable = NO`. The pre-check found zero NULL rows, so nothing was skipped. All 12 insert/upsert sites on those tables were confirmed to set `workspace_id` before applying.
+- **029** — the diagnostic returned **zero rows**: no review had ever been stored as `replied` with blank text on this database. Section A was a no-op and Section B never applied. The PR #101 code fix stands; there was simply nothing persisted to repair.
+- **026** — the four dead `alert_preferences` columns dropped.
 
 ### [ ] LT1 · Sweep every write for the PGRST204 class · ICE 72 (8×9÷1) 
 **Added 2026-08-16 after PR #85.** **Effort:** 3h.

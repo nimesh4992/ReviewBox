@@ -82,7 +82,19 @@ workspace that is seconds old.
 
 ## Founder actions
 
-### 1. Migrations 027–029 — paste in Supabase, any order, all idempotent
+### ✅ 1. Migrations 026–029 — DONE 2026-08-17, verified by query
+
+All four applied. `pg_policies` returns zero `auth.uid()` rows; all nine tenant
+columns report `is_nullable = NO` with nothing skipped.
+
+**The 029 diagnostic returned zero rows** — no review on this database had ever
+been stored as `replied` with a blank reply. So the App Store defect PR #101
+fixed never persisted a bad row here, Section A was a no-op, and Section B never
+ran. Nothing to chase; don't go looking for it later.
+
+*(Original instructions kept below for the record.)*
+
+### ~~1. Migrations 027–029 — paste in Supabase, any order, all idempotent~~
 
 - **027 `rls_identity_reconcile`** — two policies
   (`automation_execution_logs`, `competitor_apps`) compare against
