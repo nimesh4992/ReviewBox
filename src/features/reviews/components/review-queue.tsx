@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useDeferredValue } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { useQuery } from "@tanstack/react-query";
 import { CheckCheck, Inbox, Loader2, MessageSquareDiff, Search, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
@@ -102,30 +103,54 @@ export function InboxScreen({
   }, [markDraftQuick]);
 
   // ── Server-side full-text search (fires when search ≥ 3 chars) ──────────────
+  //
+  // React Query, not a hand-rolled useEffect + fetch + cancellation flag. The
+  // project's own State Rules say server data belongs in React Query, but the
+  // reason to convert this one wasn't tidiness — the hand-rolled version had
+  // two silent failures baked into its shape:
+  //
+  //   1. It never checked `res.ok`. A 500 parses into the error envelope, so
+  //      `data.reviews` was undefined, `?? []` turned it into an empty array,
+  //      and a failed search rendered as "0 reviews" — identical to a search
+  //      that genuinely matched nothing.
+  //   2. Its `.catch()` set results back to null, which silently reverted to
+  //      client-side filtering of the loaded page. A network failure looked
+  //      like a working search over a much smaller set.
+  //
+  // `isError` makes both visible. `appId` is in the key so switching apps
+  // re-runs an active search instead of leaving the previous app's results up.
   const deferredSearch = useDeferredValue(search);
-  const [serverResults, setServerResults] = useState<AppReview[] | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
+  const searchQuery = deferredSearch.trim();
+  const searchActive = searchQuery.length >= 3;
 
-  useEffect(() => {
-    if (deferredSearch.trim().length < 3) {
-      setServerResults(null);
-      return;
-    }
-    let cancelled = false;
-    setIsSearching(true);
-    const params = new URLSearchParams({ search: deferredSearch.trim(), limit: "50" });
-    if (appId) params.set("appId", appId);
-    fetch(`/api/reviews?${params.toString()}`)
-      .then((r) => r.json() as Promise<{ reviews: AppReview[] }>)
-      .then((data) => {
-        if (!cancelled) setServerResults(data.reviews ?? []);
-      })
-      .catch(() => { if (!cancelled) setServerResults(null); })
-      .finally(() => { if (!cancelled) setIsSearching(false); });
-    return () => { cancelled = true; };
-    // appId in deps: switching apps must re-run an active search rather than
-    // leaving the previous app's results on screen.
-  }, [deferredSearch, appId]);
+  const {
+    data: searchData,
+    isFetching: isSearching,
+    isError: searchFailed,
+  } = useQuery<AppReview[]>({
+    queryKey: ["review-search", searchQuery, appId ?? null],
+    enabled: searchActive,
+    staleTime: 30_000,
+    // Keep the previous term's results on screen while the next one loads, so
+    // typing doesn't flash the whole list back to the unfiltered set.
+    placeholderData: (previous) => previous,
+    queryFn: async () => {
+      const params = new URLSearchParams({ search: searchQuery, limit: "50" });
+      if (appId) params.set("appId", appId);
+
+      const res = await fetch(`/api/reviews?${params.toString()}`);
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        throw new Error(apiErrorMessage(body, "Search failed. Try again."));
+      }
+      const data = (await res.json()) as { reviews?: AppReview[] };
+      return data.reviews ?? [];
+    },
+  });
+
+  // Null unless a search is actually running — `placeholderData` would
+  // otherwise keep the last results visible after the box is cleared.
+  const serverResults = searchActive ? searchData ?? null : null;
 
   // When server search is active, replace the reviews set
   const effectiveReviews = serverResults !== null ? serverResults : reviews;
@@ -325,7 +350,13 @@ export function InboxScreen({
             <div>
               <div className="flex items-center gap-2 text-[12px] font-medium text-[var(--rb-fg-3)]">
                 <span>
-                  {isSearching ? (
+                  {searchActive && searchFailed && !isSearching ? (
+                    // Was indistinguishable from "nothing matched" — see the
+                    // note on the search query above.
+                    <span className="text-[var(--rb-red-500)]">
+                      Search failed — showing the reviews already loaded. Try again.
+                    </span>
+                  ) : isSearching ? (
                     <span className="flex items-center gap-1">
                       <Loader2 className="size-3 animate-spin" strokeWidth={1.5} />
                       Searching…

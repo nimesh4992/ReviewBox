@@ -45,6 +45,10 @@ Production has `volume_estimate` / `trend_data` / `added_at` / `updated_at`, mat
 `PLAN_LIMITS.reviewsPerMonth` is advertised on `/pricing` and Billing and enforced nowhere: `checkReviewLimit()` is fully implemented and has zero call sites. Three options are written up in the ADR; the recommendation is **B — soft cap** (never stop ingesting; show an upgrade banner over the limit). D009 puts this call with the founder, not with me.
 **Why it can't wait for M2:** once a paid plan exists to compare against, the gap between what the pricing page promises and what the product does stops being tidiness.
 
+### [ ] W6A · Apply migration 030 · HUMAN-REQUIRED
+**Added 2026-08-17 by Wave 6 (audit finding L-2).** One migration, idempotent, self-checking.
+`workspace_invites` declares `unique (workspace_id, email, accepted_at)` with a comment claiming it keeps pending invites unique. It does the exact opposite: Postgres treats every NULL as distinct, and `accepted_at` is NULL for every *pending* invite — so the constraint fires only for accepted ones. 030 adds the partial unique index that expresses the actual rule. Skips with a notice (and a resolution query) if duplicates already exist.
+
 ### [x] W5B · Apply migrations 026–029 · DONE 2026-08-17 (founder ran)
 Verified by query, not assumed:
 - **027** — `pg_policies` returns **zero** rows mentioning `auth.uid()`.

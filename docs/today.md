@@ -134,6 +134,74 @@ specifically as the one not to take: it stops the customer seeing their own
 
 ---
 
+---
+
+## Wave 6 — the audit tail
+
+Everything left after Waves 1–5, except M-6 (a pricing decision, yours).
+Checked first rather than assumed: **M-1, M-7, M-9, M-11, M-12, M-13, L-1, L-3
+and L-5 were already fixed** in earlier waves. What actually remained:
+
+### L-6 — three copies of "who do I email about this workspace"
+
+`weekly-digest`, `trial-nudge` and `health/user-check` each answered this
+differently, and the first two did it **one workspace at a time inside a loop**
+— two round trips per workspace. Now one `resolveWorkspaceOwners()` in
+`src/lib/owner-emails.ts`: one member query, one Clerk call per 100 workspaces.
+
+The N+1 costs nothing at four workspaces, which is why it survived. It stops
+being free at the scale weekly-digest's own comment is written for ("200+
+workspaces"): 200 sequential Clerk calls inside a 60s function sends to the
+first sixty owners and times out — while still answering 200, because
+`Promise.allSettled` reports a cancelled batch exactly like a workspace with
+no reviews.
+
+**Also fixes a latent cliff.** The one already-batched copy passed
+`limit: clerkIds.length` to `getUserList` with no bound. Clerk caps `limit` at
+500, so it was correct only while the account stayed under 500 workspaces. The
+shared version chunks at 100.
+
+Behaviour is preserved exactly: `trial-nudge` was the only one that fell back
+to a non-owner member when a workspace had no owner row, and it keeps that via
+an explicit flag. This was a de-duplication, not a decision about who gets mail.
+
+### M-10 — the Retry button that couldn't report a failure
+
+`handleRetry()` fired an un-awaited fetch with **no `.catch()` at all**, then
+refetched on a blind 3-second timer. This is the button shown *when a sync has
+already failed*, so it was the one place a second failure most needed to be
+visible. It now awaits, surfaces the error, refetches when the sync actually
+finishes, and says so when the run was declined by the sync lock.
+
+The busy/message state lives in `workspace-status-strip.tsx`, not in
+`dashboard/page.tsx` — that file has been mangled by bad merges six times, and
+widening its component signatures is how that keeps happening. The page hands
+over one async function and nothing else.
+
+### L-4 — inbox search had two silent failures
+
+Converted from a hand-rolled `useEffect` + `fetch` + cancellation flag to
+`useQuery`. The conversion is not the point; the shape it replaced is:
+
+1. It never checked `res.ok`, so a 500 parsed into the error envelope,
+   `data.reviews` came back undefined, `?? []` turned it into an empty array —
+   and a failed search rendered as **"0 reviews", identical to no matches**.
+2. Its `.catch()` reset to null, silently reverting to client-side filtering of
+   the loaded page — a network failure looked like a working search over a much
+   smaller set.
+
+Both are now visible.
+
+### L-2 — a constraint that does the opposite of its comment
+
+`workspace_invites` has `unique (workspace_id, email, accepted_at)` commented
+"unique while pending". NULLs are distinct in Postgres and `accepted_at` is
+NULL for every pending invite, so it fires only for accepted ones. Migration
+**030** adds the partial unique index. The invite route now answers 409 with a
+readable sentence instead of 500 when two admins invite the same person at once.
+
+---
+
 ## Up next
 
 1. The two founder decisions above (W5A, W5B in the backlog).
