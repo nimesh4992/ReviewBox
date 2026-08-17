@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
+import { isMissingTableError } from "@/lib/db-errors";
 import { audit } from "@/lib/audit";
 import { rateLimit } from "@/lib/api-rate-limit";
 import { fetchAppMetadata } from "@/services/store-search";
@@ -37,10 +38,6 @@ interface CompetitorDbRow {
   store_id: string;
   name: string;
   icon_url: string | null;
-}
-
-function isTableMissing(error: { code?: string } | null): boolean {
-  return error?.code === "42P01";
 }
 
 // DB stores snake_case platforms; the store-search service speaks kebab-case.
@@ -172,7 +169,7 @@ export async function GET(req: NextRequest): Promise<NextResponse> {
     .order("added_at", { ascending: true });
 
   if (error) {
-    if (isTableMissing(error)) {
+    if (isMissingTableError(error)) {
       // Migration 016 not applied yet — old illustrative behaviour.
       const body: CompetitorsResponse = {
         yourApp,
@@ -261,7 +258,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     .select("id", { count: "exact", head: true })
     .eq("workspace_id", workspaceId);
   if (countError) {
-    return isTableMissing(countError)
+    return isMissingTableError(countError)
       ? apiError("SERVICE_UNAVAILABLE", 409, "Competitor tracking isn't enabled yet — it ships with the next database update.")
       : apiError("INTERNAL_SERVER_ERROR", 500, "Couldn't load competitors.");
   }

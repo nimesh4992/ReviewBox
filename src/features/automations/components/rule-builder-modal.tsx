@@ -13,6 +13,8 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import { ISSUE_TAGS } from "@/lib/tag-labels";
+import type { SelectableAutomationAction } from "@/lib/automation-actions";
 import type {
   AutomationRule,
   AutomationCondition,
@@ -58,9 +60,11 @@ const OPERATOR_OPTIONS_BY_FIELD: Record<
   ],
 };
 
-const ACTION_OPTIONS: { value: AutomationAction; label: string; description: string }[] = [
+// Only actions the API will actually accept. Offering one it rejects is how
+// "Auto-reply (AI)" sat in this list while both routes 400'd it — a selectable
+// option that could never be saved. The type ties this list to the allowlist.
+const ACTION_OPTIONS: { value: SelectableAutomationAction; label: string; description: string }[] = [
   { value: "ai_reply",       label: "Generate AI reply",    description: "Draft a reply with AI — you review before publishing" },
-  { value: "auto_reply",     label: "Auto-reply (AI)",      description: "Generate and publish an AI reply automatically — no review needed" },
   { value: "template_reply", label: "Reply with template",  description: "Use a saved reply template (auto-matched by rating if none chosen)" },
   { value: "apply_tag",      label: "Apply tag",            description: "Add an issue tag to the review for filtering" },
   { value: "escalate",       label: "Escalate to team",     description: "Mark as urgent and set escalation to engineering" },
@@ -75,11 +79,6 @@ const ACTION_LABELS: Record<AutomationAction, string> = {
   escalate:       "Escalate",
   report_spam:    "Flag for review",
 };
-
-const ISSUE_TAGS = [
-  "crash", "billing", "login", "performance",
-  "release-regression", "feature-request", "support-delay", "localization",
-] as const;
 
 // ── Template type (minimal — fetched for picker) ──────────────────────────────
 

@@ -14,6 +14,7 @@ import { NextResponse } from "next/server";
 
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { apiError } from "@/lib/api-response";
+import { isConnectionHealthy } from "@/lib/sync-status";
 
 export const dynamic = "force-dynamic";
 
@@ -79,8 +80,18 @@ function getNextAction(app: Record<string, unknown>): string {
   const lastError = app.last_sync_error as string | null;
   const status = app.last_sync_status as string | null;
 
-  if (lastSyncedAt && status === "success") {
+  if (lastSyncedAt && isConnectionHealthy(status)) {
     return `✓ Last synced ${app.last_sync_review_count ?? 0} reviews. All good.`;
+  }
+
+  // `credentials_verified` is a HEALTHY value — the connection test passed and
+  // the first sync simply hasn't run yet. Comparing against the literal
+  // "success" put this state into the alarmist branch at the bottom, telling a
+  // customer who had just successfully connected that something may have
+  // failed. This route exists specifically so a non-technical customer can
+  // self-diagnose, which makes a wrong verdict here worse than none.
+  if (!lastSyncedAt && isConnectionHealthy(status)) {
+    return `✓ Connected and verified. No sync has run yet — click "Sync now" in Settings → Apps.`;
   }
 
   if (status === "needs_play_console_access") {
