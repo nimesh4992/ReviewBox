@@ -347,12 +347,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // Checked BEFORE generating to save quota. Scoped to workspace + app +
     // prompt — never shared across tenants.
     // ══════════════════════════════════════════════════════════════════════
-    // No workspace means no tenant to scope the cache to, and a shared bucket
-    // is exactly what this cache must never be again — so such a caller simply
-    // skips the cache rather than reading or writing a common namespace.
-    const cached = workspaceId
-      ? await getCachedReply(workspaceId, { text: reviewBody, rating }, tone)
-      : null;
+    // A caller with no workspace has no tenant to scope the cache to; the
+    // cache functions themselves skip such a call rather than read or write a
+    // shared namespace, which is exactly what this cache must never be again.
     const cached = await getCachedReply(cacheScope, { text: reviewBody, rating }, tone);
     if (cached !== null) {
       const raw   = enforceCharLimit(cached, charLimit);
@@ -388,10 +385,6 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       const raw   = enforceCharLimit(aiReply, charLimit);
       const reply = humanizePunctuation(personalizeText(raw, persona));
 
-      // Cache the raw AI output (before personalization — personas can change)
-      if (workspaceId) {
-        await setCachedReply(workspaceId, { text: reviewBody, rating }, tone, aiReply);
-      }
       // Cache the raw AI output under the workspace/app/prompt-scoped key.
       // A persona or KB change produces a different prompt, hence a different
       // key — stale drafts age out rather than being served.

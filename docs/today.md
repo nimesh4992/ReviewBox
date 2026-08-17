@@ -142,32 +142,53 @@ served its old translation for 7 days.
 ---
 ---
 
-# Session 4 (same day) — security round + master repair
+# Session 4 (same day) — security round + the sixth mangling
 
-On `claude/product-audit-testing-toum42` → **PR #92**. 356 tests, lint 0
+On `claude/product-audit-testing-toum42` → **PR #92**. 377 tests, lint 0
 errors, build clean. Session 3's notes above are already in master; this
 section is additive, not a replacement.
 
-## 🚨 Merge PR #92 first — master does not build
+**Master builds again.** An earlier version of this section said it did not —
+that was true of `1d53409` and is now stale: master repaired the #90/#91
+dashboard fusion itself in `2ea42cc`, so #92 is no longer load-bearing for it.
 
-`npx tsc --noEmit` against `origin/master` (1d53409) fails outright.
+## The sixth mangling — same file, same cause, now on this branch
 
-PRs #90 and #91 each fixed the same dashboard rating bug independently, and
-merging them spliced both bodies together — two `PortfolioSparkline`
-implementations in one component, the "Avg. rating" KPI object with every key
-declared twice, and the hero label as two adjacent expressions rendering
-"Store rating · all-timeStore rating" to the customer. Fifth occurrence in
-this file; first one where **both sides were fixes for the same bug**, which
-is why each PR was green alone.
+"Update branch" on PR #92 merged master in, and the fusion happened again in
+`3c7bacf`: `tsc` red, three CI checks red. Sixth occurrence for
+`dashboard/page.tsx`, and the second in a row where **both sides were fixes
+for the same bug** — which is precisely why each side was green alone and the
+merge was not.
 
-Resolved by keeping #91's sparkline (measured pixel width, fixed 1–5 axis —
-better than #90's HTML-overlay workaround) and #90's KPI tile (always the
-30-day average, so it stops duplicating the hero).
+This time it hit two files:
+
+| File | What fused | Resolution |
+|---|---|---|
+| `dashboard/page.tsx` | My repair of the broken base vs. master's independent repair of the same base, plus master's newer app-selector work on top | Took master's file whole. Both repairs cured the founder-reported squeezed axis fonts — mine by measuring the container (`ResizeObserver`), master's by lifting the tick labels out of the stretched SVG into HTML. Master's also carries the app-selector work, so mine had nothing left to contribute. |
+| `reply-cache.ts` | Both sides independently closed the cross-tenant cache leak; git spliced the two function signatures together | Took master's whole. Its `ReplyCacheScope` is a strict superset of my `workspaceId` argument — it also keys on the app and the full system prompt, and hashes the entire review body rather than the first 200 characters. |
+
+`reply-cache.test.ts` was ported to the scope object rather than deleted: it
+drives the **public** API against a fake Redis, where master's tests drive the
+key builder directly. The guards that skip the cache entirely — no workspace,
+no Redis configured — are invisible from the key builder, so a test at that
+level can pass while the real call path still shares a namespace. One test of
+mine was dropped as genuinely obsolete (master's key no longer puts the
+workspace id in the visible prefix) and replaced with two that hold under the
+new design: identical system prompts must still not cross tenants, and a
+workspace-less caller must not touch Redis at all.
+
+`export/route.ts` also had edits from both sides — hardened CSV escaping from
+mine, live-app scoping from master's — but in disjoint regions, and both
+survived intact. Verified rather than assumed: the check that matters is that
+no *local* `escapeCsv` was left behind to shadow the hardened import.
 
 **Lesson worth keeping:** `tsc` caught the syntax damage and the duplicate
-object keys. It could NOT see the doubled hero label — that is valid JSX that
-renders wrong. After any merge of this file, also scan for adjacent
-near-identical JSX expressions.
+object keys. It could NOT see the doubled hero label from the fifth mangling —
+valid JSX that renders wrong — and it would not have seen a shadowed
+`escapeCsv` either. After any merge of these files: run `tsc`, then diff each
+side against the merge base and confirm *both* intents are still present, then
+scan for adjacent near-identical expressions. Green checks are necessary here,
+not sufficient.
 
 ## Security fixes in #92
 
