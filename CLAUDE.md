@@ -340,12 +340,11 @@ UPSTASH_REDIS_REST_TOKEN=           ✅ Set
 # Email
 RESEND_API_KEY=                     ✅ Set
 
-# Stripe — fill in before M2
+# Stripe — fill in before M2 (see docs/STRIPE_SETUP.md + docs/STRIPE_LEGAL_CHECKLIST.md)
 STRIPE_SECRET_KEY=                  🔲 Not set
 STRIPE_WEBHOOK_SECRET=              🔲 Not set
-STRIPE_PRICE_STARTER=               🔲 Not set
-STRIPE_PRICE_PRO=                   🔲 Not set
-STRIPE_PRICE_TEAM=                  🔲 Not set
+STRIPE_PRICE_STARTER=               🔲 Not set — $49/mo USD
+STRIPE_PRICE_PRO=                   🔲 Not set — $129/mo USD (Team plan removed; Enterprise is quote-only, no price ID)
 
 # Google Play (service account — already working)
 GOOGLE_CLIENT_EMAIL=                ✅ Set

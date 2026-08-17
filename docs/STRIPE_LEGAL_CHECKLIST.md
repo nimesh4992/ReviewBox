@@ -93,18 +93,36 @@ receiving diagnostics only. Turned off.
 ## 4. Before you submit to Stripe
 
 - [ ] **Confirm the firm name** against the partnership deed and fill in `company.ts` (section 1).
+- [ ] **Fill every fact in section 2** into `src/lib/legal/company.ts` — until
+      then the footer of every page shows "[to be published]" placeholders,
+      which a reviewer will read as an unfinished site.
+- [ ] **Verify production is serving this repo's master.** A 2026-08-16
+      production screenshot showed hero copy that exists at no commit in this
+      repository — if tryreviewbox.com is deploying an old or foreign build,
+      none of the legal work is visible to the reviewer. Check the footer of
+      the live site shows the "AT WORK Inc, trading as ReviewBox" line.
+- [ ] **Check every page loads logged out** — refund policy, terms, privacy,
+      contact, pricing, grievance, sub-processors.
+- [ ] **Set `NEXT_PUBLIC_APP_URL=https://app.tryreviewbox.com` in Vercel.**
+      Stripe checkout success/cancel URLs are built from it — unset, a paying
+      customer is redirected to localhost after paying.
 - [ ] **Request an India invite.** Stripe India is not self-serve signup — you
       have to request access. Do this early; it gates everything else.
 - [ ] **Tick the export/international opt-in** in the application if you intend
       to charge customers outside India. Without it, export charges only work in
       test mode.
-- [ ] **Show the currency on pricing.** "$49" alone is ambiguous to an
-      international buyer; Stripe asks for the currency code. Say "USD 49 / month".
+- [x] **Show the currency on pricing.** Done in code — `/pricing` and the
+      in-app Billing page now label prices "USD / month" explicitly (the ₹
+      line names its own currency).
 - [ ] **Have KYC documents ready:** partnership deed, firm PAN, GSTIN, bank
       proof, and identity documents for the partners. Stripe India accepts
       partnership firms, but the deed is the document it will want.
-- [ ] **Check every page loads logged out** — refund policy, terms, privacy,
-      contact, pricing, grievance.
+- [ ] **Decide annual + INR billing** before wiring prices: `/pricing`
+      advertises annual per-month prices and ₹ prices, but checkout sells
+      monthly USD only (see `docs/STRIPE_SETUP.md`). Either create those
+      prices when setting up Stripe, or trim the display — the site must not
+      advertise a price that can't be bought once billing is live. RBI's
+      e-mandate cap is the reason annual-on-Indian-cards needs a decision.
 
 Already handled in code: checkout now collects the buyer's name and billing
 address and sets a service description, all three of which an India account

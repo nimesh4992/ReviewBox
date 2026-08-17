@@ -1,6 +1,6 @@
-﻿"use client";
+"use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, type ReactNode } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { AlertTriangle, Check, Loader2, ExternalLink, Zap } from "lucide-react";
 
@@ -8,11 +8,16 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { track } from "@/lib/analytics";
+import { COMPANY } from "@/lib/legal/company";
+import { PAID_PLANS, PLAN_LIMITS, PLAN_PRICING, type PaidPlanName } from "@/lib/plans";
 
-type PlanId = "starter" | "pro" | "team";
-
-interface Plan {
-  id: PlanId;
+// Cards are DERIVED from lib/plans.ts — the same source /pricing renders.
+// This page used to carry its own hand-typed plan list; it drifted into
+// selling a "Team" tier that no longer exists and showing Pro at the annual
+// per-month price while checkout charged the monthly one. The point of sale
+// must never disagree with the price list.
+interface PaidPlanCard {
+  id: PaidPlanName;
   name: string;
   price: number;
   description: string;
@@ -21,53 +26,38 @@ interface Plan {
   badge?: string;
 }
 
-const PLANS: Plan[] = [
-  {
-    id: "starter",
-    name: "Starter",
-    price: 49,
-    description: "Perfect for indie developers and small teams.",
-    features: [
-      "Up to 2 apps",
-      "5,000 reviews / month",
-      "Email alerts",
-      "AI reply suggestions",
-      "7-day review history",
-    ],
-    highlight: false,
-  },
-  {
-    id: "pro",
-    name: "Pro",
-    price: 99,
-    description: "For growing teams that need deeper insights.",
-    features: [
-      "Up to 10 apps",
-      "50,000 reviews / month",
-      "Email + Slack alerts",
-      "AI reply generation",
-      "Release health tracking",
-      "90-day review history",
-    ],
-    highlight: true,
-    badge: "Most popular",
-  },
-  {
-    id: "team",
-    name: "Team",
-    price: 199,
-    description: "Unlimited scale with white-glove support.",
-    features: [
-      "Unlimited apps",
-      "Unlimited reviews",
-      "All Pro features",
-      "Priority support",
-      "Custom integrations",
-      "Unlimited history",
-    ],
-    highlight: false,
-  },
-];
+const PLANS: PaidPlanCard[] = PAID_PLANS.map((id): PaidPlanCard => ({
+  id,
+  name: PLAN_PRICING[id].label,
+  price: PLAN_PRICING[id].monthlyUsd!,
+  description: PLAN_PRICING[id].tagline,
+  features: [
+    `${PLAN_LIMITS[id].appsMax} apps`,
+    `${PLAN_LIMITS[id].publishedRepliesPerMonth.toLocaleString()} published replies / month`,
+    `${PLAN_LIMITS[id].reviewsPerMonth.toLocaleString()} reviews / month`,
+    `${PLAN_LIMITS[id].aiDraftsPerMonth.toLocaleString()} AI drafts / month`,
+    PLAN_LIMITS[id].seats === 1 ? "1 seat" : `${PLAN_LIMITS[id].seats} seats`,
+    id === "starter" ? "Email alerts" : "Email + Slack alerts",
+    id === "starter" ? "Email support" : "Priority email support",
+  ],
+  highlight: id === "pro",
+  badge: id === "pro" ? "Most popular" : undefined,
+}));
+
+// Quote-only on purpose, same as /pricing — no Stripe product exists for it.
+const ENTERPRISE = {
+  name: PLAN_PRICING.enterprise.label,
+  description: PLAN_PRICING.enterprise.tagline,
+  features: [
+    "Unlimited apps",
+    "Unlimited published replies",
+    "Unlimited reviews",
+    "Custom AI allowance",
+    "Unlimited seats",
+    "Email + Slack alerts",
+    "Named contact",
+  ],
+};
 
 function BillingContent() {
   const router = useRouter();
@@ -75,7 +65,7 @@ function BillingContent() {
   const reason = searchParams.get("reason");
   const required = searchParams.get("required") === "1";
   const trialExpired = reason === "trial-expired";
-  const [loadingPlan, setLoadingPlan] = useState<PlanId | null>(null);
+  const [loadingPlan, setLoadingPlan] = useState<PaidPlanName | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -90,7 +80,7 @@ function BillingContent() {
     track({ name: "billing_viewed", properties: { reason: reasonProp } });
   }, [reason, required]);
 
-  async function handleChoosePlan(planId: PlanId) {
+  async function handleChoosePlan(planId: PaidPlanName) {
     setLoadingPlan(planId);
     setError(null);
     track({ name: "upgrade_clicked", properties: { plan: planId } });
@@ -178,12 +168,54 @@ function BillingContent() {
           {PLANS.map((plan) => (
             <PlanCard
               key={plan.id}
-              plan={plan}
-              isLoading={loadingPlan === plan.id}
-              isDisabled={loadingPlan !== null}
-              onChoose={() => void handleChoosePlan(plan.id)}
+              name={plan.name}
+              description={plan.description}
+              features={plan.features}
+              highlight={plan.highlight}
+              badge={plan.badge}
+              price={plan.price}
+              cta={
+                <Button
+                  variant={plan.highlight ? "default" : "outline"}
+                  className={cn(
+                    "w-full",
+                    plan.highlight
+                      ? "bg-[#0A84FF] text-white hover:bg-[#006EE0]"
+                      : "border-[var(--rb-border-3)] text-fg-1 hover:border-[#0A84FF]/50 hover:bg-[var(--rb-bg-hover)]",
+                  )}
+                  onClick={() => void handleChoosePlan(plan.id)}
+                  disabled={loadingPlan !== null}
+                >
+                  {loadingPlan === plan.id ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      Redirecting…
+                    </>
+                  ) : (
+                    "Choose Plan"
+                  )}
+                </Button>
+              }
             />
           ))}
+          <PlanCard
+            name={ENTERPRISE.name}
+            description={ENTERPRISE.description}
+            features={ENTERPRISE.features}
+            highlight={false}
+            price={null}
+            cta={
+              <Button
+                asChild
+                variant="outline"
+                className="w-full border-[var(--rb-border-3)] text-fg-1 hover:border-[#0A84FF]/50 hover:bg-[var(--rb-bg-hover)]"
+              >
+                <a href={`mailto:${COMPANY.emails.support}?subject=${encodeURIComponent("ReviewBox Enterprise")}`}>
+                  Talk to us
+                </a>
+              </Button>
+            }
+          />
         </div>
 
         {/* Manage existing subscription */}
@@ -219,8 +251,8 @@ function BillingContent() {
 
         {/* Footer note */}
         <p className="mt-6 text-center text-sm text-fg-3">
-          All plans include a 14-day free trial. Cancel anytime. No credit card
-          required to start.
+          Prices in USD, billed monthly. All plans include a 14-day free trial —
+          no credit card required to start. Cancel anytime.
         </p>
       </div>
     </div>
@@ -236,52 +268,60 @@ export default function BillingPage() {
 }
 
 interface PlanCardProps {
-  plan: Plan;
-  isLoading: boolean;
-  isDisabled: boolean;
-  onChoose: () => void;
+  name: string;
+  description: string;
+  features: string[];
+  highlight: boolean;
+  badge?: string;
+  /** Monthly USD price; null renders the quote-only "Talk to us" state. */
+  price: number | null;
+  cta: ReactNode;
 }
 
-function PlanCard({ plan, isLoading, isDisabled, onChoose }: PlanCardProps) {
+function PlanCard({ name, description, features, highlight, badge, price, cta }: PlanCardProps) {
   return (
     <div
       className={cn(
         "relative flex flex-col rounded-2xl bg-surface p-6 shadow-sm transition-shadow hover:shadow-md",
-        plan.highlight
+        highlight
           ? "ring-2 ring-[#0A84FF]"
           : "border border-[var(--rb-border-1)]",
       )}
     >
       {/* Badge */}
-      {plan.badge ? (
+      {badge ? (
         <div className="absolute -top-3 left-1/2 -translate-x-1/2">
           <span className="inline-flex items-center gap-1 rounded-full bg-[#0A84FF] px-3 py-0.5 text-xs font-semibold text-white shadow">
             <Zap className="size-3" strokeWidth={1.5} />
-            {plan.badge}
+            {badge}
           </span>
         </div>
       ) : null}
 
       {/* Header */}
       <div className="mb-5">
-        <h3 className="text-base font-semibold text-fg-1">{plan.name}</h3>
-        <div className="mt-2 flex items-end gap-1">
-          <span className="text-3xl font-bold tracking-tight text-fg-1">
-            ${plan.price}
-          </span>
-          <span className="mb-1 text-sm text-fg-3">/mo</span>
+        <h3 className="text-base font-semibold text-fg-1">{name}</h3>
+        <div className="mt-2 flex items-end gap-1.5">
+          {price === null ? (
+            <span className="text-3xl font-bold tracking-tight text-fg-1">Talk to us</span>
+          ) : (
+            <>
+              <span className="text-3xl font-bold tracking-tight text-fg-1">${price}</span>
+              <span className="mb-1 text-sm text-fg-3">USD / month</span>
+            </>
+          )}
         </div>
-        <p className="mt-1.5 text-sm text-fg-3">{plan.description}</p>
+        <p className="mt-1.5 text-sm text-fg-3">{description}</p>
       </div>
 
       {/* Features */}
       <ul className="mb-6 flex flex-1 flex-col gap-2.5">
-        {plan.features.map((feature) => (
+        {features.map((feature) => (
           <li key={feature} className="flex items-start gap-2.5 text-sm">
             <div
               className={cn(
                 "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full",
-                plan.highlight
+                highlight
                   ? "bg-[#0A84FF]/10 text-[#0A84FF]"
                   : "bg-[var(--rb-bg-sunken)] text-fg-3",
               )}
@@ -294,26 +334,7 @@ function PlanCard({ plan, isLoading, isDisabled, onChoose }: PlanCardProps) {
       </ul>
 
       {/* CTA */}
-      <Button
-        variant={plan.highlight ? "default" : "outline"}
-        className={cn(
-          "w-full",
-          plan.highlight
-            ? "bg-[#0A84FF] text-white hover:bg-[#006EE0]"
-            : "border-[var(--rb-border-3)] text-fg-1 hover:border-[#0A84FF]/50 hover:bg-[var(--rb-bg-hover)]",
-        )}
-        onClick={onChoose}
-        disabled={isDisabled}
-      >
-        {isLoading ? (
-          <>
-            <Loader2 className="size-4 animate-spin" />
-            Redirecting…
-          </>
-        ) : (
-          "Choose Plan"
-        )}
-      </Button>
+      {cta}
     </div>
   );
 }

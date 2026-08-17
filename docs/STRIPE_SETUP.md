@@ -8,30 +8,50 @@ The code is already in place — `src/lib/stripe.ts`, `/api/stripe/checkout`,
 This guide is about creating the right products in Stripe, wiring the env
 vars, and proving the loop works.
 
+> **India account first:** this is an India-registered business, and Stripe
+> India is invite-only with KYC. Work through
+> `docs/STRIPE_LEGAL_CHECKLIST.md` (entity name, company facts on the site,
+> invite request, KYC documents, export opt-in) **before** this guide —
+> everything below assumes the account exists.
+
 ---
 
-## Recommended pricing
+## The pricing (source of truth: `src/lib/plans.ts`)
 
-These align with `docs/FEATURES.md` and `src/lib/stripe.ts` (`starter`,
-`pro`, `team` keys). Set in **USD**, monthly. Add yearly later (20% off
-is the typical SaaS discount).
+`/pricing` and the in-app Billing page both render from `PLAN_PRICING` /
+`PLAN_LIMITS`. The Stripe products you create must match them — never retype
+prices anywhere else.
 
-| Plan | Monthly | Apps | AI calls / mo | Seats | Headline gates |
+| Plan | Monthly (USD) | Apps | AI drafts / mo | Published replies / mo | Seats |
 | --- | --- | --- | --- | --- | --- |
-| **Starter** | $49 | 1 | 250 | 1 | Reviews + replies + alerts |
-| **Pro** | $99 | 3 | 2,000 | 3 | + Automations + Knowledge base + Templates |
-| **Team** | $199 | 10 | Unlimited | 10 | + Auto-reply + Custom tone + Priority support |
+| **Starter** | $49 | 2 | 300 | 300 | 1 |
+| **Pro** | $129 | 10 | 1,500 | 1,500 | 3 |
+| **Enterprise** | Quote-only | — | — | — | — |
 
-Trial: **14 days, no card required.** Already handled at the app level via
-Clerk metadata — Stripe trial settings are not used.
+- **Enterprise gets NO Stripe product.** It is "Talk to us" on purpose —
+  assign the plan by hand after a contract.
+- **Create the two MONTHLY USD prices only** for now. `/pricing` also shows
+  annual per-month prices ($39/$99) and India prices (₹2,999/₹6,999), but
+  checkout deliberately doesn't sell them yet — two decisions gate them:
+  1. **Annual on Indian cards:** RBI e-mandate rules mean recurring charges
+     above the auto-debit cap need re-authentication every renewal — an
+     annual charge at these prices would fail unattended. Decide whether
+     annual is export-only before creating annual prices.
+  2. **INR billing:** needs INR prices in Stripe plus a checkout change to
+     pick a currency per customer. Until both are done, either treat the ₹
+     figures as indicative or ship the INR prices — don't leave a price on
+     the site that checkout can't honor once billing is live.
+
+Trial: **14 days, no card required.** Handled at the app level via Clerk
+metadata — Stripe trial settings are not used, and there is no automatic
+trial-to-paid conversion (this matches `/refund-policy`).
 
 ---
 
 ## Step 1 — Create the Stripe account
 
-1. Sign up at [dashboard.stripe.com/register](https://dashboard.stripe.com/register)
-   with the email you want billed alerts to go to (use a shared inbox if you
-   have one).
+1. Complete `docs/STRIPE_LEGAL_CHECKLIST.md` §4 first (India invite, KYC,
+   business name exactly as on the partnership deed).
 2. Activate the account by adding business details under
    **Settings → Business settings**. You can ship checkout in **test mode**
    without activation, but live payouts require activation.
@@ -40,37 +60,33 @@ Clerk metadata — Stripe trial settings are not used.
 
 ---
 
-## Step 2 — Create the three products
+## Step 2 — Create the two products
 
 For each plan, do this:
 
 1. **Products → Add product**
-2. Name: `ReviewBox Starter` (or Pro / Team)
+2. Name: `ReviewBox Starter` (or `ReviewBox Pro`)
 3. Description: pull from the table above
 4. **Pricing model:** Standard
-5. **Price:** $49 (or $99 / $199)
+5. **Price:** $49 (or $129), **USD**
 6. **Billing period:** Monthly, recurring
 7. Click **Add product**
 
 After creating, open each product and copy the **Price ID** (starts with
-`price_...`) — you'll need three:
+`price_...`) — you need two:
 
 - Starter: `price_...`
 - Pro: `price_...`
-- Team: `price_...`
 
 <details>
 <summary>CLI alternative (faster if you have the Stripe CLI)</summary>
 
 ```bash
-stripe products create --name="ReviewBox Starter" --description="1 app, 250 AI calls/mo, email support"
+stripe products create --name="ReviewBox Starter" --description="2 apps, 300 published replies + 300 AI drafts/mo, 1 seat"
 stripe prices create --product=prod_xxx --unit-amount=4900 --currency=usd --recurring[interval]=month
 
-stripe products create --name="ReviewBox Pro" --description="3 apps, 2K AI calls/mo, automations + KB"
-stripe prices create --product=prod_yyy --unit-amount=9900 --currency=usd --recurring[interval]=month
-
-stripe products create --name="ReviewBox Team" --description="10 apps, unlimited AI calls, auto-reply + custom tone"
-stripe prices create --product=prod_zzz --unit-amount=19900 --currency=usd --recurring[interval]=month
+stripe products create --name="ReviewBox Pro" --description="10 apps, 1,500 published replies + 1,500 AI drafts/mo, 3 seats"
+stripe prices create --product=prod_yyy --unit-amount=12900 --currency=usd --recurring[interval]=month
 ```
 
 </details>
@@ -83,10 +99,14 @@ stripe prices create --product=prod_zzz --unit-amount=19900 --currency=usd --rec
 2. **Endpoint URL:**
    - Production: `https://app.tryreviewbox.com/api/stripe/webhook`
    - Local testing: skip — use the Stripe CLI (see Step 6)
-3. **Events to send** (the webhook handler at
-   `src/app/api/stripe/webhook/route.ts` listens for these three):
+3. **Events to send** — the handler at `src/app/api/stripe/webhook/route.ts`
+   listens for all five; missing any of them breaks a real flow (e.g. without
+   `invoice.payment_succeeded` a recovered card is never un-flagged, and
+   without `customer.subscription.updated` portal plan changes never sync):
    - `checkout.session.completed`
+   - `customer.subscription.updated`
    - `customer.subscription.deleted`
+   - `invoice.payment_succeeded`
    - `invoice.payment_failed`
 4. Click **Add endpoint**
 5. Click **Reveal signing secret** and copy the value (starts with `whsec_...`)
@@ -95,14 +115,13 @@ stripe prices create --product=prod_zzz --unit-amount=19900 --currency=usd --rec
 
 ## Step 4 — Fill the env vars
 
-Open `D:\Projects\Reviews\.env.local` and paste:
+Open `.env.local` in the project root and paste:
 
 ```bash
 STRIPE_SECRET_KEY=sk_test_...        # from Dashboard → Developers → API keys
 STRIPE_WEBHOOK_SECRET=whsec_...      # from Step 3
 STRIPE_PRICE_STARTER=price_...
 STRIPE_PRICE_PRO=price_...
-STRIPE_PRICE_TEAM=price_...
 ```
 
 <details>
@@ -110,10 +129,13 @@ STRIPE_PRICE_TEAM=price_...
 
 In the Vercel dashboard for the project:
 1. **Settings → Environment Variables**
-2. Add each of the five above, scoped to **Production**
+2. Add each of the four above, scoped to **Production**
 3. Use **live keys** (`sk_live_...`, `whsec_...` from the live webhook
    endpoint — repeat Step 3 in live mode after activating the account)
-4. Redeploy after env changes (Vercel doesn't hot-reload them)
+4. Also confirm `NEXT_PUBLIC_APP_URL=https://app.tryreviewbox.com` is set —
+   checkout success/cancel URLs are built from it (unset, they point at
+   localhost)
+5. Redeploy after env changes (Vercel doesn't hot-reload them)
 
 </details>
 
@@ -159,9 +181,11 @@ back to the production secret after).
 ### 6b. Trigger a checkout
 
 1. Open `http://localhost:3000/billing` while signed in
-2. Click **Upgrade to Pro**
+2. On the **Pro** card, click **Choose Plan**
 3. You're redirected to Stripe Checkout — use test card
-   `4242 4242 4242 4242`, any future expiry, any CVC, any ZIP
+   `4242 4242 4242 4242`, any future expiry, any CVC, any ZIP. Checkout will
+   also ask for a name and billing address — that's intentional (an India
+   account must supply both on export charges or the payment is rejected).
 4. After payment, you're redirected to `/dashboard?upgraded=1`
 
 ### 6c. Verify the side effects
@@ -171,7 +195,6 @@ The webhook fires `checkout.session.completed`. Confirm:
 - [ ] Clerk dashboard → your user → **Public metadata** now shows
       `{ plan: "pro", paymentFailedAt: null }`
 - [ ] Supabase → **workspaces** table → your workspace `plan` column = `pro`
-- [ ] Welcome email arrived in your inbox (sent via Resend)
 - [ ] Stripe CLI terminal logged
       `--> checkout.session.completed [200]` (200 = handler succeeded)
 
@@ -187,7 +210,7 @@ stripe trigger customer.subscription.deleted
 
 Confirm:
 - Failed payment → `paymentFailedAt` set on Clerk user, email sent
-- Subscription deleted → plan flips to `free` in both Clerk + Supabase
+- Subscription deleted → plan flips to `canceled` in both Clerk + Supabase
 
 ---
 
@@ -209,7 +232,11 @@ If the portal 500s, ensure **Settings → Billing → Customer portal** is
 
 When you're ready for real payments:
 
-1. **Activate** the Stripe account (Settings → Business settings → Activate)
+1. **Activate** the Stripe account (Settings → Business settings → Activate).
+   For India this is the full review: KYC documents, business name matching
+   the partnership deed, and your website — the reviewer checks that
+   pricing, terms, privacy, refund policy and contact details are publicly
+   visible on tryreviewbox.com (see `docs/STRIPE_LEGAL_CHECKLIST.md` §4).
 2. Switch to **Live mode** in the dashboard top-right
 3. Repeat Steps 2 and 3 in live mode (products + webhook)
 4. Update Vercel env vars to use `sk_live_...` and the live `whsec_...`
@@ -226,9 +253,10 @@ You're using the wrong `STRIPE_WEBHOOK_SECRET`. Test-mode CLI forwarding
 uses a *different* secret than the test-mode dashboard webhook, which is
 different again from live mode. Match the source to the secret.
 
-**"No such price" on checkout**
-The `STRIPE_PRICE_*` env vars don't match the IDs in the Stripe dashboard.
-Confirm the keys (`price_...`, not `prod_...`).
+**"Invalid plan." on checkout**
+The plan sent isn't in `PAID_PLANS` (`starter`, `pro`), or its
+`STRIPE_PRICE_*` env var is empty / doesn't match a Price ID in the Stripe
+dashboard. Confirm the keys (`price_...`, not `prod_...`).
 
 **Welcome email didn't fire**
 Check `RESEND_API_KEY` is set and the Resend domain (`tryreviewbox.com`)

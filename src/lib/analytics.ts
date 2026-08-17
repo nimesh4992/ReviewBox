@@ -2,6 +2,8 @@
 
 import posthog from "posthog-js";
 
+import type { PaidPlanName } from "@/lib/plans";
+
 /**
  * Typed wrapper around PostHog `capture` for the events we actually
  * care about in the conversion funnel. Add new events here so the
@@ -17,8 +19,8 @@ export type AnalyticsEvent =
   | { name: "onboarding_completed";  properties: { platform: "google-play" | "app-store" } }
   // Trial → paid funnel
   | { name: "billing_viewed"; properties: { reason?: "trial-expired" | "required" | "payment-failed" | "direct" } }
-  | { name: "upgrade_clicked"; properties: { plan: "starter" | "pro" | "team" } }
-  | { name: "upgrade_completed"; properties: { plan: "starter" | "pro" | "team" } }
+  | { name: "upgrade_clicked"; properties: { plan: PaidPlanName } }
+  | { name: "upgrade_completed"; properties: { plan: PaidPlanName } }
   // Core product engagement
   | { name: "reply_drafted"; properties: { source: "template" | "cache" | "groq" | "unknown" } }
   // method distinguishes the connected one-click post ("api") from Draft
