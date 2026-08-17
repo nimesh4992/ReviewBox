@@ -250,6 +250,23 @@ export default function DashboardPage() {
     platforms.size === 1
       ? (platforms.has("app_store") ? "the App Store" : "Google Play")
       : "the stores";
+  // Did a sync actually TRY to read the listing, or has one never run?
+  //
+  // `metadata_refreshed_at` is the honest signal, but it isn't on the apps
+  // payload; `last_sync_attempted_at` is, and for this message the distinction
+  // that matters is "a sync has run and we still have no rating" versus "no
+  // sync has run yet". Telling someone to run a sync that finished twenty
+  // minutes ago and failed the same way is worse than saying nothing.
+  const storeListingWasTried = scopedApps.some((a) => a.last_sync_attempted_at !== null);
+
+  // Which country's listing we tried, when that's unambiguous. Both stores
+  // publish per-country ratings, so "we couldn't read it" is far more useful
+  // with the storefront attached — it is frequently the wrong country.
+  const scopedCountries   = new Set(scopedApps.map((a) => a.store_country).filter(Boolean));
+  const storeCountryLabel = scopedCountries.size === 1
+    ? String([...scopedCountries][0]).toUpperCase()
+    : null;
+
   // "As shown on X" is only true when the number IS one listing's figure. The
   // all-apps view of a multi-app workspace averages listings (weighted by
   // review count), and claiming a store shows that number would be the exact
@@ -456,7 +473,16 @@ export default function DashboardPage() {
                       // as covering the portfolio.
                       : `From the one app whose listing we've read — pick an app in the sidebar for its own rating`
                 }${reviewsAreLifetime ? ` · ${displayReviews.toLocaleString()} ratings` : ""}`
-              : "We haven't read your store listing yet. Run a sync from Settings → Apps."}
+              : storeListingWasTried
+                // A sync HAS run — it just came back with nothing usable from
+                // the store listing. "We haven't read it yet" sent the founder
+                // to re-run a sync that had finished twenty minutes earlier and
+                // would fail the same way. Saying which storefront we tried is
+                // the actionable part: it is often the wrong country.
+                ? `We couldn't read the ${storeName || "store"} listing on the last sync${
+                    storeCountryLabel ? ` (${storeCountryLabel} store)` : ""
+                  }. The store may be rate-limiting us, or this app may live in a different country — you can change that in Settings → Apps.`
+                : "We haven't read your store listing yet. Run a sync from Settings → Apps."}
           </div>
           <p className="mt-4 max-w-[240px] text-[13px] leading-relaxed text-fg-3">
             {/* An empty workspace is not an inbox-zero achievement — congratulating

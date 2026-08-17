@@ -14,6 +14,17 @@ interface PatchBody {
   keyId?: string;
   issuerId?: string;
   p8Key?: string;
+  /**
+   * Manual storefront override — ISO-3166 alpha-2, e.g. "in".
+   *
+   * Both stores publish per-country ratings, so this is not a label on the
+   * number; it decides WHICH number we read. The automatic probe picks the
+   * storefront with the most reviews, but it can only rank on a review count,
+   * and the Google Play listing scrape doesn't currently produce one — so a
+   * Play app can end up pinned to whichever storefront answered first. This is
+   * how the customer corrects that without waiting for us.
+   */
+  storeCountry?: string;
 }
 
 export async function PATCH(
@@ -54,6 +65,23 @@ export async function PATCH(
   const updates: Record<string, unknown> = {};
 
   if (body.name?.trim()) updates.name = body.name.trim();
+
+  if (body.storeCountry !== undefined) {
+    const country = body.storeCountry.trim().toLowerCase();
+    // Validated, not normalised: `normalizeStorefront` falls back to "us" for
+    // anything it doesn't like, which would turn a typo into a silent switch to
+    // the exact storefront this override exists to get away from.
+    if (!/^[a-z]{2}$/.test(country)) {
+      return apiError("INVALID_INPUT", 400, "Storefront must be a two-letter country code, e.g. 'in'.");
+    }
+    updates.store_country = country;
+    // The stored rating/count belong to the OLD storefront. Clearing them means
+    // the next sync re-reads the listing instead of leaving a number from the
+    // wrong country on the dashboard until the 6h metadata cache lapses.
+    updates.lifetime_rating = null;
+    updates.lifetime_review_count = null;
+    updates.metadata_refreshed_at = null;
+  }
 
   if (app.platform === "app_store") {
     if (body.keyId && body.issuerId && body.p8Key) {

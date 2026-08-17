@@ -673,13 +673,53 @@ export async function findAppAcrossStorefronts(
   storeId: string,
   countries: string[] = searchStorefronts(),
 ): Promise<AppMetadata | null> {
+  const hits: AppMetadata[] = [];
+
   for (const country of countries) {
     const meta = await fetchAppMetadata(platform, storeId, country);
     // A hit with neither a rating nor a real name is a placeholder page;
-    // keep looking rather than locking the app to a dead storefront.
-    if (meta && (meta.rating !== null || meta.name !== storeId)) return meta;
+    // don't let a dead storefront win.
+    if (meta && (meta.rating !== null || meta.name !== storeId)) hits.push(meta);
   }
-  return null;
+
+  return pickHomeStorefront(hits);
+}
+
+/**
+ * Of the storefronts that carry this app, which one is its home?
+ *
+ * **Most reviews wins** (founder decision, 2026-08-17). The previous rule was
+ * first-match-wins over a list that starts with `us`, so any app merely
+ * *visible* in the US claimed `us` — and for an India-first app that meant
+ * reporting the US rating forever. Google Play and the App Store both publish
+ * per-country ratings, so the storefront is not a label on the number; it IS
+ * the number. Mumbai One reads 4.3 in the US and 3.1 in India.
+ *
+ * ── A caveat that matters more than the rule ────────────────────────────────
+ *
+ * This ranks on `reviewCount`, and the Google Play listing scrape does not
+ * currently extract one — it came back null even on a fetch that read the
+ * rating fine. So for every Play app this tie-breaks straight back to probe
+ * order, i.e. today's behaviour. The App Store path gets its count from the
+ * iTunes JSON API and is unaffected.
+ *
+ * That is not a reason to rank on something else: a count we can't parse is a
+ * bug to fix, and ranking on a signal we don't trust would be worse. Until it
+ * is fixed, the Settings → Apps storefront override is the working answer for
+ * a Play app we've placed in the wrong country.
+ *
+ * Ties keep the earlier candidate, so `searchStorefronts()` order still decides
+ * when there is nothing to compare — the caller's priority list, unchanged.
+ */
+export function pickHomeStorefront(hits: AppMetadata[]): AppMetadata | null {
+  let best: AppMetadata | null = null;
+
+  for (const hit of hits) {
+    if (!best) { best = hit; continue; }
+    if ((hit.reviewCount ?? 0) > (best.reviewCount ?? 0)) best = hit;
+  }
+
+  return best;
 }
 
 /**

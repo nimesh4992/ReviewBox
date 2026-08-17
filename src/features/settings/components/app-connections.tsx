@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { parseStoreUrl } from "@/lib/store-urls";
+import { STOREFRONT_OPTIONS } from "@/lib/storefronts";
 import { canPostRepliesViaApi, isSyncFailureStatus } from "@/lib/sync-status";
 import { useApps, useInvalidateApps, type WorkspaceApp } from "@/hooks/use-apps";
 import { avatarInitials, formatReviewDate } from "@/utils/format";
@@ -523,6 +524,7 @@ function AppRow({
 
       {expanded && (
         <div className="border-t border-[var(--rb-border-1)] px-4 pb-4">
+          <StorefrontOverride app={app} onSaved={onUpdated} />
           {isAppStore ? (
             <AppStoreForm app={app} onSaved={onUpdated} />
           ) : (
@@ -539,6 +541,101 @@ function AppRow({
           app={{ id: app.id, store_id: app.store_id, name: app.name }}
         />
       )}
+    </div>
+  );
+}
+
+// ── Storefront override ───────────────────────────────────────────────────────
+
+/**
+ * Which country's store listing we read this app's rating from.
+ *
+ * Both Google Play and the App Store publish PER-COUNTRY ratings — Mumbai One
+ * reads 4.3 in the US and 3.1 in India — so this isn't a label on the number,
+ * it decides which number the dashboard shows.
+ *
+ * Sync picks the storefront with the most reviews on its own. It gets this
+ * wrong when it can't compare: the Google Play listing scrape doesn't yield a
+ * review count, so a Play app can end up on whichever storefront answered
+ * first, which is the US by default. This is how a customer fixes that without
+ * waiting for us.
+ */
+function StorefrontOverride({
+  app,
+  onSaved,
+}: {
+  app: WorkspaceApp;
+  onSaved: () => void;
+}) {
+  const current = app.store_country ?? "";
+  const [value, setValue] = useState(current);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [saved, setSaved] = useState(false);
+
+  // A storefront the sync discovered that isn't in our curated list still has
+  // to be selectable, or opening this control would silently offer to move the
+  // app somewhere else.
+  const options = STOREFRONT_OPTIONS.some((o) => o.code === current) || !current
+    ? STOREFRONT_OPTIONS
+    : [{ code: current, label: current.toUpperCase() }, ...STOREFRONT_OPTIONS];
+
+  async function save(next: string) {
+    setValue(next);
+    setError(null);
+    setSaved(false);
+    setSaving(true);
+    try {
+      const res = await fetch(`/api/apps/${app.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ storeCountry: next }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => null);
+        setError(apiErrorMessage(body, "Couldn't change the storefront. Try again."));
+        setValue(current);
+        return;
+      }
+      setSaved(true);
+      onSaved();
+    } catch {
+      setError("Couldn't reach the server. Try again.");
+      setValue(current);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="mb-4 border-b border-[var(--rb-border-1)] pb-4 pt-4">
+      <label className="block text-xs font-medium text-[var(--rb-fg-2)]">
+        Store country
+      </label>
+      <p className="mt-1 text-xs text-[var(--rb-fg-3)]">
+        {app.platform === "google_play" ? "Google Play" : "The App Store"} shows a different
+        rating in each country. This is the one we read.
+      </p>
+      <div className="mt-2 flex items-center gap-2">
+        <select
+          value={value}
+          disabled={saving}
+          onChange={(e) => save(e.target.value)}
+          className="h-8 rounded-md border border-[var(--rb-border-2)] bg-[var(--rb-bg-surface)] px-2 text-xs text-[var(--rb-fg-1)] disabled:opacity-60"
+        >
+          {!current && <option value="">Not set yet</option>}
+          {options.map((o) => (
+            <option key={o.code} value={o.code}>{o.label}</option>
+          ))}
+        </select>
+        {saving && <span className="text-xs text-[var(--rb-fg-3)]">Saving…</span>}
+        {saved && !saving && (
+          <span className="text-xs text-[var(--rb-fg-3)]">
+            Saved — the rating updates on the next sync.
+          </span>
+        )}
+      </div>
+      {error && <p className="mt-2 text-xs text-[var(--rb-red-500)]">{error}</p>}
     </div>
   );
 }
