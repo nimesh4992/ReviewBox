@@ -100,9 +100,29 @@ export async function translateText(
 const SUMMARY_SYSTEM_PROMPT =
   "You are a product analytics assistant. In 2-3 sentences, summarize the most important patterns in these recent app reviews. Be specific about issues and sentiment. No markdown, no headers, just flowing prose.";
 
+/** Shown when there genuinely are no reviews to summarise. */
+export const SUMMARY_NO_DATA = "Not enough recent review data to generate a summary.";
+/** Shown when we HAD reviews and the AI call didn't come back. */
+export const SUMMARY_FAILED =
+  "We couldn't generate a summary just now — the AI service didn't respond. Try Refresh.";
+
+/**
+ * Summarise recent reviews.
+ *
+ * All three exits used to return the same sentence — "Not enough recent review
+ * data" — for three different situations: no reviews, an empty completion, and
+ * a thrown request. So a workspace with 202 reviews, 50 of them handed to this
+ * function, was told it didn't have enough data. The panel said "Based on 50
+ * recent reviews" directly above it, contradicting itself on the same screen,
+ * and the `catch` swallowed the error without logging, so there was nothing to
+ * look at either.
+ *
+ * Groq's free tier is 6K requests/day and rate-limits in bursts, so the failing
+ * path is not exotic — it is the expected one on a busy afternoon.
+ */
 export async function generateSummary(snippets: string[]): Promise<string> {
   if (!snippets || snippets.length === 0) {
-    return "Not enough recent review data to generate a summary.";
+    return SUMMARY_NO_DATA;
   }
   try {
     const client = getGroqClient();
@@ -114,9 +134,17 @@ export async function generateSummary(snippets: string[]): Promise<string> {
         { role: "user",   content: snippets.join("\n") },
       ],
     });
-    return completion.choices[0]?.message?.content?.trim()
-      ?? "Not enough recent review data to generate a summary.";
-  } catch {
-    return "Not enough recent review data to generate a summary.";
+
+    const text = completion.choices[0]?.message?.content?.trim();
+    if (!text) {
+      console.error("[groq] summary returned an empty completion", {
+        snippets: snippets.length,
+      });
+      return SUMMARY_FAILED;
+    }
+    return text;
+  } catch (err) {
+    console.error("[groq] summary failed:", err instanceof Error ? err.message : err);
+    return SUMMARY_FAILED;
   }
 }
