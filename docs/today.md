@@ -1,12 +1,14 @@
-# Today — 2026-08-17 (audit remediation Waves 1–6, then LT1)
+# Today — 2026-08-17 (audit Waves 1–6, LT1, then a live-testing round)
 
-**State of master:** healthy, `4738482`. Production deploys green. `tsc` clean,
-lint 0 errors, full `next build` passes, **490 unit tests**.
+**State of master:** healthy, `86e0577`. Production deploys green. `tsc` clean,
+lint 0 errors, full `next build` passes, **518 unit tests**.
 
-All six waves merged: **#97, #98, #99, #101, #102, #105** (+ #103, #106 docs).
+Audit waves merged: **#97, #98, #99, #101, #102, #105** (+ #103, #106 docs).
 Migrations **025–030 applied and verified by query.** **LT1** — the PGRST204
-write sweep, top of the backlog — shipped after them; see the section near the
-end.
+write sweep — shipped after them.
+
+Then a founder testing round produced **#108, #109, #110** and a platform
+finding that became **ADR 010**. See "Live-testing round" at the end.
 
 **One audit finding remains open, and it needs the founder:** W5A, the
 review-volume limit — `docs/adr/009-review-volume-limit.md`.
@@ -237,3 +239,96 @@ mentioning it is not a guard.
 1. **CM1** — multi-language reviews + replies. ICE 60, and the same class of
    blind spot as the US-storefront bug one layer up.
 2. **AU4** — finish the swallowed-error sweep on the remaining screens.
+
+
+---
+
+## Live-testing round — 2026-08-17 evening
+
+Founder tested production with screenshots. Five reported items, plus two bugs
+and one platform limit found while investigating.
+
+### #108 — Inbox counts described the loaded page, not the app
+
+`/api/reviews` is cursor-paginated at 20 and returns no total, and the Inbox
+computed every number on screen from the loaded rows. An app with 260 reviews
+and 117 unreplied read "All · 20 / Unreplied · 20" while the sidebar badge two
+inches away said 117.
+
+Counts now come from `/api/dashboard/metrics` — the source the sidebar already
+used — so the two cannot disagree. `lowRatingCount` added there, next to its
+siblings, rather than a second implementation inside `/api/reviews` (that would
+have been M-2 again). Header reads "Showing 20 of 260".
+
+The chips also filtered the loaded page: "App Store" under All apps matched none
+of the first 20 and fell through to an empty state reading "Connect an app in
+Settings" — on a workspace with 130 reviews. Chips are lifted to the page so
+they drive the fetch, and the empty state has a fourth branch.
+
+Two traps found on the way: `/api/reviews` mapped **every** unrecognised
+platform value — including `google_play`, the value the database stores — to
+App Store; and the rating filter was exact-match, so "1–2 ★" would have dropped
+every 1-star review.
+
+### #109 — Home storefront by review count, plus a Settings override
+
+Both stores publish **per-country ratings**. `findAppAcrossStorefronts` took the
+first storefront that answered and `us` is first, so any app merely *visible* in
+the US claimed it. Mumbai One read 4.3 (US) instead of 3.1 (India).
+
+Now ranks by review count, with a manual override in Settings → Apps. **The
+override is what fixed the founder's app** — after setting India, the dashboard
+read 3.15 ★ / 2,945 ratings against Play Console's 3.133 / 2,946.
+
+**A gap in this fix, still open:** `resolveAppMetadata` short-circuits on the
+search's storefront hint and returns before the ranking runs. At onboarding
+there is always a hint, so the new ranking never runs for a newly added app —
+which is how the app was pinned to `us` in the first place.
+
+### #110 — The AI summary blamed the data for its own failure
+
+"Not enough recent review data to generate a summary" appeared under the panel's
+own "Based on 50 recent reviews", on 202 reviews. Three exits shared one
+sentence: no reviews, an empty completion, and a thrown request. Groq's free tier
+rate-limits in bursts, so the failing path is the expected one. Now
+distinguished, and failures are logged.
+
+### The platform limit — ADR 010
+
+Play Console reports 2,064 ratings-with-reviews; we hold 202. **Not reachable.**
+Verified against the installed API definitions: `androidpublisher` v3 has no
+ratings/statistics/reports resource, and `reviews.list` has **no date
+parameter** — older reviews cannot be requested. `playdeveloperreporting` is
+vitals only.
+
+**AppFollow holds 272 for the same app.** The limit is universal. Full history
+exists only in Play Console's Download reports (a GCS bucket), which nobody in
+the category appears to use.
+
+`docs/adr/010-review-history-and-retention.md` records this plus the founder's
+retention model, and carries **four open questions** that need answering before
+it is built — including whether retention replaces the W5A volume cap.
+
+### Corrections I made during this round
+
+Recorded because each one was stated confidently and was wrong:
+
+- **"202 vs 2.9k is ratings vs reviews"** — no. 2,064 have text. The gap was real.
+- **"The review count won't parse; Google abbreviates it as 2.9K"** — no. That
+  came from AppFollow's *rendering*, not Google's HTML. The India listing gave
+  2,945 exactly, and the caveat I wrote into #109's comments and tests about the
+  ranking being inert for Play is contradicted by that. **Still to fix.**
+- **"3.1 is India's rating"** — Play Console calls 3.133 the *default* Google
+  Play rating. Close to India's because India dominates this app, not the same
+  thing.
+
+### Open from this round
+
+1. **ADR 010's four questions** — hide vs delete at 365 days, free-tier
+   behaviour, capture-date vs review-date, and whether retention replaces W5A.
+2. **The `resolveAppMetadata` short-circuit** — the ranking never runs at
+   onboarding.
+3. **The stale caveat in #109** about Play never yielding a review count.
+4. **Show the detected storefront during onboarding** — confirm, don't ask.
+5. **Docs pass** — PRODUCT_CONTEXT, `/help/review-history`, `/faq`, and a link
+   at the point where the two numbers differ.
