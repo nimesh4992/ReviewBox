@@ -21,7 +21,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url("/blog",      0.8, "weekly"),
     url("/changelog", 0.7, "weekly"),
     url("/contact",   0.6, "monthly"),
-    url("/status",    0.5, "daily"),
 
     // Help & FAQ
     url("/faq",                            0.7, "monthly"),

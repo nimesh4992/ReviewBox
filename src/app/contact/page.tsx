@@ -98,21 +98,6 @@ const DETAILS = [
     ),
   },
   {
-    label: "Status",
-    body: (
-      <>
-        Check{" "}
-        <Link
-          href="/status"
-          className="font-semibold text-[var(--rb-mk-orange-text)] hover:underline"
-        >
-          our status page
-        </Link>{" "}
-        for live uptime and incident reports.
-      </>
-    ),
-  },
-  {
     label: "Help centre",
     body: (
       <>
