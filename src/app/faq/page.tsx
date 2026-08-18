@@ -2,6 +2,17 @@ import Link from "next/link";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
+import {
+  Actions,
+  AmberLink,
+  ClosingBand,
+  Disclosure,
+  Eyebrow,
+  LineLink,
+  PageHero,
+  Section,
+} from "@/features/marketing/components/primitives";
+import { Breadcrumb } from "@/features/marketing/components/breadcrumb";
 import { annualSavingsPercent, minAnnualSavingsPercent } from "@/lib/plans";
 import { isIntervalPurchasable } from "@/lib/stripe";
 
@@ -142,65 +153,54 @@ export default function FaqPage() {
       />
       <MarketingNav />
 
-      {/* Breadcrumb */}
-      <div className="mx-auto max-w-screen-xl px-6 py-3">
-        <nav className="flex items-center gap-1.5 text-xs text-gray-400">
-          <Link href="/" className="hover:text-gray-600">Home</Link>
-          <span>/</span>
-          <span className="text-gray-600">FAQ</span>
-        </nav>
-      </div>
-
-      <main className="mx-auto max-w-3xl px-6 pb-32">
-        {/* Header */}
-        <div className="pt-12 pb-12">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">
-            Frequently asked questions
-          </h1>
-          <p className="mt-3 text-gray-500 dark:text-[#86868B]">
+      <PageHero
+        eyebrow="Questions"
+        title="Frequently asked questions"
+        lede={
+          <>
             Can&apos;t find an answer?{" "}
-            <Link href="/contact" className="text-[#0A84FF] hover:underline">
+            <Link
+              href="/contact"
+              className="font-semibold text-[var(--rb-mk-orange-text)] hover:underline"
+            >
               Email us
             </Link>{" "}
             — we respond within one business day.
-          </p>
-        </div>
+          </>
+        }
+      />
 
-        {/* FAQ sections */}
-        <div className="space-y-12">
-          {FAQ_SECTIONS.map((section) => (
-            <div key={section.title}>
-              <h2 className="mb-6 text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366]">
-                {section.title}
-              </h2>
-              <dl className="space-y-4">
-                {section.questions.map(({ q, a }) => (
-                  <div
-                    key={q}
-                    className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6"
-                  >
-                    <dt className="font-semibold text-gray-900 dark:text-[#F5F5F7]">{q}</dt>
-                    <dd className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-[#C7C7CC]">{a}</dd>
-                  </div>
+      <main>
+        <Breadcrumb trail={[{ label: "FAQ" }]} />
+
+        {FAQ_SECTIONS.map((section, si) => (
+          <Section key={section.title} band={si % 2 === 1} tight={si > 0}>
+            <div className="mx-auto max-w-[760px]">
+              <Eyebrow>{section.title}</Eyebrow>
+              {/* Native <details>, so the whole list is keyboard-operable and
+                  searchable with no JavaScript. The first answer of the first
+                  group starts open so the page never reads as a wall of
+                  closed rows. */}
+              <div className="border-t border-[var(--rb-mk-line)]">
+                {section.questions.map(({ q, a }, qi) => (
+                  <Disclosure key={q} q={q} open={si === 0 && qi === 0}>
+                    {a}
+                  </Disclosure>
                 ))}
-              </dl>
+              </div>
             </div>
-          ))}
-        </div>
+          </Section>
+        ))}
 
-        {/* CTA */}
-        <div className="mt-16 rounded-2xl border border-blue-100 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-900/20 px-8 py-10 text-center">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-[#F5F5F7]">Still have questions?</h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-[#C7C7CC]">
-            The whole team reads support email. You&apos;ll get a real answer, not a template.
-          </p>
-          <Link
-            href="/contact"
-            className="mt-6 inline-flex rounded-xl bg-[#0A84FF] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#0070e0]"
-          >
-            Get in touch
-          </Link>
-        </div>
+        <ClosingBand
+          title="Still have questions?"
+          body="The whole team reads support email. You'll get a real answer, not a template."
+        >
+          <Actions>
+            <AmberLink href="/contact">Get in touch</AmberLink>
+            <LineLink href="/help">Browse the help centre</LineLink>
+          </Actions>
+        </ClosingBand>
       </main>
 
       <MarketingFooter />

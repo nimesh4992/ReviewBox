@@ -1,12 +1,42 @@
-﻿import Link from "next/link";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
+import {
+  Actions,
+  AmberLink,
+  Card,
+  CardBody,
+  CardTitle,
+  ClosingBand,
+  LineLink,
+  PageHero,
+  Section,
+  SectionHead,
+} from "@/features/marketing/components/primitives";
+import { Breadcrumb } from "@/features/marketing/components/breadcrumb";
 
 export const metadata = {
   title: "About",
-  description: "ReviewBox is the app-store review management platform built by people who've shipped apps.",
+  description:
+    "ReviewBox is the app-store review management platform built by people who've shipped apps.",
 };
+
+/**
+ * These were fabricated: "2,400+ AI drafts / day", "48h average first-reply
+ * time drop", "4.21 -> 4.58 avg rating lift after 90 days". We have no
+ * customers, so none of them could be measured, and a rating-lift figure is a
+ * performance claim a regulator would read as an inducement.
+ *
+ * What replaces them is what the product actually does, stated without a
+ * number we cannot stand behind. Put real figures here when there are real
+ * customers to measure.
+ */
+const FACTS = [
+  { value: "2", label: "Stores supported: App Store and Google Play" },
+  { value: "1 click", label: "From AI draft to a published reply" },
+  { value: "Daily", label: "Automatic review sync, plus sync on demand" },
+  { value: "14 days", label: "Free trial, no card required" },
+];
 
 const VALUES = [
   {
@@ -32,87 +62,63 @@ export default function AboutPage() {
     <MarketingShell>
       <MarketingNav />
 
-      {/* Breadcrumb */}
-      <div className="mx-auto max-w-screen-xl px-6 py-3">
-        <nav className="flex items-center gap-1.5 text-xs text-gray-400">
-          <Link href="/" className="hover:text-gray-600">Home</Link>
-          <span>/</span>
-          <span className="text-gray-600">About</span>
-        </nav>
-      </div>
+      <PageHero
+        eyebrow="Company"
+        title="Built for teams who care about what users say."
+        lede="ReviewBox started as an internal tool. We managed six apps across two stores, and responding to reviews was taking four hours a week — mostly spent on copy-pasting and writing the same replies over and over. We automated that. Then we made it better."
+      />
 
-      <main className="mx-auto max-w-screen-xl px-6 pb-32">
-        {/* Hero */}
-        <div className="pt-16 pb-20 max-w-3xl">
-          <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-blue-600">
-            Company
-          </span>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7] sm:text-5xl">
-            Built for teams who care about what users say.
-          </h1>
-          <p className="mt-6 text-xl text-gray-500 dark:text-[#86868B] leading-relaxed">
-            ReviewBox started as an internal tool. We managed six apps across two stores, and
-            responding to reviews was taking four hours a week — mostly spent on copy-pasting and
-            writing the same replies over and over. We automated that. Then we made it better.
-          </p>
-        </div>
+      <main>
+        <Breadcrumb trail={[{ label: "About" }]} />
 
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-6 sm:grid-cols-4 mb-20">
-          {/* These were fabricated: "2,400+ AI drafts / day", "48h average
-              first-reply time drop", "4.21 -> 4.58 avg rating lift after 90
-              days". We have no customers, so none of them could be measured,
-              and a rating-lift figure is a performance claim a regulator would
-              read as an inducement.
-
-              What replaces them is what the product actually does, stated
-              without a number we cannot stand behind. Put real figures here
-              when there are real customers to measure. */}
-          {[
-            { value: "2", label: "Stores supported: App Store and Google Play" },
-            { value: "1 click", label: "From AI draft to a published reply" },
-            { value: "Daily", label: "Automatic review sync, plus sync on demand" },
-            { value: "14 days", label: "Free trial, no card required" },
-          ].map(({ value, label }) => (
-            <div key={label} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6">
-              <div className="text-3xl font-bold text-gray-900 dark:text-[#F5F5F7]">{value}</div>
-              <div className="mt-1 text-sm text-gray-500 dark:text-[#86868B]">{label}</div>
-            </div>
-          ))}
-        </div>
-
-        {/* Values */}
-        <div className="mb-20">
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">
-            Four things we genuinely care about
-          </h2>
-          <div className="mt-8 grid gap-6 sm:grid-cols-2">
-            {VALUES.map((v) => (
-              <div key={v.title} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-8">
-                <h3 className="font-semibold text-gray-900 dark:text-[#F5F5F7]">{v.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-[#86868B]">{v.body}</p>
-              </div>
+        <Section tight>
+          <div className="grid grid-cols-2 gap-5 sm:grid-cols-4">
+            {FACTS.map((f) => (
+              <Card key={f.label} interactive={false} className="p-6">
+                <div className="text-[27px] font-bold tracking-[-0.035em] text-[var(--rb-fg-1)]">
+                  {f.value}
+                </div>
+                <div className="mt-1.5 text-[14px] leading-[1.45] text-[var(--rb-fg-3)]">
+                  {f.label}
+                </div>
+              </Card>
             ))}
           </div>
-        </div>
+        </Section>
 
-        {/* Where we hang out */}
-        <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-10 max-w-2xl">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-[#F5F5F7]">Where the team hangs out</h2>
-          <p className="mt-3 text-gray-500 dark:text-[#86868B] text-sm leading-relaxed">
-            ReviewBox is operated by AT WORK Inc, a partnership firm registered in India. We&apos;re a small, fully remote team.
-            We meet in person twice a year. Everything else is async — we write things down,
-            ship things, and measure the impact.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="/contact"
-              className="rounded-xl border border-gray-200 dark:border-white/10 px-5 py-2.5 text-sm font-semibold text-gray-700 dark:text-[#C7C7CC] hover:bg-gray-50 dark:hover:bg-white/5"
-            >
-              Get in touch
-            </Link>
+        <Section band>
+          <SectionHead eyebrow="What we care about" title="Four things we genuinely care about" />
+          <div className="mt-[50px] grid gap-5 sm:grid-cols-2">
+            {VALUES.map((v) => (
+              <Card key={v.title}>
+                <CardTitle>{v.title}</CardTitle>
+                <CardBody>{v.body}</CardBody>
+              </Card>
+            ))}
           </div>
-        </div>
+        </Section>
+
+        <Section>
+          <SectionHead
+            eyebrow="The team"
+            title="Where the team hangs out"
+            body="ReviewBox is operated by AT WORK Inc, a partnership firm registered in India. We're a small, fully remote team. We meet in person twice a year. Everything else is async — we write things down, ship things, and measure the impact."
+          />
+          <div className="mt-8">
+            <LineLink href="/contact">Get in touch</LineLink>
+          </div>
+        </Section>
+
+        <ClosingBand
+          title="See it on your own reviews"
+          body="Connect an app in about two minutes and see your real queue, tagged and drafted."
+          note="14-day free trial · no credit card required · cancel anytime"
+        >
+          <Actions>
+            <AmberLink href="/sign-up">Start free trial</AmberLink>
+            <LineLink href="/pricing">See pricing</LineLink>
+          </Actions>
+        </ClosingBand>
       </main>
 
       <MarketingFooter />
