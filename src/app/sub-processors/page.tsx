@@ -112,22 +112,22 @@ export default function SubProcessorsPage() {
         <div className="-mx-2 overflow-x-auto">
           <table className="w-full min-w-[640px] border-separate border-spacing-0 text-left text-sm">
             <thead>
-              <tr className="text-xs uppercase tracking-wide text-fg-3">
-                <th className="border-b border-[var(--rb-border-2)] px-2 py-2 font-semibold">Provider</th>
-                <th className="border-b border-[var(--rb-border-2)] px-2 py-2 font-semibold">Purpose</th>
-                <th className="border-b border-[var(--rb-border-2)] px-2 py-2 font-semibold">Data it receives</th>
-                <th className="border-b border-[var(--rb-border-2)] px-2 py-2 font-semibold">Location</th>
+              <tr className="text-xs uppercase tracking-wide text-gray-500">
+                <th className="border-b border-gray-200 px-2 py-2 font-semibold">Provider</th>
+                <th className="border-b border-gray-200 px-2 py-2 font-semibold">Purpose</th>
+                <th className="border-b border-gray-200 px-2 py-2 font-semibold">Data it receives</th>
+                <th className="border-b border-gray-200 px-2 py-2 font-semibold">Location</th>
               </tr>
             </thead>
             <tbody>
               {SUB_PROCESSORS.map((s) => (
                 <tr key={s.name} className="align-top">
-                  <td className="border-b border-[var(--rb-border-1)] px-2 py-3 font-medium text-fg-1">
+                  <td className="border-b border-gray-100 px-2 py-3 font-medium text-gray-900">
                     {s.name}
                   </td>
-                  <td className="border-b border-[var(--rb-border-1)] px-2 py-3 text-fg-2">{s.purpose}</td>
-                  <td className="border-b border-[var(--rb-border-1)] px-2 py-3 text-fg-2">{s.data}</td>
-                  <td className="border-b border-[var(--rb-border-1)] px-2 py-3 text-fg-2">{s.location}</td>
+                  <td className="border-b border-gray-100 px-2 py-3 text-gray-600">{s.purpose}</td>
+                  <td className="border-b border-gray-100 px-2 py-3 text-gray-600">{s.data}</td>
+                  <td className="border-b border-gray-100 px-2 py-3 text-gray-600">{s.location}</td>
                 </tr>
               ))}
             </tbody>

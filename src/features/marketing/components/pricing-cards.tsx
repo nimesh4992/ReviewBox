@@ -22,8 +22,6 @@
  */
 
 import Link from "next/link";
-
-import { cn } from "@/lib/utils";
 import { Check } from "lucide-react";
 import { useState } from "react";
 
@@ -71,16 +69,7 @@ export function PricingCards({
         <CurrencySelector />
       </div>
 
-      {/* Four plans (Starter, Pro, Enterprise + whatever ships next) in a
-          3-column grid left the last card stranded alone on a second row.
-          The column count now follows the number of plans. */}
-      <div
-        className={
-          plans.length === 4
-            ? "grid gap-5 sm:grid-cols-2 lg:grid-cols-4"
-            : "grid gap-5 sm:grid-cols-2 lg:grid-cols-3"
-        }
-      >
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {plans.map((plan) => {
           const perMonth = planPerMonthUsd(plan.key, interval);
           const billedTotal = planChargeUsd(plan.key, "annual");
@@ -91,50 +80,44 @@ export function PricingCards({
           return (
             <div
               key={plan.name}
-              className={cn(
-                "relative flex flex-col rounded-2xl border bg-surface p-6",
+              className={`rounded-2xl border p-8 ${
                 plan.highlight
-                  ? "border-[var(--rb-blue-500)] shadow-[var(--rb-shadow-md)]"
-                  : "border-[var(--rb-border-1)] shadow-[var(--rb-shadow-xs)]",
-              )}
+                  ? "border-[#0A84FF] bg-white dark:bg-[#161618] shadow-lg ring-2 ring-[#0A84FF]/20"
+                  : "border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618]"
+              }`}
             >
               {plan.highlight && (
-                <span className="rb-eyebrow absolute -top-2.5 left-6 rounded-full bg-[var(--rb-blue-500)] px-2.5 py-1 text-white">
+                <span className="mb-4 inline-flex rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-[#0A84FF]">
                   Most popular
                 </span>
               )}
-              <h2 className="rb-h4 text-fg-1">{plan.name}</h2>
-              <p className="rb-body-sm mt-1 text-fg-3">{plan.description}</p>
-
-              <div className="mt-6 min-h-[74px]">
+              <h2 className="text-xl font-bold text-gray-900 dark:text-[#F5F5F7]">{plan.name}</h2>
+              <p className="mt-1 text-sm text-gray-500 dark:text-[#86868B]">{plan.description}</p>
+              <div className="mt-6">
                 {plan.onRequest || perMonth === null ? (
-                  <span className="text-[30px] font-bold tracking-[-0.03em] text-fg-1">
-                    Talk to us
-                  </span>
+                  <span className="text-3xl font-bold text-gray-900 dark:text-[#F5F5F7]">Talk to us</span>
                 ) : (
                   <>
-                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <span className="text-[40px] leading-none font-bold tracking-[-0.035em] text-fg-1">
-                        ${perMonth}
-                      </span>
+                    <div className="flex items-baseline gap-2">
+                      <span className="text-4xl font-bold text-gray-900 dark:text-[#F5F5F7]">${perMonth}</span>
                       {/* Stripe's site review asks for an explicit currency code, not a bare "$" */}
-                      <span className="rb-meta text-fg-3">USD / month</span>
+                      <span className="text-sm text-gray-400 dark:text-[#636366]">USD / month</span>
                       {/* The struck-through anchor is only honest while a
                           cheaper interval is genuinely selected. Showing it
                           next to the monthly price would strike through the
                           exact number being charged. */}
                       {showAnnualDetail && (
-                        <span className="rb-meta text-fg-4 line-through">
+                        <span className="text-sm text-gray-400 line-through dark:text-[#636366]">
                           ${planPerMonthUsd(plan.key, "monthly")}
                         </span>
                       )}
                     </div>
-                    <p className="rb-meta mt-2 font-normal text-fg-3">
+                    <p className="mt-1 text-xs text-gray-500 dark:text-[#86868B]">
                       {showAnnualDetail && billedTotal !== null ? (
                         <>
                           ${billedTotal.toLocaleString("en-US")} billed once a year
                           {savedUsd !== null && savedPct !== null && (
-                            <span className="font-semibold text-[var(--rb-green-600)]">
+                            <span className="font-medium text-emerald-600 dark:text-emerald-400">
                               {" "}· save ${savedUsd.toLocaleString("en-US")} ({savedPct}%)
                             </span>
                           )}
@@ -146,30 +129,20 @@ export function PricingCards({
                   </>
                 )}
               </div>
-
               <Link
                 {...(plan.onRequest ? { href: "/contact" } : { href: "/sign-up" })}
-                className={cn(
-                  "mt-6 flex h-11 w-full items-center justify-center rounded-full text-[15px] font-semibold transition-colors",
+                className={`mt-6 block w-full rounded-xl py-2.5 text-center text-sm font-semibold transition-colors ${
                   plan.highlight
-                    ? "bg-[var(--rb-blue-500)] text-white hover:bg-[var(--rb-blue-600)]"
-                    // --rb-border-3, not --rb-border-1: a divider-weight border
-                    // on a button stops it reading as a button on a dark
-                    // surface. This is the exact bug that made two of three
-                    // plan CTAs look disabled (see CLAUDE.md, border weights).
-                    : "border border-[var(--rb-border-3)] bg-surface text-fg-1 hover:bg-[var(--rb-bg-hover)]",
-                )}
+                    ? "bg-[#0A84FF] text-white hover:bg-[#0070e0]"
+                    : "border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] text-gray-900 dark:text-[#F5F5F7] hover:bg-gray-50 dark:hover:bg-white/5"
+                }`}
               >
                 {plan.onRequest ? "Contact us" : "Start free trial"}
               </Link>
-
-              <ul className="mt-7 flex-1 space-y-2.5 border-t border-[var(--rb-border-1)] pt-6">
+              <ul className="mt-8 space-y-3 text-sm text-gray-600 dark:text-[#C7C7CC]">
                 {Object.values(plan.features).map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-[14px] text-fg-2">
-                    <Check
-                      className="mt-0.5 size-4 shrink-0 text-[var(--rb-green-500)]"
-                      strokeWidth={2.5}
-                    />
+                  <li key={f} className="flex items-center gap-2">
+                    <Check className="h-4 w-4 shrink-0 text-emerald-500" strokeWidth={2.5} />
                     {f}
                   </li>
                 ))}
