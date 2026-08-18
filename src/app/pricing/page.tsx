@@ -249,6 +249,21 @@ export default function PricingPage() {
           title="Simple pricing. No surprises."
           lede="Every plan starts with the same 14-day trial, and none of them asks for a card up front. Pick one only if ReviewBox earns it."
         />
+      <main className="mx-auto max-w-screen-xl px-6 pb-32">
+        {/* Hero */}
+        <div className="pt-16 pb-12 text-center">
+          <span className="inline-flex items-center rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
+            Pricing
+          </span>
+          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7] sm:text-5xl">
+            Simple pricing. No surprises.
+          </h1>
+          <p className="mt-4 text-lg text-gray-500 dark:text-[#86868B]">
+            Every plan starts with a 14-day trial at full Pro access — no
+            credit card, no sales call. Upgrade, downgrade, or cancel
+            whenever you want.
+          </p>
+        </div>
 
         {/* Plan cards + interval toggle (client — needs state) */}
         <Section className="pb-4">
@@ -292,6 +307,31 @@ export default function PricingPage() {
                   <tr className="border-b border-[var(--rb-border-1)]">
                     <th scope="col" className="rb-eyebrow px-6 py-4 text-left text-fg-3">
                       Feature
+        <div className="mt-20">
+          <h2 className="text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">
+            Everything in the box
+          </h2>
+          <p className="mx-auto mt-3 max-w-xl text-center text-sm text-gray-500 dark:text-[#86868B]">
+            Every plan syncs both stores, drafts AI replies in your brand
+            voice, and publishes with one click. Pro adds the intelligence
+            and collaboration layer — topic clustering, release health,
+            Slack alerts, and multiple teammates.
+          </p>
+          <div className="mt-10 overflow-x-auto rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618]">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-gray-100 dark:border-white/6">
+                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-[#636366]">
+                    Feature
+                  </th>
+                  {PLANS.map((p) => (
+                    <th
+                      key={p.name}
+                      className={`px-6 py-4 text-center text-xs font-semibold uppercase tracking-wide ${
+                        p.highlight ? "text-[#0A84FF]" : "text-gray-500"
+                      }`}
+                    >
+                      {p.name}
                     </th>
                     {PLANS.map((p) => (
                       <th
@@ -346,6 +386,68 @@ export default function PricingPage() {
                   ))}
                 </tbody>
               </table>
+                  </>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* FAQ */}
+        <div className="mt-20 mx-auto max-w-2xl">
+          <h2 className="text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">
+            Billing FAQ
+          </h2>
+          <p className="mt-3 text-center text-sm text-gray-500 dark:text-[#86868B]">
+            The questions people ask before they enter a card. More setup and
+            product questions live on the{" "}
+            <Link href="/faq" className="text-[#0A84FF] hover:underline">
+              full FAQ
+            </Link>
+            .
+          </p>
+          <dl className="mt-10 space-y-6">
+            {[
+              {
+                q: "Do I need a credit card to start?",
+                a: "No. Every plan includes a 14-day free trial with no card required. You only enter billing details when you decide to keep going.",
+              },
+              {
+                q: "What happens when my trial ends?",
+                a: `If you haven't added a card, your workspace drops to the Free plan automatically — nothing is charged without your say-so. Free stays usable indefinitely: ${PLAN_LIMITS.free.appsMax} app, ${PLAN_LIMITS.free.publishedRepliesPerMonth} published replies and ${PLAN_LIMITS.free.aiDraftsPerMonth} AI drafts a month. Upgrade whenever you're ready and everything you set up during the trial is still there.`,
+              },
+              {
+                q: "Can I switch plans later?",
+                a: "Yes — upgrade or downgrade at any time from Billing settings. Upgrades take effect immediately; downgrades take effect at the next billing cycle.",
+              },
+              {
+                q: "What happens if I go over my review limit?",
+                a: "We'll notify you when you hit 80% of your quota. Your existing reviews stay safe — new reviews will pause syncing until you upgrade or the next cycle resets.",
+              },
+              {
+                q: "Is there a refund policy?",
+                a: "Subscription payments are non-refundable, and we do not prorate. That is exactly why every plan starts with a 14-day free trial that needs no card — evaluate the product fully before you pay. Cancel any time to stop future renewals; you keep access until the end of the period you paid for. Duplicate charges and billing errors on our side are always refunded. See our Refund & Cancellation Policy.",
+              },
+              {
+                q: "Do you offer annual billing?",
+                // Derived, never typed. The hardcoded version of this sentence
+                // said "~17% off" while the real discount was 20% on Starter
+                // and 23% on Pro — and the same wrong number was copied onto
+                // /faq and /compare. `minAnnualSavingsPercent()` is the
+                // strongest claim true of BOTH plans, so it stays honest even
+                // if a price changes.
+                a: isIntervalPurchasable("annual")
+                  ? `Yes — switch to yearly billing on this page or in Billing and save at least ${minAnnualSavingsPercent()}% (${annualSavingsPercent("starter")}% on Starter, ${annualSavingsPercent("pro")}% on Pro), which works out at roughly ${annualFreeMonths("pro")} months free. You are charged once a year.`
+                  : `Yearly billing is coming shortly — it will save at least ${minAnnualSavingsPercent()}% (${annualSavingsPercent("starter")}% on Starter, ${annualSavingsPercent("pro")}% on Pro). Today every plan is billed monthly and you can cancel any time. Email hello@tryreviewbox.com if you want yearly now and we will arrange it.`,
+              },
+              {
+                q: "Which currencies do you support?",
+                a: "Every plan is billed in USD today, wherever you're signing up from — your card issuer converts it automatically at checkout. More currencies are on the roadmap; the currency selector above the plan cards is where you'll pick one once it ships.",
+              },
+            ].map(({ q, a }) => (
+              <div key={q} className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6">
+                <dt className="font-semibold text-gray-900 dark:text-[#F5F5F7]">{q}</dt>
+                <dd className="mt-2 text-gray-500 dark:text-[#86868B]">{a}</dd>
               </div>
             </div>
           </Reveal>

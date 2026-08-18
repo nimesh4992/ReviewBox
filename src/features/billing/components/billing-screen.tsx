@@ -194,16 +194,15 @@ function BillingContent({ annualAvailable }: { annualAvailable: boolean }) {
           </div>
         ) : null}
 
-        {/* Interval toggle — only when yearly can actually be bought. */}
-        {annualAvailable && (
-          <div className="mb-6 flex justify-center">
-            <BillingIntervalToggle
-              value={interval}
-              onChange={setInterval}
-              savingsPercent={minAnnualSavingsPercent()}
-            />
-          </div>
-        )}
+        {/* Interval toggle — Yearly renders disabled ("Coming soon") until every paid plan has an annual Stripe price. */}
+        <div className="mb-6 flex justify-center">
+          <BillingIntervalToggle
+            value={interval}
+            onChange={setInterval}
+            savingsPercent={minAnnualSavingsPercent()}
+            unavailableOptions={annualAvailable ? [] : ["annual"]}
+          />
+        </div>
 
         {/* Plan cards */}
         <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
