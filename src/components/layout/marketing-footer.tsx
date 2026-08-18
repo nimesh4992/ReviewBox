@@ -15,7 +15,6 @@ const FOOTER_COLS = [
     heading: "Product",
     links: [
       { label: "Pricing", href: "/pricing" },
-      { label: "Compare", href: "/compare" },
       { label: "Changelog", href: "/changelog" },
       { label: "Sign in", href: "/sign-in" },
     ],

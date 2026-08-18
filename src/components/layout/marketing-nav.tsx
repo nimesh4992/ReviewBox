@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 // page cut) — the nav stops promoting them ahead of the removal slice.
 const NAV_LINKS = [
   { label: "Pricing", href: "/pricing" },
-  { label: "Compare", href: "/compare" },
   { label: "Blog", href: "/blog" },
   { label: "Help", href: "/help" },
 ];

@@ -48,7 +48,7 @@ export function CurrencySelector() {
         </DropdownMenuLabel>
         <DropdownMenuItem className="justify-between text-fg-1">
           US Dollar — $
-          <Check className="size-3.5 text-[var(--rb-blue-500)]" strokeWidth={2.5} />
+          <Check className="size-3.5 text-[var(--rb-fg-1)]" strokeWidth={2.5} />
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <p className="px-2 py-1.5 text-xs leading-relaxed text-fg-3">

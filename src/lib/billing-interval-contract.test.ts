@@ -99,7 +99,6 @@ describe("public pages never hardcode the annual discount", () => {
   const PAGES = [
     { file: "src/app/pricing/page.tsx", label: "/pricing" },
     { file: "src/app/faq/page.tsx", label: "/faq" },
-    { file: "src/app/compare/page.tsx", label: "/compare" },
   ];
 
   it.each(PAGES)("$label derives its savings figure", ({ file }) => {
@@ -114,11 +113,15 @@ describe("public pages never hardcode the annual discount", () => {
     expect(body).not.toMatch(/2 months free/i);
   });
 
-  it("/compare does not promise a refund window the policy denies", () => {
-    // It advertised "30-day, no questions" while /refund-policy — a legal
-    // document — says payments are non-refundable with no prorated refunds.
-    const body = stripComments(read("src/app/compare/page.tsx"));
-    expect(body).not.toMatch(/30-day, no questions/i);
+  it("no marketing page promises a refund window the policy denies", () => {
+    // /compare advertised "30-day, no questions" while /refund-policy — a
+    // legal document — says payments are non-refundable with no prorated
+    // refunds. That page was withdrawn on 2026-08-18, so the assertion now
+    // sweeps the pages that remain rather than dying with it; the claim must
+    // not reappear anywhere, including on a restored /compare.
+    for (const file of ["src/app/pricing/page.tsx", "src/app/faq/page.tsx"]) {
+      expect(stripComments(read(file))).not.toMatch(/30-day, no questions/i);
+    }
   });
 
   it.each([

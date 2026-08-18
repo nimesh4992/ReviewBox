@@ -24,6 +24,20 @@ const nextConfig: NextConfig = {
         destination: "/refund-policy",
         permanent: true,
       },
+      {
+        // /compare was withdrawn (founder decision 2026-08-18): its ROI
+        // calculator priced ReviewBox at a flat $49 for any number of apps,
+        // when Starter caps at 2 and 3 apps is Pro at $129 — so its own
+        // default state understated our price by $80/month. It also carried
+        // three invented testimonials and an unsourced competitor price.
+        //
+        // TEMPORARY (307), deliberately. A permanent redirect is cached by
+        // browsers indefinitely and would be painful to reverse if the page
+        // comes back with defensible numbers.
+        source: "/compare",
+        destination: "/pricing",
+        permanent: false,
+      },
     ];
   },
   async headers() {

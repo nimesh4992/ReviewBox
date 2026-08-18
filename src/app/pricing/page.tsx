@@ -1,8 +1,19 @@
-﻿import Link from "next/link";
+﻿import React from "react";
+import Link from "next/link";
 import { Check, X } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
+import {
+  Actions,
+  AmberLink,
+  Disclosure,
+  LineLink,
+  PageHero,
+  Section,
+  SectionHead,
+} from "@/features/marketing/components/primitives";
+import { Breadcrumb } from "@/features/marketing/components/breadcrumb";
 import {
   PAID_PLANS,
   PLAN_LIMITS,
@@ -169,12 +180,73 @@ const FEATURE_MATRIX = [
   },
 ];
 
+/**
+ * The cell's meaning is carried by the screen-reader text, not the glyph —
+ * a tick alone is colour-and-shape only, and the cross previously sat in
+ * `text-gray-300` (1.4:1) which is invisible rather than merely quiet.
+ */
 function Check2({ ok }: { ok: boolean }) {
-  if (ok) return <Check className="mx-auto h-4 w-4 text-emerald-500" strokeWidth={2.5} />;
-  return <X className="mx-auto h-4 w-4 text-gray-300" strokeWidth={2} />;
+  return (
+    <>
+      {ok ? (
+        <Check
+          className="mx-auto size-4 text-[var(--rb-green-600)]"
+          strokeWidth={2.5}
+          aria-hidden="true"
+        />
+      ) : (
+        <X
+          className="mx-auto size-4 text-[var(--rb-mk-ink-4)]"
+          strokeWidth={2}
+          aria-hidden="true"
+        />
+      )}
+      <span className="sr-only">{ok ? "Included" : "Not included"}</span>
+    </>
+  );
 }
 
 export default function PricingPage() {
+  const annual = isIntervalPurchasable("annual");
+
+  const BILLING_FAQS = [
+    {
+      q: "Do I need a credit card to start?",
+      a: "No. Every plan includes a 14-day free trial with no card required. You only enter billing details when you decide to keep going.",
+    },
+    {
+      q: "What happens when my trial ends?",
+      a: `If you haven't added a card, your workspace drops to the Free plan automatically — nothing is charged without your say-so. Free stays usable indefinitely: ${PLAN_LIMITS.free.appsMax} app, ${PLAN_LIMITS.free.publishedRepliesPerMonth} published replies and ${PLAN_LIMITS.free.aiDraftsPerMonth} AI drafts a month. Upgrade whenever you're ready and everything you set up during the trial is still there.`,
+    },
+    {
+      q: "Can I switch plans later?",
+      a: "Yes — upgrade or downgrade at any time from Billing settings. Upgrades take effect immediately; downgrades take effect at the next billing cycle.",
+    },
+    {
+      q: "What happens if I go over my review limit?",
+      a: "We'll notify you when you hit 80% of your quota. Your existing reviews stay safe — new reviews will pause syncing until you upgrade or the next cycle resets.",
+    },
+    {
+      q: "Is there a refund policy?",
+      a: "Subscription payments are non-refundable, and we do not prorate. That is exactly why every plan starts with a 14-day free trial that needs no card — evaluate the product fully before you pay. Cancel any time to stop future renewals; you keep access until the end of the period you paid for. Duplicate charges and billing errors on our side are always refunded. See our Refund & Cancellation Policy.",
+    },
+    {
+      q: "Do you offer annual billing?",
+      // Derived, never typed. The hardcoded version of this sentence said
+      // "~17% off" while the real discount was 20% on Starter and 23% on Pro —
+      // and the same wrong number was copied onto /faq and /compare.
+      // `minAnnualSavingsPercent()` is the strongest claim true of BOTH plans,
+      // so it stays honest even if a price changes.
+      a: annual
+        ? `Yes — switch to yearly billing on this page or in Billing and save at least ${minAnnualSavingsPercent()}% (${annualSavingsPercent("starter")}% on Starter, ${annualSavingsPercent("pro")}% on Pro), which works out at roughly ${annualFreeMonths("pro")} months free. You are charged once a year.`
+        : `Yearly billing is coming shortly — it will save at least ${minAnnualSavingsPercent()}% (${annualSavingsPercent("starter")}% on Starter, ${annualSavingsPercent("pro")}% on Pro). Today every plan is billed monthly and you can cancel any time. Email hello@tryreviewbox.com if you want yearly now and we will arrange it.`,
+    },
+    {
+      q: "Which currencies do you support?",
+      a: "Every plan is billed in USD today, wherever you're signing up from — your card issuer converts it automatically at checkout. More currencies are on the roadmap; the currency selector above the plan cards is where you'll pick one once it ships.",
+    },
+  ];
+
   return (
     <MarketingShell>
       <script
@@ -183,49 +255,53 @@ export default function PricingPage() {
       />
       <MarketingNav />
 
-      <main className="mx-auto max-w-screen-xl px-6 pb-32">
-        {/* Hero */}
-        <div className="pt-16 pb-12 text-center">
-          <span className="inline-flex items-center rounded-full bg-emerald-50 dark:bg-emerald-900/30 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-emerald-700 dark:text-emerald-400">
-            Pricing
-          </span>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7] sm:text-5xl">
-            Simple pricing. No surprises.
-          </h1>
-          <p className="mt-4 text-lg text-gray-500 dark:text-[#86868B]">
-            Every plan starts with a 14-day trial at full Pro access — no
-            credit card, no sales call. Upgrade, downgrade, or cancel
-            whenever you want.
-          </p>
-        </div>
+      <PageHero
+        eyebrow="Pricing"
+        title="Simple pricing. No surprises."
+        lede="Every plan starts with a 14-day trial at full Pro access — no credit card, no sales call. Upgrade, downgrade, or cancel whenever you want."
+      />
 
-        {/* Plan cards + interval toggle (client — needs state) */}
-        <PricingCards plans={PLANS} annualAvailable={isIntervalPurchasable("annual")} />
+      <main>
+        <Breadcrumb trail={[{ label: "Pricing" }]} />
 
-        {/* Feature matrix */}
-        <div className="mt-20">
-          <h2 className="text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">
-            Everything in the box
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-center text-sm text-gray-500 dark:text-[#86868B]">
-            Every plan syncs both stores, drafts AI replies in your brand
-            voice, and publishes with one click. Pro adds the intelligence
-            and collaboration layer — topic clustering, release health,
-            Slack alerts, and multiple teammates.
-          </p>
-          <div className="mt-10 overflow-x-auto rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618]">
-            <table className="w-full text-sm">
+        <Section tight>
+          {/* Client component — owns the monthly/yearly toggle state. */}
+          <PricingCards plans={PLANS} annualAvailable={annual} />
+        </Section>
+
+        <Section band>
+          <SectionHead
+            center
+            eyebrow="Compare plans"
+            title="Everything in the box"
+            body="Every plan syncs both stores, drafts AI replies in your brand voice, and publishes with one click. Pro adds the intelligence and collaboration layer — topic clustering, release health, Slack alerts, and multiple teammates."
+          />
+
+          {/* The table scrolls inside its own container so the page body never
+              scrolls sideways on a phone. */}
+          <div className="mt-12 overflow-x-auto rounded-[var(--rb-mk-r-frame)] border border-[var(--rb-mk-line)] bg-white">
+            <table className="w-full min-w-[640px] text-[14.5px]">
+              <caption className="sr-only">
+                Feature availability by plan: Starter, Pro and Enterprise
+              </caption>
               <thead>
-                <tr className="border-b border-gray-100 dark:border-white/6">
-                  <th className="px-6 py-4 text-left text-xs font-semibold uppercase tracking-wide text-gray-400 dark:text-[#636366]">
+                <tr className="border-b border-[var(--rb-mk-line)]">
+                  <th
+                    scope="col"
+                    className="px-6 py-4 text-left text-[12px] font-bold tracking-[0.1em] text-[var(--rb-fg-3)] uppercase"
+                  >
                     Feature
                   </th>
                   {PLANS.map((p) => (
                     <th
                       key={p.name}
-                      className={`px-6 py-4 text-center text-xs font-semibold uppercase tracking-wide ${
-                        p.highlight ? "text-[#0A84FF]" : "text-gray-500"
-                      }`}
+                      scope="col"
+                      className={
+                        "px-6 py-4 text-center text-[12px] font-bold tracking-[0.1em] uppercase " +
+                        (p.highlight
+                          ? "text-[var(--rb-mk-orange-text)]"
+                          : "text-[var(--rb-fg-3)]")
+                      }
                     >
                       {p.name}
                     </th>
@@ -233,19 +309,31 @@ export default function PricingPage() {
                 </tr>
               </thead>
               <tbody>
+                {/* React.Fragment, not <>: a bare fragment cannot carry a key,
+                    and the key was previously on the inner <tr>, which left
+                    the group without one. */}
                 {FEATURE_MATRIX.map((group) => (
-                  <>
-                    <tr key={group.category} className="border-t border-gray-100 dark:border-white/6 bg-gray-50 dark:bg-[#0E0E11]">
-                      <td
+                  <React.Fragment key={group.category}>
+                    <tr className="border-t border-[var(--rb-mk-line)] bg-[var(--rb-mk-sunken)]">
+                      <th
+                        scope="colgroup"
                         colSpan={4}
-                        className="px-6 py-2 text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366]"
+                        className="px-6 py-2.5 text-left text-[11px] font-bold tracking-[0.12em] text-[var(--rb-fg-3)] uppercase"
                       >
                         {group.category}
-                      </td>
+                      </th>
                     </tr>
                     {group.rows.map((row) => (
-                      <tr key={row.label} className="border-t border-gray-100 dark:border-white/6 hover:bg-gray-50/50 dark:hover:bg-white/5">
-                        <td className="px-6 py-3 text-gray-700 dark:text-[#C7C7CC]">{row.label}</td>
+                      <tr
+                        key={row.label}
+                        className="border-t border-[var(--rb-mk-line)] transition-colors hover:bg-[var(--rb-mk-sunken)]"
+                      >
+                        <th
+                          scope="row"
+                          className="px-6 py-3 text-left font-normal text-[var(--rb-fg-2)]"
+                        >
+                          {row.label}
+                        </th>
                         <td className="px-6 py-3 text-center">
                           <Check2 ok={row.starter} />
                         </td>
@@ -257,96 +345,64 @@ export default function PricingPage() {
                         </td>
                       </tr>
                     ))}
-                  </>
+                  </React.Fragment>
                 ))}
               </tbody>
             </table>
           </div>
-        </div>
+        </Section>
 
-        {/* FAQ */}
-        <div className="mt-20 mx-auto max-w-2xl">
-          <h2 className="text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">
-            Billing FAQ
-          </h2>
-          <p className="mt-3 text-center text-sm text-gray-500 dark:text-[#86868B]">
-            The questions people ask before they enter a card. More setup and
-            product questions live on the{" "}
-            <Link href="/faq" className="text-[#0A84FF] hover:underline">
-              full FAQ
-            </Link>
-            .
-          </p>
-          <dl className="mt-10 space-y-6">
-            {[
-              {
-                q: "Do I need a credit card to start?",
-                a: "No. Every plan includes a 14-day free trial with no card required. You only enter billing details when you decide to keep going.",
-              },
-              {
-                q: "What happens when my trial ends?",
-                a: `If you haven't added a card, your workspace drops to the Free plan automatically — nothing is charged without your say-so. Free stays usable indefinitely: ${PLAN_LIMITS.free.appsMax} app, ${PLAN_LIMITS.free.publishedRepliesPerMonth} published replies and ${PLAN_LIMITS.free.aiDraftsPerMonth} AI drafts a month. Upgrade whenever you're ready and everything you set up during the trial is still there.`,
-              },
-              {
-                q: "Can I switch plans later?",
-                a: "Yes — upgrade or downgrade at any time from Billing settings. Upgrades take effect immediately; downgrades take effect at the next billing cycle.",
-              },
-              {
-                q: "What happens if I go over my review limit?",
-                a: "We'll notify you when you hit 80% of your quota. Your existing reviews stay safe — new reviews will pause syncing until you upgrade or the next cycle resets.",
-              },
-              {
-                q: "Is there a refund policy?",
-                a: "Subscription payments are non-refundable, and we do not prorate. That is exactly why every plan starts with a 14-day free trial that needs no card — evaluate the product fully before you pay. Cancel any time to stop future renewals; you keep access until the end of the period you paid for. Duplicate charges and billing errors on our side are always refunded. See our Refund & Cancellation Policy.",
-              },
-              {
-                q: "Do you offer annual billing?",
-                // Derived, never typed. The hardcoded version of this sentence
-                // said "~17% off" while the real discount was 20% on Starter
-                // and 23% on Pro — and the same wrong number was copied onto
-                // /faq and /compare. `minAnnualSavingsPercent()` is the
-                // strongest claim true of BOTH plans, so it stays honest even
-                // if a price changes.
-                a: isIntervalPurchasable("annual")
-                  ? `Yes — switch to yearly billing on this page or in Billing and save at least ${minAnnualSavingsPercent()}% (${annualSavingsPercent("starter")}% on Starter, ${annualSavingsPercent("pro")}% on Pro), which works out at roughly ${annualFreeMonths("pro")} months free. You are charged once a year.`
-                  : `Yearly billing is coming shortly — it will save at least ${minAnnualSavingsPercent()}% (${annualSavingsPercent("starter")}% on Starter, ${annualSavingsPercent("pro")}% on Pro). Today every plan is billed monthly and you can cancel any time. Email hello@tryreviewbox.com if you want yearly now and we will arrange it.`,
-              },
-              {
-                q: "Which currencies do you support?",
-                a: "Every plan is billed in USD today, wherever you're signing up from — your card issuer converts it automatically at checkout. More currencies are on the roadmap; the currency selector above the plan cards is where you'll pick one once it ships.",
-              },
-            ].map(({ q, a }) => (
-              <div key={q} className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6">
-                <dt className="font-semibold text-gray-900 dark:text-[#F5F5F7]">{q}</dt>
-                <dd className="mt-2 text-gray-500 dark:text-[#86868B]">{a}</dd>
-              </div>
-            ))}
-          </dl>
-        </div>
-
-        {/* CTA */}
-        <div className="mt-20 rounded-2xl bg-gray-900 px-8 py-14 text-center">
-          <h2 className="text-2xl font-bold text-white sm:text-3xl">
-            Start free — upgrade when you&apos;re ready.
-          </h2>
-          <p className="mt-3 text-gray-400">
-            No contracts. No lock-in. Cancel any time.
-          </p>
-          <div className="mt-8 flex flex-wrap justify-center gap-4">
-            <Link
-              href="/sign-up"
-              className="rounded-xl bg-[#0A84FF] px-6 py-3 text-sm font-semibold text-white hover:bg-[#0070e0]"
-            >
-              Start free trial
-            </Link>
-            <Link
-              href="/contact"
-              className="rounded-xl border border-gray-600 px-6 py-3 text-sm font-semibold text-white hover:border-gray-400"
-            >
-              Talk to sales
-            </Link>
+        <Section>
+          <div className="mx-auto max-w-[760px]">
+            <SectionHead
+              center
+              eyebrow="Billing"
+              title="Billing FAQ"
+              body={
+                <>
+                  The questions people ask before they enter a card. More setup and product
+                  questions live on the{" "}
+                  <Link
+                    href="/faq"
+                    className="font-semibold text-[var(--rb-mk-orange-text)] hover:underline"
+                  >
+                    full FAQ
+                  </Link>
+                  .
+                </>
+              }
+            />
+            <div className="mt-10 border-t border-[var(--rb-mk-line)]">
+              {BILLING_FAQS.map(({ q, a }, i) => (
+                <Disclosure key={q} q={q} open={i === 0}>
+                  {a}
+                </Disclosure>
+              ))}
+            </div>
           </div>
-        </div>
+        </Section>
+
+        <section className="bg-[var(--rb-mk-night)] py-[clamp(56px,7vw,96px)] text-center">
+          <div className="mx-auto w-full max-w-[1160px] px-5 sm:px-6">
+            <h2 className="text-[length:var(--rb-mk-h2)] leading-[1.1] font-bold tracking-[-0.028em] text-balance text-white">
+              Start free — upgrade when you&apos;re ready.
+            </h2>
+            <p className="mx-auto mt-[18px] max-w-[46ch] text-[18px] text-[#B9B3CC]">
+              No contracts. No lock-in. Cancel any time.
+            </p>
+            <div className="mt-[34px]">
+              <Actions>
+                <AmberLink href="/sign-up">Start free trial</AmberLink>
+                <LineLink
+                  href="/contact"
+                  className="border-white/25 text-white hover:border-white/60"
+                >
+                  Talk to sales
+                </LineLink>
+              </Actions>
+            </div>
+          </div>
+        </section>
       </main>
 
       <MarketingFooter />

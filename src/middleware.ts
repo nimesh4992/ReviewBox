@@ -10,12 +10,10 @@ const MARKETING_HOST = "tryreviewbox.com";
 const isPublicRoute = createRouteMatcher([
   "/",
   "/pricing(.*)",
-  "/compare(.*)",
   "/about(.*)",
   "/blog(.*)",
   "/changelog(.*)",
   "/contact(.*)",
-  "/status(.*)",
   "/faq(.*)",
   "/help(.*)",
   "/privacy(.*)",

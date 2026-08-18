@@ -80,44 +80,52 @@ export function PricingCards({
           return (
             <div
               key={plan.name}
-              className={`rounded-2xl border p-8 ${
+              className={`relative rounded-[var(--rb-mk-r-card)] border bg-white p-8 ${
                 plan.highlight
-                  ? "border-[#0A84FF] bg-white dark:bg-[#161618] shadow-lg ring-2 ring-[#0A84FF]/20"
-                  : "border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618]"
+                  ? "border-[var(--rb-mk-ink)]"
+                  : "border-[var(--rb-mk-line)]"
               }`}
             >
               {plan.highlight && (
-                <span className="mb-4 inline-flex rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-[#0A84FF]">
+                <span className="mb-4 inline-flex rounded-full bg-[var(--rb-mk-amber-500)] px-3 py-1 text-[11px] font-bold tracking-[0.09em] text-[var(--rb-mk-ink)] uppercase">
                   Most popular
                 </span>
               )}
-              <h2 className="text-xl font-bold text-gray-900 dark:text-[#F5F5F7]">{plan.name}</h2>
-              <p className="mt-1 text-sm text-gray-500 dark:text-[#86868B]">{plan.description}</p>
+              <h2 className="text-[12.5px] font-bold tracking-[0.13em] text-[var(--rb-mk-orange-text)] uppercase">
+                {plan.name}
+              </h2>
+              <p className="mt-3 min-h-[46px] text-[14.5px] leading-[1.5] text-[var(--rb-fg-3)]">
+                {plan.description}
+              </p>
               <div className="mt-6">
                 {plan.onRequest || perMonth === null ? (
-                  <span className="text-3xl font-bold text-gray-900 dark:text-[#F5F5F7]">Talk to us</span>
+                  <span className="text-[42px] font-bold tracking-[-0.045em] text-[var(--rb-fg-1)]">
+                    Talk to us
+                  </span>
                 ) : (
                   <>
                     <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-bold text-gray-900 dark:text-[#F5F5F7]">${perMonth}</span>
+                      <span className="text-[42px] font-bold tracking-[-0.045em] text-[var(--rb-fg-1)]">
+                        ${perMonth}
+                      </span>
                       {/* Stripe's site review asks for an explicit currency code, not a bare "$" */}
-                      <span className="text-sm text-gray-400 dark:text-[#636366]">USD / month</span>
+                      <span className="text-[15px] font-medium text-[var(--rb-fg-3)]">USD / month</span>
                       {/* The struck-through anchor is only honest while a
                           cheaper interval is genuinely selected. Showing it
                           next to the monthly price would strike through the
                           exact number being charged. */}
                       {showAnnualDetail && (
-                        <span className="text-sm text-gray-400 line-through dark:text-[#636366]">
+                        <span className="text-[15px] text-[var(--rb-fg-3)] line-through">
                           ${planPerMonthUsd(plan.key, "monthly")}
                         </span>
                       )}
                     </div>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-[#86868B]">
+                    <p className="mt-2 text-[13px] text-[var(--rb-fg-3)]">
                       {showAnnualDetail && billedTotal !== null ? (
                         <>
                           ${billedTotal.toLocaleString("en-US")} billed once a year
                           {savedUsd !== null && savedPct !== null && (
-                            <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                            <span className="font-semibold text-[var(--rb-green-600)]">
                               {" "}· save ${savedUsd.toLocaleString("en-US")} ({savedPct}%)
                             </span>
                           )}
@@ -131,18 +139,22 @@ export function PricingCards({
               </div>
               <Link
                 {...(plan.onRequest ? { href: "/contact" } : { href: "/sign-up" })}
-                className={`mt-6 block w-full rounded-xl py-2.5 text-center text-sm font-semibold transition-colors ${
+                className={`mt-7 block w-full rounded-full py-3 text-center text-[15px] font-bold tracking-[-0.01em] transition-colors ${
                   plan.highlight
-                    ? "bg-[#0A84FF] text-white hover:bg-[#0070e0]"
-                    : "border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] text-gray-900 dark:text-[#F5F5F7] hover:bg-gray-50 dark:hover:bg-white/5"
+                    ? "bg-[var(--rb-mk-amber-500)] text-[var(--rb-mk-ink)] hover:bg-[var(--rb-mk-amber-600)]"
+                    : "border-[1.5px] border-[var(--rb-mk-line-2)] text-[var(--rb-fg-1)] hover:border-[var(--rb-mk-ink)]"
                 }`}
               >
                 {plan.onRequest ? "Contact us" : "Start free trial"}
               </Link>
-              <ul className="mt-8 space-y-3 text-sm text-gray-600 dark:text-[#C7C7CC]">
+              <ul className="mt-7 grid gap-2.5 border-t border-[var(--rb-mk-line)] pt-6 text-[14.5px] text-[var(--rb-fg-2)]">
                 {Object.values(plan.features).map((f) => (
-                  <li key={f} className="flex items-center gap-2">
-                    <Check className="h-4 w-4 shrink-0 text-emerald-500" strokeWidth={2.5} />
+                  <li key={f} className="flex items-start gap-3">
+                    <Check
+                      className="mt-0.5 size-[17px] shrink-0 text-[var(--rb-mk-ink-4)]"
+                      strokeWidth={1.8}
+                      aria-hidden="true"
+                    />
                     {f}
                   </li>
                 ))}
