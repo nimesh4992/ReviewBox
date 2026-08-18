@@ -1,7 +1,10 @@
 # Today — 2026-08-18 (marketing site rebuilt on the Envato theme, then the SEO unblock)
 
-**State of master:** `009484f` — PR #124 merged. **Verify the production deploy
-before trusting it**; the `VERCEL_ORG_ID` mismatch below may still be blocking it.
+**State of master:** `009484f` — PR #124 merged, every quality gate green.
+**But master has not reached production since 03:48 UTC on 2026-08-18 (PR #118).**
+The deploy job has failed on every merge since — #119, #120, #121, #123, #124 —
+on a wrong GitHub secret. Diagnosis and the exact fix are at the bottom; it is
+one value, and only the founder can change it.
 `tsc` clean, lint 0 errors, full `next build` passes, **591 unit tests** (was 539).
 
 Two things shipped today, in order.
@@ -82,10 +85,44 @@ button: everything green, nothing rendered.
 
 ## Outstanding — founder only
 
-1. **`VERCEL_ORG_ID` is wrong and production may not have deployed since #118.**
-   GitHub's secret says `team_mQlD3mcz32rsA4HcPOBRiW6b`; the Vercel bot reports
-   `team_YDfGTQhOF3TYQa36p7LILfuB`. Check the deploy job on the #124 merge
-   before assuming the new site is live.
+1. **`VERCEL_ORG_ID` is wrong. Nothing has deployed since #118 — fix this first.**
+
+   GitHub → Settings → Secrets and variables → Actions → `VERCEL_ORG_ID`
+
+   | | |
+   |---|---|
+   | currently | `team_mQlD3mcz32rsA4HcPOBRiW6b` |
+   | should be | `team_YDfGTQhOF3TYQa36p7LILfuB` |
+
+   `VERCEL_PROJECT_ID` is correct and must not change.
+
+   The whole run reads green except the last job. On the #124 merge, Build +
+   type-check, Lint, Unit tests, Security audit and E2E all passed; **Deploy to
+   production** then failed in two seconds at its first Vercel step:
+
+   ```
+   Retrieving project…
+   Error: Project not found ({"VERCEL_PROJECT_ID":"prj_OE66Qpr8IdTXwLG6BOzevWYagRcl",
+                             "VERCEL_ORG_ID":"team_mQlD3mcz32rsA4HcPOBRiW6b"})
+   ```
+
+   The project id there matches what Vercel's own bot reports on every PR; the
+   team id does not — the bot's avatar URL carries
+   `teamId=team_YDfGTQhOF3TYQa36p7LILfuB`. So the token authenticates fine and
+   then looks for the project inside a team that does not hold it.
+
+   Consequence: **everything merged today is on master and none of it is live.**
+   The whole marketing rebuild, both `/compare` and `/status` removals, all of
+   it. Production is still serving the 03:48 build. Once the secret is
+   corrected, re-run the failed job on the latest master run — no new commit is
+   needed.
+
+   *This is a distinct failure from the Vercel upload-quota one in yesterday's
+   notes. That one exhausted a 5,000-request budget and had to wait out a
+   24-hour window; this one fails instantly with a project-not-found and will
+   keep failing forever until the secret changes. Both produce the same
+   symptom — merged but not shipped — which is why the log line matters more
+   than the red X.*
 2. **Confirm `www` is a redirect in Vercel, not an alias.** The canonicals make
    an alias survivable; they do not make it correct. This is the last open part
    of the plan's item #1.
