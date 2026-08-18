@@ -345,6 +345,8 @@ STRIPE_SECRET_KEY=                  🔲 Not set
 STRIPE_WEBHOOK_SECRET=              🔲 Not set
 STRIPE_PRICE_STARTER=               🔲 Not set — $49/mo USD
 STRIPE_PRICE_PRO=                   🔲 Not set — $129/mo USD (Team plan removed; Enterprise is quote-only, no price ID)
+STRIPE_PRICE_STARTER_ANNUAL=        🔲 Not set — $468/yr USD (= $39/mo)
+STRIPE_PRICE_PRO_ANNUAL=            🔲 Not set — $1188/yr USD (= $99/mo)
 
 # Google Play (service account — already working)
 GOOGLE_CLIENT_EMAIL=                ✅ Set

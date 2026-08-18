@@ -4,6 +4,12 @@ import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 import { RoiCalculator } from "@/components/marketing/roi-calculator";
+import {
+  PLAN_PRICING,
+  TRIAL_DAYS,
+  annualSavingsPercent,
+  minAnnualSavingsPercent,
+} from "@/lib/plans";
 
 export const metadata = {
   // `absolute` skips the root layout's "%s | ReviewBox" template — the brand
@@ -23,12 +29,22 @@ const ROWS: {
   {
     category: "Pricing",
     features: [
-      { label: "Starting price", reviewbox: "$49/month", appfollow: "$149/month" },
-      { label: "Free trial", reviewbox: "14 days — no card", appfollow: "7 days — card required" },
+      // Our own column is DERIVED from lib/plans.ts. Every hardcoded number
+      // here had drifted: "2 months free" was the same stale claim as /pricing
+      // and /faq (the real discount is 20% on Starter, 23% on Pro), and the
+      // price was a second copy of $49 that nothing kept in step.
+      { label: "Starting price", reviewbox: `$${PLAN_PRICING.starter.monthlyUsd}/month`, appfollow: "$149/month" },
+      { label: "Free trial", reviewbox: `${TRIAL_DAYS} days — no card`, appfollow: "7 days — card required" },
       { label: "Per-app pricing", reviewbox: false, appfollow: true },
-      { label: "Annual discount", reviewbox: "2 months free", appfollow: "10%" },
+      { label: "Annual discount", reviewbox: `${minAnnualSavingsPercent()}–${annualSavingsPercent("pro")}%`, appfollow: "10%" },
       { label: "Self-serve sign-up (≤5 min)", reviewbox: true, appfollow: false },
-      { label: "Refund policy", reviewbox: "30-day, no questions", appfollow: "Case-by-case" },
+      // Was "30-day, no questions" — flatly untrue. /refund-policy is a legal
+      // document and says subscription payments are non-refundable with no
+      // prorated or partial refunds; the trial is what exists instead. A
+      // comparison page inventing a refund guarantee we do not offer is the
+      // most expensive kind of drift, because a customer could reasonably rely
+      // on it.
+      { label: "Refund policy", reviewbox: `${TRIAL_DAYS}-day free trial instead`, appfollow: "Case-by-case" },
     ],
   },
   {

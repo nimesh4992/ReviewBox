@@ -2,12 +2,18 @@ import Link from "next/link";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
+import { annualSavingsPercent, minAnnualSavingsPercent } from "@/lib/plans";
+import { isIntervalPurchasable } from "@/lib/stripe";
 
 export const metadata = {
   title: "FAQ",
   description: "Frequently asked questions about ReviewBox — setup, pricing, AI replies, and more.",
 };
 
+// ⚠️ These strings are rendered as TEXT (see `{a}` in the markup below) and
+// copied verbatim into FAQ_JSON_LD. An HTML entity written here shows up as
+// the literal characters "&apos;" both on the page and in Google's rich
+// result — use real apostrophes, never entities.
 const FAQ_SECTIONS = [
   {
     title: "Getting started",
@@ -76,11 +82,19 @@ const FAQ_SECTIONS = [
       },
       {
         q: "Is there an annual billing option?",
-        // Plain string rendered as text (see `{a}` below) and copied verbatim
-        // into FAQ_JSON_LD — so an HTML entity here renders as the literal
-        // characters "&apos;" on the page AND in Google's rich result. Use a
-        // real apostrophe in these strings, never an entity.
-        a: "Yes — annual billing is 2 months free (equivalent to ~17% off). Contact us to switch; we'll prorate your current plan.",
+        // Two things were wrong here and both were self-inflicted:
+        //
+        //   1. "~17% off" — the real discount is 20% on Starter and 23% on
+        //      Pro. One hardcoded number cannot describe two plans, which is
+        //      why this drifted. It is derived now.
+        //   2. "we'll prorate your current plan" — flatly contradicted the
+        //      answer two entries above ("we do not issue prorated refunds")
+        //      AND the Refund & Cancellation Policy. An unsupported promise
+        //      about money is the worst kind to leave lying around, so it is
+        //      gone rather than reworded.
+        a: isIntervalPurchasable("annual")
+          ? `Yes. Pick Yearly on the pricing page or in Billing → you save at least ${minAnnualSavingsPercent()}% (${annualSavingsPercent("starter")}% on Starter, ${annualSavingsPercent("pro")}% on Pro) and are charged once a year instead of monthly. To change an existing subscription, use Billing → Manage Subscription. Switching does not refund the period you have already paid for — see our Refund & Cancellation Policy.`
+          : `Not self-serve yet — every plan is billed monthly today and you can cancel any time. Yearly billing is coming and will save at least ${minAnnualSavingsPercent()}% (${annualSavingsPercent("starter")}% on Starter, ${annualSavingsPercent("pro")}% on Pro). Email hello@tryreviewbox.com if you want it now and we will set it up manually.`,
       },
     ],
   },

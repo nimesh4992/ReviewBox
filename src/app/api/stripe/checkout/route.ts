@@ -1,10 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { stripe, PRICE_IDS } from "@/lib/stripe";
+import { stripe, PRICE_IDS, hasPrice } from "@/lib/stripe";
 import { rateLimit } from "@/lib/api-rate-limit";
 import { apiError, captureAndError } from "@/lib/api-response";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
-import { PAID_PLANS, type PaidPlanName } from "@/lib/plans";
+import {
+  DEFAULT_BILLING_INTERVAL,
+  PAID_PLANS,
+  isBillingInterval,
+  type PaidPlanName,
+} from "@/lib/plans";
 
 function isPaidPlan(value: unknown): value is PaidPlanName {
   return typeof value === "string" && (PAID_PLANS as readonly string[]).includes(value);
@@ -23,7 +28,7 @@ export async function POST(request: NextRequest) {
       return apiError("RATE_LIMITED", 429);
     }
 
-    const body = (await request.json()) as { plan?: unknown };
+    const body = (await request.json()) as { plan?: unknown; interval?: unknown };
 
     // Configuration is checked BEFORE the price lookup. PRICE_IDS values are
     // "" when the Stripe env vars are unset, so checking the price first meant
@@ -35,10 +40,33 @@ export async function POST(request: NextRequest) {
       return apiError("STRIPE_NOT_CONFIGURED", 503);
     }
 
-    if (!isPaidPlan(body.plan) || !PRICE_IDS[body.plan]) {
+    if (!isPaidPlan(body.plan)) {
       return apiError("INVALID_INPUT", 400, "Invalid plan.");
     }
     const plan = body.plan;
+
+    // Absent means monthly. The interval is a late addition and an older
+    // client that does not send one must keep buying what it always bought,
+    // rather than being silently switched to a yearly commitment.
+    if (body.interval !== undefined && !isBillingInterval(body.interval)) {
+      return apiError("INVALID_INPUT", 400, "Invalid billing interval.");
+    }
+    const interval = body.interval ?? DEFAULT_BILLING_INTERVAL;
+
+    // A configured plan with an UNCONFIGURED interval is its own failure, and
+    // it gets its own code. Folding it into "Invalid plan." would tell a
+    // customer their selection was malformed when the truth is that we have
+    // not created the price yet — and it is the actionable half of the
+    // message, because the fix is ours, not theirs.
+    if (!hasPrice(plan, interval)) {
+      return apiError(
+        "INTERVAL_NOT_AVAILABLE",
+        503,
+        interval === "annual"
+          ? "Yearly billing isn't available yet. Choose monthly, or contact us."
+          : "That billing option isn't available yet.",
+      );
+    }
 
     const user = await currentUser();
     const userEmail = user?.emailAddresses?.[0]?.emailAddress;
@@ -88,15 +116,21 @@ export async function POST(request: NextRequest) {
       mode: "subscription",
       customer: customerId,
       client_reference_id: userId,
-      line_items: [{ price: PRICE_IDS[plan], quantity: 1 }],
+      line_items: [{ price: PRICE_IDS[plan][interval], quantity: 1 }],
       success_url: `${appUrl}/dashboard?upgraded=1&plan=${plan}`,
       cancel_url: `${appUrl}/billing`,
-      metadata: { clerkUserId: userId, plan },
+      // `plan` stays the entitlement key and `interval` rides alongside it.
+      // The webhook resolves entitlements from `plan` ALONE — a monthly and a
+      // yearly Pro grant identical limits — so adding an interval here must
+      // not change what the customer can do, only how often they are charged.
+      metadata: { clerkUserId: userId, plan, interval },
       subscription_data: {
-        metadata: { clerkUserId: userId, plan },
+        metadata: { clerkUserId: userId, plan, interval },
         // Export charges also require a description of the service sold; this
         // appears on the invoice.
-        description: `ReviewBox ${plan[0].toUpperCase()}${plan.slice(1)} plan — app review management software subscription`,
+        description: `ReviewBox ${plan[0].toUpperCase()}${plan.slice(1)} plan (${
+          interval === "annual" ? "billed yearly" : "billed monthly"
+        }) — app review management software subscription`,
       },
       allow_promotion_codes: true,
       // An India-registered Stripe account selling to customers abroad must
