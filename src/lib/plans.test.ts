@@ -4,14 +4,23 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  DEFAULT_BILLING_INTERVAL,
   ENTITLED_PLANS,
   PAID_PLANS,
   PLAN_AFTER_TRIAL,
   PLAN_LIMITS,
   PLAN_PRICING,
   WORKSPACE_PLANS,
+  annualFreeMonths,
+  annualSavingsPercent,
+  annualSavingsUsd,
+  isBillingInterval,
   isEntitledPlan,
   isWorkspacePlan,
+  minAnnualFreeMonths,
+  minAnnualSavingsPercent,
+  planChargeUsd,
+  planPerMonthUsd,
   type PlanName,
 } from "./plans";
 
@@ -204,5 +213,86 @@ describe("PLAN_PRICING", () => {
     // this. These are independent price points for independent markets.
     expect(PLAN_PRICING.pro.monthlyInr!).toBeLessThan(PLAN_PRICING.pro.monthlyUsd! * 85);
     expect(PLAN_PRICING.pro.monthlyInr!).toBeGreaterThan(PLAN_PRICING.starter.monthlyInr!);
+  });
+});
+
+describe("billing intervals", () => {
+  it("quotes annual per month and charges it per year", () => {
+    // The distinction the whole bug turned on. `annualUsd` is a PER-MONTH
+    // figure; what leaves the customer's account is twelve of them.
+    for (const name of PAID_PLANS) {
+      expect(planPerMonthUsd(name, "annual")).toBe(PLAN_PRICING[name].annualUsd);
+      expect(planChargeUsd(name, "annual")).toBe(PLAN_PRICING[name].annualUsd! * 12);
+      expect(planChargeUsd(name, "monthly")).toBe(PLAN_PRICING[name].monthlyUsd);
+    }
+  });
+
+  it("always costs less over a year to pay yearly", () => {
+    for (const name of PAID_PLANS) {
+      expect(planChargeUsd(name, "annual")!).toBeLessThan(planChargeUsd(name, "monthly")! * 12);
+      expect(annualSavingsUsd(name)!).toBeGreaterThan(0);
+    }
+  });
+
+  it("accepts only the two real intervals", () => {
+    expect(isBillingInterval("monthly")).toBe(true);
+    expect(isBillingInterval("annual")).toBe(true);
+    for (const bogus of ["yearly", "ANNUAL", "", "month", null, undefined, 12]) {
+      expect(isBillingInterval(bogus)).toBe(false);
+    }
+  });
+
+  it("defaults to monthly", () => {
+    // An older client that sends no interval must keep buying what it always
+    // bought. Defaulting to annual would silently commit someone to a year.
+    expect(DEFAULT_BILLING_INTERVAL).toBe("monthly");
+  });
+});
+
+describe("advertised annual savings are derived, not typed", () => {
+  // Three public pages carried "2 months free (~17% off)" while the real
+  // discount was 20% and 23%. These assertions pin the arithmetic so the copy
+  // cannot drift from the prices again.
+
+  it("computes each plan's real discount", () => {
+    // starter: 49→39 ⇒ 588 vs 468 ⇒ saves 120 ⇒ 20.4%
+    expect(annualSavingsUsd("starter")).toBe(120);
+    expect(annualSavingsPercent("starter")).toBe(20);
+    // pro: 129→99 ⇒ 1548 vs 1188 ⇒ saves 360 ⇒ 23.3%
+    expect(annualSavingsUsd("pro")).toBe(360);
+    expect(annualSavingsPercent("pro")).toBe(23);
+  });
+
+  it("never rounds a discount UP", () => {
+    // 20.4% must advertise as 20, not 21 — overstating a discount is the one
+    // direction of error that costs trust rather than money.
+    for (const name of PAID_PLANS) {
+      const exact = (annualSavingsUsd(name)! / (PLAN_PRICING[name].monthlyUsd! * 12)) * 100;
+      expect(annualSavingsPercent(name)!).toBeLessThanOrEqual(exact);
+      expect(annualFreeMonths(name)!).toBeLessThanOrEqual(
+        annualSavingsUsd(name)! / PLAN_PRICING[name].monthlyUsd!,
+      );
+    }
+  });
+
+  it("makes the global claim true of EVERY sellable plan", () => {
+    // This is the number a single sentence on /pricing, /faq or /compare may
+    // use. "Save 23%" would be a lie about Starter.
+    const min = minAnnualSavingsPercent()!;
+    for (const name of PAID_PLANS) {
+      expect(annualSavingsPercent(name)!).toBeGreaterThanOrEqual(min);
+    }
+    expect(min).toBe(20);
+    expect(minAnnualFreeMonths()).toBe(2);
+  });
+
+  it("reports nothing rather than a bogus discount for unpriced plans", () => {
+    // Enterprise is quote-only and free costs nothing; dividing by either
+    // would produce Infinity or NaN and render as "Save NaN%".
+    for (const name of ["enterprise", "trial", "free"] as const) {
+      expect(annualSavingsUsd(name)).toBeNull();
+      expect(annualSavingsPercent(name)).toBeNull();
+      expect(annualFreeMonths(name)).toBeNull();
+    }
   });
 });

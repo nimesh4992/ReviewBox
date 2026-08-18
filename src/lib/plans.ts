@@ -106,6 +106,30 @@ export function isEntitledPlan(value: string): boolean {
   return (ENTITLED_PLANS as readonly string[]).includes(value);
 }
 
+// ── Billing interval ──────────────────────────────────────────────────────────
+
+/**
+ * How often a subscription renews.
+ *
+ * This exists because the two halves of the product disagreed about it. The
+ * pricing page led with the ANNUAL per-month price ($39 / $99) while checkout
+ * had no notion of an interval at all and could only ever charge the monthly
+ * price ($49 / $129). A customer who read the headline number and clicked
+ * through was charged 26% more than the page quoted.
+ *
+ * An interval is therefore not a display concern — it has to travel all the
+ * way to the Stripe line item, which is why it is typed here next to the
+ * prices rather than in the page that renders them.
+ */
+export const BILLING_INTERVALS = ["monthly", "annual"] as const;
+export type BillingInterval = (typeof BILLING_INTERVALS)[number];
+
+export const DEFAULT_BILLING_INTERVAL: BillingInterval = "monthly";
+
+export function isBillingInterval(value: unknown): value is BillingInterval {
+  return typeof value === "string" && (BILLING_INTERVALS as readonly string[]).includes(value);
+}
+
 /**
  * Display prices.
  *
@@ -114,10 +138,15 @@ export function isEntitledPlan(value: string): boolean {
  * same person. Serving both markets at a price each considers fair is an
  * advantage — our nearest competitor runs one global price.
  *
- * `monthlyUsd` is the list price. `annualUsd` is the per-month price when
- * billed yearly, and both are shown together: the struck-through anchor is
- * standard in this category, and going without it while a competitor uses it
- * makes us look cheaper than we are rather than better value.
+ * `monthlyUsd` is the list price. `annualUsd` is the PER-MONTH price when
+ * billed yearly — not the yearly total. Everything derived from it goes
+ * through the helpers below rather than being multiplied out by hand at the
+ * call site.
+ *
+ * ⚠️ `monthlyInr` is displayed on /pricing but there is no INR price in
+ * Stripe, so it is not purchasable. That is a known gap, tracked separately —
+ * do not treat the presence of a number here as evidence a customer can pay
+ * it.
  *
  * Enterprise is deliberately quote-only. We have no seat management, SSO or
  * procurement story yet, so a published number would promise something we
@@ -190,3 +219,81 @@ export const MAX_TRIAL_EXTENSIONS = 1;
 
 /** The plan a workspace falls back to when its trial runs out unpaid. */
 export const PLAN_AFTER_TRIAL: PlanName = "free";
+
+// ── Derived pricing ───────────────────────────────────────────────────────────
+//
+// Every number a customer reads about annual billing is COMPUTED from the two
+// prices above. None of it is written by hand, because hand-written versions
+// of these numbers were wrong in three separate places at once:
+//
+//   /pricing FAQ   "2 months free (equivalent to ~17% off)"
+//   /faq           "2 months free (equivalent to ~17% off)"
+//   /compare       "Annual discount: 2 months free"
+//
+// The real figures are 20.4% / 2.45 months for Starter and 23.3% / 2.79
+// months for Pro. A single hardcoded claim cannot be right for two plans whose
+// discounts differ, which is why the copy drifted from the prices and stayed
+// drifted — nothing connected them.
+
+/** The per-month price to SHOW for an interval. Annual is quoted per month. */
+export function planPerMonthUsd(plan: PlanName, interval: BillingInterval): number | null {
+  const pricing = PLAN_PRICING[plan];
+  return interval === "annual" ? pricing.annualUsd : pricing.monthlyUsd;
+}
+
+/** What the customer is actually charged, per billing cycle. */
+export function planChargeUsd(plan: PlanName, interval: BillingInterval): number | null {
+  const perMonth = planPerMonthUsd(plan, interval);
+  if (perMonth === null) return null;
+  return interval === "annual" ? perMonth * 12 : perMonth;
+}
+
+/** Money saved over a year by paying yearly instead of monthly. */
+export function annualSavingsUsd(plan: PlanName): number | null {
+  const monthly = PLAN_PRICING[plan].monthlyUsd;
+  const annual = PLAN_PRICING[plan].annualUsd;
+  if (monthly === null || annual === null || monthly <= 0) return null;
+  return monthly * 12 - annual * 12;
+}
+
+/** That saving as a whole-number percentage. Rounded down — never oversell. */
+export function annualSavingsPercent(plan: PlanName): number | null {
+  const saved = annualSavingsUsd(plan);
+  const monthly = PLAN_PRICING[plan].monthlyUsd;
+  if (saved === null || monthly === null || monthly <= 0) return null;
+  return Math.floor((saved / (monthly * 12)) * 100);
+}
+
+/**
+ * The strongest claim that is true of EVERY sellable plan.
+ *
+ * Starter saves 20% and Pro 23%, so "save 23%" would be false for half the
+ * price list. Taking the minimum makes one sentence safe to print anywhere,
+ * and it moves on its own if a price ever changes.
+ */
+export function minAnnualSavingsPercent(): number | null {
+  const percentages = PAID_PLANS.map(annualSavingsPercent).filter(
+    (p): p is number => p !== null,
+  );
+  if (percentages.length === 0) return null;
+  return Math.min(...percentages);
+}
+
+/**
+ * The same discount expressed as free months, which is how this category
+ * usually advertises it. Rounded DOWN to a half month for the same reason the
+ * percentage is floored: 2.45 months must never be sold as 3.
+ */
+export function annualFreeMonths(plan: PlanName): number | null {
+  const saved = annualSavingsUsd(plan);
+  const monthly = PLAN_PRICING[plan].monthlyUsd;
+  if (saved === null || monthly === null || monthly <= 0) return null;
+  return Math.floor((saved / monthly) * 2) / 2;
+}
+
+/** Minimum free months across sellable plans — the safe global claim. */
+export function minAnnualFreeMonths(): number | null {
+  const months = PAID_PLANS.map(annualFreeMonths).filter((m): m is number => m !== null);
+  if (months.length === 0) return null;
+  return Math.min(...months);
+}

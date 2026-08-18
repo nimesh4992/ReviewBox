@@ -3,7 +3,17 @@ import { Check, X } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
-import { PAID_PLANS, PLAN_LIMITS, PLAN_PRICING, type PlanName } from "@/lib/plans";
+import {
+  PAID_PLANS,
+  PLAN_LIMITS,
+  PLAN_PRICING,
+  annualFreeMonths,
+  annualSavingsPercent,
+  minAnnualSavingsPercent,
+  planChargeUsd,
+} from "@/lib/plans";
+import { isIntervalPurchasable } from "@/lib/stripe";
+import { PricingCards, type PricingCard } from "@/features/marketing/components/pricing-cards";
 
 export const metadata = {
   title: "Pricing",
@@ -19,23 +29,9 @@ export const metadata = {
 // that were never built. A marketing page maintained by hand next to a
 // PLAN_LIMITS object maintained by code will always end up lying; the only
 // durable fix is one source of truth.
-interface PlanCard {
-  name: string;
-  key: PlanName;
-  monthly: number;
-  annual: number;
-  inr: number;
-  description: string;
-  highlight: boolean;
-  onRequest: boolean;
-  features: Record<string, string>;
-}
-
-const PLANS: PlanCard[] = PAID_PLANS.map((name): PlanCard => ({
+const PLANS: PricingCard[] = PAID_PLANS.map((name): PricingCard => ({
   name: PLAN_PRICING[name].label,
   key: name,
-  monthly: PLAN_PRICING[name].monthlyUsd!,
-  annual: PLAN_PRICING[name].annualUsd!,
   inr: PLAN_PRICING[name].monthlyInr!,
   description: PLAN_PRICING[name].tagline,
   highlight: name === "pro",
@@ -55,8 +51,6 @@ PLANS.push(
   {
     name: PLAN_PRICING.enterprise.label,
     key: "enterprise",
-    monthly: 0,
-    annual: 0,
     inr: 0,
     description: PLAN_PRICING.enterprise.tagline,
     highlight: false,
@@ -80,19 +74,35 @@ const PRICING_JSON_LD = {
   "@type": "Product",
   name: "ReviewBox",
   description: "AI-powered review management for Google Play and App Store.",
-  offers: PLANS.filter((p) => !p.onRequest).map((plan) => ({
-    "@type": "Offer",
-    name: plan.name,
-    price: plan.monthly,
-    priceCurrency: "USD",
-    priceSpecification: {
-      "@type": "UnitPriceSpecification",
-      price: plan.monthly,
-      priceCurrency: "USD",
-      referenceQuantity: { "@type": "QuantitativeValue", value: 1, unitCode: "MON" },
-    },
-    url: "https://tryreviewbox.com/pricing",
-  })),
+  // One Offer per plan PER INTERVAL. Listing only the monthly price while the
+  // page's headline showed the annual one meant the structured data and the
+  // rendered page disagreed — and search results quote the structured data.
+  //
+  // `unitCode` is the billing period (MON / ANN) and `price` is what is
+  // actually charged for that period, not the per-month figure the card shows.
+  // Publishing $99 against ANN would advertise a year of Pro for $99.
+  offers: PLANS.filter((p) => !p.onRequest).flatMap((plan) =>
+    (["monthly", "annual"] as const)
+      .map((interval) => ({ interval, charge: planChargeUsd(plan.key, interval) }))
+      .filter((o): o is { interval: "monthly" | "annual"; charge: number } => o.charge !== null)
+      .map(({ interval, charge }) => ({
+        "@type": "Offer",
+        name: `${plan.name} (${interval === "annual" ? "billed yearly" : "billed monthly"})`,
+        price: charge,
+        priceCurrency: "USD",
+        priceSpecification: {
+          "@type": "UnitPriceSpecification",
+          price: charge,
+          priceCurrency: "USD",
+          referenceQuantity: {
+            "@type": "QuantitativeValue",
+            value: 1,
+            unitCode: interval === "annual" ? "ANN" : "MON",
+          },
+        },
+        url: "https://tryreviewbox.com/pricing",
+      })),
+  ),
 };
 
 // Only things that work today.
@@ -189,65 +199,8 @@ export default function PricingPage() {
           </p>
         </div>
 
-        {/* Plan cards */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {PLANS.map((plan) => (
-            <div
-              key={plan.name}
-              className={`rounded-2xl border p-8 ${
-                plan.highlight
-                  ? "border-[#0A84FF] bg-white dark:bg-[#161618] shadow-lg ring-2 ring-[#0A84FF]/20"
-                  : "border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618]"
-              }`}
-            >
-              {plan.highlight && (
-                <span className="mb-4 inline-flex rounded-full bg-blue-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-[#0A84FF]">
-                  Most popular
-                </span>
-              )}
-              <h2 className="text-xl font-bold text-gray-900 dark:text-[#F5F5F7]">{plan.name}</h2>
-              <p className="mt-1 text-sm text-gray-500 dark:text-[#86868B]">{plan.description}</p>
-              <div className="mt-6">
-                {plan.onRequest ? (
-                  <span className="text-3xl font-bold text-gray-900 dark:text-[#F5F5F7]">Talk to us</span>
-                ) : (
-                  <>
-                    <div className="flex items-baseline gap-2">
-                      <span className="text-4xl font-bold text-gray-900 dark:text-[#F5F5F7]">${plan.annual}</span>
-                      {/* Stripe's site review asks for an explicit currency code, not a bare "$" */}
-                      <span className="text-sm text-gray-400 dark:text-[#636366]">USD / month</span>
-                      <span className="text-sm text-gray-400 line-through dark:text-[#636366]">${plan.monthly}</span>
-                    </div>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-[#86868B]">
-                      billed yearly · ${plan.monthly}/month billed monthly
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-[#86868B]">
-                      India: ₹{plan.inr.toLocaleString("en-IN")}/month
-                    </p>
-                  </>
-                )}
-              </div>
-              <Link
-                {...(plan.onRequest ? { href: "/contact" } : { href: "/sign-up" })}
-                className={`mt-6 block w-full rounded-xl py-2.5 text-center text-sm font-semibold transition-colors ${
-                  plan.highlight
-                    ? "bg-[#0A84FF] text-white hover:bg-[#0070e0]"
-                    : "border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] text-gray-900 dark:text-[#F5F5F7] hover:bg-gray-50 dark:hover:bg-white/5"
-                }`}
-              >
-                {plan.onRequest ? "Contact us" : "Start free trial"}
-              </Link>
-              <ul className="mt-8 space-y-3 text-sm text-gray-600 dark:text-[#C7C7CC]">
-                {Object.values(plan.features).map((f) => (
-                  <li key={f} className="flex items-center gap-2">
-                    <Check className="h-4 w-4 shrink-0 text-emerald-500" strokeWidth={2.5} />
-                    {f}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          ))}
-        </div>
+        {/* Plan cards + interval toggle (client — needs state) */}
+        <PricingCards plans={PLANS} annualAvailable={isIntervalPurchasable("annual")} />
 
         {/* Feature matrix */}
         <div className="mt-20">
@@ -330,7 +283,15 @@ export default function PricingPage() {
               },
               {
                 q: "Do you offer annual billing?",
-                a: "Annual plans are available at 2 months free (equivalent to ~17% off). Contact hello@tryreviewbox.com to switch.",
+                // Derived, never typed. The hardcoded version of this sentence
+                // said "~17% off" while the real discount was 20% on Starter
+                // and 23% on Pro — and the same wrong number was copied onto
+                // /faq and /compare. `minAnnualSavingsPercent()` is the
+                // strongest claim true of BOTH plans, so it stays honest even
+                // if a price changes.
+                a: isIntervalPurchasable("annual")
+                  ? `Yes — switch to yearly billing on this page or in Billing and save at least ${minAnnualSavingsPercent()}% (${annualSavingsPercent("starter")}% on Starter, ${annualSavingsPercent("pro")}% on Pro), which works out at roughly ${annualFreeMonths("pro")} months free. You are charged once a year.`
+                  : `Yearly billing is coming shortly — it will save at least ${minAnnualSavingsPercent()}% (${annualSavingsPercent("starter")}% on Starter, ${annualSavingsPercent("pro")}% on Pro). Today every plan is billed monthly and you can cancel any time. Email hello@tryreviewbox.com if you want yearly now and we will arrange it.`,
               },
             ].map(({ q, a }) => (
               <div key={q} className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6">
