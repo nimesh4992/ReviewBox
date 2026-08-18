@@ -29,6 +29,13 @@ const MARKETING_ORIGIN = "https://www.tryreviewbox.com";
 const isPublicRoute = createRouteMatcher([
   "/",
   "/pricing(.*)",
+  // Product pages. A marketing page missing from this list is served to every
+  // signed-out visitor — Googlebot included — as a 404, which is precisely how
+  // robots.txt and sitemap.xml were lost for months. `seo-indexing-contract`
+  // now asserts every MARKETING_ONLY_PREFIXES entry appears here.
+  "/app-review-management(.*)",
+  "/alternatives(.*)",
+  "/vs(.*)",
   "/about(.*)",
   "/blog(.*)",
   "/changelog(.*)",

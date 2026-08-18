@@ -496,6 +496,20 @@ const TEMPLATES: TemplateDefinition[] = [
 // ── Public API ────────────────────────────────────────────────────────────────
 
 /**
+ * How many built-in reply templates ship with the product.
+ *
+ * Exported so the marketing site can state the number without retyping it.
+ * `/help/ai-replies` claims 25; the array has had 19 for some time, and nothing
+ * connected the sentence to the data — the same class of drift that let the
+ * pricing page advertise an annual discount the prices did not give (see the
+ * "Derived pricing" note in `lib/plans.ts`).
+ *
+ * Any page quoting this must import it. `marketing-claims-contract.test.ts`
+ * fails if a marketing page hardcodes a template count instead.
+ */
+export const TEMPLATE_COUNT = TEMPLATES.length;
+
+/**
  * Backward-compatible function — accepts raw fields.
  * Used by the existing reply/draft route.
  * NOTE: does NOT apply workspace personalisation — call personalizeText() on the result.

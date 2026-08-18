@@ -66,6 +66,9 @@ export function isCrawlerFilePath(pathname: string): boolean {
  */
 export const MARKETING_ONLY_PREFIXES = [
   "/pricing",
+  "/app-review-management",
+  "/alternatives",
+  "/vs",
   "/about",
   "/blog",
   "/changelog",

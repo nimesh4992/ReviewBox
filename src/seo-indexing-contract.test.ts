@@ -166,6 +166,27 @@ describe("marketing content is canonical to the marketing host", () => {
   it("lists no duplicates", () => {
     expect(new Set(MARKETING_ONLY_PREFIXES).size).toBe(MARKETING_ONLY_PREFIXES.length);
   });
+
+  it.each(MARKETING_ONLY_PREFIXES)("%s is also a public route", (prefix) => {
+    // The failure this catches is the one that cost this site its robots.txt
+    // and sitemap for months: a path in NEITHER middleware matcher does not
+    // error, it just falls through to auth.protect() and 404s — but only for
+    // visitors with no session. Every developer is signed in, so the page looks
+    // perfect right up until Googlebot asks for it.
+    //
+    // A marketing page can be added to the sitemap, given a canonical, listed
+    // here for the app-host redirect, and still be invisible to the entire
+    // internet. Nothing but this assertion connects the two lists.
+    const publicMatcher = middlewareSource.slice(
+      middlewareSource.indexOf("const isPublicRoute"),
+      middlewareSource.indexOf("const isAppRoute"),
+    );
+    expect(
+      publicMatcher.includes(`"${prefix}(`) || publicMatcher.includes(`"${prefix}"`),
+      `${prefix} is redirected to the marketing host but is not a public route, ` +
+        `so signed-out visitors and Googlebot get a 404 instead of the page`,
+    ).toBe(true);
+  });
 });
 
 describe("the signed-in product declares itself unindexable", () => {

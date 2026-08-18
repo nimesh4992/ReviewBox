@@ -16,6 +16,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
     url("/",          1.0, "weekly"),
     url("/pricing",   0.9, "weekly"),
 
+    // Product. The hub targets "app review management" (170/mo, KD 18) — the
+    // highest-value term reachable at our current authority. The AppFollow page
+    // targets the KD 0 modifier cluster ("appfollow alternative/competitors").
+    //
+    // Only /alternatives/appfollow is listed. /vs/appfollow 301s to it
+    // (next.config.ts) and advertising a redirect wastes the crawl.
+    url("/app-review-management",   0.9, "monthly"),
+    url("/alternatives/appfollow",  0.8, "monthly"),
+
     // Company
     url("/about",     0.7, "monthly"),
     url("/blog",      0.8, "weekly"),

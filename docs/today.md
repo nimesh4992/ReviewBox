@@ -163,6 +163,67 @@ Removals is the fast path if the founder wants them gone in a day.
 
 ---
 
+## 4. The first two product pages (this PR)
+
+The nav was `Pricing · Blog · Help`. There was **no product page at all**, so
+the only description of what ReviewBox does was ~268 words on the homepage —
+nothing for a visitor to read and nothing for Google to classify the site by.
+
+Two pages, chosen by what is reachable at Authority Score 2 rather than by what
+is biggest (Semrush US, checked this session):
+
+| Page | Term | Vol/mo | KD |
+|---|---|---|---|
+| `/app-review-management` | app review management | 170 | **18** |
+| `/alternatives/appfollow` | appfollow alternative / competitors / pricing | ~150 | **0** |
+
+`/vs/appfollow` **301s to `/alternatives/appfollow`**. Same intent — shipping
+both would split the ranking signal and leave neither able to hold the term.
+
+A "Product" dropdown now carries them in the nav. Deliberately three items, not
+a six-cell mega-menu: we have two product pages and an `/integrations` page that
+does not exist yet, and a grid with two padded cells reads as a smaller company
+than a tight list.
+
+**The claims discipline is the point of this slice.** `/compare`, `/customers`
+and `/status` were withdrawn within 48 hours for publishing things that were not
+true. So:
+
+- Every price is **imported from `lib/plans.ts`**, never typed. The template
+  count is exported from `lib/templates.ts` and rendered from there.
+- **No AppFollow price, plan or feature appears anywhere.** `appfollow.io` is
+  unreachable from the build environment, so nothing about them could be
+  sourced. The page links to their own pages and lets the reader check. A
+  sourced, dated table remains SEO4.
+- No testimonials, no customer names, no `aggregateRating`, no time-to-value
+  claim — every spine step is still ⬜ unverified.
+- The page describes **Draft Mode** (copy the reply into Play Console), because
+  that is the launch tier. One-click API posting is offered, never assumed.
+
+`src/marketing-claims-contract.test.ts` enforces all of the above by scanning
+the two pages' source; mutation-verified against four reintroduced breakages.
+
+**One defect found and fixed on the way in.** The new pages were added to the
+sitemap and to `MARKETING_ONLY_PREFIXES` but not to middleware's
+`isPublicRoute` — which would have served them to every signed-out visitor,
+Googlebot included, as a 404. That is the *identical* failure this PR's first
+half exists to fix. `seo-indexing-contract.test.ts` now asserts every
+marketing prefix is also a public route, so the two lists cannot drift again.
+
+### Stale public claims found while sourcing numbers (NOT fixed here)
+
+1. `/help/ai-replies` says **25 built-in templates**; the code has **19**.
+2. The same page lists tones "Professional, **Friendly**, Empathetic, **Brief**,
+   **Custom**". The real type is professional, empathetic, casual, direct —
+   three of the five named do not exist.
+3. The same page describes auto-publish as being "on the **Team plan**". There
+   is no Team plan.
+4. `docs/marketing/BRAND_MESSAGING.md` quotes us at "$49–$199/month" (no $199
+   plan exists), an unsourced "0.5★ bump lifts conversion 15–30%", and unsourced
+   competitor pricing. Use it for tone, not for facts, until corrected.
+
+---
+
 ## Outstanding — founder only
 
 1. **`VERCEL_ORG_ID` is wrong. Nothing has deployed since #118 — fix this first.**
