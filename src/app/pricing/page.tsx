@@ -193,7 +193,9 @@ export default function PricingPage() {
             Simple pricing. No surprises.
           </h1>
           <p className="mt-4 text-lg text-gray-500 dark:text-[#86868B]">
-            14-day free trial on every plan. No credit card required.
+            Every plan starts with a 14-day trial at full Pro access — no
+            credit card, no sales call. Upgrade, downgrade, or cancel
+            whenever you want.
           </p>
         </div>
 
@@ -205,6 +207,12 @@ export default function PricingPage() {
           <h2 className="text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">
             Everything in the box
           </h2>
+          <p className="mx-auto mt-3 max-w-xl text-center text-sm text-gray-500 dark:text-[#86868B]">
+            Every plan syncs both stores, drafts AI replies in your brand
+            voice, and publishes with one click. Pro adds the intelligence
+            and collaboration layer — topic clustering, release health,
+            Slack alerts, and multiple teammates.
+          </p>
           <div className="mt-10 overflow-x-auto rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618]">
             <table className="w-full text-sm">
               <thead>
@@ -261,11 +269,23 @@ export default function PricingPage() {
           <h2 className="text-center text-2xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">
             Billing FAQ
           </h2>
+          <p className="mt-3 text-center text-sm text-gray-500 dark:text-[#86868B]">
+            The questions people ask before they enter a card. More setup and
+            product questions live on the{" "}
+            <Link href="/faq" className="text-[#0A84FF] hover:underline">
+              full FAQ
+            </Link>
+            .
+          </p>
           <dl className="mt-10 space-y-6">
             {[
               {
                 q: "Do I need a credit card to start?",
                 a: "No. Every plan includes a 14-day free trial with no card required. You only enter billing details when you decide to keep going.",
+              },
+              {
+                q: "What happens when my trial ends?",
+                a: `If you haven't added a card, your workspace drops to the Free plan automatically — nothing is charged without your say-so. Free stays usable indefinitely: ${PLAN_LIMITS.free.appsMax} app, ${PLAN_LIMITS.free.publishedRepliesPerMonth} published replies and ${PLAN_LIMITS.free.aiDraftsPerMonth} AI drafts a month. Upgrade whenever you're ready and everything you set up during the trial is still there.`,
               },
               {
                 q: "Can I switch plans later?",
@@ -290,6 +310,10 @@ export default function PricingPage() {
                 a: isIntervalPurchasable("annual")
                   ? `Yes — switch to yearly billing on this page or in Billing and save at least ${minAnnualSavingsPercent()}% (${annualSavingsPercent("starter")}% on Starter, ${annualSavingsPercent("pro")}% on Pro), which works out at roughly ${annualFreeMonths("pro")} months free. You are charged once a year.`
                   : `Yearly billing is coming shortly — it will save at least ${minAnnualSavingsPercent()}% (${annualSavingsPercent("starter")}% on Starter, ${annualSavingsPercent("pro")}% on Pro). Today every plan is billed monthly and you can cancel any time. Email hello@tryreviewbox.com if you want yearly now and we will arrange it.`,
+              },
+              {
+                q: "Which currencies do you support?",
+                a: "Every plan is billed in USD today, wherever you're signing up from — your card issuer converts it automatically at checkout. More currencies are on the roadmap; the currency selector above the plan cards is where you'll pick one once it ships.",
               },
             ].map(({ q, a }) => (
               <div key={q} className="rounded-xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6">
