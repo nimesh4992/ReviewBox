@@ -37,7 +37,7 @@ export default function ReviewHistoryPage() {
 
       <main className="mx-auto max-w-screen-xl px-6 pb-32">
         <div className="pt-10 pb-8 max-w-3xl">
-          <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--rb-mk-orange-text)]">
+          <span className="inline-flex items-center rounded-full bg-[var(--rb-mk-sunken)] px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--rb-mk-orange-text)]">
             Getting started · 4 min
           </span>
           <h1 className="mt-4 text-3xl font-bold tracking-tight text-[var(--rb-fg-1)] sm:text-4xl">
@@ -102,11 +102,11 @@ export default function ReviewHistoryPage() {
                   other way to ask.
                 </p>
 
-                <div className="rounded-xl border border-amber-100 bg-amber-50 p-4">
-                  <p className="text-xs font-semibold text-amber-900 mb-1">
+                <div className="rounded-xl border border-[var(--rb-amber-100)] bg-[var(--rb-amber-100)] p-4">
+                  <p className="text-xs font-semibold text-[var(--rb-amber-600)] mb-1">
                     You can verify this yourself
                   </p>
-                  <p className="text-xs text-amber-900/80 leading-relaxed">
+                  <p className="text-xs text-[var(--rb-amber-600)] leading-relaxed">
                     Every review tool sits behind the same API. Run the same app
                     through a competitor and you will see a number in the same
                     range as ours, not the thousands your Play Console reports.

@@ -16,7 +16,7 @@ const TIERS = [
     number: "1",
     label: "Template match",
     cost: "$0 · instant",
-    color: "bg-emerald-500",
+    color: "bg-[var(--rb-green-100)]0",
     description:
       "ReviewBox checks your review against 25 built-in reply templates. Templates match on rating + detected tags (crash, billing, login, feature request, etc.). If a template matches, the reply is returned instantly with zero AI tokens consumed.",
     detail: "~70% of all reviews are handled here.",
@@ -25,7 +25,7 @@ const TIERS = [
     number: "2",
     label: "Reply cache",
     cost: "$0 · ~5ms",
-    color: "bg-blue-500",
+    color: "bg-[var(--rb-mk-sunken)]0",
     description:
       "If no template matches, ReviewBox checks a Redis cache for a previously-generated reply to an identical or near-identical review. Cache keys are SHA-256 hashes of the review text + rating + tone. Cached replies are served instantly.",
     detail: "~15% of reviews are handled here. Cache entries live for 7 days.",
@@ -34,7 +34,7 @@ const TIERS = [
     number: "3",
     label: "AI generation",
     cost: "~$0.001 · ~600ms",
-    color: "bg-purple-500",
+    color: "bg-[var(--rb-mk-sunken)]0",
     description:
       "If neither tier 1 nor 2 matches, ReviewBox generates a new reply using Groq's Llama 3.3 70B model. Before sending, the review text is compressed (stripping filler phrases) to reduce token usage by ~73%. The generated reply is stored in the cache so identical future reviews are free.",
     detail: "~12–18% of reviews reach AI generation.",
@@ -67,7 +67,7 @@ export default function AiRepliesPage() {
 
       <main className="mx-auto max-w-screen-xl px-6 pb-32">
         <div className="pt-10 pb-8 max-w-3xl">
-          <span className="inline-flex items-center rounded-full bg-purple-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-purple-600">
+          <span className="inline-flex items-center rounded-full bg-[var(--rb-mk-sunken)] px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--rb-fg-2)]">
             AI replies · 4 min
           </span>
           <h1 className="mt-4 text-3xl font-bold tracking-tight text-[var(--rb-fg-1)] sm:text-4xl">

@@ -41,10 +41,10 @@ const STEPS = [
           <li>Set <strong>Access</strong> to <strong>Customer Support</strong> — this grants read + reply access without billing permissions</li>
           <li>Click <strong>Generate</strong></li>
         </ol>
-        <div className="mt-4 flex items-start gap-3 rounded-xl bg-amber-50 border border-amber-100 p-4">
-          <AlertCircle className="h-4 w-4 text-amber-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-amber-800">
-            Download the <code className="rounded bg-amber-100 px-1 text-xs">.p8</code> key file immediately — Apple only lets you download it once. If you lose it, you&apos;ll need to revoke and generate a new key.
+        <div className="mt-4 flex items-start gap-3 rounded-xl bg-[var(--rb-amber-100)] border border-[var(--rb-amber-100)] p-4">
+          <AlertCircle className="h-4 w-4 text-[var(--rb-amber-500)] shrink-0 mt-0.5" />
+          <p className="text-sm text-[var(--rb-amber-600)]">
+            Download the <code className="rounded bg-[var(--rb-amber-100)] px-1 text-xs">.p8</code> key file immediately — Apple only lets you download it once. If you lose it, you&apos;ll need to revoke and generate a new key.
           </p>
         </div>
       </>
@@ -86,9 +86,9 @@ const STEPS = [
           <li>Paste the full contents of your <code className="rounded bg-[var(--rb-mk-sunken)] px-1.5 py-0.5 text-xs">.p8</code> file (including the <code className="rounded bg-[var(--rb-mk-sunken)] px-1.5 py-0.5 text-xs">-----BEGIN/END-----</code> header lines)</li>
           <li>Click <strong>Verify connection</strong></li>
         </ol>
-        <div className="mt-4 flex items-start gap-3 rounded-xl bg-emerald-50 border border-emerald-100 p-4">
-          <CheckCircle className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-emerald-800">
+        <div className="mt-4 flex items-start gap-3 rounded-xl bg-[var(--rb-green-100)] border border-[var(--rb-green-100)] p-4">
+          <CheckCircle className="h-4 w-4 text-[var(--rb-green-500)] shrink-0 mt-0.5" />
+          <p className="text-sm text-[var(--rb-green-600)]">
             ReviewBox will immediately fetch your most recent reviews. Your first batch (up to 500) appears within 2 minutes. Subsequent syncs run every 4 hours automatically.
           </p>
         </div>
@@ -115,7 +115,7 @@ export default function ConnectAppStorePage() {
 
       <main className="mx-auto max-w-screen-xl px-6 pb-32">
         <div className="pt-10 pb-8 max-w-3xl">
-          <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-blue-600">
+          <span className="inline-flex items-center rounded-full bg-[var(--rb-mk-sunken)] px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--rb-fg-2)]">
             Getting started · 5 min
           </span>
           <h1 className="mt-4 text-3xl font-bold tracking-tight text-[var(--rb-fg-1)] sm:text-4xl">
@@ -145,11 +145,11 @@ export default function ConnectAppStorePage() {
               </div>
             ))}
 
-            <div className="flex items-start gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
-              <CheckCircle className="h-6 w-6 text-emerald-500 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-4 rounded-2xl border border-[var(--rb-green-100)] bg-[var(--rb-green-100)] p-6">
+              <CheckCircle className="h-6 w-6 text-[var(--rb-green-500)] shrink-0 mt-0.5" />
               <div>
-                <h3 className="font-semibold text-emerald-900">You&apos;re connected!</h3>
-                <p className="mt-1 text-sm text-emerald-800 leading-relaxed">
+                <h3 className="font-semibold text-[var(--rb-green-600)]">You&apos;re connected!</h3>
+                <p className="mt-1 text-sm text-[var(--rb-green-600)] leading-relaxed">
                   Reviews will sync every 4 hours. Trigger a manual sync any time from <strong>Settings → Integrations</strong>.
                 </p>
               </div>

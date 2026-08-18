@@ -96,17 +96,17 @@ export default async function ConnectGooglePlayPage() {
           <p>Under <strong>App permissions</strong>, check the box next to:</p>
           <ul className="mt-3 space-y-1.5 text-sm text-[var(--rb-fg-2)]">
             <li className="flex items-start gap-2">
-              <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+              <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--rb-green-500)]" />
               <span><strong>View app information &amp; download bulk reports</strong></span>
             </li>
             <li className="flex items-start gap-2">
-              <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+              <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--rb-green-500)]" />
               <span><strong>Reply to reviews</strong></span>
             </li>
           </ul>
-          <div className="mt-4 flex items-start gap-3 rounded-xl border border-amber-100 bg-amber-50 p-4">
-            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
-            <p className="text-sm text-amber-800">
+          <div className="mt-4 flex items-start gap-3 rounded-xl border border-[var(--rb-amber-100)] bg-[var(--rb-amber-100)] p-4">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--rb-amber-500)]" />
+            <p className="text-sm text-[var(--rb-amber-600)]">
               Don&apos;t grant any other permissions. We don&apos;t need to publish builds, change pricing, or access financial data — and granting more access could be a security risk for you.
             </p>
           </div>
@@ -153,9 +153,9 @@ export default async function ConnectGooglePlayPage() {
             </Link>{" "}
             and click <strong>Sync now</strong> next to your app.
           </p>
-          <div className="mt-4 flex items-start gap-3 rounded-xl border border-emerald-100 bg-emerald-50 p-4">
-            <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-            <p className="text-sm text-emerald-800">
+          <div className="mt-4 flex items-start gap-3 rounded-xl border border-[var(--rb-green-100)] bg-[var(--rb-green-100)] p-4">
+            <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-[var(--rb-green-500)]" />
+            <p className="text-sm text-[var(--rb-green-600)]">
               You should see reviews appear within 30 seconds. If the amber error banner says &quot;Service account not authorized&quot;, wait another 5–10 minutes for Google&apos;s propagation and try again.
             </p>
           </div>
@@ -180,7 +180,7 @@ export default async function ConnectGooglePlayPage() {
 
       <main className="mx-auto max-w-screen-xl px-6 pb-32">
         <div className="pt-10 pb-8 max-w-3xl">
-          <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-blue-600">
+          <span className="inline-flex items-center rounded-full bg-[var(--rb-mk-sunken)] px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--rb-fg-2)]">
             Getting started · 3 min
           </span>
           <h1 className="mt-4 text-3xl font-bold tracking-tight text-[var(--rb-fg-1)] sm:text-4xl">
@@ -213,11 +213,11 @@ export default async function ConnectGooglePlayPage() {
               </div>
             ))}
 
-            <div className="flex items-start gap-4 rounded-2xl border border-emerald-200 bg-emerald-50 p-6">
-              <CheckCircle className="h-6 w-6 text-emerald-500 shrink-0 mt-0.5" />
+            <div className="flex items-start gap-4 rounded-2xl border border-[var(--rb-green-100)] bg-[var(--rb-green-100)] p-6">
+              <CheckCircle className="h-6 w-6 text-[var(--rb-green-500)] shrink-0 mt-0.5" />
               <div>
-                <h3 className="font-semibold text-emerald-900">You&apos;re connected!</h3>
-                <p className="mt-1 text-sm text-emerald-800 leading-relaxed">
+                <h3 className="font-semibold text-[var(--rb-green-600)]">You&apos;re connected!</h3>
+                <p className="mt-1 text-sm text-[var(--rb-green-600)] leading-relaxed">
                   Reviews sync automatically each day. Click{" "}
                   <strong>Sync now</strong> in{" "}
                   <Link href="/settings?tab=integrations" className="underline">Settings → Integrations</Link>{" "}

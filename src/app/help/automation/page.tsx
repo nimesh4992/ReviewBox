@@ -60,7 +60,7 @@ export default function AutomationPage() {
 
       <main className="mx-auto max-w-screen-xl px-6 pb-32">
         <div className="pt-10 pb-8 max-w-3xl">
-          <span className="inline-flex items-center rounded-full bg-amber-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-amber-600">
+          <span className="inline-flex items-center rounded-full bg-[var(--rb-amber-100)] px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-[var(--rb-amber-600)]">
             Automation · 6 min
           </span>
           <h1 className="mt-4 text-3xl font-bold tracking-tight text-[var(--rb-fg-1)] sm:text-4xl">
@@ -155,7 +155,7 @@ export default function AutomationPage() {
                         <p className="font-semibold text-[var(--rb-fg-3)] uppercase tracking-wider mb-1.5">Actions</p>
                         <div className="space-y-1">
                           {rule.actions.map((a) => (
-                            <p key={a} className="rounded-lg bg-blue-50 px-3 py-2 text-blue-700">{a}</p>
+                            <p key={a} className="rounded-lg bg-[var(--rb-mk-sunken)] px-3 py-2 text-[var(--rb-fg-2)]">{a}</p>
                           ))}
                         </div>
                       </div>
@@ -181,8 +181,8 @@ export default function AutomationPage() {
                     <li>Auto-publish must be enabled in Settings → Automations → Allow auto-publish</li>
                   </ul>
                 </div>
-                <div className="mt-4 rounded-xl bg-amber-50 border border-amber-100 p-4">
-                  <p className="text-sm text-amber-800">
+                <div className="mt-4 rounded-xl bg-[var(--rb-amber-100)] border border-[var(--rb-amber-100)] p-4">
+                  <p className="text-sm text-[var(--rb-amber-600)]">
                     <strong>Tip:</strong> Start with a narrow rule (e.g. 5★ + positive + short review) and monitor for a week before expanding. All auto-published replies appear in your audit log.
                   </p>
                 </div>
