@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   AlertTriangle,
   ArrowRight,
   BarChart2,
   Check,
-  CheckCircle2,
   Inbox,
   Layers,
   MessageSquareOff,
@@ -23,6 +22,24 @@ import { MarketingShell } from "@/components/layout/marketing-shell";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { ProductFrame } from "@/features/marketing/components/product-frame";
+import {
+  Band,
+  CtaBand,
+  Eyebrow,
+  PrimaryLink,
+  Reveal,
+  Section,
+  SectionHeading,
+  SecondaryLink,
+  Stars,
+} from "@/features/marketing/components/primitives";
+import { RHYTHM } from "@/features/marketing/rhythm";
+import {
+  PAID_PLANS,
+  PLAN_LIMITS,
+  PLAN_PRICING,
+  planPerMonthUsd,
+} from "@/lib/plans";
 
 /**
  * Homepage — conversion-focused SaaS in the Stripe/Linear register: a layered
@@ -83,36 +100,48 @@ const STEPS = [
   },
 ];
 
+/**
+ * Plans are DERIVED from lib/plans.ts, never retyped here.
+ *
+ * The hardcoded version of this list advertised Starter $49, Pro $99 and a
+ * "Team" plan at $199. None of that was buyable: Pro is $129/month, Team was
+ * removed, and $99 is Pro's *annual* per-month rate. /pricing had already been
+ * moved onto lib/plans.ts for exactly this reason — but the homepage, which
+ * gets far more traffic than /pricing, was left behind and kept quoting a
+ * price nobody could pay and a tier that no longer existed.
+ *
+ * Deriving is the only durable fix: a marketing list maintained by hand next
+ * to a PLAN_PRICING object maintained by code will always drift.
+ */
 const PLANS = [
-  {
-    name: "Starter",
-    price: "49",
-    body: "Solo developers and single-app teams.",
-    features: ["2 apps", "5,000 reviews / month", "50 AI drafts / day", "Email alerts"],
-  },
-  {
-    name: "Pro",
-    price: "99",
-    body: "Product teams shipping more than one app.",
-    popular: true,
+  ...PAID_PLANS.map((key) => ({
+    name: PLAN_PRICING[key].label,
+    // The monthly rate, because the card says "/ month" and is not attached to
+    // an interval toggle. /pricing owns the annual story.
+    price: planPerMonthUsd(key, "monthly"),
+    body: PLAN_PRICING[key].tagline,
+    popular: key === "pro",
     features: [
-      "10 apps",
-      "50,000 reviews / month",
-      "200 AI drafts / day",
-      "Incident detection",
-      "Release health",
+      `${PLAN_LIMITS[key].appsMax} apps`,
+      `${PLAN_LIMITS[key].reviewsPerMonth.toLocaleString()} reviews / month`,
+      `${PLAN_LIMITS[key].aiDraftsPerMonth.toLocaleString()} AI drafts / month`,
+      PLAN_LIMITS[key].seats === 1 ? "1 seat" : `${PLAN_LIMITS[key].seats} seats`,
+      key === "starter" ? "Email alerts" : "Email + Slack alerts",
     ],
-  },
+  })),
   {
-    name: "Team",
-    price: "199",
-    body: "App portfolios and larger support orgs.",
+    name: PLAN_PRICING.enterprise.label,
+    // Quote-only on purpose — see the note in lib/plans.ts. A published number
+    // here would promise a procurement story we do not have.
+    price: null,
+    body: PLAN_PRICING.enterprise.tagline,
+    popular: false,
     features: [
       "Unlimited apps",
       "Unlimited reviews",
-      "1,000 drafts / day",
-      "Audit log",
+      "Custom AI allowance",
       "Unlimited seats",
+      "Named contact",
     ],
   },
 ];
@@ -149,235 +178,7 @@ const DEMO_REVIEW = {
 const DEMO_DRAFT =
   "Thanks for flagging the iPad freeze on 4.2.1. We reproduced it this morning and a fix is rolling out this week. I'll follow up here the moment it lands.";
 
-// ─── Shared bits ──────────────────────────────────────────────────────────────
-
-function Section({
-  children,
-  className = "",
-  id,
-}: {
-  children: React.ReactNode;
-  className?: string;
-  id?: string;
-}) {
-  return (
-    <section id={id} className={`mx-auto w-full max-w-6xl px-5 sm:px-6 ${className}`}>
-      {children}
-    </section>
-  );
-}
-
-/**
- * Scroll-reveal wrapper. SSR (and no-JS) renders content fully visible; on
- * mount, elements still below the fold are hidden and fade/slide in when they
- * intersect. Reduced-motion users always get the static page.
- */
-function Reveal({
-  children,
-  delay = 0,
-  className = "",
-}: {
-  children: React.ReactNode;
-  delay?: number;
-  className?: string;
-}) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [hidden, setHidden] = useState(false);
-
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const el = ref.current;
-    if (!el) return;
-    // Only animate elements that start below the viewport — anything already
-    // on screen at load stays put (no first-paint flash).
-    if (el.getBoundingClientRect().top <= window.innerHeight * 0.92) return;
-
-    setHidden(true);
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setHidden(false);
-          obs.disconnect();
-        }
-      },
-      { threshold: 0.12, rootMargin: "0px 0px -48px 0px" },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
-
-  return (
-    <div
-      ref={ref}
-      style={{ transitionDelay: `${delay}ms` }}
-      className={cn(
-        "transition-[opacity,transform] duration-700 ease-out",
-        hidden ? "translate-y-5 opacity-0" : "translate-y-0 opacity-100",
-        className,
-      )}
-    >
-      {children}
-    </div>
-  );
-}
-
-function PrimaryLink({
-  href,
-  children,
-  size = "lg",
-}: {
-  href: string;
-  children: React.ReactNode;
-  size?: "lg" | "md";
-}) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full bg-[var(--rb-blue-500)] font-semibold text-white shadow-[0_2px_8px_rgba(10,132,255,0.35)] transition-all hover:bg-[var(--rb-blue-600)] hover:shadow-[0_4px_14px_rgba(10,132,255,0.45)]",
-        size === "lg" ? "h-12 px-7 text-[15px]" : "h-10 px-5 text-[14px]",
-      )}
-    >
-      {children}
-      <ArrowRight className="size-4" strokeWidth={2.5} />
-    </Link>
-  );
-}
-
-function SecondaryLink({
-  href,
-  children,
-  size = "lg",
-}: {
-  href: string;
-  children: React.ReactNode;
-  size?: "lg" | "md";
-}) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "inline-flex items-center rounded-full border border-[var(--rb-border-2)] bg-surface font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)]",
-        size === "lg" ? "h-12 px-7 text-[15px]" : "h-10 px-5 text-[14px]",
-      )}
-    >
-      {children}
-    </Link>
-  );
-}
-
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[13px] font-semibold tracking-[0.02em] text-[var(--rb-blue-500)] uppercase">
-      {children}
-    </p>
-  );
-}
-
-function SectionHeading({
-  eyebrow,
-  title,
-  lede,
-  align = "center",
-}: {
-  eyebrow: string;
-  title: string;
-  lede?: string;
-  align?: "center" | "left";
-}) {
-  return (
-    <div className={cn("max-w-2xl", align === "center" && "mx-auto text-center")}>
-      <Eyebrow>{eyebrow}</Eyebrow>
-      <h2 className="mt-3 text-[30px] leading-tight font-bold tracking-[-0.025em] text-fg-1 text-balance sm:text-[38px]">
-        {title}
-      </h2>
-      {lede && <p className="mt-4 text-[16px] leading-relaxed text-fg-2 sm:text-[17px]">{lede}</p>}
-    </div>
-  );
-}
-
-/**
- * Real icons, not the "★" glyph. A text star resolves through whatever the OS
- * ships, so the core data type of a review product rendered at a different
- * weight and baseline on Windows than on the Mac it was designed on. `role`
- * is required for the label to be exposed — a bare <span> is `generic`.
- */
-function Stars({ rating, size = 12 }: { rating: number; size?: number }) {
-  return (
-    <span
-      role="img"
-      aria-label={`${rating} out of 5 stars`}
-      className="inline-flex items-center gap-px"
-    >
-      {Array.from({ length: 5 }, (_, i) => (
-        <Star
-          key={i}
-          style={{ width: size, height: size }}
-          className={i < rating ? "text-[var(--rb-amber-500)]" : "text-fg-3"}
-          fill={i < rating ? "currentColor" : "none"}
-          strokeWidth={i < rating ? 0 : 1.5}
-        />
-      ))}
-    </span>
-  );
-}
-
 // ─── Hero ─────────────────────────────────────────────────────────────────────
-
-/** Floating "rating trend" card — illustrative product UI, single-hue spark. */
-function FloatCardTrend() {
-  return (
-    <div className="w-[190px] rounded-xl border border-[var(--rb-border-1)] bg-surface p-3.5 shadow-[var(--rb-shadow-lg)]">
-      <p className="rb-eyebrow text-fg-3">
-        Avg rating · 30 days
-      </p>
-      <div className="mt-1.5 flex items-baseline gap-1.5">
-        <span className="text-[20px] font-bold tracking-[-0.02em] text-fg-1">4.6</span>
-        <span className="text-[11px] font-medium text-[var(--rb-green-500)]">+0.3</span>
-      </div>
-      <svg viewBox="0 0 160 36" className="mt-2 h-9 w-full" aria-hidden="true">
-        <polyline
-          points="0,26 22,24 44,28 66,20 88,22 110,14 132,12 156,6"
-          fill="none"
-          stroke="var(--rb-blue-500)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <circle cx="156" cy="6" r="3" fill="var(--rb-blue-500)" />
-      </svg>
-    </div>
-  );
-}
-
-/** Floating alert toast — status color carried by icon + label, not color alone. */
-function FloatCardAlert() {
-  return (
-    <div className="flex w-[230px] items-start gap-2.5 rounded-xl border border-[var(--rb-border-1)] bg-surface p-3.5 shadow-[var(--rb-shadow-lg)]">
-      <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--rb-red-100)]">
-        <AlertTriangle className="size-3.5 text-[var(--rb-red-600)]" strokeWidth={2} />
-      </span>
-      <div className="min-w-0">
-        <p className="text-[12px] font-semibold text-fg-1">Rating spike detected</p>
-        <p className="mt-0.5 text-[11px] leading-snug text-fg-3">
-          6 one-star reviews on v4.2.1 in the last 24h
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/** Floating success toast. */
-function FloatCardPosted() {
-  return (
-    <div className="flex w-[210px] items-center gap-2.5 rounded-xl border border-[var(--rb-border-1)] bg-surface p-3.5 shadow-[var(--rb-shadow-lg)]">
-      <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--rb-green-100)]">
-        <CheckCircle2 className="size-3.5 text-[var(--rb-green-600)]" strokeWidth={2} />
-      </span>
-      <p className="text-[12px] font-semibold text-fg-1">Reply posted to App Store</p>
-    </div>
-  );
-}
 
 function Hero() {
   return (
@@ -410,12 +211,12 @@ function Hero() {
           Syncing the App Store and Google Play
         </p>
 
-        <h1 className="mx-auto mt-7 max-w-[22ch] text-[clamp(40px,6vw,68px)] leading-[1.05] font-bold tracking-[-0.035em] text-fg-1 text-balance">
+        <h1 className="rb-display mx-auto mt-7 max-w-[22ch] text-fg-1">
           Every app review answered.{" "}
           <span className="text-[var(--rb-blue-500)]">In your voice.</span>
         </h1>
 
-        <p className="mx-auto mt-6 max-w-[54ch] text-[17px] leading-relaxed text-fg-2 sm:text-[17px]">
+        <p className="rb-lead mx-auto mt-6 max-w-[54ch] text-fg-2">
           ReviewBox pulls your App Store and Google Play reviews into one inbox,
           drafts replies you&apos;d actually send, and posts them back to the
           store before a bad week becomes a bad rating.
@@ -426,7 +227,10 @@ function Hero() {
           <SecondaryLink href="#see-it-work">See it work</SecondaryLink>
         </div>
 
-        <p className="mt-5 text-[13px] text-fg-3">
+        {/* `text-balance`, not a max-width: on a phone this needs to wrap into
+            two even lines rather than run to the edge, and on a laptop it
+            should stay on one. A fixed ch cap forced the wrap at every size. */}
+        <p className="rb-meta mt-5 text-fg-3 text-balance">
           14-day free trial · no credit card required · cancel anytime
         </p>
 
@@ -441,21 +245,14 @@ function Hero() {
               filter: "blur(32px)",
             }}
           />
+          {/* No absolutely-positioned overlays. The rating-trend, spike-alert
+              and reply-posted cards used to float in the page gutter at
+              `2xl:block`: invisible on every screen below 1536px, and at
+              1920px they sat ON the frame and covered the "Urgent" badge.
+              They are now a squared row inside ProductFrame, so the hero
+              composes the same way at every width. */}
           <div className="relative">
             <ProductFrame id="see-it-work" />
-            {/* These sit in the page gutter, not on top of the screenshot.
-                At xl the gutter is only ~64px, so a 190px card covered the
-                review list it was meant to advertise — they appear from 2xl,
-                where there is real margin, and overlap the frame edge only. */}
-            <div aria-hidden="true" className="absolute -left-44 top-24 hidden -rotate-3 2xl:block">
-              <FloatCardTrend />
-            </div>
-            <div aria-hidden="true" className="absolute -right-48 top-12 hidden rotate-2 2xl:block">
-              <FloatCardAlert />
-            </div>
-            <div aria-hidden="true" className="absolute -right-40 bottom-16 hidden rotate-1 2xl:block">
-              <FloatCardPosted />
-            </div>
           </div>
         </div>
       </div>
@@ -474,10 +271,10 @@ function StatStrip() {
             <div key={s.value} className="px-6 py-5 text-center">
               <dt className="sr-only">{s.label}</dt>
               <dd>
-                <span className="block text-[22px] font-bold tracking-[-0.02em] text-fg-1">
+                <span className="block text-[26px] font-bold tracking-[-0.025em] text-fg-1">
                   {s.value}
                 </span>
-                <span className="mt-1 block text-[12px] leading-snug text-fg-3">{s.label}</span>
+                <span className="rb-body-sm mt-1.5 block text-fg-3">{s.label}</span>
               </dd>
             </div>
           ))}
@@ -491,7 +288,7 @@ function StatStrip() {
 
 function Problem() {
   return (
-    <Section className="py-20 sm:py-24">
+    <Section className={RHYTHM.md}>
       <Reveal>
         <SectionHeading
           eyebrow="The problem"
@@ -507,15 +304,15 @@ function Problem() {
               <div className="flex size-10 items-center justify-center rounded-xl border border-[var(--rb-border-1)] bg-surface">
                 <p.icon className="size-5 text-fg-3" strokeWidth={1.75} />
               </div>
-              <h3 className="mt-4 text-[16px] font-semibold text-fg-1">{p.title}</h3>
-              <p className="mt-1.5 text-[14px] leading-relaxed text-fg-2">{p.body}</p>
+              <h3 className="rb-h3 mt-4 text-fg-1">{p.title}</h3>
+              <p className="rb-body mt-2 text-fg-2">{p.body}</p>
             </div>
           </Reveal>
         ))}
       </div>
 
       <Reveal delay={200}>
-        <p className="mx-auto mt-10 max-w-[46ch] text-center text-[17px] font-medium text-fg-1">
+        <p className="rb-lead mx-auto mt-12 max-w-[46ch] text-center font-medium text-fg-1">
           ReviewBox turns that pile into a queue you can actually finish:{" "}
           <span className="text-[var(--rb-blue-500)]">tagged, prioritized, and pre-drafted.</span>
         </p>
@@ -550,9 +347,9 @@ function BentoCard({
         <div className="flex size-9 items-center justify-center rounded-xl bg-[var(--rb-blue-50)] dark:bg-[var(--rb-bg-accent-soft)]">
           <Icon className="size-4.5 text-[var(--rb-blue-500)]" strokeWidth={1.75} />
         </div>
-        <h3 className="text-[16px] font-semibold text-fg-1">{title}</h3>
+        <h3 className="rb-h3 text-fg-1">{title}</h3>
       </div>
-      <p className="mt-2.5 text-[14px] leading-relaxed text-fg-2">{body}</p>
+      <p className="rb-body mt-3 text-fg-2">{body}</p>
       {children && <div className="mt-5 flex-1">{children}</div>}
     </div>
   );
@@ -709,8 +506,8 @@ function VizTones() {
 
 function Features() {
   return (
-    <div className="bg-[var(--rb-bg-sunken)]">
-      <Section className="py-20 sm:py-24">
+    <Band>
+      <Section className={RHYTHM.md}>
         <Reveal>
           <SectionHeading
             eyebrow="Everything reviews touch"
@@ -776,7 +573,7 @@ function Features() {
           </Reveal>
         </div>
       </Section>
-    </div>
+    </Band>
   );
 }
 
@@ -784,7 +581,7 @@ function Features() {
 
 function HowItWorks() {
   return (
-    <Section className="py-20 sm:py-24">
+    <Section className={RHYTHM.md}>
       <Reveal>
         <SectionHeading
           eyebrow="How it works"
@@ -804,10 +601,8 @@ function HowItWorks() {
               <div className="mx-auto flex size-9 items-center justify-center rounded-full bg-[var(--rb-blue-500)] text-[15px] font-bold text-white shadow-[0_2px_8px_rgba(10,132,255,0.35)] ring-4 ring-[var(--rb-bg-canvas)]">
                 {s.n}
               </div>
-              <h3 className="mt-4 text-[16px] font-semibold text-fg-1">{s.title}</h3>
-              <p className="mx-auto mt-1.5 max-w-[34ch] text-[14px] leading-relaxed text-fg-2">
-                {s.body}
-              </p>
+              <h3 className="rb-h3 mt-4 text-fg-1">{s.title}</h3>
+              <p className="rb-body mx-auto mt-2 max-w-[34ch] text-fg-2">{s.body}</p>
             </div>
           </Reveal>
         ))}
@@ -870,16 +665,16 @@ function ReplyDemoCard() {
 
 function ReplyDeepDive() {
   return (
-    <div className="bg-[var(--rb-bg-sunken)]">
-      <Section className="py-20 sm:py-24">
+    <Band>
+      <Section className={RHYTHM.md}>
         <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
           <Reveal>
             <div>
               <Eyebrow>AI replies</Eyebrow>
-              <h2 className="mt-3 max-w-[18ch] text-[30px] leading-tight font-bold tracking-[-0.025em] text-fg-1 sm:text-[38px]">
+              <h2 className="rb-h2 mt-3 max-w-[18ch] text-fg-1">
                 Drafts that sound like you wrote them
               </h2>
-              <p className="mt-4 max-w-[50ch] text-[16px] leading-relaxed text-fg-2">
+              <p className="rb-lead mt-5 max-w-[50ch] text-fg-2">
                 Every draft is grounded in your own reply templates and knowledge
                 base: refund policy, known issues, tone. It answers the actual
                 complaint instead of apologizing generically, and you always
@@ -892,7 +687,7 @@ function ReplyDeepDive() {
                   "Translate and reply across languages",
                   "Nothing posts without your click",
                 ].map((li) => (
-                  <li key={li} className="flex items-start gap-2.5 text-[14px] text-fg-2">
+                  <li key={li} className="rb-body-sm flex items-start gap-2.5 text-fg-2">
                     <Check
                       className="mt-0.5 size-4 shrink-0 text-[var(--rb-blue-500)]"
                       strokeWidth={2.25}
@@ -908,7 +703,7 @@ function ReplyDeepDive() {
           </Reveal>
         </div>
       </Section>
-    </div>
+    </Band>
   );
 }
 
@@ -983,15 +778,15 @@ function ReleaseHealthCard() {
 
 function ReleaseDeepDive() {
   return (
-    <Section className="py-20 sm:py-24">
+    <Section className={RHYTHM.md}>
       <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
         <Reveal className="lg:order-2">
           <div>
             <Eyebrow>Release monitoring</Eyebrow>
-            <h2 className="mt-3 max-w-[20ch] text-[30px] leading-tight font-bold tracking-[-0.025em] text-fg-1 sm:text-[38px]">
+            <h2 className="rb-h2 mt-3 max-w-[20ch] text-fg-1">
               Know a bad release before your rating does
             </h2>
-            <p className="mt-4 max-w-[50ch] text-[16px] leading-relaxed text-fg-2">
+            <p className="rb-lead mt-5 max-w-[50ch] text-fg-2">
               Every review is tied to the app version it arrived on. When
               one-star reviews cluster on a new release, ReviewBox raises an
               alert while the rollout is still small enough to pause, not after
@@ -1004,7 +799,7 @@ function ReleaseDeepDive() {
                 "Email alerts the moment a release starts regressing",
                 "Release health at a glance: rating and complaint deltas",
               ].map((li) => (
-                <li key={li} className="flex items-start gap-2.5 text-[14px] text-fg-2">
+                <li key={li} className="rb-body-sm flex items-start gap-2.5 text-fg-2">
                   <Check
                     className="mt-0.5 size-4 shrink-0 text-[var(--rb-blue-500)]"
                     strokeWidth={2.25}
@@ -1027,8 +822,8 @@ function ReleaseDeepDive() {
 
 function Pricing() {
   return (
-    <div className="bg-[var(--rb-bg-sunken)]">
-      <Section className="py-20 sm:py-24">
+    <Band>
+      <Section className={RHYTHM.md}>
         <Reveal>
           <SectionHeading
             eyebrow="Pricing"
@@ -1037,7 +832,7 @@ function Pricing() {
           />
         </Reveal>
 
-        <div className="mt-12 grid gap-5 lg:grid-cols-3">
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {PLANS.map((plan, i) => (
             <Reveal key={plan.name} delay={i * 90}>
               <div
@@ -1053,19 +848,30 @@ function Pricing() {
                     Most popular
                   </span>
                 )}
-                <h3 className="text-[15px] font-semibold text-fg-1">{plan.name}</h3>
-                <p className="mt-3">
-                  <span className="text-[38px] font-bold tracking-[-0.03em] text-fg-1">
-                    ${plan.price}
-                  </span>
-                  <span className="ml-1.5 text-[14px] text-fg-3">/ month</span>
+                <h3 className="rb-h4 text-fg-1">{plan.name}</h3>
+                {/* A quote-only tier has no number to show. Rendering "$null"
+                    or inventing one is how the old hardcoded list ended up
+                    advertising a $199 plan that could not be bought. */}
+                <p className="mt-3 flex min-h-[46px] items-baseline">
+                  {plan.price === null ? (
+                    <span className="text-[30px] font-bold tracking-[-0.03em] text-fg-1">
+                      Talk to us
+                    </span>
+                  ) : (
+                    <>
+                      <span className="text-[38px] font-bold tracking-[-0.03em] text-fg-1">
+                        ${plan.price}
+                      </span>
+                      <span className="ml-1.5 text-[15px] text-fg-3">/ month</span>
+                    </>
+                  )}
                 </p>
-                <p className="mt-2 text-[13px] leading-relaxed text-fg-2">{plan.body}</p>
-                <ul className="mt-5 flex-1 space-y-2 border-t border-[var(--rb-border-1)] pt-5">
+                <p className="rb-body-sm mt-2 text-fg-2">{plan.body}</p>
+                <ul className="mt-5 flex-1 space-y-2.5 border-t border-[var(--rb-border-1)] pt-5">
                   {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-[13px] text-fg-2">
+                    <li key={f} className="flex items-center gap-2 text-[14px] text-fg-2">
                       <Check
-                        className="size-3.5 shrink-0 text-[var(--rb-green-500)]"
+                        className="size-4 shrink-0 text-[var(--rb-green-500)]"
                         strokeWidth={2.5}
                       />
                       {f}
@@ -1073,15 +879,15 @@ function Pricing() {
                   ))}
                 </ul>
                 <Link
-                  href="/sign-up"
+                  href={plan.price === null ? "/contact" : "/sign-up"}
                   className={cn(
-                    "mt-6 inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full text-[14px] font-semibold transition-colors",
+                    "mt-6 inline-flex h-11 w-full items-center justify-center gap-1.5 rounded-full text-[15px] font-semibold transition-colors",
                     plan.popular
                       ? "bg-[var(--rb-blue-500)] text-white hover:bg-[var(--rb-blue-600)]"
                       : "border border-[var(--rb-border-3)] text-fg-1 hover:bg-[var(--rb-bg-hover)]",
                   )}
                 >
-                  Start free trial
+                  {plan.price === null ? "Contact us" : "Start free trial"}
                   <ArrowRight className="size-3.5" strokeWidth={2.25} />
                 </Link>
               </div>
@@ -1090,7 +896,7 @@ function Pricing() {
         </div>
 
         <Reveal delay={200}>
-          <p className="mt-10 text-center text-[14px] text-fg-3">
+          <p className="rb-body mt-10 text-center text-fg-3">
             <Link
               href="/pricing"
               className="font-medium text-[var(--rb-blue-500)] hover:underline"
@@ -1100,7 +906,7 @@ function Pricing() {
           </p>
         </Reveal>
       </Section>
-    </div>
+    </Band>
   );
 }
 
@@ -1108,15 +914,15 @@ function Pricing() {
 
 function Faq() {
   return (
-    <Section className="py-20 sm:py-24">
+    <Section className={RHYTHM.md}>
       <div className="grid gap-10 lg:grid-cols-[1fr_1.6fr] lg:gap-16">
         <Reveal>
           <div>
             <Eyebrow>FAQ</Eyebrow>
-            <h2 className="mt-3 max-w-[14ch] text-[30px] leading-tight font-bold tracking-[-0.025em] text-fg-1 sm:text-[38px]">
+            <h2 className="rb-h2 mt-3 max-w-[14ch] text-fg-1">
               Questions, answered straight
             </h2>
-            <p className="mt-4 max-w-[38ch] text-[15px] leading-relaxed text-fg-2">
+            <p className="rb-body mt-5 max-w-[38ch] text-fg-2">
               More in the{" "}
               <Link href="/faq" className="font-medium text-[var(--rb-blue-500)] hover:underline">
                 full FAQ
@@ -1137,7 +943,7 @@ function Faq() {
           <div className="divide-y divide-[var(--rb-border-1)] rounded-2xl border border-[var(--rb-border-1)] bg-surface px-6 shadow-[var(--rb-shadow-xs)]">
             {FAQS.map((f) => (
               <details key={f.q} className="group py-5">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-semibold text-fg-1 [&::-webkit-details-marker]:hidden">
+                <summary className="rb-h4 flex cursor-pointer list-none items-center justify-between gap-4 text-fg-1 [&::-webkit-details-marker]:hidden">
                   {f.q}
                   <span
                     aria-hidden="true"
@@ -1146,7 +952,7 @@ function Faq() {
                     +
                   </span>
                 </summary>
-                <p className="mt-3 max-w-[62ch] text-[14px] leading-relaxed text-fg-2">{f.a}</p>
+                <p className="rb-body-sm mt-3 max-w-[62ch] text-fg-2">{f.a}</p>
               </details>
             ))}
           </div>
@@ -1158,54 +964,17 @@ function Faq() {
 
 // ─── Closing CTA band ─────────────────────────────────────────────────────────
 
+// Uses the shared CtaBand so /pricing and /compare close the same way this
+// page does — those two each had their own hand-rolled `bg-gray-900` slab,
+// which rendered as a black rectangle on a dark canvas in dark mode.
 function Closing() {
   return (
-    <Section className="pb-20 sm:pb-24">
-      <Reveal>
-        <div
-          className="relative overflow-hidden rounded-3xl px-6 py-16 text-center sm:py-20"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--rb-blue-500) 0%, var(--rb-blue-700) 100%)",
-          }}
-        >
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 opacity-40"
-            style={{
-              backgroundImage:
-                "radial-gradient(rgba(255,255,255,0.35) 1px, transparent 1px)",
-              backgroundSize: "24px 24px",
-              maskImage: "radial-gradient(60% 80% at 50% 0%, black 0%, transparent 100%)",
-              WebkitMaskImage:
-                "radial-gradient(60% 80% at 50% 0%, black 0%, transparent 100%)",
-            }}
-          />
-          <h2 className="relative mx-auto max-w-[24ch] text-[28px] leading-tight font-bold tracking-[-0.025em] text-white text-balance sm:text-[38px]">
-            Your reviews are already waiting. Answer them today.
-          </h2>
-          <p className="relative mx-auto mt-4 max-w-[44ch] text-[15px] leading-relaxed text-white/85">
-            Connect an app and see your real reviews in about a minute. Free for
-            14 days on every plan. No credit card, no sales call.
-          </p>
-          <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/sign-up"
-              className="inline-flex h-12 items-center gap-1.5 rounded-full bg-white px-7 text-[15px] font-semibold text-[var(--rb-blue-600)] shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-transform hover:scale-[1.02]"
-            >
-              Start free trial
-              <ArrowRight className="size-4" strokeWidth={2.5} />
-            </Link>
-            <Link
-              href="/help"
-              className="inline-flex h-12 items-center rounded-full border border-white/40 px-7 text-[15px] font-semibold text-white transition-colors hover:bg-white/10"
-            >
-              Read the docs
-            </Link>
-          </div>
-        </div>
-      </Reveal>
-    </Section>
+    <CtaBand
+      title="Your reviews are already waiting. Answer them today."
+      lede="Connect an app and see your real reviews in about a minute. Free for 14 days on every plan. No credit card, no sales call."
+      primary={{ href: "/sign-up", label: "Start free trial" }}
+      secondary={{ href: "/help", label: "Read the docs" }}
+    />
   );
 }
 

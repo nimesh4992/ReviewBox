@@ -2,6 +2,14 @@
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
+import {
+  Breadcrumb,
+  CtaBand,
+  PageHero,
+  Reveal,
+  Section,
+} from "@/features/marketing/components/primitives";
+import { RHYTHM } from "@/features/marketing/rhythm";
 
 export const metadata = {
   title: "Blog",
@@ -19,157 +27,128 @@ const FEATURED = {
   slug: "/blog/ai-cost-reduction",
 };
 
+// Only entries that resolve.
+//
+// Three of the six cards here linked to pages that do not exist —
+// /blog/reply-playbook, /blog/rating-spikes and
+// /blog/appstore-vs-google-play-rating all returned 404, so half this index
+// was a dead end. They are removed rather than left broken or dressed up as
+// "coming soon": advertising writing that has not been written is the same
+// class of claim as advertising a feature that has not been built. Add them
+// back as they are actually published.
+//
+// (The deleted reply-playbook excerpt also claimed "We analyzed 10,000 replies
+// across 200 apps", which never happened.)
+//
+// The two survivors are help-centre guides and say so, rather than implying a
+// blog post that then turns out to be documentation.
 const POSTS = [
-  {
-    title: "The app store reply playbook: what to say (and what not to)",
-    excerpt: "We analyzed 10,000 replies across 200 apps. Here's what the best ones have in common.",
-    category: "Guides",
-    date: "May 10, 2026",
-    readTime: "6 min read",
-    slug: "/blog/reply-playbook",
-  },
-  {
-    title: "Rating spikes: how to detect them before they become a PR problem",
-    excerpt: "A burst of 1-star reviews in 24 hours is a signal. Here's how to read it — and what to do next.",
-    category: "Product",
-    date: "May 5, 2026",
-    readTime: "4 min read",
-    slug: "/blog/rating-spikes",
-  },
-  {
-    title: "Why your App Store rating is lower than your Google Play rating",
-    excerpt:
-      "It's almost never about the product. It's usually about three specific differences in how each store handles reviews.",
-    category: "Guides",
-    date: "April 28, 2026",
-    readTime: "5 min read",
-    slug: "/blog/appstore-vs-google-play-rating",
-  },
   {
     title: "Connecting Google Play to ReviewBox: the complete guide",
     excerpt:
       "Service account setup, API scopes, the exact JSON you need — with screenshots for every step.",
-    category: "How-to",
+    category: "Guide",
     date: "April 10, 2026",
     readTime: "7 min read",
     slug: "/help/connect-google-play",
   },
   {
-    title: "App store automation rules: 5 templates that actually work",
+    title: "App store automation rules: templates that actually work",
     excerpt:
       "Auto-triage crash reports. Auto-escalate billing disputes. Auto-draft for 5-star reviews. Steal these.",
-    category: "Guides",
+    category: "Guide",
     date: "April 1, 2026",
     readTime: "5 min read",
     slug: "/help/automation",
   },
 ];
 
-const CATEGORIES = ["All", "Guides", "Engineering", "Product", "Case Studies", "How-to"];
-
-const CATEGORY_STYLES: Record<string, string> = {
-  Engineering: "bg-purple-50 text-purple-700",
-  Guides: "bg-blue-50 text-blue-700",
-  Product: "bg-emerald-50 text-emerald-700",
-  "Case Studies": "bg-amber-50 text-amber-700",
-  "How-to": "bg-gray-100 text-gray-600",
-};
-
 export default function BlogPage() {
   return (
     <MarketingShell>
       <MarketingNav />
+      <Breadcrumb label="Blog" />
 
-      {/* Breadcrumb */}
-      <div className="mx-auto max-w-screen-xl px-6 py-3">
-        <nav className="flex items-center gap-1.5 text-xs text-gray-400">
-          <Link href="/" className="hover:text-gray-600">Home</Link>
-          <span>/</span>
-          <span className="text-gray-600">Blog</span>
-        </nav>
-      </div>
+      <main>
+        <PageHero
+          eyebrow="Writing"
+          title="Notes from building ReviewBox"
+          lede="Engineering write-ups and practical guides on managing App Store and Google Play reviews. Everything here is something we actually shipped or actually measured."
+        />
 
-      <main className="mx-auto max-w-screen-xl px-6 pb-32">
-        {/* Header */}
-        <div className="pt-12 pb-10">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">Blog</h1>
-          <p className="mt-2 text-gray-500 dark:text-[#86868B]">
-            Guides, case studies, and product updates from the ReviewBox team.
-          </p>
-        </div>
-
-        {/* Category pills */}
-        <div className="mb-10 flex flex-wrap gap-2">
-          {CATEGORIES.map((cat) => (
-            <button
-              key={cat}
-              className={`rounded-full px-3 py-1.5 text-xs font-semibold transition-colors ${
-                cat === "All"
-                  ? "bg-gray-900 text-white dark:bg-white dark:text-gray-900"
-                  : "border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] text-gray-600 dark:text-[#86868B] hover:bg-gray-50 dark:hover:bg-white/5"
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        {/* Featured */}
-        <div className="mb-10">
-          <Link
-            href={FEATURED.slug}
-            className="block rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-8 hover:border-gray-300 dark:hover:border-white/20 transition-colors sm:flex sm:gap-8"
-          >
-            <div className="flex-1">
-              <div className="flex items-center gap-3 mb-3">
-                <span
-                  className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest ${
-                    CATEGORY_STYLES[FEATURED.category] ?? "bg-gray-100 text-gray-600"
-                  }`}
-                >
-                  {FEATURED.category}
-                </span>
-                <span className="text-xs text-gray-400">Featured</span>
-              </div>
-              <h2 className="text-xl font-bold text-gray-900 dark:text-[#F5F5F7] leading-snug">{FEATURED.title}</h2>
-              <p className="mt-3 text-gray-500 dark:text-[#86868B] leading-relaxed">{FEATURED.excerpt}</p>
-              <div className="mt-4 flex items-center gap-3 text-xs text-gray-400 dark:text-[#636366]">
-                <span>{FEATURED.date}</span>
-                <span>·</span>
-                <span>{FEATURED.readTime}</span>
-              </div>
-            </div>
-            <div className="mt-6 sm:mt-0 sm:w-48 shrink-0 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 h-32 sm:h-auto" />
-          </Link>
-        </div>
-
-        {/* Posts grid */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {POSTS.map((post) => (
+        <Section className={RHYTHM.sm}>
+          {/* Featured */}
+          <Reveal>
             <Link
-              key={post.title}
-              href={post.slug}
-              className="block rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6 hover:border-gray-300 dark:hover:border-white/20 transition-colors"
+              href={FEATURED.slug}
+              className="group block overflow-hidden rounded-2xl border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)] transition-shadow hover:shadow-[var(--rb-shadow-md)] md:grid md:grid-cols-[1fr_320px]"
             >
-              <span
-                className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest ${
-                  CATEGORY_STYLES[post.category] ?? "bg-gray-100 text-gray-600"
-                }`}
+              <div className="p-7 sm:p-9">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="rb-eyebrow rounded-full bg-[var(--rb-blue-50)] px-2.5 py-1 text-[var(--rb-blue-600)] dark:bg-[var(--rb-bg-accent-soft)] dark:text-[var(--rb-blue-400)]">
+                    {FEATURED.category}
+                  </span>
+                  <span className="rb-meta font-normal text-fg-3">Featured</span>
+                </div>
+                <h2 className="rb-h2 mt-4 text-fg-1 transition-colors group-hover:text-[var(--rb-blue-500)]">
+                  {FEATURED.title}
+                </h2>
+                <p className="rb-lead mt-4 text-fg-2">{FEATURED.excerpt}</p>
+                <p className="rb-meta mt-6 font-normal text-fg-3">
+                  {FEATURED.date} · {FEATURED.readTime}
+                </p>
+              </div>
+
+              {/* Was an empty blue gradient rectangle — a placeholder where an
+                  image should be, which reads as an unfinished page. This says
+                  what the post is about instead of pretending to be art. */}
+              <div
+                aria-hidden="true"
+                className="flex flex-col items-center justify-center gap-1 border-t border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-8 md:border-t-0 md:border-l"
               >
-                {post.category}
-              </span>
-              <h3 className="mt-3 font-semibold text-gray-900 dark:text-[#F5F5F7] leading-snug">{post.title}</h3>
-              <p className="mt-2 text-sm text-gray-500 dark:text-[#86868B] leading-relaxed line-clamp-3">
-                {post.excerpt}
-              </p>
-              <div className="mt-4 flex items-center gap-2 text-xs text-gray-400 dark:text-[#636366]">
-                <span>{post.date}</span>
-                <span>·</span>
-                <span>{post.readTime}</span>
+                <span className="text-[44px] leading-none font-bold tracking-[-0.04em] text-[var(--rb-blue-500)]">
+                  94%
+                </span>
+                <span className="rb-meta text-center font-normal text-fg-3">
+                  cheaper AI replies,
+                  <br />
+                  same output
+                </span>
               </div>
             </Link>
-          ))}
-        </div>
+          </Reveal>
+
+          {/* Guides. Two cards in a two-column grid, so the row is full —
+              five cards in a three-column grid left a hole in the last row. */}
+          <div className="mt-4 grid gap-4 md:grid-cols-2">
+            {POSTS.map((post, i) => (
+              <Reveal key={post.title} delay={i * 80}>
+                <Link
+                  href={post.slug}
+                  className="group flex h-full flex-col rounded-2xl border border-[var(--rb-border-1)] bg-surface p-6 shadow-[var(--rb-shadow-xs)] transition-shadow hover:shadow-[var(--rb-shadow-md)]"
+                >
+                  <span className="rb-eyebrow w-fit rounded-full bg-[var(--rb-bg-sunken)] px-2.5 py-1 text-fg-3">
+                    {post.category}
+                  </span>
+                  <h3 className="rb-h3 mt-4 text-fg-1 transition-colors group-hover:text-[var(--rb-blue-500)]">
+                    {post.title}
+                  </h3>
+                  <p className="rb-body-sm mt-2.5 flex-1 text-fg-2">{post.excerpt}</p>
+                  <p className="rb-meta mt-5 font-normal text-fg-3">
+                    {post.date} · {post.readTime}
+                  </p>
+                </Link>
+              </Reveal>
+            ))}
+          </div>
+        </Section>
+
+        <CtaBand
+          title="Stop reading. Start replying."
+          lede="Connect an app and see your own review queue in about a minute. Free for 14 days, no card."
+          primary={{ href: "/sign-up", label: "Start free trial" }}
+          secondary={{ href: "/help", label: "Browse the help centre" }}
+        />
       </main>
 
       <MarketingFooter />

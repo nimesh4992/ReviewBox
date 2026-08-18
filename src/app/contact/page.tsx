@@ -3,6 +3,18 @@ import { Mail, Handshake, Clock, Scale } from "lucide-react";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
+import {
+  Band,
+  Breadcrumb,
+  Card,
+  CtaBand,
+  FaqList,
+  PageHero,
+  Reveal,
+  Section,
+  SectionHeading,
+} from "@/features/marketing/components/primitives";
+import { RHYTHM } from "@/features/marketing/rhythm";
 
 export const metadata = {
   title: "Contact",
@@ -10,6 +22,13 @@ export const metadata = {
     "Get in touch with the ReviewBox team. Support, sales, and partnerships.",
 };
 
+// One accent, not three. These tiles used to be blue / emerald / amber with
+// matching link colours, which reads as status coding ("green is good, amber
+// is a warning") on a page where none of the three means anything different
+// from the others. The icon distinguishes them; the colour does not need to.
+//
+// "Team plan" also came out of the Sales description — that tier no longer
+// exists (see lib/plans.ts).
 const CHANNELS = [
   {
     icon: Mail,
@@ -17,17 +36,13 @@ const CHANNELS = [
     description: "Questions about the product, your account, or billing.",
     cta: "hello@tryreviewbox.com",
     href: "mailto:hello@tryreviewbox.com",
-    color: "text-[#0A84FF]",
-    bg: "bg-blue-50",
   },
   {
     icon: Handshake,
     title: "Sales",
-    description: "Team plan, volume pricing, custom contracts, or procurement.",
+    description: "Volume pricing, custom limits, contracts, or procurement.",
     cta: "sales@tryreviewbox.com",
     href: "mailto:sales@tryreviewbox.com",
-    color: "text-emerald-600",
-    bg: "bg-emerald-50",
   },
   {
     icon: Scale,
@@ -35,8 +50,6 @@ const CHANNELS = [
     description: "DPA requests, GDPR queries, data deletion, subpoenas.",
     cta: "legal@tryreviewbox.com",
     href: "mailto:legal@tryreviewbox.com",
-    color: "text-amber-600",
-    bg: "bg-amber-50",
   },
 ];
 
@@ -51,112 +64,123 @@ export default function ContactPage() {
   return (
     <MarketingShell>
       <MarketingNav />
+      <Breadcrumb label="Contact" />
 
-      {/* Breadcrumb */}
-      <div className="mx-auto max-w-screen-xl px-6 py-3">
-        <nav className="flex items-center gap-1.5 text-xs text-gray-400">
-          <Link href="/" className="hover:text-gray-600">Home</Link>
-          <span>/</span>
-          <span className="text-gray-600">Contact</span>
-        </nav>
-      </div>
-
-      <main className="mx-auto max-w-screen-xl px-6 pb-32">
-        {/* Hero */}
-        <div className="pt-16 pb-12 max-w-2xl">
-          <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-blue-600">
-            Contact
-          </span>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7] sm:text-5xl">
-            Talk to a real person.
-          </h1>
-          <p className="mt-4 text-lg text-gray-500 dark:text-[#86868B]">
-            No ticketing system. No chatbot. Every email goes to someone who can actually help.
+      <main>
+        <PageHero
+          eyebrow="Contact"
+          title="Talk to a real person."
+          lede="No ticketing system. No chatbot. Every email goes to someone who can actually help."
+        >
+          <p className="rb-body inline-flex items-center gap-2 rounded-full border border-[var(--rb-border-1)] bg-surface px-4 py-2 text-fg-2 shadow-[var(--rb-shadow-xs)]">
+            <Clock className="size-4 text-[var(--rb-green-500)]" strokeWidth={2} />
+            We respond within <strong className="font-semibold text-fg-1">one business day</strong>
+            — usually faster.
           </p>
+        </PageHero>
 
-          <div className="mt-6 flex items-center gap-2 text-sm text-gray-500 dark:text-[#86868B]">
-            <Clock className="h-4 w-4 text-emerald-500" />
-            <span>We respond within <strong className="text-gray-800 dark:text-[#F5F5F7]">one business day</strong> — usually faster.</span>
-          </div>
-        </div>
-
-        {/* Channel cards */}
-        <div className="grid gap-4 sm:grid-cols-3 mb-16">
-          {CHANNELS.map((ch) => (
-            <a
-              key={ch.title}
-              href={ch.href}
-              className="block rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6 hover:border-gray-300 dark:hover:border-white/20 transition-colors"
-            >
-              <div className={`inline-flex rounded-xl p-2.5 ${ch.bg}`}>
-                <ch.icon className={`h-5 w-5 ${ch.color}`} strokeWidth={1.5} />
-              </div>
-              <h2 className="mt-4 font-semibold text-gray-900 dark:text-[#F5F5F7]">{ch.title}</h2>
-              <p className="mt-1 text-sm text-gray-500 dark:text-[#86868B] leading-relaxed">{ch.description}</p>
-              <span className={`mt-4 block text-sm font-medium ${ch.color} hover:underline`}>
-                {ch.cta}
-              </span>
-            </a>
-          ))}
-        </div>
-
-        {/* Two column layout */}
-        <div className="grid gap-8 lg:grid-cols-2 mb-16">
-          {/* FAQ */}
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-[#F5F5F7] mb-6">Common questions</h2>
-            <div className="space-y-4">
-              {FAQS.map(({ q, a }) => (
-                <div key={q} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-5">
-                  <p className="font-semibold text-gray-900 dark:text-[#F5F5F7] text-sm">{q}</p>
-                  <p className="mt-2 text-sm text-gray-500 dark:text-[#86868B] leading-relaxed">{a}</p>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Office info */}
-          <div>
-            <h2 className="text-xl font-bold text-gray-900 dark:text-[#F5F5F7] mb-6">Where we are</h2>
-            <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-8 space-y-6">
-              <div>
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366] mb-2">Headquarters</p>
-                <p className="font-semibold text-gray-900 dark:text-[#F5F5F7]">AT Work Inc.</p>
-                <p className="text-sm text-gray-500 dark:text-[#86868B] mt-1">Registered in India · team works remotely</p>
-              </div>
-              <div className="border-t border-gray-100 dark:border-white/6 pt-6">
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366] mb-2">Legal</p>
-                <p className="text-sm text-gray-500 dark:text-[#86868B] leading-relaxed">
-                  For legal correspondence, DPA requests, or GDPR queries, email{" "}
-                  <a href="mailto:legal@tryreviewbox.com" className="text-[#0A84FF] hover:underline">
-                    legal@tryreviewbox.com
+        {/* Channels */}
+        <Section className="pb-4">
+          <div className="grid gap-4 md:grid-cols-3">
+            {CHANNELS.map((c, i) => (
+              <Reveal key={c.title} delay={i * 80}>
+                <Card className="flex h-full flex-col">
+                  <span className="flex size-11 items-center justify-center rounded-xl bg-[var(--rb-blue-50)] dark:bg-[var(--rb-bg-accent-soft)]">
+                    <c.icon className="size-5 text-[var(--rb-blue-500)]" strokeWidth={1.75} />
+                  </span>
+                  <h2 className="rb-h3 mt-5 text-fg-1">{c.title}</h2>
+                  <p className="rb-body-sm mt-2 flex-1 text-fg-2">{c.description}</p>
+                  <a
+                    href={c.href}
+                    className="rb-body mt-5 font-medium text-[var(--rb-blue-500)] hover:underline"
+                  >
+                    {c.cta}
                   </a>
-                  .
-                </p>
-              </div>
-              <div className="border-t border-gray-100 dark:border-white/6 pt-6">
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366] mb-2">Status</p>
-                <p className="text-sm text-gray-500 dark:text-[#86868B]">
-                  Check{" "}
-                  <Link href="/status" className="text-[#0A84FF] hover:underline">
-                    status.tryreviewbox.com
-                  </Link>{" "}
-                  for live uptime and incident reports.
-                </p>
-              </div>
-              <div className="border-t border-gray-100 dark:border-white/6 pt-6">
-                <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366] mb-2">Help center</p>
-                <p className="text-sm text-gray-500 dark:text-[#86868B]">
-                  Before emailing, check{" "}
-                  <Link href="/help" className="text-[#0A84FF] hover:underline">
-                    help.tryreviewbox.com
-                  </Link>{" "}
-                  — it answers ~70% of questions instantly.
-                </p>
-              </div>
-            </div>
+                </Card>
+              </Reveal>
+            ))}
           </div>
-        </div>
+        </Section>
+
+        {/* Common questions + where we are. Equal-height columns: the left
+            column used to end well short of the right, leaving a large notch
+            above the footer. */}
+        <Band className="mt-16 sm:mt-20">
+          <Section className={RHYTHM.md}>
+            <div className="grid gap-10 lg:grid-cols-2 lg:gap-12">
+              <Reveal>
+                <div>
+                  <SectionHeading align="left" title="Common questions" />
+                  <FaqList className="mt-8" items={FAQS} />
+                </div>
+              </Reveal>
+
+              <Reveal delay={100}>
+                <div>
+                  <SectionHeading align="left" title="Where we are" />
+                  <Card className="mt-8">
+                    <dl className="divide-y divide-[var(--rb-border-1)]">
+                      {[
+                        {
+                          k: "Headquarters",
+                          v: (
+                            <>
+                              AT Work Inc. — a partnership firm registered in India.
+                              The team is fully remote.
+                            </>
+                          ),
+                        },
+                        {
+                          k: "Legal",
+                          v: (
+                            <>
+                              For legal correspondence, DPA requests, or GDPR queries,
+                              email{" "}
+                              <a
+                                href="mailto:legal@tryreviewbox.com"
+                                className="font-medium text-[var(--rb-blue-500)] hover:underline"
+                              >
+                                legal@tryreviewbox.com
+                              </a>
+                              .
+                            </>
+                          ),
+                        },
+                        {
+                          k: "Help centre",
+                          v: (
+                            <>
+                              Before emailing, check the{" "}
+                              <Link
+                                href="/help"
+                                className="font-medium text-[var(--rb-blue-500)] hover:underline"
+                              >
+                                help centre
+                              </Link>{" "}
+                              — it answers most setup questions instantly.
+                            </>
+                          ),
+                        },
+                      ].map((row) => (
+                        <div key={row.k} className="py-5 first:pt-0 last:pb-0">
+                          <dt className="rb-eyebrow text-fg-3">{row.k}</dt>
+                          <dd className="rb-body-sm mt-2 text-fg-2">{row.v}</dd>
+                        </div>
+                      ))}
+                    </dl>
+                  </Card>
+                </div>
+              </Reveal>
+            </div>
+          </Section>
+        </Band>
+
+        <CtaBand
+          title="Rather just try it?"
+          lede="Connect an app and see your own reviews in about a minute. No card, no sales call."
+          primary={{ href: "/sign-up", label: "Start free trial" }}
+          secondary={{ href: "/pricing", label: "See pricing" }}
+        />
       </main>
 
       <MarketingFooter />
