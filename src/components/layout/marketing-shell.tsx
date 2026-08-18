@@ -1,56 +1,36 @@
-"use client";
+import React from "react";
 
-import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
-
-type Theme = "dark" | "light";
-
-interface ThemeCtx {
-  theme: Theme;
-  toggle: () => void;
-}
-
-const Ctx = createContext<ThemeCtx>({ theme: "light", toggle: () => {} });
-
-export function useMarketingTheme() {
-  return useContext(Ctx);
-}
-
+/**
+ * Wrapper for every marketing page.
+ *
+ * LIGHT-ONLY. This used to own a light/dark context plus a `localStorage`
+ * preference read by a Sun/Moon toggle in the nav. Both are gone: the
+ * SassTech-derived design is a single committed visual world — a pastel mesh
+ * hero, gold CTAs, deep-indigo ink — and there is no dark counterpart tuned
+ * for it. Leaving the toggle in place would have rendered a design nobody
+ * designed, on all 17 marketing pages.
+ *
+ * Consequences worth knowing before adding anything here:
+ *   - No `dark:` variants on marketing sections. Nothing sets the `dark`
+ *     class on this subtree any more, so they are dead code that reads as
+ *     live intent.
+ *   - The `.rb-marketing` class is load-bearing: `globals.css` hangs the
+ *     entire --rb-mk-* palette off it, including the --rb-fg-* remap that
+ *     re-inks the marketing pages without touching the app's own ramp.
+ *   - `data-theme="light"` is set explicitly rather than left to inherit,
+ *     so a visitor whose OS is dark still gets the light token values even
+ *     if a future `prefers-color-scheme` rule lands in globals.css.
+ *
+ * This is not a server/client boundary any more — with the context gone
+ * there is no state, so it renders on the server.
+ */
 export function MarketingShell({ children }: { children: React.ReactNode }) {
-  // Marketing is light by default — SSR and first paint included. The bright
-  // SaaS design is the product's face; visitors with a dark OS were being
-  // greeted by a dark canvas the design was never tuned for. Dark remains an
-  // explicit choice via the nav toggle (persisted), never an OS inference.
-  const [theme, setTheme] = useState<Theme>("light");
-
-  useEffect(() => {
-    const stored = localStorage.getItem("rb-marketing-theme") as Theme | null;
-    if (stored === "dark" || stored === "light") setTheme(stored);
-  }, []);
-
-  const toggle = useCallback(() => {
-    setTheme((prev) => {
-      const next: Theme = prev === "dark" ? "light" : "dark";
-      localStorage.setItem("rb-marketing-theme", next);
-      return next;
-    });
-  }, []);
-
   return (
-    <Ctx.Provider value={{ theme, toggle }}>
-      {/* data-theme for CSS-var-based components; "dark" class for Tailwind dark: variants */}
-      <div
-        data-theme={theme}
-        className={`rb-marketing ${theme === "dark" ? "dark" : ""}`}
-        style={{
-          background: "var(--rb-bg-canvas)",
-          color: "var(--rb-fg-1)",
-          minHeight: "100vh",
-          fontFamily: "var(--rb-font-text)",
-          WebkitFontSmoothing: "antialiased",
-        }}
-      >
-        {children}
-      </div>
-    </Ctx.Provider>
+    <div
+      data-theme="light"
+      className="rb-marketing min-h-screen bg-[var(--rb-mk-ground)] text-[var(--rb-fg-1)] antialiased [font-family:var(--rb-font-text)]"
+    >
+      {children}
+    </div>
   );
 }

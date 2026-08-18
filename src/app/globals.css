@@ -233,6 +233,110 @@
   --ring: oklch(0.590 0.196 254);
 }
 
+/* ── Marketing palette (SassTech index-4 "CRM" demo, adapted) ─────────────
+   Scoped to .rb-marketing so the amber action colour never reaches the
+   authenticated app, which keeps #0A84FF as its action colour.
+
+   LIGHT-ONLY BY DECISION. The marketing light/dark toggle was removed with
+   this design, so there is deliberately no dark counterpart block here and
+   marketing sections must not carry `dark:` variants — there is no dark
+   marketing theme left to render them.
+
+   Colour values are the source theme's own HSL triplets from its
+   _variable.scss; the mesh stops were sampled from mash-gradient-bg1.png. */
+.rb-marketing {
+  /* Action — gold pill CTAs. Pair ONLY with ink text: white on amber
+     measures 1.9:1 and is illegible. */
+  --rb-mk-amber-500: #FFB114;   /* hsl(40 100% 54%) — theme --yellow */
+  --rb-mk-amber-600: #E09800;
+
+  /* Accent. -deco is DECORATIVE ONLY — 3.06:1 on white, which clears the
+     large-text floor but fails AA for the small eyebrow labels the source
+     theme used it on. Any coloured *word* uses -text. */
+  --rb-mk-orange-deco: #FF5E1A; /* hsl(18 100% 55%) — theme --orange */
+  --rb-mk-orange-text: #C2410C; /* 5.18:1 on white */
+
+  /* Ink ramp. Remapping --rb-fg-* re-inks every marketing page at once
+     rather than page by page; the app's own ramp is untouched. */
+  --rb-mk-ink:   #150E3E;       /* hsl(249 63% 15%) — theme --black */
+  --rb-mk-ink-2: #4A4A63;
+  --rb-mk-ink-3: #6E6E6E;       /* hsl(0 0% 43%)    — theme --body  */
+  --rb-mk-ink-4: #9A9AAE;
+  --rb-fg-1: var(--rb-mk-ink);
+  --rb-fg-2: var(--rb-mk-ink-2);
+  --rb-fg-3: var(--rb-mk-ink-3);
+
+  --rb-mk-night: #0E0A24;
+
+  /* Grounds and hairlines — neutrals carry a faint violet bias toward the ink */
+  --rb-mk-ground: #FFFDFD;
+  --rb-mk-sunken: #F7F6FB;
+  --rb-mk-line:   #E7E4F0;
+  --rb-mk-line-2: #D2CEE2;
+
+  /* Hero mesh stops, sampled from mash-gradient-bg1.png (1920x1012):
+     GRADIENT LAYERS ONLY — no trailing colour. These are consumed through
+     `background-image`, where a bare colour is not a valid layer and makes
+     the browser drop the whole declaration silently. Call sites paint the
+     base colour themselves. (This shipped white for exactly that reason;
+     it only showed up on a rendered page, never in the diff or in tsc.)
+     a white core down the centre, colour massed at both edges. */
+  --rb-mk-mesh:
+    radial-gradient(58% 44% at 0% 4%,    #FCD0D3 0%, transparent 72%),
+    radial-gradient(52% 42% at 2% 52%,   #ECBBE4 0%, transparent 70%),
+    radial-gradient(62% 52% at -4% 100%, #5D7DEC 0%, transparent 72%),
+    radial-gradient(54% 46% at 100% 0%,  #BAAAFC 0%, transparent 70%),
+    radial-gradient(58% 54% at 104% 96%, #BBE6FF 0%, transparent 72%);
+
+  /* The theme ships that mesh as a 1.2MB PNG in the hero — straight into
+     the LCP. As gradients it costs no request and resolves at any size. */
+  --rb-mk-mesh-soft:
+    radial-gradient(58% 88% at 0% 0%,     #FCD0D3 0%, transparent 70%),
+    radial-gradient(58% 88% at 100% 100%, #BBE6FF 0%, transparent 70%),
+    radial-gradient(68% 100% at 50% 118%, #BAAAFC 0%, transparent 66%);
+
+
+  /* ── Status, pastel ──────────────────────────────────────────────────
+     Validated with the dataviz palette checker (all six checks pass; the
+     closest pair separates at ΔE 16.8 normal vision, 8.4 protan). The app's
+     own #DC2626 / #C97A00 / #1F8A5B are primaries — correct in a dense
+     product UI, but they read as candy against a pastel ground.
+
+     Marketing overrides the SHARED token names rather than inventing new
+     ones, so <ProductFrame> re-inks with no change to the component: it
+     already draws state as a colour dot plus a text label. The app keeps
+     its own values because nothing outside .rb-marketing sees these. */
+  --rb-red-500:   #C24D7B;   /* rose  — critical / crash            */
+  --rb-red-600:   #9E3B62;   /* 5.3:1 on --rb-red-100               */
+  --rb-red-100:   #F7E4EC;
+  --rb-amber-500: #B57F1E;   /* gold  — warning / billing / stars   */
+  --rb-amber-600: #8A5F14;   /* 4.84:1 on --rb-amber-100            */
+  --rb-amber-100: #F6EDD9;
+  --rb-green-500: #2F8F6B;   /* green — praise / replied            */
+  --rb-green-600: #216B50;   /* 5.41:1 on --rb-green-100            */
+  --rb-green-100: #DFF0E8;
+
+  /* Sequential severity ramp, one hue light→dark, for the release-health
+     bars. They previously painted a SINGLE magnitude measure in three
+     different hues — a rainbow for magnitude, when bar length already
+     encodes it and the three hues were reserved status colours besides. */
+  --rb-mk-sev-1: #EFCBD9;
+  --rb-mk-sev-2: #E3A6BD;
+  --rb-mk-sev-3: #D2799C;
+  --rb-mk-sev-4: #C24D7B;
+
+
+  /* Fluid display scale, verbatim from the theme's :root. */
+  --rb-mk-h1: clamp(2.125rem, -0.0733rem + 5.5vw, 4.4375rem);  /* 34 → 71px */
+  --rb-mk-h2: clamp(1.875rem, 0.7133rem + 2.8846vw, 3.75rem);  /* 30 → 60px */
+
+  /* Radii are graded by ROLE, not applied uniformly — pills for actions
+     (the theme's actual signature), a modest 14px for content surfaces,
+     20px only for the large product frames. */
+  --rb-mk-r-card:  14px;
+  --rb-mk-r-frame: 20px;
+}
+
 @theme inline {
   --font-sans: var(--font-inter), Inter, ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--rb-font-mono);
@@ -389,6 +493,25 @@ textarea {
 .scrollbar-quiet {
   scrollbar-color: rgba(156, 163, 175, 0.4) transparent;
   scrollbar-width: thin;
+}
+
+@layer components {
+  /* The mesh backgrounds are real utilities, not Tailwind arbitrary values.
+     `bg-[image:var(--rb-mk-mesh)]` compiles to NOTHING in Tailwind v4 — the
+     class lands in the HTML, the token resolves, and no rule is ever emitted,
+     so the hero shipped plain white. tsc, lint and the build were all green;
+     only opening the built page showed it. Keep these as classes.
+
+     Each paints its own base colour: the tokens are gradient layers only,
+     because a bare colour is not a valid `background-image` layer. */
+  .rb-mesh-hero {
+    background-color: var(--rb-mk-ground);
+    background-image: var(--rb-mk-mesh);
+  }
+  .rb-mesh-panel {
+    background-color: #FCFAFF;
+    background-image: var(--rb-mk-mesh-soft);
+  }
 }
 
 @layer components {

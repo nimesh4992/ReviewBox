@@ -201,6 +201,44 @@ export function ProductFrame({ id }: { id?: string }) {
           <span className="w-[52px]" aria-hidden="true" />
         </div>
 
+      <div className="grid md:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+        {/* Review list — hidden on small screens where two panes can't breathe */}
+        <div className="hidden border-r border-[var(--rb-border-1)] md:block">
+          <div className="flex items-center gap-4 border-b border-[var(--rb-border-1)] px-4 py-2.5">
+            {["Needs reply", "Urgent", "All"].map((f, i) => (
+              <span
+                key={f}
+                className={
+                  i === 0
+                    ? "text-[12px] font-medium text-fg-1"
+                    : "text-[12px] text-fg-3"
+                }
+              >
+                {f}
+              </span>
+            ))}
+            <span className="ml-auto text-[11px] font-medium tabular-nums text-fg-3">
+              23 open
+            </span>
+          </div>
+          <ul>
+            {LIST.map((r) => (
+              <li
+                key={r.title}
+                className={
+                  "border-b border-[var(--rb-border-1)] px-4 py-3 last:border-b-0 " +
+                  (r.selected ? "bg-[var(--rb-bg-selected)]" : "")
+                }
+              >
+                <div className="flex items-center gap-2">
+                  <span
+                    className="size-1.5 shrink-0 rounded-full"
+                    style={{ background: r.dot }}
+                  />
+                  <span className="truncate text-[13px] font-medium text-fg-1">
+                    {r.title}
+                  </span>
+                  <span className="ml-auto shrink-0 text-[11px] text-fg-3">{r.time}</span>
         {/* List is the wide pane, detail is the fixed column — as in the app. */}
         <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_380px]">
           {/* ── Queue ── */}
@@ -233,6 +271,24 @@ export function ProductFrame({ id }: { id?: string }) {
                 </div>
               </div>
 
+        {/* Detail pane */}
+        <div className="p-5 sm:p-6">
+          <div className="flex items-center justify-between gap-4">
+            <span className="rb-eyebrow text-fg-3">
+              App Store · iOS · v4.2.1
+            </span>
+            {/* Dot + label, matching the queue rows on the left. A solid
+                red-100 fill made this the loudest thing in the frame while
+                saying no more than the dot does, and put the meaning in the
+                colour rather than in the word. */}
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-2 py-0.5 text-[11px] font-medium text-fg-2">
+              <span
+                aria-hidden="true"
+                className="size-1.5 rounded-full bg-[var(--rb-red-500)]"
+              />
+              Urgent
+            </span>
+          </div>
               <div className="mt-2.5 flex flex-wrap gap-1.5">
                 {CHIPS.map((c, i) => (
                   <span
