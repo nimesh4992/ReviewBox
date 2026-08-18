@@ -64,7 +64,7 @@ export default function CookiesPage() {
         <div className="mt-2 overflow-x-auto">
           <table className="w-full border-collapse text-sm">
             <thead>
-              <tr className="border-b border-[var(--rb-border-2)] text-left text-xs font-semibold uppercase tracking-wide text-fg-3">
+              <tr className="border-b border-gray-200 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
                 <th className="pb-2 pr-4">Name</th>
                 <th className="pb-2 pr-4">Purpose</th>
                 <th className="pb-2 pr-4">Type</th>
@@ -82,10 +82,10 @@ export default function CookiesPage() {
                 { name: "ph_session_*", purpose: "PostHog session recording", type: "Analytics", expiry: "Session" },
               ].map((row) => (
                 <tr key={row.name}>
-                  <td className="py-2 pr-4 font-mono text-xs text-fg-2">{row.name}</td>
-                  <td className="py-2 pr-4 text-fg-2">{row.purpose}</td>
-                  <td className="py-2 pr-4 text-fg-2">{row.type}</td>
-                  <td className="py-2 text-fg-2">{row.expiry}</td>
+                  <td className="py-2 pr-4 font-mono text-xs text-gray-700">{row.name}</td>
+                  <td className="py-2 pr-4 text-gray-600">{row.purpose}</td>
+                  <td className="py-2 pr-4 text-gray-600">{row.type}</td>
+                  <td className="py-2 text-gray-600">{row.expiry}</td>
                 </tr>
               ))}
             </tbody>
