@@ -15,7 +15,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // Core marketing
     url("/",          1.0, "weekly"),
     url("/pricing",   0.9, "weekly"),
-    url("/compare",   0.9, "monthly"),
 
     // Company
     url("/about",     0.7, "monthly"),
