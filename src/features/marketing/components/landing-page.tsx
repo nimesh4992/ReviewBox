@@ -1,41 +1,50 @@
-"use client";
-
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import Link from "next/link";
 import {
-  AlertTriangle,
-  ArrowRight,
   BarChart2,
   Check,
-  CheckCircle2,
   Inbox,
   Layers,
   MessageSquareOff,
   PenLine,
-  Send,
-  Star,
   Timer,
   Workflow,
 } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+import { PLAN_PRICING } from "@/lib/plans";
 import { MarketingShell } from "@/components/layout/marketing-shell";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { ProductFrame } from "@/features/marketing/components/product-frame";
 
 /**
- * Homepage — conversion-focused SaaS in the Stripe/Linear register: a layered
- * hero with the product UI as the hero image, a factual stat strip, a
- * pain → product narrative, a bento feature grid whose cards show the product
- * instead of describing it, two deep-dives, pricing with per-plan CTAs, an
- * FAQ, and a closing band.
+ * Homepage, in the design language adapted from the SassTech index-4 ("CRM")
+ * demo: a pastel mesh hero, a floating pill nav, gold pill CTAs, deep-indigo
+ * ink, hairline card surfaces and one dark band as a contrast beat.
  *
  * Every claim on this page has to be something the product actually does
  * today. No customer logos, no counts of users we don't have, no invented
  * metrics or testimonials. If a capability below stops being true, the copy
- * comes out. The stat strip and bento visualizations are product facts and
+ * comes out. The stat strip and the product frame are product facts and
  * illustrative product UI — never fabricated social proof.
+ *
+ * Two things load-bearing enough to state outright:
+ *
+ * 1. PRICES COME FROM `PLAN_PRICING`, NEVER FROM A LITERAL HERE. Until this
+ *    rewrite the page carried its own hardcoded list — Starter $49, Pro $99,
+ *    Team $199 — against a real table of Starter $49, Pro $129 and a
+ *    quote-only Enterprise. So the homepage advertised Pro $30/month below
+ *    what checkout charges (the $99 is Pro's *annual per-month* rate) and
+ *    sold a Team plan that exists in neither `plans.ts` nor Stripe. The same
+ *    class of bug was fixed on /pricing and missed here. Feature bullets
+ *    below are marketing copy and stay local; anything with a currency
+ *    symbol is read from the module.
+ *
+ * 2. This is a SERVER component. It has no state — the FAQ and deep-dive
+ *    disclosures are native <details>, not React — so none of it needs to
+ *    ship to the browser. The old version was "use client" only to drive
+ *    scroll-reveal animations, which this design does not use.
  */
 
 // ─── Content ──────────────────────────────────────────────────────────────────
@@ -65,57 +74,110 @@ const PAINS = [
   },
 ];
 
+const FEATURES = [
+  {
+    icon: Inbox,
+    title: "One inbox, both stores",
+    body: "Reviews sync from App Store Connect and the Play Console on a schedule, land in a single queue, and arrive already tagged by issue, sentiment and priority.",
+  },
+  {
+    icon: PenLine,
+    title: "Drafts in your voice",
+    body: "Every review comes with a reply grounded in your own templates and knowledge base — refund policy, known issues, tone — not a generic model guess.",
+  },
+  {
+    icon: BarChart2,
+    title: "Release health",
+    body: "Ratings and complaint volume tracked per version, so a regression shows up as a spike on 4.2.1 rather than a slow drift in the average.",
+  },
+  {
+    icon: Workflow,
+    title: "Automations that don't publish",
+    body: "Rules tag, prioritise and pre-draft as reviews arrive. Nothing reaches the store until a human clicks Post.",
+  },
+];
+
+const REPLY_POINTS = [
+  {
+    q: "Grounded in your knowledge base",
+    a: "Refund policy, known issues and tone live in ReviewBox. Drafts quote them rather than inventing an answer, so what ships matches what support would say.",
+  },
+  {
+    q: "Four tones, your pick",
+    a: "Professional, warm, concise or casual. Set a default per app and override on any single reply.",
+  },
+  {
+    q: "Posted through the official APIs",
+    a: "App Store Connect for iOS, the Play Console API for Android, using credentials you connect in Settings. No browser extensions, no copy-paste.",
+  },
+];
+
+const RELEASE_POINTS = [
+  "Rating and complaint volume broken out by app version",
+  "Alert when five or more low ratings hit one version in 24 hours",
+  "Issue tags rolled up per release, so the cause is named",
+];
+
+/**
+ * Illustrative, not measured — the shape of a regression landing on 4.2.1.
+ *
+ * `step` indexes a SEQUENTIAL one-hue ramp, not a status colour. Bar length
+ * already encodes magnitude; lightness reinforces the same measure. The
+ * earlier version painted these red / amber / green, which is a rainbow for
+ * a single magnitude and spent three reserved status hues on it.
+ *
+ * `rising` is separate and genuinely bipolar: the rating delta moved up or
+ * down, so it earns the diverging rose/green pair.
+ */
+const RELEASE_ROWS = [
+  { version: "4.2.1", share: 72, delta: "−0.8", step: 4, rising: false },
+  { version: "4.2.0", share: 31, delta: "−0.2", step: 3, rising: false },
+  { version: "4.1.4", share: 12, delta: "+0.1", step: 2, rising: true },
+  { version: "4.1.3", share: 9, delta: "+0.3", step: 1, rising: true },
+];
+
 const STEPS = [
   {
-    n: "1",
+    n: "STEP 01",
     title: "Connect your app",
     body: "Search for it like you would on the store, click it, done. Reviews start syncing on a schedule.",
   },
   {
-    n: "2",
+    n: "STEP 02",
     title: "Triage the queue",
     body: "Reviews arrive tagged and ranked. Crashes and billing complaints float to the top, praise sorts itself.",
   },
   {
-    n: "3",
+    n: "STEP 03",
     title: "Reply and move on",
     body: "Every review comes with a draft in your voice. Edit if you want, post, next. The whole queue in one sitting.",
   },
 ];
 
-const PLANS = [
-  {
-    name: "Starter",
-    price: "49",
-    body: "Solo developers and single-app teams.",
-    features: ["2 apps", "5,000 reviews / month", "50 AI drafts / day", "Email alerts"],
-  },
-  {
-    name: "Pro",
-    price: "99",
-    body: "Product teams shipping more than one app.",
-    popular: true,
-    features: [
-      "10 apps",
-      "50,000 reviews / month",
-      "200 AI drafts / day",
-      "Incident detection",
-      "Release health",
-    ],
-  },
-  {
-    name: "Team",
-    price: "199",
-    body: "App portfolios and larger support orgs.",
-    features: [
-      "Unlimited apps",
-      "Unlimited reviews",
-      "1,000 drafts / day",
-      "Audit log",
-      "Unlimited seats",
-    ],
-  },
+/**
+ * The dark band carries verifiable mechanics, not social proof. It replaced a
+ * placeholder testimonial and two review-site badges: we have no customer
+ * quote to run yet, and a placeholder that reads as a testimonial is worse
+ * than no testimonial. Swap this for a real quote when one exists.
+ */
+const MECHANICS = [
+  { label: "Stores", body: "App Store Connect · Google Play Developer API" },
+  { label: "Posting", body: "Official APIs only — no scraping, no extensions" },
+  { label: "Approval", body: "Nothing publishes without a human click" },
 ];
+
+/** Marketing copy. Prices and names come from PLAN_PRICING — see the header. */
+const PLAN_FEATURES: Record<"starter" | "pro" | "enterprise", string[]> = {
+  starter: ["1 app", "5,000 reviews / month", "50 AI drafts / day", "Email alerts"],
+  pro: [
+    "10 apps",
+    "50,000 reviews / month",
+    "200 AI drafts / day",
+    "Incident detection",
+    "Release health",
+  ],
+  enterprise: ["Unlimited apps", "Custom review volume", "Audit log", "Unlimited seats"],
+};
 
 const FAQS = [
   {
@@ -140,20 +202,13 @@ const FAQS = [
   },
 ];
 
-const DEMO_REVIEW = {
-  title: "Crashes on iPad after 4.2.1",
-  body: "Every time I open the budgets tab on iPad it freezes. Started after the last update. I use this daily for my small business.",
-  meta: "App Store · iOS · v4.2.1",
-};
-
-const DEMO_DRAFT =
-  "Thanks for flagging the iPad freeze on 4.2.1. We reproduced it this morning and a fix is rolling out this week. I'll follow up here the moment it lands.";
+const TRIAL_NOTE = "14-day free trial · no credit card required · cancel anytime";
 
 // ─── Shared bits ──────────────────────────────────────────────────────────────
 
 function Section({
   children,
-  className = "",
+  className,
   id,
 }: {
   children: React.ReactNode;
@@ -161,58 +216,94 @@ function Section({
   id?: string;
 }) {
   return (
-    <section id={id} className={`mx-auto w-full max-w-6xl px-5 sm:px-6 ${className}`}>
-      {children}
+    <section id={id} className={cn("py-[clamp(66px,8vw,112px)]", className)}>
+      <div className="mx-auto w-full max-w-[1160px] px-5 sm:px-6">{children}</div>
     </section>
   );
 }
 
 /**
- * Scroll-reveal wrapper. SSR (and no-JS) renders content fully visible; on
- * mount, elements still below the fold are hidden and fade/slide in when they
- * intersect. Reduced-motion users always get the static page.
+ * Uppercase, letterspaced, and set in --rb-mk-orange-text rather than the
+ * theme's own --orange. The source theme used its #FF5E1A for exactly this
+ * label, where it measures 3.06:1 on white — over the large-text floor but
+ * under AA for text this size. The decorative token stays for the underline.
  */
-function Reveal({
-  children,
-  delay = 0,
-  className = "",
+function Eyebrow({ children }: { children: React.ReactNode }) {
+  return (
+    <span className="mb-4 block text-[12.5px] font-bold tracking-[0.13em] text-[var(--rb-mk-orange-text)] uppercase">
+      {children}
+    </span>
+  );
+}
+
+function SectionHead({
+  eyebrow,
+  title,
+  body,
+  center = false,
 }: {
-  children: React.ReactNode;
-  delay?: number;
-  className?: string;
+  eyebrow: string;
+  title: React.ReactNode;
+  body?: string;
+  center?: boolean;
 }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [hidden, setHidden] = useState(false);
+  return (
+    <div className={cn("max-w-[660px]", center && "mx-auto text-center")}>
+      <Eyebrow>{eyebrow}</Eyebrow>
+      <h2 className="text-[length:var(--rb-mk-h2)] leading-[1.1] font-bold tracking-[-0.028em] text-balance text-[var(--rb-fg-1)]">
+        {title}
+      </h2>
+      {body && <p className="mt-[18px] text-[17.5px] text-[var(--rb-fg-3)]">{body}</p>}
+    </div>
+  );
+}
 
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    const el = ref.current;
-    if (!el) return;
-    // Only animate elements that start below the viewport — anything already
-    // on screen at load stays put (no first-paint flash).
-    if (el.getBoundingClientRect().top <= window.innerHeight * 0.92) return;
+const BTN_BASE =
+  "inline-flex items-center justify-center gap-2 rounded-full border-[1.5px] border-transparent px-7 py-3.5 text-[15px] font-bold tracking-[-0.01em] transition-colors";
 
-    setHidden(true);
-    const obs = new IntersectionObserver(
-      ([entry]) => {
-        if (entry.isIntersecting) {
-          setHidden(false);
-          obs.disconnect();
-        }
-      },
-      { threshold: 0.12, rootMargin: "0px 0px -48px 0px" },
-    );
-    obs.observe(el);
-    return () => obs.disconnect();
-  }, []);
+/** Ink on amber, never white — white on #FFB114 measures 1.9:1. */
+function AmberLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        BTN_BASE,
+        "bg-[var(--rb-mk-amber-500)] text-[var(--rb-mk-ink)] hover:bg-[var(--rb-mk-amber-600)]",
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
 
+function InkLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link href={href} className={cn(BTN_BASE, "bg-[var(--rb-mk-ink)] text-white hover:bg-[#241a5c]")}>
+      {children}
+    </Link>
+  );
+}
+
+function LineLink({ href, children }: { href: string; children: React.ReactNode }) {
+  return (
+    <Link
+      href={href}
+      className={cn(
+        BTN_BASE,
+        "border-[var(--rb-mk-line-2)] text-[var(--rb-fg-1)] hover:border-[var(--rb-mk-ink)]",
+      )}
+    >
+      {children}
+    </Link>
+  );
+}
+
+/** Hairline surface. No lift on hover — the border does the work. */
+function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
     <div
-      ref={ref}
-      style={{ transitionDelay: `${delay}ms` }}
       className={cn(
-        "transition-[opacity,transform] duration-700 ease-out",
-        hidden ? "translate-y-5 opacity-0" : "translate-y-0 opacity-100",
+        "rounded-[var(--rb-mk-r-card)] border border-[var(--rb-mk-line)] bg-white p-[30px] transition-colors hover:border-[var(--rb-mk-line-2)]",
         className,
       )}
     >
@@ -221,990 +312,471 @@ function Reveal({
   );
 }
 
-function PrimaryLink({
-  href,
-  children,
-  size = "lg",
-}: {
-  href: string;
-  children: React.ReactNode;
-  size?: "lg" | "md";
-}) {
+/** Native disclosure — no JS, keyboard-accessible for free. */
+function Disclosure({ q, a, open = false }: { q: string; a: string; open?: boolean }) {
   return (
-    <Link
-      href={href}
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full bg-[var(--rb-blue-500)] font-semibold text-white shadow-[0_2px_8px_rgba(10,132,255,0.35)] transition-all hover:bg-[var(--rb-blue-600)] hover:shadow-[0_4px_14px_rgba(10,132,255,0.45)]",
-        size === "lg" ? "h-12 px-7 text-[15px]" : "h-10 px-5 text-[14px]",
-      )}
+    <details
+      open={open}
+      className="group border-b border-[var(--rb-mk-line)] [&_summary::-webkit-details-marker]:hidden"
     >
-      {children}
-      <ArrowRight className="size-4" strokeWidth={2.5} />
-    </Link>
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-4 py-[17px] text-[16px] font-semibold tracking-[-0.012em] text-[var(--rb-fg-1)]">
+        {q}
+        <span
+          aria-hidden="true"
+          className="size-[11px] shrink-0 rotate-45 border-r-[1.5px] border-b-[1.5px] border-[var(--rb-mk-ink-4)] transition-transform group-open:-rotate-135"
+        />
+      </summary>
+      <p className="max-w-[52ch] pb-5 text-[15.5px] text-[var(--rb-fg-3)]">{a}</p>
+    </details>
   );
 }
 
-function SecondaryLink({
-  href,
-  children,
-  size = "lg",
-}: {
-  href: string;
-  children: React.ReactNode;
-  size?: "lg" | "md";
-}) {
-  return (
-    <Link
-      href={href}
-      className={cn(
-        "inline-flex items-center rounded-full border border-[var(--rb-border-2)] bg-surface font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)]",
-        size === "lg" ? "h-12 px-7 text-[15px]" : "h-10 px-5 text-[14px]",
-      )}
-    >
-      {children}
-    </Link>
-  );
-}
-
-function Eyebrow({ children }: { children: React.ReactNode }) {
-  return (
-    <p className="text-[13px] font-semibold tracking-[0.02em] text-[var(--rb-blue-500)] uppercase">
-      {children}
-    </p>
-  );
-}
-
-function SectionHeading({
-  eyebrow,
-  title,
-  lede,
-  align = "center",
-}: {
-  eyebrow: string;
-  title: string;
-  lede?: string;
-  align?: "center" | "left";
-}) {
-  return (
-    <div className={cn("max-w-2xl", align === "center" && "mx-auto text-center")}>
-      <Eyebrow>{eyebrow}</Eyebrow>
-      <h2 className="mt-3 text-[30px] leading-tight font-bold tracking-[-0.025em] text-fg-1 text-balance sm:text-[38px]">
-        {title}
-      </h2>
-      {lede && <p className="mt-4 text-[16px] leading-relaxed text-fg-2 sm:text-[17px]">{lede}</p>}
-    </div>
-  );
-}
+// ─── Sections ─────────────────────────────────────────────────────────────────
 
 /**
- * Real icons, not the "★" glyph. A text star resolves through whatever the OS
- * ships, so the core data type of a review product rendered at a different
- * weight and baseline on Windows than on the Mac it was designed on. `role`
- * is required for the label to be exposed — a bare <span> is `generic`.
+ * The mesh is painted ON the <header>, not in a negatively-stacked child.
+ * A child at -z-20 paints behind MarketingShell's own opaque background:
+ * body backgrounds propagate to the canvas and stay beneath everything, but a
+ * regular element background does not, so the gradient rendered invisible.
+ * Everything here stacks positively instead.
  */
-function Stars({ rating, size = 12 }: { rating: number; size?: number }) {
-  return (
-    <span
-      role="img"
-      aria-label={`${rating} out of 5 stars`}
-      className="inline-flex items-center gap-px"
-    >
-      {Array.from({ length: 5 }, (_, i) => (
-        <Star
-          key={i}
-          style={{ width: size, height: size }}
-          className={i < rating ? "text-[var(--rb-amber-500)]" : "text-fg-3"}
-          fill={i < rating ? "currentColor" : "none"}
-          strokeWidth={i < rating ? 0 : 1.5}
-        />
-      ))}
-    </span>
-  );
-}
-
-// ─── Hero ─────────────────────────────────────────────────────────────────────
-
-/** Floating "rating trend" card — illustrative product UI, single-hue spark. */
-function FloatCardTrend() {
-  return (
-    <div className="w-[190px] rounded-xl border border-[var(--rb-border-1)] bg-surface p-3.5 shadow-[var(--rb-shadow-lg)]">
-      <p className="rb-eyebrow text-fg-3">
-        Avg rating · 30 days
-      </p>
-      <div className="mt-1.5 flex items-baseline gap-1.5">
-        <span className="text-[20px] font-bold tracking-[-0.02em] text-fg-1">4.6</span>
-        <span className="text-[11px] font-medium text-[var(--rb-green-500)]">+0.3</span>
-      </div>
-      <svg viewBox="0 0 160 36" className="mt-2 h-9 w-full" aria-hidden="true">
-        <polyline
-          points="0,26 22,24 44,28 66,20 88,22 110,14 132,12 156,6"
-          fill="none"
-          stroke="var(--rb-blue-500)"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-        <circle cx="156" cy="6" r="3" fill="var(--rb-blue-500)" />
-      </svg>
-    </div>
-  );
-}
-
-/** Floating alert toast — status color carried by icon + label, not color alone. */
-function FloatCardAlert() {
-  return (
-    <div className="flex w-[230px] items-start gap-2.5 rounded-xl border border-[var(--rb-border-1)] bg-surface p-3.5 shadow-[var(--rb-shadow-lg)]">
-      <span className="mt-0.5 flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--rb-red-100)]">
-        <AlertTriangle className="size-3.5 text-[var(--rb-red-600)]" strokeWidth={2} />
-      </span>
-      <div className="min-w-0">
-        <p className="text-[12px] font-semibold text-fg-1">Rating spike detected</p>
-        <p className="mt-0.5 text-[11px] leading-snug text-fg-3">
-          6 one-star reviews on v4.2.1 in the last 24h
-        </p>
-      </div>
-    </div>
-  );
-}
-
-/** Floating success toast. */
-function FloatCardPosted() {
-  return (
-    <div className="flex w-[210px] items-center gap-2.5 rounded-xl border border-[var(--rb-border-1)] bg-surface p-3.5 shadow-[var(--rb-shadow-lg)]">
-      <span className="flex size-7 shrink-0 items-center justify-center rounded-lg bg-[var(--rb-green-100)]">
-        <CheckCircle2 className="size-3.5 text-[var(--rb-green-600)]" strokeWidth={2} />
-      </span>
-      <p className="text-[12px] font-semibold text-fg-1">Reply posted to App Store</p>
-    </div>
-  );
-}
-
 function Hero() {
   return (
-    <header className="relative overflow-hidden">
-      {/* Soft brand-blue wash + faint dot grid — the page's one flourish */}
+    <header className="rb-mesh-hero relative -mt-[82px] pt-[clamp(138px,15vw,200px)] pb-[clamp(56px,7vw,92px)] text-center">
+      {/* Faint engineering grid, masked to a soft oval as in the source hero. */}
       <div
         aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[640px]"
-        style={{
-          background:
-            "radial-gradient(58% 100% at 50% 0%, rgba(10,132,255,0.12) 0%, rgba(10,132,255,0.04) 45%, transparent 100%)",
-        }}
-      />
-      <div
-        aria-hidden="true"
-        className="pointer-events-none absolute inset-x-0 top-0 h-[480px] opacity-[0.5]"
+        className="pointer-events-none absolute inset-0"
         style={{
           backgroundImage:
-            "radial-gradient(color-mix(in oklab, var(--rb-fg-4) 55%, transparent) 1px, transparent 1px)",
-          backgroundSize: "22px 22px",
-          maskImage: "linear-gradient(to bottom, black 0%, transparent 85%)",
-          WebkitMaskImage: "linear-gradient(to bottom, black 0%, transparent 85%)",
+            "linear-gradient(rgba(21,14,62,.04) 1px, transparent 1px), linear-gradient(90deg, rgba(21,14,62,.04) 1px, transparent 1px)",
+          backgroundSize: "64px 64px",
+          maskImage: "radial-gradient(72% 62% at 50% 34%, #000 0%, transparent 80%)",
+          WebkitMaskImage: "radial-gradient(72% 62% at 50% 34%, #000 0%, transparent 80%)",
         }}
       />
 
-      <div className="relative mx-auto w-full max-w-6xl px-5 pt-16 pb-10 text-center sm:px-6 sm:pt-24">
-        {/* Factual capability badge, not fake social proof */}
-        <p className="mx-auto flex w-fit items-center gap-2 rounded-full border border-[var(--rb-border-1)] bg-surface px-3.5 py-1.5 text-[12px] font-medium text-fg-2 shadow-[var(--rb-shadow-xs)]">
-          <span className="size-2 rounded-full bg-[var(--rb-green-500)]" />
+      <div className="relative mx-auto w-full max-w-[1160px] px-5 sm:px-6">
+        <p className="mb-[22px] text-[16px] font-semibold text-[var(--rb-fg-2)]">
           Syncing the App Store and Google Play
         </p>
 
-        <h1 className="mx-auto mt-7 max-w-[22ch] text-[clamp(40px,6vw,68px)] leading-[1.05] font-bold tracking-[-0.035em] text-fg-1 text-balance">
+        <h1 className="mx-auto max-w-[18ch] text-[length:var(--rb-mk-h1)] leading-[1.1] font-extrabold tracking-[-0.038em] text-balance text-[var(--rb-fg-1)]">
           Every app review answered.{" "}
-          <span className="text-[var(--rb-blue-500)]">In your voice.</span>
+          <span className="relative whitespace-nowrap">
+            In your voice.
+            <svg
+              aria-hidden="true"
+              viewBox="0 0 300 12"
+              preserveAspectRatio="none"
+              className="absolute -bottom-[0.2em] left-0 h-[0.28em] w-full overflow-visible"
+            >
+              <path
+                d="M3 8.5C58 3.2 143 1.8 297 5.4"
+                fill="none"
+                stroke="var(--rb-mk-orange-deco)"
+                strokeWidth={3}
+                strokeLinecap="round"
+              />
+            </svg>
+          </span>
         </h1>
 
-        <p className="mx-auto mt-6 max-w-[54ch] text-[17px] leading-relaxed text-fg-2 sm:text-[17px]">
+        <p className="mx-auto mt-[26px] max-w-[56ch] text-[18.5px] text-[var(--rb-fg-2)]">
           ReviewBox pulls your App Store and Google Play reviews into one inbox,
           drafts replies you&apos;d actually send, and posts them back to the
           store before a bad week becomes a bad rating.
         </p>
 
-        <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
-          <PrimaryLink href="/sign-up">Start free trial</PrimaryLink>
-          <SecondaryLink href="#see-it-work">See it work</SecondaryLink>
+        <div className="mt-[34px] flex flex-wrap justify-center gap-3">
+          <InkLink href="/sign-up">Start free trial</InkLink>
+          <LineLink href="#see-it-work">See it work</LineLink>
         </div>
 
-        <p className="mt-5 text-[13px] text-fg-3">
-          14-day free trial · no credit card required · cancel anytime
-        </p>
+        <p className="mt-[18px] text-[14px] text-[var(--rb-fg-3)]">{TRIAL_NOTE}</p>
 
-        {/* The product is the hero image, with floating product moments around it */}
-        <div className="relative mt-16 text-left">
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-x-8 -top-6 bottom-8 rounded-[32px]"
-            style={{
-              background:
-                "radial-gradient(50% 60% at 50% 30%, rgba(10,132,255,0.18) 0%, transparent 100%)",
-              filter: "blur(32px)",
-            }}
-          />
-          <div className="relative">
-            <ProductFrame id="see-it-work" />
-            {/* These sit in the page gutter, not on top of the screenshot.
-                At xl the gutter is only ~64px, so a 190px card covered the
-                review list it was meant to advertise — they appear from 2xl,
-                where there is real margin, and overlap the frame edge only. */}
-            <div aria-hidden="true" className="absolute -left-44 top-24 hidden -rotate-3 2xl:block">
-              <FloatCardTrend />
-            </div>
-            <div aria-hidden="true" className="absolute -right-48 top-12 hidden rotate-2 2xl:block">
-              <FloatCardAlert />
-            </div>
-            <div aria-hidden="true" className="absolute -right-40 bottom-16 hidden rotate-1 2xl:block">
-              <FloatCardPosted />
-            </div>
-          </div>
+        <div className="mx-auto mt-[46px] max-w-[980px] text-left">
+          <ProductFrame id="see-it-work" />
         </div>
       </div>
     </header>
   );
 }
 
-// ─── Stat strip — product facts, not vanity metrics ───────────────────────────
-
 function StatStrip() {
   return (
-    <Section className="pb-4">
-      <Reveal>
-        <dl className="grid grid-cols-2 divide-[var(--rb-border-1)] overflow-hidden rounded-2xl border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)] sm:grid-cols-4 sm:divide-x">
+    <div className="border-y border-[var(--rb-mk-line)] bg-white py-[46px]">
+      <div className="mx-auto w-full max-w-[1160px] px-5 sm:px-6">
+        <p className="mb-[34px] text-center text-[13px] font-semibold text-[var(--rb-mk-ink-4)]">
+          Two stores, one queue, no spreadsheet
+        </p>
+        <div className="grid grid-cols-2 gap-x-5 gap-y-[30px] sm:grid-cols-4 sm:gap-7">
           {STATS.map((s) => (
-            <div key={s.value} className="px-6 py-5 text-center">
-              <dt className="sr-only">{s.label}</dt>
-              <dd>
-                <span className="block text-[22px] font-bold tracking-[-0.02em] text-fg-1">
-                  {s.value}
-                </span>
-                <span className="mt-1 block text-[12px] leading-snug text-fg-3">{s.label}</span>
-              </dd>
+            <div key={s.value} className="text-center">
+              <b className="mb-1 block text-[27px] font-bold tracking-[-0.035em] text-[var(--rb-fg-1)]">
+                {s.value}
+              </b>
+              <span className="block text-[14px] leading-[1.45] text-[var(--rb-fg-3)]">
+                {s.label}
+              </span>
             </div>
           ))}
-        </dl>
-      </Reveal>
-    </Section>
+        </div>
+      </div>
+    </div>
   );
 }
 
-// ─── Problem → product narrative ──────────────────────────────────────────────
+/**
+ * Icons are Lucide at strokeWidth 1.5 — the same weight the authenticated app
+ * sets globally — sitting bare on the card. An earlier pass had emoji in
+ * tinted rounded tiles, seven pastel fills cycling; that read as generated
+ * and gave marketing a second icon language the product doesn't share.
+ */
+function IconMark({ icon: Icon }: { icon: React.ElementType }) {
+  return <Icon className="mb-5 size-[26px] text-[var(--rb-fg-1)]" strokeWidth={1.5} />;
+}
 
 function Problem() {
   return (
-    <Section className="py-20 sm:py-24">
-      <Reveal>
-        <SectionHeading
-          eyebrow="The problem"
-          title="Reviews are a product signal. Most teams treat them like a chore."
-          lede="Your users are already telling you what's broken, what's confusing, and what to build next. It's just buried in two consoles nobody wants to open."
-        />
-      </Reveal>
-
-      <div className="mt-12 grid gap-4 sm:grid-cols-3">
-        {PAINS.map((p, i) => (
-          <Reveal key={p.title} delay={i * 90}>
-            <div className="h-full rounded-2xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-6">
-              <div className="flex size-10 items-center justify-center rounded-xl border border-[var(--rb-border-1)] bg-surface">
-                <p.icon className="size-5 text-fg-3" strokeWidth={1.75} />
-              </div>
-              <h3 className="mt-4 text-[16px] font-semibold text-fg-1">{p.title}</h3>
-              <p className="mt-1.5 text-[14px] leading-relaxed text-fg-2">{p.body}</p>
-            </div>
-          </Reveal>
+    <Section>
+      <SectionHead
+        center
+        eyebrow="The way it works today"
+        title="Three tabs, two consoles, and a spreadsheet"
+        body="Review management breaks in the same three places at almost every team we talk to."
+      />
+      <div className="mt-[50px] grid gap-5 md:grid-cols-3">
+        {PAINS.map((p) => (
+          <Card key={p.title}>
+            <IconMark icon={p.icon} />
+            <h3 className="mb-2.5 text-[19px] leading-[1.3] font-bold tracking-[-0.015em] text-[var(--rb-fg-1)]">
+              {p.title}
+            </h3>
+            <p className="text-[15.5px] leading-[1.55] text-[var(--rb-fg-3)]">{p.body}</p>
+          </Card>
         ))}
       </div>
-
-      <Reveal delay={200}>
-        <p className="mx-auto mt-10 max-w-[46ch] text-center text-[17px] font-medium text-fg-1">
-          ReviewBox turns that pile into a queue you can actually finish:{" "}
-          <span className="text-[var(--rb-blue-500)]">tagged, prioritized, and pre-drafted.</span>
-        </p>
-      </Reveal>
     </Section>
-  );
-}
-
-// ─── Bento feature grid — show the product, don't describe it ─────────────────
-
-function BentoCard({
-  className = "",
-  icon: Icon,
-  title,
-  body,
-  children,
-}: {
-  className?: string;
-  icon: React.ComponentType<{ className?: string; strokeWidth?: number }>;
-  title: string;
-  body: string;
-  children?: React.ReactNode;
-}) {
-  return (
-    <div
-      className={cn(
-        "flex h-full flex-col overflow-hidden rounded-2xl border border-[var(--rb-border-1)] bg-surface p-6 shadow-[var(--rb-shadow-xs)] transition-shadow hover:shadow-[var(--rb-shadow-md)]",
-        className,
-      )}
-    >
-      <div className="flex items-center gap-3">
-        <div className="flex size-9 items-center justify-center rounded-xl bg-[var(--rb-blue-50)] dark:bg-[var(--rb-bg-accent-soft)]">
-          <Icon className="size-4.5 text-[var(--rb-blue-500)]" strokeWidth={1.75} />
-        </div>
-        <h3 className="text-[16px] font-semibold text-fg-1">{title}</h3>
-      </div>
-      <p className="mt-2.5 text-[14px] leading-relaxed text-fg-2">{body}</p>
-      {children && <div className="mt-5 flex-1">{children}</div>}
-    </div>
-  );
-}
-
-/** Mini inbox rows — tags, priority dots, both store badges. */
-function VizInbox() {
-  const rows = [
-    { store: "App Store", title: "Crashes on iPad after 4.2.1", rating: 1, tag: "crash", dot: "var(--rb-red-500)" },
-    { store: "Google Play", title: "Charged twice for annual plan", rating: 2, tag: "billing", dot: "var(--rb-amber-500)" },
-    { store: "App Store", title: "Great app, but needs dark mode", rating: 4, tag: "feature-request", dot: "var(--rb-green-500)" },
-  ];
-  return (
-    <div aria-hidden="true" className="overflow-hidden rounded-xl border border-[var(--rb-border-1)]">
-      {rows.map((r) => (
-        <div
-          key={r.title}
-          className="flex items-center gap-2.5 border-b border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-3.5 py-2.5 last:border-b-0"
-        >
-          <span className="size-1.5 shrink-0 rounded-full" style={{ background: r.dot }} />
-          <span className="min-w-0 truncate text-[12px] font-medium text-fg-1">{r.title}</span>
-          <span className="ml-auto hidden shrink-0 rounded bg-surface px-1.5 py-px text-[10px] font-medium text-fg-3 sm:block">
-            {r.tag}
-          </span>
-          <span className="shrink-0">
-            <Stars rating={r.rating} size={10} />
-          </span>
-          <span className="hidden shrink-0 text-[10px] font-medium text-fg-4 md:block">
-            {r.store}
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** Mini release-spike bars — status carried by the labeled chip, not color alone. */
-function VizSpike() {
-  const days = [
-    { h: 62, flag: false },
-    { h: 58, flag: false },
-    { h: 64, flag: false },
-    { h: 60, flag: false },
-    { h: 56, flag: false },
-    { h: 30, flag: true },
-    { h: 22, flag: true },
-  ];
-  return (
-    <div aria-hidden="true">
-      <div className="flex h-20 items-end gap-1.5">
-        {days.map((d, i) => (
-          <div
-            key={i}
-            className="flex-1 rounded-t-[4px]"
-            style={{
-              height: `${d.h}%`,
-              background: d.flag ? "var(--rb-red-400)" : "var(--rb-blue-300)",
-            }}
-          />
-        ))}
-      </div>
-      <div className="mt-3 flex items-center gap-1.5 rounded-lg border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-2.5 py-1.5">
-        <AlertTriangle className="size-3.5 shrink-0 text-[var(--rb-red-600)]" strokeWidth={2} />
-        <span className="truncate text-[12px] font-medium text-fg-1">
-          Rating spike · v4.2.1 · alert sent
-        </span>
-      </div>
-    </div>
-  );
-}
-
-/** Mini topic bars — magnitudes in a single hue per the dataviz rules. */
-function VizTopics() {
-  const topics = [
-    { label: "Crashes", pct: 34 },
-    { label: "Billing", pct: 22 },
-    { label: "Feature requests", pct: 18 },
-    { label: "Login", pct: 11 },
-  ];
-  return (
-    <div aria-hidden="true" className="space-y-2.5">
-      {topics.map((t) => (
-        <div key={t.label} className="flex items-center gap-3">
-          <span className="w-[110px] shrink-0 truncate text-[12px] text-fg-2">{t.label}</span>
-          <div className="h-2 flex-1 overflow-hidden rounded-full bg-[var(--rb-bg-sunken)]">
-            <div
-              className="h-full rounded-full bg-[var(--rb-blue-500)]"
-              style={{ width: `${t.pct * 2.4}%` }}
-            />
-          </div>
-          <span className="w-8 shrink-0 text-right text-[11px] tabular-nums text-fg-3">
-            {t.pct}%
-          </span>
-        </div>
-      ))}
-    </div>
-  );
-}
-
-/** Mini automation rule — reads like the real rule builder. */
-function VizRule() {
-  const chip =
-    "rounded-md border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-2 py-1 text-[11px] font-medium text-fg-2";
-  return (
-    <div aria-hidden="true" className="flex flex-wrap items-center gap-1.5 text-[11px] text-fg-3">
-      <span className="font-medium text-fg-2">When</span>
-      <span className={chip}>rating ≤ 2</span>
-      <span>and</span>
-      <span className={chip}>tag: billing</span>
-      <ArrowRight className="size-3 text-fg-4" strokeWidth={2} />
-      <span className={chip}>priority: urgent</span>
-      <span className={chip}>draft reply</span>
-    </div>
-  );
-}
-
-/** Mini posting flow. */
-function VizPost() {
-  return (
-    <div aria-hidden="true" className="rounded-xl border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] p-3.5">
-      <p className="text-[12px] leading-relaxed text-fg-2">
-        Thanks for flagging this! A fix ships this week…
-      </p>
-      <div className="mt-3 flex items-center gap-2">
-        <span className="inline-flex h-6.5 items-center rounded-md bg-[var(--rb-blue-500)] px-2.5 text-[11px] font-semibold text-white">
-          Post reply
-        </span>
-        <span className="text-[11px] text-fg-4">→ App Store Connect</span>
-      </div>
-    </div>
-  );
-}
-
-/** Tone chips. */
-function VizTones() {
-  return (
-    <div aria-hidden="true" className="flex flex-wrap gap-1.5">
-      {["Professional", "Empathetic", "Casual", "Direct"].map((t, i) => (
-        <span
-          key={t}
-          className={cn(
-            "rounded-full px-2.5 py-1 text-[11px] font-medium",
-            i === 1
-              ? "bg-[var(--rb-blue-500)] text-white"
-              : "border border-[var(--rb-border-2)] bg-surface text-fg-2",
-          )}
-        >
-          {t}
-        </span>
-      ))}
-    </div>
   );
 }
 
 function Features() {
   return (
-    <div className="bg-[var(--rb-bg-sunken)]">
-      <Section className="py-20 sm:py-24">
-        <Reveal>
-          <SectionHeading
-            eyebrow="Everything reviews touch"
-            title="Built for the team that answers"
-            lede="From the 1-star crash report to the feature request you'll ship next quarter: one place to see it, understand it, and respond."
-          />
-        </Reveal>
-
-        <div className="mt-12 grid gap-4 md:grid-cols-6">
-          <Reveal className="md:col-span-4">
-            <BentoCard
-              icon={Inbox}
-              title="One inbox, both stores"
-              body="App Store and Google Play reviews in a single queue that's tagged, prioritized, and searchable."
-            >
-              <VizInbox />
-            </BentoCard>
-          </Reveal>
-          <Reveal className="md:col-span-2" delay={80}>
-            <BentoCard
-              icon={AlertTriangle}
-              title="Catch bad releases early"
-              body="A cluster of 1-star reviews on one version raises an alert while a fix can still ship."
-            >
-              <VizSpike />
-            </BentoCard>
-          </Reveal>
-          <Reveal className="md:col-span-2" delay={0}>
-            <BentoCard
-              icon={PenLine}
-              title="Replies in your voice"
-              body="Four tones, grounded in your templates and knowledge base. You edit, you approve."
-            >
-              <VizTones />
-            </BentoCard>
-          </Reveal>
-          <Reveal className="md:col-span-2" delay={80}>
-            <BentoCard
-              icon={Send}
-              title="Post straight to the store"
-              body="One click sends the reply through the official store APIs. No tab-switching."
-            >
-              <VizPost />
-            </BentoCard>
-          </Reveal>
-          <Reveal className="md:col-span-2" delay={160}>
-            <BentoCard
-              icon={BarChart2}
-              title="Sentiment & topics"
-              body="Recurring complaints tracked over time, tied to the release they arrived on."
-            >
-              <VizTopics />
-            </BentoCard>
-          </Reveal>
-          <Reveal className="md:col-span-6" delay={0}>
-            <BentoCard
-              icon={Workflow}
-              title="Automations that do the boring half"
-              body="Rules that tag, prioritize, and pre-draft replies for new reviews as they sync, so the queue is half-done before you open it."
-            >
-              <VizRule />
-            </BentoCard>
-          </Reveal>
-        </div>
-      </Section>
-    </div>
-  );
-}
-
-// ─── How it works ─────────────────────────────────────────────────────────────
-
-function HowItWorks() {
-  return (
-    <Section className="py-20 sm:py-24">
-      <Reveal>
-        <SectionHeading
-          eyebrow="How it works"
-          title="From signup to first reply in about a minute"
-        />
-      </Reveal>
-
-      <div className="relative mt-14 grid gap-10 sm:grid-cols-3 sm:gap-8">
-        {/* Connector line behind the step numbers on desktop */}
-        <div
-          aria-hidden="true"
-          className="absolute top-[18px] right-[16%] left-[16%] hidden border-t border-dashed border-[var(--rb-border-2)] sm:block"
-        />
-        {STEPS.map((s, i) => (
-          <Reveal key={s.n} delay={i * 110}>
-            <div className="relative text-center">
-              <div className="mx-auto flex size-9 items-center justify-center rounded-full bg-[var(--rb-blue-500)] text-[15px] font-bold text-white shadow-[0_2px_8px_rgba(10,132,255,0.35)] ring-4 ring-[var(--rb-bg-canvas)]">
-                {s.n}
-              </div>
-              <h3 className="mt-4 text-[16px] font-semibold text-fg-1">{s.title}</h3>
-              <p className="mx-auto mt-1.5 max-w-[34ch] text-[14px] leading-relaxed text-fg-2">
-                {s.body}
-              </p>
-            </div>
-          </Reveal>
+    <Section className="bg-[var(--rb-mk-sunken)]">
+      <SectionHead
+        eyebrow="What you get"
+        title={
+          <>
+            Four things,
+            <br />
+            done properly
+          </>
+        }
+      />
+      <div className="mt-[50px] grid gap-5 md:grid-cols-2">
+        {FEATURES.map((f) => (
+          <Card key={f.title}>
+            <IconMark icon={f.icon} />
+            <h3 className="mb-2.5 text-[19px] leading-[1.3] font-bold tracking-[-0.015em] text-[var(--rb-fg-1)]">
+              {f.title}
+            </h3>
+            <p className="text-[15.5px] leading-[1.55] text-[var(--rb-fg-3)]">{f.body}</p>
+          </Card>
         ))}
       </div>
     </Section>
-  );
-}
-
-// ─── AI reply deep-dive ───────────────────────────────────────────────────────
-
-function ReplyDemoCard() {
-  const [typed, setTyped] = useState(DEMO_DRAFT);
-
-  useEffect(() => {
-    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
-    setTyped("");
-    let i = 0;
-    const id = setInterval(() => {
-      i += 2;
-      setTyped(DEMO_DRAFT.slice(0, i));
-      if (i >= DEMO_DRAFT.length) clearInterval(id);
-    }, 18);
-    return () => clearInterval(id);
-  }, []);
-
-  return (
-    <div className="overflow-hidden rounded-2xl border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-md)]">
-      <div className="border-b border-[var(--rb-border-1)] p-5">
-        <div className="flex items-center justify-between gap-3">
-          <span className="rb-eyebrow text-fg-3">
-            {DEMO_REVIEW.meta}
-          </span>
-          <Stars rating={1} size={12} />
-        </div>
-        <p className="mt-2.5 text-[14px] font-semibold text-fg-1">{DEMO_REVIEW.title}</p>
-        <p className="mt-1 text-[13px] leading-relaxed text-fg-2">{DEMO_REVIEW.body}</p>
-      </div>
-      <div className="bg-[var(--rb-bg-sunken)] p-5">
-        <span className="rb-eyebrow text-fg-3">
-          Suggested reply · your voice
-        </span>
-        <p className="mt-2 min-h-[4.2rem] text-[13px] leading-relaxed text-fg-1">
-          {typed}
-          {typed.length < DEMO_DRAFT.length && (
-            <span className="ml-0.5 inline-block h-[1.05em] w-[2px] translate-y-[0.15em] bg-[var(--rb-blue-500)] align-baseline" />
-          )}
-        </p>
-        <div className="mt-3 flex items-center gap-2">
-          <span className="inline-flex h-7 items-center rounded-md bg-[var(--rb-blue-500)] px-3 text-[12px] font-semibold text-white">
-            Post reply
-          </span>
-          <span className="inline-flex h-7 items-center rounded-md border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-medium text-fg-2">
-            Edit
-          </span>
-        </div>
-      </div>
-    </div>
   );
 }
 
 function ReplyDeepDive() {
   return (
-    <div className="bg-[var(--rb-bg-sunken)]">
-      <Section className="py-20 sm:py-24">
-        <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
-          <Reveal>
-            <div>
-              <Eyebrow>AI replies</Eyebrow>
-              <h2 className="mt-3 max-w-[18ch] text-[30px] leading-tight font-bold tracking-[-0.025em] text-fg-1 sm:text-[38px]">
-                Drafts that sound like you wrote them
-              </h2>
-              <p className="mt-4 max-w-[50ch] text-[16px] leading-relaxed text-fg-2">
-                Every draft is grounded in your own reply templates and knowledge
-                base: refund policy, known issues, tone. It answers the actual
-                complaint instead of apologizing generically, and you always
-                review before anything posts.
-              </p>
-              <ul className="mt-6 space-y-3">
-                {[
-                  "Four tones: professional, empathetic, casual, direct",
-                  "Grounded in your templates and knowledge base",
-                  "Translate and reply across languages",
-                  "Nothing posts without your click",
-                ].map((li) => (
-                  <li key={li} className="flex items-start gap-2.5 text-[14px] text-fg-2">
-                    <Check
-                      className="mt-0.5 size-4 shrink-0 text-[var(--rb-blue-500)]"
-                      strokeWidth={2.25}
-                    />
-                    {li}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </Reveal>
-          <Reveal delay={120}>
-            <ReplyDemoCard />
-          </Reveal>
-        </div>
-      </Section>
-    </div>
-  );
-}
-
-// ─── Release-health deep-dive ─────────────────────────────────────────────────
-
-function ReleaseHealthCard() {
-  const releases = [
-    { v: "4.2.1", status: "Regressing", delta: "−0.8", rollout: 46, alert: true },
-    { v: "4.2.0", status: "Healthy", delta: "+0.1", rollout: 100, alert: false },
-    { v: "4.1.9", status: "Healthy", delta: "+0.2", rollout: 100, alert: false },
-  ];
-  return (
-    <div
-      aria-label="Release health: version 4.2.1 flagged as regressing with an alert sent"
-      className="overflow-hidden rounded-2xl border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-md)]"
-    >
-      <div className="flex items-center justify-between border-b border-[var(--rb-border-1)] px-5 py-3.5">
-        <span className="text-[13px] font-semibold text-fg-1">Release health</span>
-        <span className="text-[11px] font-medium text-fg-3">
-          last 3 versions
-        </span>
-      </div>
-      <div>
-        {releases.map((r) => (
-          <div
-            key={r.v}
-            className="flex items-center gap-3 border-b border-[var(--rb-border-1)] px-5 py-3.5 last:border-b-0"
-          >
-            <span className="w-12 shrink-0 text-[12px] font-semibold tabular-nums text-fg-1">
-              {r.v}
-            </span>
-            <span
-              className={cn(
-                "inline-flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-medium",
-                r.alert
-                  ? "bg-[var(--rb-red-100)] text-[var(--rb-red-600)]"
-                  : "bg-[var(--rb-green-100)] text-[var(--rb-green-600)]",
-              )}
-            >
-              {r.alert ? (
-                <AlertTriangle className="size-3" strokeWidth={2} />
-              ) : (
-                <Check className="size-3" strokeWidth={2.5} />
-              )}
-              {r.status}
-            </span>
-            <span className="ml-1 flex shrink-0 items-center gap-0.5 text-[12px] font-medium tabular-nums text-fg-2">
-              {r.delta}
-              <Star className="size-2.5 text-fg-3" fill="currentColor" strokeWidth={0} />
-            </span>
-            <div className="ml-auto hidden h-1.5 w-20 overflow-hidden rounded-full bg-[var(--rb-bg-sunken)] sm:block">
-              <div
-                className="h-full rounded-full bg-[var(--rb-blue-500)]"
-                style={{ width: `${r.rollout}%` }}
-              />
-            </div>
-            <span className="hidden w-9 shrink-0 text-right text-[11px] tabular-nums text-fg-3 sm:block">
-              {r.rollout}%
-            </span>
+    <Section>
+      <div className="grid items-center gap-[60px] lg:grid-cols-2">
+        <div>
+          <Eyebrow>Replies</Eyebrow>
+          <h2 className="text-[length:var(--rb-mk-h2)] leading-[1.1] font-bold tracking-[-0.028em] text-balance text-[var(--rb-fg-1)]">
+            Drafts you&apos;d actually send
+          </h2>
+          <p className="mt-[18px] max-w-[52ch] text-[18px] text-[var(--rb-fg-3)]">
+            The draft is grounded in what your team has already written, so it
+            answers the specific complaint instead of thanking someone for their
+            feedback.
+          </p>
+          <div className="mt-7 border-t border-[var(--rb-mk-line)]">
+            {REPLY_POINTS.map((p, i) => (
+              <Disclosure key={p.q} q={p.q} a={p.a} open={i === 0} />
+            ))}
           </div>
-        ))}
+        </div>
+
+        <ul className="grid gap-3.5 rounded-[var(--rb-mk-r-frame)] border border-[var(--rb-mk-line)] bg-white p-8">
+          {[
+            ["Reviewer wrote", "“Crashes on iPad after 4.2.1 — the budgets tab freezes.”"],
+            [
+              "Draft came back",
+              "“Thanks for flagging the iPad freeze on 4.2.1. We reproduced it this morning and a fix is rolling out this week.”",
+            ],
+            ["You did", "Read it, changed one word, clicked Post."],
+          ].map(([label, body]) => (
+            <li key={label}>
+              <p className="mb-1.5 text-[11.5px] font-bold tracking-[0.12em] text-[var(--rb-mk-orange-text)] uppercase">
+                {label}
+              </p>
+              <p className="text-[15.5px] leading-[1.55] text-[var(--rb-fg-1)]">{body}</p>
+            </li>
+          ))}
+        </ul>
       </div>
-      <div className="flex items-center gap-2 bg-[var(--rb-bg-sunken)] px-5 py-3">
-        <AlertTriangle className="size-3.5 shrink-0 text-[var(--rb-red-600)]" strokeWidth={2} />
-        <span className="text-[12px] text-fg-2">
-          Alert emailed: 6 one-star reviews on 4.2.1 in 24 hours
-        </span>
-      </div>
-    </div>
+    </Section>
   );
 }
 
 function ReleaseDeepDive() {
   return (
-    <Section className="py-20 sm:py-24">
-      <div className="grid items-center gap-10 lg:grid-cols-2 lg:gap-16">
-        <Reveal className="lg:order-2">
-          <div>
-            <Eyebrow>Release monitoring</Eyebrow>
-            <h2 className="mt-3 max-w-[20ch] text-[30px] leading-tight font-bold tracking-[-0.025em] text-fg-1 sm:text-[38px]">
-              Know a bad release before your rating does
-            </h2>
-            <p className="mt-4 max-w-[50ch] text-[16px] leading-relaxed text-fg-2">
-              Every review is tied to the app version it arrived on. When
-              one-star reviews cluster on a new release, ReviewBox raises an
-              alert while the rollout is still small enough to pause, not after
-              the store average has taken the hit.
-            </p>
-            <ul className="mt-6 space-y-3">
-              {[
-                "Rating-spike detection on every sync",
-                "Complaints grouped by the version that caused them",
-                "Email alerts the moment a release starts regressing",
-                "Release health at a glance: rating and complaint deltas",
-              ].map((li) => (
-                <li key={li} className="flex items-start gap-2.5 text-[14px] text-fg-2">
-                  <Check
-                    className="mt-0.5 size-4 shrink-0 text-[var(--rb-blue-500)]"
-                    strokeWidth={2.25}
+    <Section className="bg-[var(--rb-mk-sunken)]">
+      <div className="grid items-center gap-[60px] lg:grid-cols-2">
+        {/* Visual first on desktop, second on mobile — the copy should lead
+            when the two stack, or the reader meets a chart with no framing. */}
+        <div className="order-2 lg:order-1">
+          <figure className="rounded-[var(--rb-mk-r-frame)] border border-[var(--rb-mk-line)] bg-white px-7 py-6">
+            {RELEASE_ROWS.map((r) => (
+              <div
+                key={r.version}
+                className="flex items-center gap-[18px] border-b border-[var(--rb-mk-line)] py-[15px] last:border-b-0"
+              >
+                <span className="min-w-[54px] font-[family-name:var(--rb-font-mono)] text-[13px] font-semibold text-[var(--rb-fg-1)]">
+                  {r.version}
+                </span>
+                <span className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--rb-mk-sunken)]">
+                  <span
+                    className="block h-full rounded-full"
+                    style={{
+                      width: `${r.share}%`,
+                      background: `var(--rb-mk-sev-${r.step})`,
+                    }}
                   />
-                  {li}
-                </li>
-              ))}
-            </ul>
+                </span>
+                <span
+                  className={cn(
+                    "min-w-[52px] text-right font-[family-name:var(--rb-font-mono)] text-[13px] font-semibold tabular-nums",
+                    r.rising
+                      ? "text-[var(--rb-green-600)]"
+                      : "text-[var(--rb-red-600)]",
+                  )}
+                >
+                  {r.delta}
+                </span>
+              </div>
+            ))}
+            <figcaption className="mt-4 text-[12px] text-[var(--rb-mk-ink-4)]">
+              Share of reviews rated ≤2, by version · illustrative
+            </figcaption>
+          </figure>
+        </div>
+
+        <div className="order-1 lg:order-2">
+          <Eyebrow>Release health</Eyebrow>
+          <h2 className="text-[length:var(--rb-mk-h2)] leading-[1.1] font-bold tracking-[-0.028em] text-balance text-[var(--rb-fg-1)]">
+            Catch the bad build on day one
+          </h2>
+          <p className="mt-[18px] max-w-[52ch] text-[18px] text-[var(--rb-fg-3)]">
+            Ratings tracked per version, not per app. A regression shows up
+            against the version that caused it, while you can still roll back.
+          </p>
+          <ul className="mt-[26px] grid gap-3.5">
+            {RELEASE_POINTS.map((p) => (
+              <li key={p} className="flex items-start gap-3 text-[16px] text-[var(--rb-fg-2)]">
+                <Check
+                  className="mt-1 size-[17px] shrink-0 text-[var(--rb-mk-orange-text)]"
+                  strokeWidth={2}
+                />
+                {p}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-7">
+            <AmberLink href="/sign-up">Start your free trial</AmberLink>
           </div>
-        </Reveal>
-        <Reveal delay={120} className="lg:order-1">
-          <ReleaseHealthCard />
-        </Reveal>
+        </div>
       </div>
     </Section>
   );
 }
 
-// ─── Pricing ──────────────────────────────────────────────────────────────────
-
-function Pricing() {
+function HowItWorks() {
   return (
-    <div className="bg-[var(--rb-bg-sunken)]">
-      <Section className="py-20 sm:py-24">
-        <Reveal>
-          <SectionHeading
-            eyebrow="Pricing"
-            title="Simple pricing, no surprises"
-            lede="Every plan starts with the same 14-day trial, and no plan asks for a card up front."
-          />
-        </Reveal>
-
-        <div className="mt-12 grid gap-5 lg:grid-cols-3">
-          {PLANS.map((plan, i) => (
-            <Reveal key={plan.name} delay={i * 90}>
-              <div
-                className={cn(
-                  "relative flex h-full flex-col rounded-2xl border bg-surface p-6",
-                  plan.popular
-                    ? "border-[var(--rb-blue-500)] shadow-[var(--rb-shadow-md)] lg:-my-2 lg:py-8"
-                    : "border-[var(--rb-border-1)] shadow-[var(--rb-shadow-xs)]",
-                )}
-              >
-                {plan.popular && (
-                  <span className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-[var(--rb-blue-500)] px-3 py-0.5 text-[11px] font-bold tracking-wide text-white uppercase">
-                    Most popular
-                  </span>
-                )}
-                <h3 className="text-[15px] font-semibold text-fg-1">{plan.name}</h3>
-                <p className="mt-3">
-                  <span className="text-[38px] font-bold tracking-[-0.03em] text-fg-1">
-                    ${plan.price}
-                  </span>
-                  <span className="ml-1.5 text-[14px] text-fg-3">/ month</span>
-                </p>
-                <p className="mt-2 text-[13px] leading-relaxed text-fg-2">{plan.body}</p>
-                <ul className="mt-5 flex-1 space-y-2 border-t border-[var(--rb-border-1)] pt-5">
-                  {plan.features.map((f) => (
-                    <li key={f} className="flex items-center gap-2 text-[13px] text-fg-2">
-                      <Check
-                        className="size-3.5 shrink-0 text-[var(--rb-green-500)]"
-                        strokeWidth={2.5}
-                      />
-                      {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link
-                  href="/sign-up"
-                  className={cn(
-                    "mt-6 inline-flex h-10 w-full items-center justify-center gap-1.5 rounded-full text-[14px] font-semibold transition-colors",
-                    plan.popular
-                      ? "bg-[var(--rb-blue-500)] text-white hover:bg-[var(--rb-blue-600)]"
-                      : "border border-[var(--rb-border-3)] text-fg-1 hover:bg-[var(--rb-bg-hover)]",
-                  )}
-                >
-                  Start free trial
-                  <ArrowRight className="size-3.5" strokeWidth={2.25} />
-                </Link>
-              </div>
-            </Reveal>
-          ))}
-        </div>
-
-        <Reveal delay={200}>
-          <p className="mt-10 text-center text-[14px] text-fg-3">
-            <Link
-              href="/pricing"
-              className="font-medium text-[var(--rb-blue-500)] hover:underline"
-            >
-              Full plan comparison →
-            </Link>
-          </p>
-        </Reveal>
-      </Section>
-    </div>
+    <Section>
+      <SectionHead center eyebrow="How it works" title="Connected in a morning" />
+      <div className="mt-[50px] grid gap-5 md:grid-cols-3">
+        {STEPS.map((s) => (
+          <Card key={s.n}>
+            {/* Numbered because connect → triage → reply is a real sequence,
+                not because three cards wanted decorating. */}
+            <span className="mb-4 block border-b border-[var(--rb-mk-line)] pb-3.5 font-[family-name:var(--rb-font-mono)] text-[13px] font-semibold tracking-[0.08em] text-[var(--rb-fg-3)]">
+              {s.n}
+            </span>
+            <h3 className="mb-2.5 text-[19px] leading-[1.3] font-bold tracking-[-0.015em] text-[var(--rb-fg-1)]">
+              {s.title}
+            </h3>
+            <p className="text-[15.5px] leading-[1.55] text-[var(--rb-fg-3)]">{s.body}</p>
+          </Card>
+        ))}
+      </div>
+    </Section>
   );
 }
 
-// ─── FAQ ──────────────────────────────────────────────────────────────────────
+function Mechanics() {
+  return (
+    <section className="bg-[var(--rb-mk-night)] py-[clamp(66px,8vw,112px)] text-[#B9B3CC]">
+      <div className="mx-auto w-full max-w-[1160px] px-5 sm:px-6">
+        <div className="grid items-center gap-[60px] lg:grid-cols-2">
+          <div>
+            <span className="mb-4 block text-[12.5px] font-bold tracking-[0.13em] text-[#FFC344] uppercase">
+              Why it exists
+            </span>
+            <h2 className="text-[length:var(--rb-mk-h2)] leading-[1.1] font-bold tracking-[-0.028em] text-balance text-white">
+              Built by people who
+              <br />
+              answered the queue
+            </h2>
+            <p className="mt-[18px] max-w-[46ch] text-[17.5px]">
+              ReviewBox exists because replying to store reviews properly used
+              to mean two consoles, a spreadsheet and an afternoon.
+            </p>
+          </div>
+
+          <dl className="border-t border-white/[0.13]">
+            {MECHANICS.map((m) => (
+              <div
+                key={m.label}
+                className="flex flex-wrap items-baseline gap-x-3 border-b border-white/[0.13] py-3.5 text-[14.5px]"
+              >
+                <dt className="min-w-[92px] font-semibold text-white">{m.label}</dt>
+                <dd>{m.body}</dd>
+              </div>
+            ))}
+          </dl>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function Pricing() {
+  const plans = [
+    { key: "starter" as const, cta: "Start free trial", href: "/sign-up", highlight: false },
+    { key: "pro" as const, cta: "Start free trial", href: "/sign-up", highlight: true },
+    { key: "enterprise" as const, cta: "Contact sales", href: "/contact", highlight: false },
+  ];
+
+  return (
+    <Section>
+      <SectionHead
+        center
+        eyebrow="Pricing"
+        title="Start free, pay when it earns it"
+        body="Every plan begins with the same 14-day trial and none of them asks for a card up front."
+      />
+      <div className="mt-[50px] grid gap-5 md:grid-cols-3">
+        {plans.map(({ key, cta, href, highlight }) => {
+          const plan = PLAN_PRICING[key];
+          return (
+            <Card
+              key={key}
+              className={cn(
+                "relative flex flex-col",
+                highlight && "border-[var(--rb-mk-ink)] hover:border-[var(--rb-mk-ink)]",
+              )}
+            >
+              {highlight && (
+                <span className="absolute -top-[11px] left-[30px] rounded-full bg-[var(--rb-mk-amber-500)] px-3.5 py-1 text-[11px] font-bold tracking-[0.09em] text-[var(--rb-mk-ink)] uppercase">
+                  Most popular
+                </span>
+              )}
+              <span className="text-[12.5px] font-bold tracking-[0.13em] text-[var(--rb-mk-orange-text)] uppercase">
+                {plan.label}
+              </span>
+
+              <p className="mt-4 mb-2 flex items-baseline gap-1.5">
+                <span className="text-[42px] font-bold tracking-[-0.045em] text-[var(--rb-fg-1)]">
+                  {plan.onRequest ? "Talk to us" : `$${plan.monthlyUsd}`}
+                </span>
+                {!plan.onRequest && (
+                  <span className="text-[15px] font-medium text-[var(--rb-fg-3)]">/month</span>
+                )}
+              </p>
+
+              <p className="min-h-[46px] text-[14.5px] leading-[1.5] text-[var(--rb-fg-3)]">
+                {plan.tagline}
+              </p>
+
+              <ul className="mt-[22px] mb-7 grid gap-2.5 border-t border-[var(--rb-mk-line)] pt-[22px]">
+                {PLAN_FEATURES[key].map((f) => (
+                  <li
+                    key={f}
+                    className="flex items-start gap-3 text-[14.5px] text-[var(--rb-fg-2)]"
+                  >
+                    <Check
+                      className="mt-1 size-[17px] shrink-0 text-[var(--rb-mk-ink-4)]"
+                      strokeWidth={1.8}
+                    />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+
+              <div className="mt-auto [&>a]:w-full">
+                {highlight ? (
+                  <AmberLink href={href}>{cta}</AmberLink>
+                ) : (
+                  <LineLink href={href}>{cta}</LineLink>
+                )}
+              </div>
+            </Card>
+          );
+        })}
+      </div>
+
+      <p className="mt-[26px] text-center text-[14.5px] text-[var(--rb-fg-3)]">
+        Annual billing brings {PLAN_PRICING.starter.label} to ${PLAN_PRICING.starter.annualUsd}
+        /month and {PLAN_PRICING.pro.label} to ${PLAN_PRICING.pro.annualUsd}/month.
+      </p>
+    </Section>
+  );
+}
 
 function Faq() {
   return (
-    <Section className="py-20 sm:py-24">
-      <div className="grid gap-10 lg:grid-cols-[1fr_1.6fr] lg:gap-16">
-        <Reveal>
-          <div>
-            <Eyebrow>FAQ</Eyebrow>
-            <h2 className="mt-3 max-w-[14ch] text-[30px] leading-tight font-bold tracking-[-0.025em] text-fg-1 sm:text-[38px]">
-              Questions, answered straight
-            </h2>
-            <p className="mt-4 max-w-[38ch] text-[15px] leading-relaxed text-fg-2">
-              More in the{" "}
-              <Link href="/faq" className="font-medium text-[var(--rb-blue-500)] hover:underline">
-                full FAQ
-              </Link>
-              , or email{" "}
-              <a
-                href="mailto:hello@tryreviewbox.com"
-                className="font-medium text-[var(--rb-blue-500)] hover:underline"
-              >
-                hello@tryreviewbox.com
-              </a>{" "}
-              and a human answers.
-            </p>
-          </div>
-        </Reveal>
-
-        <Reveal delay={100}>
-          <div className="divide-y divide-[var(--rb-border-1)] rounded-2xl border border-[var(--rb-border-1)] bg-surface px-6 shadow-[var(--rb-shadow-xs)]">
-            {FAQS.map((f) => (
-              <details key={f.q} className="group py-5">
-                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 text-[15px] font-semibold text-fg-1 [&::-webkit-details-marker]:hidden">
-                  {f.q}
-                  <span
-                    aria-hidden="true"
-                    className="flex size-6 shrink-0 items-center justify-center rounded-full border border-[var(--rb-border-2)] text-fg-3 transition-transform group-open:rotate-45"
-                  >
-                    +
-                  </span>
-                </summary>
-                <p className="mt-3 max-w-[62ch] text-[14px] leading-relaxed text-fg-2">{f.a}</p>
-              </details>
-            ))}
-          </div>
-        </Reveal>
+    <Section className="bg-[var(--rb-mk-sunken)]">
+      <SectionHead center eyebrow="Questions" title="Before you start" />
+      <div className="mx-auto mt-10 max-w-[760px] border-t border-[var(--rb-mk-line)]">
+        {FAQS.map((f, i) => (
+          <Disclosure key={f.q} q={f.q} a={f.a} open={i === 0} />
+        ))}
       </div>
     </Section>
   );
 }
 
-// ─── Closing CTA band ─────────────────────────────────────────────────────────
-
 function Closing() {
   return (
-    <Section className="pb-20 sm:pb-24">
-      <Reveal>
-        <div
-          className="relative overflow-hidden rounded-3xl px-6 py-16 text-center sm:py-20"
-          style={{
-            background:
-              "linear-gradient(135deg, var(--rb-blue-500) 0%, var(--rb-blue-700) 100%)",
-          }}
-        >
-          <div
-            aria-hidden="true"
-            className="pointer-events-none absolute inset-0 opacity-40"
-            style={{
-              backgroundImage:
-                "radial-gradient(rgba(255,255,255,0.35) 1px, transparent 1px)",
-              backgroundSize: "24px 24px",
-              maskImage: "radial-gradient(60% 80% at 50% 0%, black 0%, transparent 100%)",
-              WebkitMaskImage:
-                "radial-gradient(60% 80% at 50% 0%, black 0%, transparent 100%)",
-            }}
-          />
-          <h2 className="relative mx-auto max-w-[24ch] text-[28px] leading-tight font-bold tracking-[-0.025em] text-white text-balance sm:text-[38px]">
-            Your reviews are already waiting. Answer them today.
-          </h2>
-          <p className="relative mx-auto mt-4 max-w-[44ch] text-[15px] leading-relaxed text-white/85">
-            Connect an app and see your real reviews in about a minute. Free for
-            14 days on every plan. No credit card, no sales call.
-          </p>
-          <div className="relative mt-8 flex flex-wrap items-center justify-center gap-3">
-            <Link
-              href="/sign-up"
-              className="inline-flex h-12 items-center gap-1.5 rounded-full bg-white px-7 text-[15px] font-semibold text-[var(--rb-blue-600)] shadow-[0_4px_16px_rgba(0,0,0,0.15)] transition-transform hover:scale-[1.02]"
-            >
-              Start free trial
-              <ArrowRight className="size-4" strokeWidth={2.5} />
-            </Link>
-            <Link
-              href="/help"
-              className="inline-flex h-12 items-center rounded-full border border-white/40 px-7 text-[15px] font-semibold text-white transition-colors hover:bg-white/10"
-            >
-              Read the docs
-            </Link>
-          </div>
+    <Section>
+      <div className="rounded-[28px] border border-[var(--rb-mk-line)] rb-mesh-panel px-8 py-[clamp(48px,6vw,78px)] text-center">
+        <h2 className="text-[length:var(--rb-mk-h2)] leading-[1.1] font-bold tracking-[-0.028em] text-balance text-[var(--rb-fg-1)]">
+          Clear the queue this week
+        </h2>
+        <p className="mx-auto mt-[18px] max-w-[56ch] text-[18px] text-[var(--rb-fg-3)]">
+          Connect an app in about two minutes and see your real reviews, tagged
+          and drafted, before the trial clock matters.
+        </p>
+        <div className="mt-[34px] flex flex-wrap justify-center gap-3">
+          <AmberLink href="/sign-up">Start free trial</AmberLink>
+          <LineLink href="/contact">Book a walkthrough</LineLink>
         </div>
-      </Reveal>
+        <p className="mt-[18px] text-[14px] text-[var(--rb-fg-3)]">{TRIAL_NOTE}</p>
+      </div>
     </Section>
   );
 }
@@ -1220,9 +792,10 @@ export function LandingPage() {
         <StatStrip />
         <Problem />
         <Features />
-        <HowItWorks />
         <ReplyDeepDive />
         <ReleaseDeepDive />
+        <HowItWorks />
+        <Mechanics />
         <Pricing />
         <Faq />
         <Closing />

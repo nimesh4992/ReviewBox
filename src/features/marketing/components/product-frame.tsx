@@ -169,7 +169,7 @@ export function ProductFrame({ id }: { id?: string }) {
                   <span className="truncate text-[13px] font-medium text-fg-1">
                     {r.title}
                   </span>
-                  <span className="ml-auto shrink-0 text-[11px] text-fg-4">{r.time}</span>
+                  <span className="ml-auto shrink-0 text-[11px] text-fg-3">{r.time}</span>
                 </div>
                 <p className="mt-1 truncate pl-3.5 text-[12px] text-fg-3">{r.snippet}</p>
                 <div className="mt-1.5 flex items-center gap-2 pl-3.5">
@@ -189,7 +189,15 @@ export function ProductFrame({ id }: { id?: string }) {
             <span className="rb-eyebrow text-fg-3">
               App Store · iOS · v4.2.1
             </span>
-            <span className="rounded-full bg-[var(--rb-red-100)] px-2 py-0.5 text-[11px] font-medium text-[var(--rb-red-600)]">
+            {/* Dot + label, matching the queue rows on the left. A solid
+                red-100 fill made this the loudest thing in the frame while
+                saying no more than the dot does, and put the meaning in the
+                colour rather than in the word. */}
+            <span className="inline-flex items-center gap-1.5 rounded-md border border-[var(--rb-border-1)] bg-[var(--rb-bg-sunken)] px-2 py-0.5 text-[11px] font-medium text-fg-2">
+              <span
+                aria-hidden="true"
+                className="size-1.5 rounded-full bg-[var(--rb-red-500)]"
+              />
               Urgent
             </span>
           </div>
