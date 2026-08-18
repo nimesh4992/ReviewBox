@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { MarketingShell } from "@/components/layout/marketing-shell";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
@@ -26,7 +27,7 @@ const SECTIONS = [
 
 export default function ReviewHistoryPage() {
   return (
-    <div className="min-h-screen bg-[#F5F5F7]">
+    <MarketingShell>
       <MarketingNav />
 
       <div className="mx-auto max-w-screen-xl px-6 py-3">
@@ -243,6 +244,6 @@ export default function ReviewHistoryPage() {
       </main>
 
       <MarketingFooter />
-    </div>
+    </MarketingShell>
   );
 }

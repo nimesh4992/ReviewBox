@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Search, BookOpen, Workflow, CreditCard, Shield, ChevronRight } from "lucide-react";
+import { MarketingShell } from "@/components/layout/marketing-shell";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
@@ -76,7 +77,7 @@ const POPULAR = [
 
 export default function HelpPage() {
   return (
-    <div className="min-h-screen bg-[#F5F5F7]">
+    <MarketingShell>
       <MarketingNav />
 
       {/* Breadcrumb */}
@@ -173,6 +174,6 @@ export default function HelpPage() {
       </main>
 
       <MarketingFooter />
-    </div>
+    </MarketingShell>
   );
 }
