@@ -5,6 +5,10 @@ import Link from "next/link";
 import { ArrowRight, Star } from "lucide-react";
 
 import { cn } from "@/lib/utils";
+// Not re-exported: a Server Component importing a plain value THROUGH this
+// "use client" module receives a client reference, not the object. See
+// ../rhythm.ts for the full story.
+import { RHYTHM } from "@/features/marketing/rhythm";
 
 /**
  * The marketing design system, in one file.
@@ -57,18 +61,6 @@ export function Section({
     </Tag>
   );
 }
-
-/**
- * Vertical rhythm. Three steps only — sections are `md`, the first section
- * under a hero is `sm`, and a closing band is `lg`. Hand-picked mt-20 values
- * scattered through a page are what produced the flat, evenly-spaced,
- * "generated" feel.
- */
-export const RHYTHM = {
-  sm: "py-14 sm:py-16",
-  md: "py-16 sm:py-24",
-  lg: "py-20 sm:py-28",
-} as const;
 
 /** Alternating band background, for separating adjacent sections. */
 export function Band({

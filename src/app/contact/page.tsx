@@ -11,10 +11,10 @@ import {
   FaqList,
   PageHero,
   Reveal,
-  RHYTHM,
   Section,
   SectionHeading,
 } from "@/features/marketing/components/primitives";
+import { RHYTHM } from "@/features/marketing/rhythm";
 
 export const metadata = {
   title: "Contact",

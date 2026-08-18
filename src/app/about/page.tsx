@@ -8,11 +8,11 @@ import {
   CtaBand,
   PageHero,
   Reveal,
-  RHYTHM,
   Section,
   SectionHeading,
   SecondaryLink,
 } from "@/features/marketing/components/primitives";
+import { RHYTHM } from "@/features/marketing/rhythm";
 
 export const metadata = {
   title: "About",

@@ -9,10 +9,10 @@ import {
   FaqList,
   PageHero,
   Reveal,
-  RHYTHM,
   Section,
   SectionHeading,
 } from "@/features/marketing/components/primitives";
+import { RHYTHM } from "@/features/marketing/rhythm";
 import {
   PAID_PLANS,
   PLAN_LIMITS,

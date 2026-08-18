@@ -28,12 +28,12 @@ import {
   Eyebrow,
   PrimaryLink,
   Reveal,
-  RHYTHM,
   Section,
   SectionHeading,
   SecondaryLink,
   Stars,
 } from "@/features/marketing/components/primitives";
+import { RHYTHM } from "@/features/marketing/rhythm";
 import {
   PAID_PLANS,
   PLAN_LIMITS,

@@ -12,11 +12,11 @@ import {
   PageHero,
   PrimaryLink,
   Reveal,
-  RHYTHM,
   Section,
   SectionHeading,
   SecondaryLink,
 } from "@/features/marketing/components/primitives";
+import { RHYTHM } from "@/features/marketing/rhythm";
 import {
   PLAN_LIMITS,
   PLAN_PRICING,
@@ -211,8 +211,12 @@ export default function ComparePage() {
         <PageHero
           eyebrow="ReviewBox vs AppFollow"
           title={
+            // Explicit break: as one balanced run, "Better" and "AI." split
+            // across lines and the blue clause started mid-line. Hidden below
+            // sm so a phone doesn't get a one-word orphan line.
             <>
-              Same reviews. Better AI.{" "}
+              Same reviews. Better AI.
+              <br className="hidden sm:inline" />{" "}
               <span className="text-[var(--rb-blue-500)]">A third of the price.</span>
             </>
           }

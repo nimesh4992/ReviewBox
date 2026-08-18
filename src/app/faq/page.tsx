@@ -8,9 +8,9 @@ import {
   CtaBand,
   PageHero,
   Reveal,
-  RHYTHM,
   Section,
 } from "@/features/marketing/components/primitives";
+import { RHYTHM } from "@/features/marketing/rhythm";
 import { annualSavingsPercent, minAnnualSavingsPercent } from "@/lib/plans";
 import { isIntervalPurchasable } from "@/lib/stripe";
 
