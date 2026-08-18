@@ -185,7 +185,14 @@ the form.*
 ### [x] N4 · Remove or wire dead buttons · ICE 56 (7×8÷1) — DONE 2026-05-26
 *Verified all visible buttons: competitors wired (2026-05-25), ASO buttons all wired (AI Suggestions, Add keyword, Update ranks), report cards properly gate with "Coming soon" label when endpoint is null, dead "+ New report" header button removed. No remaining dead buttons. PR `claude/n3-detail-pages` awaiting merge.*
 
-### [x] N5 · /compare/appfollow with real teeth · ICE 81 (9×9÷1)
+### [x] N5 · /compare/appfollow with real teeth · ICE 81 (9×9÷1) — **WITHDRAWN 2026-08-18, see SEO4**
+*The page this shipped was taken down (307 to `/pricing`, PR #124). Its ROI
+calculator priced ReviewBox at a flat $49 for any number of apps when Starter
+caps at 2 and 3 apps is Pro at $129 — it understated our own price by $80/month
+in its default state — and the three "customer-style quotes" below were still
+in production, unlabelled, with no customers to attribute them to. The item is
+left marked shipped because it was; **SEO4 is the rebuild**, and its acceptance
+criteria deliberately no longer include invented quotes.*
 *Shipped 2026-05-19 on branch `claude/n5-compare-appfollow-rewrite` — awaiting founder merge.*
 *42-row table across 7 categories, ROI calculator widget, 4-step switch timeline, 3 placeholder quotes, price callout, dual CTA. Placeholder quotes marked in code for replacement with real customers.*
 **Effort:** 3h.
@@ -225,6 +232,68 @@ the form.*
 
 ### [x] UX3 · Hover quick actions on review rows · ICE 56 (8×7÷1) — MERGED 2026-05-30 (#58)
 *Hover reveals "Draft" — generates AI reply + saves draft_ready without opening composer.*
+
+### [x] SEO1 · Canonicals, and stop advertising the closed door · ICE 90 (9×10÷1) — SHIPPED 2026-08-18
+*Item 1 of `docs/SEO_KEYWORD_PLAN.md` §6, the one everything else is gated on.*
+*One deployment serves `tryreviewbox.com`, `www.tryreviewbox.com` and
+`app.tryreviewbox.com`; only `/` declared a canonical, so the other 21
+indexable pages could each be indexed once per hostname, per trailing slash,
+per query string. `sitemap.ts` also advertised `/sign-in` and `/sign-up`, which
+middleware 307s to the app host — where every public route is served
+`X-Robots-Tag: noindex`. Both fixed, and `src/canonical-contract.test.ts` fails
+the build if a sitemap entry ever loses its canonical again.*
+*The plan's "3 blog 404s" were already gone — PR #124 cut the four dead blog
+cards and nine dead help links. Its "host" item is now the only part of #1 left
+open, and it is founder-side: confirm in Vercel that `www` is configured as a
+**redirect**, not an alias. The canonicals make a `www` alias survivable; they
+do not make it correct.*
+
+### [ ] SEO2 · Reply template library · ICE 56 (8×7÷1)
+*Item 2 of `docs/SEO_KEYWORD_PLAN.md`. Cluster A: ~4,950/mo at KD 19–33 — the
+best demand-to-product fit on the site, and five of its eleven terms are ones
+AppFollow does not rank for at all.*
+**Effort:** 2–3d.
+**Done when:** a public, no-signup App Store / Google Play reply template
+library exists, filterable by star rating, issue tag (`ReviewIssueTag`) and
+tone, with a copy button per template and the store-specific rules stated —
+Apple's 350-character reply cap, Play Console's reply policy, what each store
+forbids you from saying. Templates come from the 25 already in the reply
+pipeline; **derive them, do not retype them**, for the reason N5 was withdrawn.
+**Why now:** it is the one cluster where the search demand and the product are
+the same thing, and the page demonstrates the product to the person searching.
+
+### [ ] SEO3 · Free ASO keyword tool · ICE 42 (7×6÷1)
+*Item 3 of `docs/SEO_KEYWORD_PLAN.md`. Cluster B: ~5,500/mo at KD 24–33.*
+**Effort:** 2d.
+**Done when:** a limited version of the existing ASO keyword suggestion feature
+is exposed as a free, no-signup tool. Note the **format** — AppFollow holds
+position 3 across this whole cluster with a tool page, not a blog post.
+**Watch:** it calls Gemini, so it needs `rateLimit()` on the route and a hard
+per-IP cap before it is linked from anywhere. An un-capped free AI tool on the
+open web is a bill, not a funnel — and D-one-rule says no paid service before a
+paying customer.
+
+### [ ] SEO4 · Rebuild the AppFollow comparison, honestly · ICE 40 (8×5÷1)
+*Item 4 of `docs/SEO_KEYWORD_PLAN.md`, and the replacement for the withdrawn
+N5. "appfollow" is 880/mo and it is the highest-converting traffic available to
+us — someone searching a competitor's name is shopping.*
+**Effort:** 1–2d.
+**Done when:** `/vs/appfollow` (and `/alternatives/appfollow`) exist, and:
+every ReviewBox price and limit is read from `lib/plans.ts`; every AppFollow
+claim carries a dated link to their own public page; there are **no
+testimonials** until there is a customer to quote; and any row we lose is
+listed as a loss. The last two are why the first version came down.
+**Note:** the old `/compare` route currently 307s to `/pricing` — point it here
+once this ships, and only then consider making it permanent.
+
+### [!] SEO5 · Link acquisition · HUMAN-REQUIRED
+*Item 5 of `docs/SEO_KEYWORD_PLAN.md`, and the honest headline of that document:
+**every KD 24–33 target above is gated on this, not on content.** At Semrush
+rank 15.4M, AppFollow ranks #3 for "aso tools" (KD 26) because their domain is
+rank 112k, not because their page is good. SEO2 and SEO3 are correctly chosen
+and still will not rank on a 9–15 month horizon unless links run alongside them
+from week one. Directories, Product Hunt, mobile-dev communities. Nothing an
+agent can do.*
 
 ### [ ] SPINE · Make the 8-step launch path 100% · ICE 100 — ACTIVE
 **The launch gate. See `docs/SPINE.md`.** Features frozen until 8/8 verified against a real app.

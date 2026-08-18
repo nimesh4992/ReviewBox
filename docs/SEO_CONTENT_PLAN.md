@@ -25,6 +25,19 @@ volume marked `TBD`. §7 lists the free tools that will fill those gaps in about
 an hour of setup, and that step should happen before Phase 2 spends real effort
 on content.
 
+> **Superseded on 2026-08-18 — the numbers now exist.** The founder ran the
+> Semrush US database against `appfollow.io`; the result is
+> `docs/SEO_KEYWORD_PLAN.md`, with real volumes and difficulty scores for every
+> cluster this document could only describe by intent. **Take the targets from
+> that file, not from the `TBD`s below.** What remains authoritative here is
+> the page inventory (§1), the technical faults, and the content architecture.
+>
+> The one thing it changes strategically: this document's §2.2 ranks comparison
+> and alternative queries first. The Semrush data puts *review-response
+> templates* first — ~4,950/mo at KD 19–33, against 880/mo for "appfollow" —
+> and it also shows the whole plan is gated on link acquisition rather than on
+> content, which nothing in this document accounts for.
+
 Everything else here — the page inventory, the technical faults, the
 architecture — is derived from the codebase and is verifiable.
 

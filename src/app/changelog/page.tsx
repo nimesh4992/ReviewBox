@@ -5,6 +5,7 @@ import { Card, Eyebrow, PageHero, Section } from "@/features/marketing/component
 import { Breadcrumb } from "@/features/marketing/components/breadcrumb";
 
 export const metadata = {
+  alternates: { canonical: "/changelog" },
   title: "Changelog",
   description: "Release notes for ReviewBox, grouped by month — new features, fixes, and changes to review sync, AI replies, and alerting.",
 };

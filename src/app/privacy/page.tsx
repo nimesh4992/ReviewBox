@@ -2,6 +2,7 @@
 import { COMPANY, companyLine } from "@/lib/legal/company";
 
 export const metadata = {
+  alternates: { canonical: "/privacy" },
   title: "Privacy Policy",
   description: "ReviewBox Privacy Policy — how we collect, use, and protect your data.",
 };

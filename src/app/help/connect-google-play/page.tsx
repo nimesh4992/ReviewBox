@@ -6,6 +6,7 @@ import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
 export const metadata = {
+  alternates: { canonical: "/help/connect-google-play" },
   title: "Connect Google Play — Help",
   description:
     "Step-by-step guide to grant ReviewBox access to your Google Play Console so we can sync your reviews and post replies.",

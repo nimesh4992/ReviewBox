@@ -6,6 +6,7 @@ import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
 export const metadata = {
+  alternates: { canonical: "/help/review-history" },
   title: "How much review history you get — Help",
   description:
     "Why ReviewBox shows fewer reviews than your store dashboard, what Google's and Apple's APIs actually return, and where the complete history lives.",

@@ -19,6 +19,7 @@ import {
 import { Breadcrumb } from "@/features/marketing/components/breadcrumb";
 
 export const metadata = {
+  alternates: { canonical: "/help" },
   title: "Help Center",
   description:
     "Guides, tutorials, and answers for ReviewBox — setup, AI replies, automations, billing, and more.",
