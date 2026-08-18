@@ -13,8 +13,20 @@ export const metadata = {
 
 // The actual production service account email lives in GOOGLE_CLIENT_EMAIL.
 // Surface it server-side at request time — never hardcode.
+//
+// `??` was wrong here: it falls back only on null/undefined, so a variable
+// that EXISTS BUT IS EMPTY — the ordinary shape of a half-finished Vercel
+// setting — passed "" straight through and the guide rendered an empty box
+// where the address should be. The reader is then told to paste something
+// that is not on the page. Trim-and-check covers empty and whitespace-only
+// alike.
+//
+// This is the second time this address has silently disappeared from a Google
+// Play surface; the first was a hardcoded background paired with a token text
+// colour (see CLAUDE.md's design-system notes). Different mechanism, same
+// symptom, and again only a rendered page showed it.
 function getServiceAccountEmail(): string {
-  return process.env.GOOGLE_CLIENT_EMAIL ?? "(check Settings → Integrations for your email)";
+  return process.env.GOOGLE_CLIENT_EMAIL?.trim() || "(check Settings → Integrations for your email)";
 }
 
 const TROUBLESHOOTING = [
