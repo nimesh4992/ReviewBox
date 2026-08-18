@@ -1,7 +1,8 @@
-﻿import Link from "next/link";
-import { MarketingNav } from "@/components/layout/marketing-nav";
+﻿import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
+import { Card, Eyebrow, PageHero, Section } from "@/features/marketing/components/primitives";
+import { Breadcrumb } from "@/features/marketing/components/breadcrumb";
 
 export const metadata = {
   title: "Changelog",
@@ -104,11 +105,19 @@ const RELEASES = [
   },
 ];
 
+/**
+ * Four cycling pastel tints (blue-50 / emerald-50 / amber-50 / purple-50) gave
+ * every entry a differently-coloured chip, which reads as decoration rather
+ * than hierarchy — four colours saying "this is a changelog entry" four ways.
+ *
+ * The label already carries the category. Emphasis is spent once, on `launch`,
+ * which is the only type a reader scanning the page actually wants to spot.
+ */
 const TYPE_STYLES: Record<string, string> = {
-  feature:     "bg-blue-50 text-blue-700",
-  improvement: "bg-emerald-50 text-emerald-700",
-  fix:         "bg-amber-50 text-amber-700",
-  launch:      "bg-purple-50 text-purple-700",
+  feature:     "bg-[var(--rb-mk-sunken)] text-[var(--rb-fg-2)]",
+  improvement: "bg-[var(--rb-mk-sunken)] text-[var(--rb-fg-2)]",
+  fix:         "bg-[var(--rb-mk-sunken)] text-[var(--rb-fg-2)]",
+  launch:      "bg-[var(--rb-mk-amber-500)] text-[var(--rb-mk-ink)]",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -123,62 +132,64 @@ export default function ChangelogPage() {
     <MarketingShell>
       <MarketingNav />
 
-      {/* Breadcrumb */}
-      <div className="mx-auto max-w-screen-xl px-6 py-3">
-        <nav className="flex items-center gap-1.5 text-xs text-gray-400">
-          <Link href="/" className="hover:text-gray-600">Home</Link>
-          <span>/</span>
-          <span className="text-gray-600">Changelog</span>
-        </nav>
-      </div>
+      <PageHero
+        eyebrow="Releases"
+        title="Changelog"
+        lede="Every release, every improvement — shipped and documented."
+      />
 
-      <main className="mx-auto max-w-2xl px-6 pb-32">
-        {/* Header */}
-        <div className="pt-8 pb-12">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">Changelog</h1>
-          <p className="mt-3 text-gray-500 dark:text-[#86868B]">
-            Every release, every improvement — shipped and documented.
-          </p>
-        </div>
+      <main>
+        <Breadcrumb trail={[{ label: "Changelog" }]} />
 
-        {/* Releases */}
-        <div className="space-y-16">
-          {RELEASES.map((group) => (
-            <div key={group.month}>
-              <h2 className="mb-8 text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366]">
-                {group.month}
-              </h2>
-              <div className="space-y-10">
+        {RELEASES.map((group, gi) => (
+          <Section key={group.month} band={gi % 2 === 1} tight={gi > 0}>
+            <div className="mx-auto max-w-[760px]">
+              <Eyebrow>{group.month}</Eyebrow>
+              <div className="grid gap-5">
                 {group.entries.map((entry) => (
-                  <article key={entry.version} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-8">
+                  <Card key={entry.version} interactive={false}>
                     <div className="flex flex-wrap items-center gap-3">
                       <span
-                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest ${
+                        className={`rounded-full px-3 py-1 text-[11px] font-bold tracking-[0.09em] uppercase ${
                           TYPE_STYLES[entry.type]
                         }`}
                       >
                         {TYPE_LABELS[entry.type]}
                       </span>
-                      <span className="font-mono text-xs text-gray-400 dark:text-[#636366]">{entry.version}</span>
-                      <span className="text-xs text-gray-400 dark:text-[#636366]">·</span>
-                      <span className="text-xs text-gray-400 dark:text-[#636366]">{entry.date}</span>
+                      <span className="font-[family-name:var(--rb-font-mono)] text-[13px] font-semibold text-[var(--rb-fg-2)]">
+                        {entry.version}
+                      </span>
+                      <span aria-hidden="true" className="text-[13px] text-[var(--rb-fg-3)]">
+                        ·
+                      </span>
+                      <span className="text-[13px] text-[var(--rb-fg-3)]">{entry.date}</span>
                     </div>
-                    <h3 className="mt-3 text-lg font-semibold text-gray-900 dark:text-[#F5F5F7]">{entry.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-[#C7C7CC]">{entry.body}</p>
-                    <ul className="mt-4 space-y-1.5">
+                    <h2 className="mt-4 text-[19px] leading-[1.3] font-bold tracking-[-0.015em] text-[var(--rb-fg-1)]">
+                      {entry.title}
+                    </h2>
+                    <p className="mt-2 text-[15.5px] leading-[1.55] text-[var(--rb-fg-3)]">
+                      {entry.body}
+                    </p>
+                    <ul className="mt-4 grid gap-2">
                       {entry.items.map((item) => (
-                        <li key={item} className="flex items-start gap-2 text-sm text-gray-600 dark:text-[#C7C7CC]">
-                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#0A84FF]" />
+                        <li
+                          key={item}
+                          className="flex items-start gap-3 text-[15px] text-[var(--rb-fg-2)]"
+                        >
+                          <span
+                            aria-hidden="true"
+                            className="mt-[9px] size-1.5 shrink-0 rounded-full bg-[var(--rb-mk-ink-4)]"
+                          />
                           {item}
                         </li>
                       ))}
                     </ul>
-                  </article>
+                  </Card>
                 ))}
               </div>
             </div>
-          ))}
-        </div>
+          </Section>
+        ))}
       </main>
 
       <MarketingFooter />
