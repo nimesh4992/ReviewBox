@@ -1,7 +1,18 @@
-﻿import Link from "next/link";
-import { MarketingNav } from "@/components/layout/marketing-nav";
+﻿import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
+import {
+  Band,
+  Breadcrumb,
+  Card,
+  CtaBand,
+  PageHero,
+  Reveal,
+  Section,
+  SectionHeading,
+  SecondaryLink,
+} from "@/features/marketing/components/primitives";
+import { RHYTHM } from "@/features/marketing/rhythm";
 
 export const metadata = {
   title: "About",
@@ -27,92 +38,103 @@ const VALUES = [
   },
 ];
 
+// These were fabricated: "2,400+ AI drafts / day", "48h average first-reply
+// time drop", "4.21 -> 4.58 avg rating lift after 90 days". We have no
+// customers, so none of them could be measured, and a rating-lift figure is a
+// performance claim a regulator would read as an inducement.
+//
+// What replaces them is what the product actually does, stated without a
+// number we cannot stand behind. Put real figures here when there are real
+// customers to measure.
+const FACTS = [
+  { value: "2", label: "Stores supported: App Store and Google Play" },
+  { value: "1 click", label: "From AI draft to a published reply" },
+  { value: "Daily", label: "Automatic review sync, plus sync on demand" },
+  { value: "14 days", label: "Free trial, no card required" },
+];
+
 export default function AboutPage() {
   return (
     <MarketingShell>
       <MarketingNav />
+      <Breadcrumb label="About" />
 
-      {/* Breadcrumb */}
-      <div className="mx-auto max-w-screen-xl px-6 py-3">
-        <nav className="flex items-center gap-1.5 text-xs text-gray-400">
-          <Link href="/" className="hover:text-gray-600">Home</Link>
-          <span>/</span>
-          <span className="text-gray-600">About</span>
-        </nav>
-      </div>
+      <main>
+        <PageHero
+          eyebrow="Company"
+          title="Built for teams who care about what users say."
+          lede="ReviewBox started as an internal tool. We managed six apps across two stores, and responding to reviews was taking four hours a week — mostly copy-pasting and writing the same replies over and over. We automated that. Then we made it better."
+        />
 
-      <main className="mx-auto max-w-screen-xl px-6 pb-32">
-        {/* Hero */}
-        <div className="pt-16 pb-20 max-w-3xl">
-          <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-blue-600">
-            Company
-          </span>
-          <h1 className="mt-4 text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7] sm:text-5xl">
-            Built for teams who care about what users say.
-          </h1>
-          <p className="mt-6 text-xl text-gray-500 dark:text-[#86868B] leading-relaxed">
-            ReviewBox started as an internal tool. We managed six apps across two stores, and
-            responding to reviews was taking four hours a week — mostly spent on copy-pasting and
-            writing the same replies over and over. We automated that. Then we made it better.
-          </p>
-        </div>
-
-        {/* Stats */}
-        <div className="grid grid-cols-2 gap-6 sm:grid-cols-4 mb-20">
-          {/* These were fabricated: "2,400+ AI drafts / day", "48h average
-              first-reply time drop", "4.21 -> 4.58 avg rating lift after 90
-              days". We have no customers, so none of them could be measured,
-              and a rating-lift figure is a performance claim a regulator would
-              read as an inducement.
-
-              What replaces them is what the product actually does, stated
-              without a number we cannot stand behind. Put real figures here
-              when there are real customers to measure. */}
-          {[
-            { value: "2", label: "Stores supported: App Store and Google Play" },
-            { value: "1 click", label: "From AI draft to a published reply" },
-            { value: "Daily", label: "Automatic review sync, plus sync on demand" },
-            { value: "14 days", label: "Free trial, no card required" },
-          ].map(({ value, label }) => (
-            <div key={label} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6">
-              <div className="text-3xl font-bold text-gray-900 dark:text-[#F5F5F7]">{value}</div>
-              <div className="mt-1 text-sm text-gray-500 dark:text-[#86868B]">{label}</div>
-            </div>
-          ))}
-        </div>
+        {/* Facts */}
+        <Section className="pb-4">
+          <Reveal>
+            <dl className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+              {FACTS.map((f) => (
+                <Card key={f.label} className="text-center">
+                  <dt className="sr-only">{f.label}</dt>
+                  <dd>
+                    <span className="block text-[30px] font-bold tracking-[-0.03em] text-fg-1">
+                      {f.value}
+                    </span>
+                    <span className="rb-body-sm mt-2 block text-fg-3">{f.label}</span>
+                  </dd>
+                </Card>
+              ))}
+            </dl>
+          </Reveal>
+        </Section>
 
         {/* Values */}
-        <div className="mb-20">
-          <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">
-            Four things we genuinely care about
-          </h2>
-          <div className="mt-8 grid gap-6 sm:grid-cols-2">
-            {VALUES.map((v) => (
-              <div key={v.title} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-8">
-                <h3 className="font-semibold text-gray-900 dark:text-[#F5F5F7]">{v.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-gray-500 dark:text-[#86868B]">{v.body}</p>
-              </div>
-            ))}
-          </div>
-        </div>
+        <Band className="mt-16 sm:mt-20">
+          <Section className={RHYTHM.md}>
+            <Reveal>
+              <SectionHeading
+                eyebrow="How we work"
+                title="Four things we genuinely care about"
+              />
+            </Reveal>
+            <div className="mt-12 grid gap-4 sm:grid-cols-2">
+              {VALUES.map((v, i) => (
+                <Reveal key={v.title} delay={i * 80}>
+                  <Card className="h-full">
+                    <h3 className="rb-h3 text-fg-1">{v.title}</h3>
+                    <p className="rb-body mt-2.5 text-fg-2">{v.body}</p>
+                  </Card>
+                </Reveal>
+              ))}
+            </div>
+          </Section>
+        </Band>
 
-        {/* Where we hang out */}
-        <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-10 max-w-2xl">
-          <h2 className="text-xl font-bold text-gray-900 dark:text-[#F5F5F7]">Where the team hangs out</h2>
-          <p className="mt-3 text-gray-500 dark:text-[#86868B] text-sm leading-relaxed">
-            ReviewBox is operated by AT WORK Inc, a partnership firm registered in India. We&apos;re a small, fully remote team.
-            We meet in person twice a year. Everything else is async — we write things down,
-            ship things, and measure the impact.
-          </p>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <Link
-              href="/contact"
-              className="rounded-xl border border-gray-200 dark:border-white/10 px-5 py-2.5 text-sm font-semibold text-gray-700 dark:text-[#C7C7CC] hover:bg-gray-50 dark:hover:bg-white/5"
-            >
-              Get in touch
-            </Link>
-          </div>
-        </div>
+        {/* Who runs it. Centered and full-width: as a half-width card floated
+            against the left edge, this left the bottom third of the page as
+            one large empty rectangle. */}
+        <Section className={RHYTHM.md}>
+          <Reveal>
+            <Card className="mx-auto max-w-3xl p-8 text-center sm:p-10">
+              <h2 className="rb-h2 text-fg-1">Who runs ReviewBox</h2>
+              <p className="rb-lead mx-auto mt-4 max-w-[54ch] text-fg-2">
+                ReviewBox is operated by AT WORK Inc, a partnership firm registered
+                in India. We are a small, fully remote team. We meet in person twice
+                a year; everything else is async — we write things down, ship things,
+                and measure the impact.
+              </p>
+              <div className="mt-8 flex flex-wrap justify-center gap-3">
+                <SecondaryLink href="/contact" size="md">
+                  Get in touch
+                </SecondaryLink>
+              </div>
+            </Card>
+          </Reveal>
+        </Section>
+
+        <CtaBand
+          title="See it on your own reviews."
+          lede="Connect an app and the queue fills in about a minute. Free for 14 days, no card."
+          primary={{ href: "/sign-up", label: "Start free trial" }}
+          secondary={{ href: "/pricing", label: "See pricing" }}
+        />
       </main>
 
       <MarketingFooter />

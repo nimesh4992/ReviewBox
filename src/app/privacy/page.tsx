@@ -128,14 +128,14 @@ export default function PrivacyPage() {
           </li>
           <li>
             <strong>Export:</strong> Download your data in a portable format via{" "}
-            <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs">
+            <code className="rounded bg-[var(--rb-bg-sunken)] px-1.5 py-0.5 font-mono text-xs">
               Settings → Privacy → Export data
             </code>
             .
           </li>
           <li>
             <strong>Deletion:</strong> Request erasure of your data via{" "}
-            <code className="rounded bg-gray-100 px-1.5 py-0.5 font-mono text-xs">
+            <code className="rounded bg-[var(--rb-bg-sunken)] px-1.5 py-0.5 font-mono text-xs">
               Settings → Privacy → Delete account
             </code>{" "}
             or by emailing us.

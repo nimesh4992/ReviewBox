@@ -23,11 +23,11 @@ export function RoiCalculator() {
   const annualSavings = monthlySavings * 12;
 
   return (
-    <div className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-8">
-      <h3 className="text-lg font-semibold text-gray-900 dark:text-[#F5F5F7] mb-1">
+    <div className="rounded-2xl border border-[var(--rb-border-1)] bg-surface p-7 shadow-[var(--rb-shadow-xs)] sm:p-8">
+      <h3 className="rb-h3 mb-1 text-fg-1">
         How much could you save?
       </h3>
-      <p className="text-sm text-gray-500 dark:text-[#86868B] mb-8">
+      <p className="rb-body-sm mb-8 text-fg-2">
         Adjust the sliders to match your setup.
       </p>
 
@@ -35,10 +35,10 @@ export function RoiCalculator() {
         {/* Apps slider */}
         <div>
           <div className="flex justify-between mb-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-[#C7C7CC]">
+            <label className="rb-body-sm font-medium text-fg-2">
               Apps you manage
             </label>
-            <span className="text-sm font-semibold text-[#0A84FF]">{apps}</span>
+            <span className="rb-body-sm font-semibold text-[var(--rb-blue-500)]">{apps}</span>
           </div>
           <input
             type="range"
@@ -46,9 +46,9 @@ export function RoiCalculator() {
             max={20}
             value={apps}
             onChange={(e) => setApps(Number(e.target.value))}
-            className="w-full accent-[#0A84FF]"
+            className="w-full accent-[var(--rb-blue-500)]"
           />
-          <div className="flex justify-between text-xs text-gray-400 mt-1">
+          <div className="rb-meta mt-1.5 flex justify-between font-normal text-fg-3">
             <span>1</span><span>20</span>
           </div>
         </div>
@@ -56,10 +56,10 @@ export function RoiCalculator() {
         {/* Reviews slider */}
         <div>
           <div className="flex justify-between mb-2">
-            <label className="text-sm font-medium text-gray-700 dark:text-[#C7C7CC]">
+            <label className="rb-body-sm font-medium text-fg-2">
               Reviews per month
             </label>
-            <span className="text-sm font-semibold text-[#0A84FF]">{reviews.toLocaleString()}</span>
+            <span className="rb-body-sm font-semibold text-[var(--rb-blue-500)]">{reviews.toLocaleString()}</span>
           </div>
           <input
             type="range"
@@ -68,9 +68,9 @@ export function RoiCalculator() {
             step={50}
             value={reviews}
             onChange={(e) => setReviews(Number(e.target.value))}
-            className="w-full accent-[#0A84FF]"
+            className="w-full accent-[var(--rb-blue-500)]"
           />
-          <div className="flex justify-between text-xs text-gray-400 mt-1">
+          <div className="rb-meta mt-1.5 flex justify-between font-normal text-fg-3">
             <span>50</span><span>5,000</span>
           </div>
         </div>
@@ -78,22 +78,22 @@ export function RoiCalculator() {
 
       {/* Results */}
       <div className="mt-8 grid grid-cols-3 gap-4 text-center">
-        <div className="rounded-xl bg-gray-50 dark:bg-[#0E0E11] p-4">
-          <p className="text-xs text-gray-400 mb-1">AppFollow/mo</p>
-          <p className="text-xl font-bold text-gray-500">{fmt(afMonthly)}</p>
+        <div className="rounded-xl bg-[var(--rb-bg-sunken)] p-4">
+          <p className="rb-eyebrow mb-1.5 text-fg-3">AppFollow/mo</p>
+          <p className="text-[22px] font-bold tracking-[-0.025em] text-fg-3">{fmt(afMonthly)}</p>
         </div>
-        <div className="rounded-xl bg-blue-50 dark:bg-[#0A84FF]/10 p-4 border border-[#0A84FF]/20">
-          <p className="text-xs text-[#0A84FF] mb-1">ReviewBox/mo</p>
-          <p className="text-xl font-bold text-[#0A84FF]">{fmt(rbMonthly)}</p>
+        <div className="rounded-xl border border-[var(--rb-blue-500)]/30 bg-[var(--rb-blue-50)] p-4 dark:bg-[var(--rb-bg-accent-soft)]">
+          <p className="rb-eyebrow mb-1.5 text-[var(--rb-blue-500)]">ReviewBox/mo</p>
+          <p className="text-[22px] font-bold tracking-[-0.025em] text-[var(--rb-blue-500)]">{fmt(rbMonthly)}</p>
         </div>
-        <div className="rounded-xl bg-emerald-50 dark:bg-emerald-900/20 p-4 border border-emerald-200 dark:border-emerald-800">
-          <p className="text-xs text-emerald-600 dark:text-emerald-400 mb-1">You save/year</p>
-          <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400">{fmt(annualSavings)}</p>
+        <div className="rounded-xl border border-[var(--rb-green-500)]/30 bg-[var(--rb-green-100)] p-4 dark:bg-[color-mix(in_oklab,var(--rb-green-500)_16%,transparent)]">
+          <p className="rb-eyebrow mb-1.5 text-[var(--rb-green-600)]">You save/year</p>
+          <p className="text-[22px] font-bold tracking-[-0.025em] text-[var(--rb-green-600)] dark:text-[var(--rb-green-100)]">{fmt(annualSavings)}</p>
         </div>
       </div>
 
-      <p className="mt-4 text-center text-xs text-gray-400">
-        AppFollow estimate based on published pricing. ReviewBox flat {fmt(REVIEWBOX_PRICE)}/mo, unlimited apps.
+      <p className="rb-meta mt-5 text-center font-normal text-fg-3">
+        AppFollow estimate based on published pricing. ReviewBox flat {fmt(REVIEWBOX_PRICE)}/mo on Starter.
       </p>
     </div>
   );

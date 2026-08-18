@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { COMPANY, companyLine } from "@/lib/legal/company";
+import { MarketingNav } from "@/components/layout/marketing-nav";
+import { MarketingFooter } from "@/components/layout/marketing-footer";
+import { MarketingShell } from "@/components/layout/marketing-shell";
 
 // ── Cross-link navigation ─────────────────────────────────────────────────────
 
@@ -64,46 +67,46 @@ export function LegalPageLayout({
   });
 
   return (
-    <div className="min-h-screen bg-[#F5F5F7]">
-      {/* ── Minimal nav ───────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 border-b border-gray-200 bg-white/90 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-screen-xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-2">
-            <span className="text-sm font-semibold text-gray-900">ReviewBox</span>
-          </Link>
-          <nav className="hidden items-center gap-6 text-sm text-gray-500 sm:flex">
-            <Link href="/#pricing" className="hover:text-gray-900">Pricing</Link>
-            <Link href="/privacy" className="hover:text-gray-900">Privacy</Link>
-            <Link
-              href="/sign-in"
-              className="rounded-lg bg-[#0A84FF] px-3 py-1.5 text-xs font-semibold text-white hover:bg-[#0070e0]"
-            >
-              Sign in
-            </Link>
-          </nav>
-        </div>
-      </header>
+    /*
+     * These eight pages used to render a bespoke 14px "minimal nav" with three
+     * links and no footer at all, on a hardcoded `bg-[#F5F5F7]` canvas that
+     * could not go dark. The site footer links to every one of them, so a
+     * reader who followed "Terms" or "Privacy" arrived somewhere with no way
+     * back to the product and no way to reach anything else — a third layout
+     * on a site that should have one.
+     *
+     * They now use the same shell, nav and footer as the rest of marketing.
+     * Nothing inside the legal text is touched; only the frame around it.
+     */
+    <MarketingShell>
+      <MarketingNav />
 
       {/* ── Breadcrumb ─────────────────────────────────────────────────────── */}
-      <div className="mx-auto max-w-screen-xl px-6 py-3">
-        <nav className="flex items-center gap-1.5 text-xs text-gray-400">
-          <Link href="/" className="hover:text-gray-600">Home</Link>
-          <span>/</span>
-          <span className="text-gray-400">Legal</span>
-          <span>/</span>
-          <span className="text-gray-600">{breadcrumbLabel}</span>
+      <div className="mx-auto w-full max-w-6xl px-5 pt-4 sm:px-6">
+        <nav aria-label="Breadcrumb" className="rb-meta text-fg-3">
+          <Link href="/" className="transition-colors hover:text-fg-1">
+            Home
+          </Link>
+          <span className="px-2 text-fg-4" aria-hidden="true">
+            /
+          </span>
+          <span>Legal</span>
+          <span className="px-2 text-fg-4" aria-hidden="true">
+            /
+          </span>
+          <span className="text-fg-2">{breadcrumbLabel}</span>
         </nav>
       </div>
 
       {/* ── Main grid ──────────────────────────────────────────────────────── */}
-      <main className="mx-auto max-w-screen-xl gap-10 px-6 pb-24 lg:grid lg:grid-cols-[240px_1fr]">
+      <main className="mx-auto w-full max-w-6xl gap-10 px-5 pt-6 pb-24 sm:px-6 lg:grid lg:grid-cols-[240px_1fr]">
 
         {/* Sidebar */}
         <aside className="hidden lg:block">
           <div className="sticky top-24 space-y-6">
             {/* Other policies */}
             <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+              <p className="rb-eyebrow mb-2.5 text-fg-3">
                 Other policies
               </p>
               <ul className="space-y-0.5">
@@ -112,10 +115,10 @@ export function LegalPageLayout({
                     <Link
                       href={p.href}
                       className={cn(
-                        "block rounded-md px-2 py-1 text-sm transition-colors",
+                        "block rounded-md px-2 py-1.5 text-[14px] transition-colors",
                         p.href === currentHref
-                          ? "border-l-2 border-[#0A84FF] bg-blue-50 pl-3 font-medium text-[#0A84FF]"
-                          : "text-gray-500 hover:text-gray-800",
+                          ? "border-l-2 border-[var(--rb-blue-500)] bg-[var(--rb-blue-50)] pl-3 font-semibold text-[var(--rb-blue-500)] dark:bg-[var(--rb-bg-accent-soft)]"
+                          : "text-fg-3 hover:text-fg-1",
                       )}
                     >
                       {p.label}
@@ -127,7 +130,7 @@ export function LegalPageLayout({
 
             {/* Sections */}
             <div>
-              <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-400">
+              <p className="rb-eyebrow mb-2.5 text-fg-3">
                 Sections
               </p>
               <ul className="space-y-0.5">
@@ -135,7 +138,7 @@ export function LegalPageLayout({
                   <li key={s.id}>
                     <a
                       href={`#${s.id}`}
-                      className="block rounded-md px-2 py-1 text-sm text-gray-500 transition-colors hover:text-gray-800"
+                      className="block rounded-md px-2 py-1.5 text-[14px] text-fg-3 transition-colors hover:text-fg-1"
                     >
                       {i + 1}.&nbsp;{s.title}
                     </a>
@@ -145,18 +148,18 @@ export function LegalPageLayout({
             </div>
 
             {/* Questions */}
-            <div className="rounded-xl border border-gray-200 bg-white p-4">
-              <p className="text-xs font-semibold text-gray-700">Questions?</p>
-              <p className="mt-1 text-xs text-gray-500">
+            <div className="rounded-xl border border-[var(--rb-border-1)] bg-surface p-4 shadow-[var(--rb-shadow-xs)]">
+              <p className="rb-body-sm font-semibold text-fg-1">Questions?</p>
+              <p className="rb-meta mt-1.5 font-normal text-fg-2">
                 Email{" "}
                 <a
                   href={`mailto:${COMPANY.emails.legal}`}
-                  className="text-[#0A84FF] hover:underline"
+                  className="font-medium text-[var(--rb-blue-500)] hover:underline"
                 >
                   {COMPANY.emails.legal}
                 </a>
                 . For complaints, see{" "}
-                <a href="/grievance" className="text-[#0A84FF] hover:underline">
+                <a href="/grievance" className="font-medium text-[var(--rb-blue-500)] hover:underline">
                   grievance redressal
                 </a>
                 .
@@ -168,14 +171,14 @@ export function LegalPageLayout({
         {/* Content */}
         <article className="min-w-0">
           {/* Header */}
-          <div className="mb-8 border-b border-gray-200 pb-6 pt-2">
-            <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-emerald-700">
+          <div className="mb-8 border-b border-[var(--rb-border-1)] pt-2 pb-7">
+            <span className="rb-kicker text-[var(--rb-blue-500)]">
               Legal
             </span>
-            <h1 className="mt-3 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+            <h1 className="rb-h1 mt-3 text-fg-1">
               {title}
             </h1>
-            <div className="mt-3 flex flex-wrap gap-x-6 gap-y-1 text-xs text-gray-400">
+            <div className="rb-meta mt-4 flex flex-wrap gap-x-6 gap-y-1 font-normal text-fg-3">
               <span>
                 <span className="font-medium uppercase tracking-wide">Effective</span>{" "}
                 · {fmtDate}
@@ -192,38 +195,40 @@ export function LegalPageLayout({
           </div>
 
           {/* Plain-language callout */}
-          <div className="mb-10 rounded-xl border border-blue-100 bg-blue-50 px-5 py-4">
-            <p className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-blue-500">
+          <div className="mb-10 rounded-xl border border-[var(--rb-blue-200)] bg-[var(--rb-blue-50)] px-5 py-5 dark:border-[var(--rb-blue-800)] dark:bg-[var(--rb-bg-accent-soft)]">
+            <p className="rb-kicker mb-3 text-[var(--rb-blue-600)] dark:text-[var(--rb-blue-300)]">
               The plain-language version
             </p>
             <ul className="space-y-1.5">
               {plainLanguage.map((line, i) => (
-                <li key={i} className="flex gap-2 text-sm text-blue-800">
+                <li key={i} className="rb-body-sm flex gap-2 text-[var(--rb-blue-800)] dark:text-[var(--rb-blue-100)]">
                   <span className="mt-0.5 shrink-0">·</span>
                   <span>{line}</span>
                 </li>
               ))}
             </ul>
-            <p className="mt-3 text-xs italic text-blue-500/70">
+            <p className="rb-meta mt-4 font-normal text-[var(--rb-blue-700)]/80 italic dark:text-[var(--rb-blue-300)]/80">
               This summary is for convenience. The legal terms below are what actually govern your use of the service.
             </p>
           </div>
 
           {/* Numbered sections */}
-          <div className="space-y-10 text-[15px] leading-relaxed text-gray-700">
+          <div className="rb-body space-y-10 text-fg-2">
             {children}
           </div>
 
           {/* Footer note */}
-          <div className="mt-16 border-t border-gray-100 pt-6 text-xs text-gray-400">
+          <div className="rb-meta mt-16 border-t border-[var(--rb-border-1)] pt-6 font-normal text-fg-3">
             {companyLine()} · Registered in {COMPANY.country} ·{" "}
-            <a href={`mailto:${COMPANY.emails.legal}`} className="hover:text-gray-600">
+            <a href={`mailto:${COMPANY.emails.legal}`} className="hover:text-fg-1">
               {COMPANY.emails.legal}
             </a>
           </div>
         </article>
       </main>
-    </div>
+
+      <MarketingFooter />
+    </MarketingShell>
   );
 }
 
@@ -242,8 +247,8 @@ export function LegalSection({
 }) {
   return (
     <section id={id} className="scroll-mt-24">
-      <h2 className="flex items-baseline gap-3 text-base font-semibold text-gray-900">
-        <span className="shrink-0 text-sm text-gray-400">{number}.</span>
+      <h2 className="rb-h3 flex items-baseline gap-3 text-fg-1">
+        <span className="shrink-0 text-[15px] font-normal text-fg-3">{number}.</span>
         {title}
       </h2>
       <div className="mt-3 space-y-3 pl-6">{children}</div>
