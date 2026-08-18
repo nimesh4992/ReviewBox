@@ -2,6 +2,15 @@ import Link from "next/link";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
+import {
+  Breadcrumb,
+  Card,
+  CtaBand,
+  PageHero,
+  Reveal,
+  RHYTHM,
+  Section,
+} from "@/features/marketing/components/primitives";
 import { annualSavingsPercent, minAnnualSavingsPercent } from "@/lib/plans";
 import { isIntervalPurchasable } from "@/lib/stripe";
 
@@ -56,8 +65,12 @@ const FAQ_SECTIONS = [
         a: "Professional, Friendly, Empathetic, Brief, and Custom. Custom lets you write a persona description (up to 200 characters) that gets applied to every AI-generated reply. Templates always match the tone of the template, not the AI setting.",
       },
       {
+        // This used to answer "Yes — on the Team plan": a plan that no longer
+        // exists, describing a feature that is not built, and contradicting
+        // the homepage FAQ on the same site ("nothing goes to the store until
+        // you click Post"). Automations draft; a human publishes.
         q: "Can ReviewBox auto-publish replies?",
-        a: "Yes — on the Team plan, you can configure auto-publish rules. You set the conditions (e.g. \"5-star reviews + positive sentiment + reply from template\") and ReviewBox will publish without human approval. This is disabled by default and opt-in per workspace.",
+        a: "No. Automation rules tag, prioritise and pre-draft replies as reviews sync, so the queue is half-done before you open it — but nothing reaches the store without you clicking Post. Fully automatic publishing is on the roadmap and will be opt-in per workspace when it lands.",
       },
       {
         q: "Does ReviewBox learn from my edits?",
@@ -141,66 +154,54 @@ export default function FaqPage() {
         dangerouslySetInnerHTML={{ __html: JSON.stringify(FAQ_JSON_LD) }}
       />
       <MarketingNav />
+      <Breadcrumb label="FAQ" />
 
-      {/* Breadcrumb */}
-      <div className="mx-auto max-w-screen-xl px-6 py-3">
-        <nav className="flex items-center gap-1.5 text-xs text-gray-400">
-          <Link href="/" className="hover:text-gray-600">Home</Link>
-          <span>/</span>
-          <span className="text-gray-600">FAQ</span>
-        </nav>
-      </div>
+      <main>
+        <PageHero
+          eyebrow="Answers"
+          title="Frequently asked questions"
+          lede={
+            <>
+              Can&apos;t find an answer?{" "}
+              <Link
+                href="/contact"
+                className="font-medium text-[var(--rb-blue-500)] hover:underline"
+              >
+                Email us
+              </Link>{" "}
+              — we respond within one business day.
+            </>
+          }
+        />
 
-      <main className="mx-auto max-w-3xl px-6 pb-32">
-        {/* Header */}
-        <div className="pt-12 pb-12">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">
-            Frequently asked questions
-          </h1>
-          <p className="mt-3 text-gray-500 dark:text-[#86868B]">
-            Can&apos;t find an answer?{" "}
-            <Link href="/contact" className="text-[#0A84FF] hover:underline">
-              Email us
-            </Link>{" "}
-            — we respond within one business day.
-          </p>
-        </div>
+        <Section className={RHYTHM.sm}>
+          <div className="mx-auto max-w-3xl space-y-14">
+            {FAQ_SECTIONS.map((section, si) => (
+              <Reveal key={section.title} delay={si * 60}>
+                <section aria-labelledby={`faq-${si}`}>
+                  <h2 id={`faq-${si}`} className="rb-kicker text-[var(--rb-blue-500)]">
+                    {section.title}
+                  </h2>
+                  <dl className="mt-5 grid gap-3">
+                    {section.questions.map(({ q, a }) => (
+                      <Card key={q}>
+                        <dt className="rb-h4 text-fg-1">{q}</dt>
+                        <dd className="rb-body-sm mt-2.5 text-fg-2">{a}</dd>
+                      </Card>
+                    ))}
+                  </dl>
+                </section>
+              </Reveal>
+            ))}
+          </div>
+        </Section>
 
-        {/* FAQ sections */}
-        <div className="space-y-12">
-          {FAQ_SECTIONS.map((section) => (
-            <div key={section.title}>
-              <h2 className="mb-6 text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366]">
-                {section.title}
-              </h2>
-              <dl className="space-y-4">
-                {section.questions.map(({ q, a }) => (
-                  <div
-                    key={q}
-                    className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-6"
-                  >
-                    <dt className="font-semibold text-gray-900 dark:text-[#F5F5F7]">{q}</dt>
-                    <dd className="mt-3 text-sm leading-relaxed text-gray-600 dark:text-[#C7C7CC]">{a}</dd>
-                  </div>
-                ))}
-              </dl>
-            </div>
-          ))}
-        </div>
-
-        {/* CTA */}
-        <div className="mt-16 rounded-2xl border border-blue-100 dark:border-blue-900/50 bg-blue-50 dark:bg-blue-900/20 px-8 py-10 text-center">
-          <h2 className="text-lg font-bold text-gray-900 dark:text-[#F5F5F7]">Still have questions?</h2>
-          <p className="mt-2 text-sm text-gray-600 dark:text-[#C7C7CC]">
-            The whole team reads support email. You&apos;ll get a real answer, not a template.
-          </p>
-          <Link
-            href="/contact"
-            className="mt-6 inline-flex rounded-xl bg-[#0A84FF] px-6 py-2.5 text-sm font-semibold text-white hover:bg-[#0070e0]"
-          >
-            Get in touch
-          </Link>
-        </div>
+        <CtaBand
+          title="Still have questions?"
+          lede="The whole team reads support email. You'll get a real answer, not a template."
+          primary={{ href: "/contact", label: "Get in touch" }}
+          secondary={{ href: "/help", label: "Browse the help centre" }}
+        />
       </main>
 
       <MarketingFooter />

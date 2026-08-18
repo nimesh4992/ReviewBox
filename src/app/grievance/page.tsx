@@ -69,18 +69,18 @@ export default function GrievancePage() {
 
       <LegalSection id="officer" number={2} title="Grievance Officer">
         {officer ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-5">
+          <div className="rounded-xl border border-[var(--rb-border-2)] bg-surface p-5">
             <dl className="space-y-2 text-sm">
               <div className="flex gap-2">
-                <dt className="w-28 shrink-0 text-gray-500">Name</dt>
-                <dd className="font-medium text-gray-900">{officer.name}</dd>
+                <dt className="w-28 shrink-0 text-fg-3">Name</dt>
+                <dd className="font-medium text-fg-1">{officer.name}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-28 shrink-0 text-gray-500">Designation</dt>
-                <dd className="text-gray-900">{officer.designation}</dd>
+                <dt className="w-28 shrink-0 text-fg-3">Designation</dt>
+                <dd className="text-fg-1">{officer.designation}</dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-28 shrink-0 text-gray-500">Email</dt>
+                <dt className="w-28 shrink-0 text-fg-3">Email</dt>
                 <dd>
                   <a href={`mailto:${officer.email}`} className="text-[#0A84FF] hover:underline">
                     {officer.email}
@@ -88,8 +88,8 @@ export default function GrievancePage() {
                 </dd>
               </div>
               <div className="flex gap-2">
-                <dt className="w-28 shrink-0 text-gray-500">Address</dt>
-                <dd className="text-gray-900">{officer.address}</dd>
+                <dt className="w-28 shrink-0 text-fg-3">Address</dt>
+                <dd className="text-fg-1">{officer.address}</dd>
               </div>
             </dl>
           </div>

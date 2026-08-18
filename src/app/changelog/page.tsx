@@ -1,7 +1,15 @@
-﻿import Link from "next/link";
-import { MarketingNav } from "@/components/layout/marketing-nav";
+﻿import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 import { MarketingShell } from "@/components/layout/marketing-shell";
+import {
+  Breadcrumb,
+  Card,
+  CtaBand,
+  PageHero,
+  Reveal,
+  RHYTHM,
+  Section,
+} from "@/features/marketing/components/primitives";
 
 export const metadata = {
   title: "Changelog",
@@ -104,11 +112,20 @@ const RELEASES = [
   },
 ];
 
+// Light-mode-only tints (`bg-blue-50 text-blue-700`) with no dark counterpart
+// rendered as near-white pills on the dark canvas. These are token pairs, so
+// each keeps its contrast in both themes. The four hues are meaningful here —
+// unlike on /contact, the type of a changelog entry genuinely differs — but
+// the label carries the meaning too, so colour is never doing the work alone.
 const TYPE_STYLES: Record<string, string> = {
-  feature:     "bg-blue-50 text-blue-700",
-  improvement: "bg-emerald-50 text-emerald-700",
-  fix:         "bg-amber-50 text-amber-700",
-  launch:      "bg-purple-50 text-purple-700",
+  feature:
+    "bg-[var(--rb-blue-50)] text-[var(--rb-blue-600)] dark:bg-[var(--rb-bg-accent-soft)] dark:text-[var(--rb-blue-400)]",
+  improvement:
+    "bg-[var(--rb-green-100)] text-[var(--rb-green-600)] dark:bg-[color-mix(in_oklab,var(--rb-green-500)_18%,transparent)] dark:text-[var(--rb-green-100)]",
+  fix:
+    "bg-[var(--rb-amber-100)] text-[var(--rb-amber-600)] dark:bg-[color-mix(in_oklab,var(--rb-amber-500)_20%,transparent)] dark:text-[var(--rb-amber-100)]",
+  launch:
+    "bg-[var(--rb-purple-100)] text-[var(--rb-purple-600)] dark:bg-[color-mix(in_oklab,var(--rb-purple-500)_20%,transparent)] dark:text-[var(--rb-purple-100)]",
 };
 
 const TYPE_LABELS: Record<string, string> = {
@@ -123,62 +140,68 @@ export default function ChangelogPage() {
     <MarketingShell>
       <MarketingNav />
 
-      {/* Breadcrumb */}
-      <div className="mx-auto max-w-screen-xl px-6 py-3">
-        <nav className="flex items-center gap-1.5 text-xs text-gray-400">
-          <Link href="/" className="hover:text-gray-600">Home</Link>
-          <span>/</span>
-          <span className="text-gray-600">Changelog</span>
-        </nav>
-      </div>
+      <Breadcrumb label="Changelog" />
 
-      <main className="mx-auto max-w-2xl px-6 pb-32">
-        {/* Header */}
-        <div className="pt-8 pb-12">
-          <h1 className="text-4xl font-bold tracking-tight text-gray-900 dark:text-[#F5F5F7]">Changelog</h1>
-          <p className="mt-3 text-gray-500 dark:text-[#86868B]">
-            Every release, every improvement — shipped and documented.
-          </p>
-        </div>
+      <main>
+        <PageHero
+          eyebrow="Product"
+          title="Changelog"
+          lede="Every release, every improvement — shipped and documented."
+        />
 
-        {/* Releases */}
-        <div className="space-y-16">
-          {RELEASES.map((group) => (
-            <div key={group.month}>
-              <h2 className="mb-8 text-[11px] font-semibold uppercase tracking-widest text-gray-400 dark:text-[#636366]">
-                {group.month}
-              </h2>
-              <div className="space-y-10">
-                {group.entries.map((entry) => (
-                  <article key={entry.version} className="rounded-2xl border border-gray-200 dark:border-white/10 bg-white dark:bg-[#161618] p-8">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <span
-                        className={`rounded-full px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-widest ${
-                          TYPE_STYLES[entry.type]
-                        }`}
-                      >
-                        {TYPE_LABELS[entry.type]}
-                      </span>
-                      <span className="font-mono text-xs text-gray-400 dark:text-[#636366]">{entry.version}</span>
-                      <span className="text-xs text-gray-400 dark:text-[#636366]">·</span>
-                      <span className="text-xs text-gray-400 dark:text-[#636366]">{entry.date}</span>
-                    </div>
-                    <h3 className="mt-3 text-lg font-semibold text-gray-900 dark:text-[#F5F5F7]">{entry.title}</h3>
-                    <p className="mt-2 text-sm leading-relaxed text-gray-600 dark:text-[#C7C7CC]">{entry.body}</p>
-                    <ul className="mt-4 space-y-1.5">
-                      {entry.items.map((item) => (
-                        <li key={item} className="flex items-start gap-2 text-sm text-gray-600 dark:text-[#C7C7CC]">
-                          <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-[#0A84FF]" />
-                          {item}
-                        </li>
-                      ))}
-                    </ul>
-                  </article>
-                ))}
-              </div>
-            </div>
-          ))}
-        </div>
+        <Section className={RHYTHM.sm}>
+          <div className="mx-auto max-w-3xl space-y-14">
+            {RELEASES.map((group, gi) => (
+              <Reveal key={group.month} delay={gi * 60}>
+                <section aria-labelledby={`rel-${gi}`}>
+                  <h2 id={`rel-${gi}`} className="rb-kicker text-[var(--rb-blue-500)]">
+                    {group.month}
+                  </h2>
+                  <div className="mt-5 grid gap-4">
+                    {group.entries.map((entry) => (
+                      <Card key={entry.version} className="p-7 sm:p-8">
+                        <div className="flex flex-wrap items-center gap-2.5">
+                          <span
+                            className={`rb-eyebrow rounded-full px-2.5 py-1 ${TYPE_STYLES[entry.type]}`}
+                          >
+                            {TYPE_LABELS[entry.type]}
+                          </span>
+                          <span className="rb-meta font-normal text-fg-3 font-[family-name:var(--rb-font-mono)]">
+                            {entry.version}
+                          </span>
+                          <span className="rb-meta font-normal text-fg-4" aria-hidden="true">
+                            ·
+                          </span>
+                          <span className="rb-meta font-normal text-fg-3">{entry.date}</span>
+                        </div>
+                        <h3 className="rb-h3 mt-4 text-fg-1">{entry.title}</h3>
+                        <p className="rb-body mt-2.5 text-fg-2">{entry.body}</p>
+                        <ul className="mt-5 space-y-2">
+                          {entry.items.map((item) => (
+                            <li
+                              key={item}
+                              className="rb-body-sm flex items-start gap-2.5 text-fg-2"
+                            >
+                              <span className="mt-2 size-1.5 shrink-0 rounded-full bg-[var(--rb-blue-500)]" />
+                              {item}
+                            </li>
+                          ))}
+                        </ul>
+                      </Card>
+                    ))}
+                  </div>
+                </section>
+              </Reveal>
+            ))}
+          </div>
+        </Section>
+
+        <CtaBand
+          title="All of this is in the free trial."
+          lede="Connect an app and see the current build on your own reviews. No card required."
+          primary={{ href: "/sign-up", label: "Start free trial" }}
+          secondary={{ href: "/pricing", label: "See pricing" }}
+        />
       </main>
 
       <MarketingFooter />
