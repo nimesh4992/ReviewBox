@@ -37,7 +37,6 @@ import {
 export interface PricingCard {
   name: string;
   key: PlanName;
-  inr: number;
   description: string;
   highlight: boolean;
   onRequest: boolean;
@@ -123,9 +122,6 @@ export function PricingCards({
                       ) : (
                         <>billed monthly · cancel any time</>
                       )}
-                    </p>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-[#86868B]">
-                      India: ₹{plan.inr.toLocaleString("en-IN")}/month
                     </p>
                   </>
                 )}

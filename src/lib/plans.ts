@@ -133,20 +133,22 @@ export function isBillingInterval(value: unknown): value is BillingInterval {
 /**
  * Display prices.
  *
- * Two currencies at genuinely different levels, not a converted number.
- * ₹6,999 is real money to a Bangalore founder; $129 is unthinkable to the
- * same person. Serving both markets at a price each considers fair is an
- * advantage — our nearest competitor runs one global price.
- *
  * `monthlyUsd` is the list price. `annualUsd` is the PER-MONTH price when
  * billed yearly — not the yearly total. Everything derived from it goes
  * through the helpers below rather than being multiplied out by hand at the
  * call site.
  *
- * ⚠️ `monthlyInr` is displayed on /pricing but there is no INR price in
- * Stripe, so it is not purchasable. That is a known gap, tracked separately —
- * do not treat the presence of a number here as evidence a customer can pay
- * it.
+ * USD ONLY, deliberately. There used to be a second set of INR prices
+ * (₹2,999 / ₹6,999) rendered on /pricing as "India: ₹2,999/month". No INR
+ * price object ever existed in Stripe and checkout has always created USD
+ * sessions, so that line quoted a price nobody could pay — the same defect as
+ * the annual prices it sat beside. Founder decision, 2026-08-18: remove it
+ * rather than build INR billing.
+ *
+ * Reintroducing a currency means more than adding a number here: it needs a
+ * price object per currency in Stripe, currency selection at checkout, and a
+ * decision about which currency an existing customer is billed in. Adding a
+ * field to this object does none of that.
  *
  * Enterprise is deliberately quote-only. We have no seat management, SSO or
  * procurement story yet, so a published number would promise something we
@@ -158,7 +160,6 @@ export const PLAN_PRICING: Record<
     label: string;
     monthlyUsd: number | null;
     annualUsd: number | null;
-    monthlyInr: number | null;
     tagline: string;
     /** Quote-only: show "Talk to us" instead of a price. */
     onRequest?: boolean;
@@ -168,35 +169,30 @@ export const PLAN_PRICING: Record<
     label: "Free",
     monthlyUsd: 0,
     annualUsd: 0,
-    monthlyInr: 0,
     tagline: "Reply to your first reviews and see them go live.",
   },
   trial: {
     label: "Trial",
     monthlyUsd: null,
     annualUsd: null,
-    monthlyInr: null,
     tagline: "Everything in Pro, free for 14 days.",
   },
   starter: {
     label: "Starter",
     monthlyUsd: 49,
     annualUsd: 39,
-    monthlyInr: 2_999,
     tagline: "One app, replied to properly.",
   },
   pro: {
     label: "Pro",
     monthlyUsd: 129,
     annualUsd: 99,
-    monthlyInr: 6_999,
     tagline: "A portfolio of apps, and a team to answer them.",
   },
   enterprise: {
     label: "Enterprise",
     monthlyUsd: null,
     annualUsd: null,
-    monthlyInr: null,
     tagline: "Unlimited apps, custom limits, and a contract.",
     onRequest: true,
   },

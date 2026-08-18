@@ -208,11 +208,21 @@ describe("PLAN_PRICING", () => {
     }
   });
 
-  it("prices India separately rather than converting", () => {
-    // A converted $129 would be ~₹11,000, which no Indian founder pays for
-    // this. These are independent price points for independent markets.
-    expect(PLAN_PRICING.pro.monthlyInr!).toBeLessThan(PLAN_PRICING.pro.monthlyUsd! * 85);
-    expect(PLAN_PRICING.pro.monthlyInr!).toBeGreaterThan(PLAN_PRICING.starter.monthlyInr!);
+  it("quotes exactly one currency", () => {
+    // There used to be a parallel set of INR prices rendered on /pricing as
+    // "India: ₹2,999/month". No INR price object ever existed in Stripe and
+    // checkout has only ever created USD sessions, so it advertised a price
+    // nobody could pay — the same defect as the annual prices beside it.
+    //
+    // A currency is not a display field. Adding one back means a Stripe price
+    // per currency, currency selection at checkout, and an answer for which
+    // currency an existing subscriber is billed in. This asserts nobody
+    // reintroduces the number without the machinery.
+    for (const name of Object.keys(PLAN_PRICING) as PlanName[]) {
+      expect(Object.keys(PLAN_PRICING[name])).toEqual(
+        expect.not.arrayContaining(["monthlyInr", "annualInr", "monthlyEur", "annualEur"]),
+      );
+    }
   });
 });
 
