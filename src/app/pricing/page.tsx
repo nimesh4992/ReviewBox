@@ -32,7 +32,6 @@ export const metadata = {
 const PLANS: PricingCard[] = PAID_PLANS.map((name): PricingCard => ({
   name: PLAN_PRICING[name].label,
   key: name,
-  inr: PLAN_PRICING[name].monthlyInr!,
   description: PLAN_PRICING[name].tagline,
   highlight: name === "pro",
   onRequest: false,
@@ -51,7 +50,6 @@ PLANS.push(
   {
     name: PLAN_PRICING.enterprise.label,
     key: "enterprise",
-    inr: 0,
     description: PLAN_PRICING.enterprise.tagline,
     highlight: false,
     // Quote-only on purpose: we have no seat management, SSO or procurement

@@ -112,17 +112,16 @@ receiving diagnostics only. Turned off.
       to charge customers outside India. Without it, export charges only work in
       test mode.
 - [x] **Show the currency on pricing.** Done in code — `/pricing` and the
-      in-app Billing page now label prices "USD / month" explicitly (the ₹
-      line names its own currency).
+      in-app Billing page label prices "USD / month" explicitly, and USD is
+      now the only currency quoted anywhere.
 - [ ] **Have KYC documents ready:** partnership deed, firm PAN, GSTIN, bank
       proof, and identity documents for the partners. Stripe India accepts
       partnership firms, but the deed is the document it will want.
-- [ ] **Decide annual + INR billing** before wiring prices: `/pricing`
-      advertises annual per-month prices and ₹ prices, but checkout sells
-      monthly USD only (see `docs/STRIPE_SETUP.md`). Either create those
-      prices when setting up Stripe, or trim the display — the site must not
-      advertise a price that can't be bought once billing is live. RBI's
-      e-mandate cap is the reason annual-on-Indian-cards needs a decision.
+- [x] **Resolved 2026-08-18 — the site no longer advertises a price checkout
+      cannot honour.** INR pricing was removed outright, and yearly is sold
+      properly (`STRIPE_PRICE_*_ANNUAL`) with its toggle hidden until those
+      prices exist. Create all four USD prices per `docs/STRIPE_SETUP.md`;
+      the annual pair is optional and degrades to monthly-only if omitted.
 
 Already handled in code: checkout now collects the buyer's name and billing
 address and sets a service description, all three of which an India account

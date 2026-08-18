@@ -30,17 +30,34 @@ prices anywhere else.
 
 - **Enterprise gets NO Stripe product.** It is "Talk to us" on purpose —
   assign the plan by hand after a contract.
-- **Create the two MONTHLY USD prices only** for now. `/pricing` also shows
-  annual per-month prices ($39/$99) and India prices (₹2,999/₹6,999), but
-  checkout deliberately doesn't sell them yet — two decisions gate them:
-  1. **Annual on Indian cards:** RBI e-mandate rules mean recurring charges
-     above the auto-debit cap need re-authentication every renewal — an
-     annual charge at these prices would fail unattended. Decide whether
-     annual is export-only before creating annual prices.
-  2. **INR billing:** needs INR prices in Stripe plus a checkout change to
-     pick a currency per customer. Until both are done, either treat the ₹
-     figures as indicative or ship the INR prices — don't leave a price on
-     the site that checkout can't honor once billing is live.
+- **Create FOUR USD prices — monthly and yearly for each plan:**
+
+  | Env var | Plan | Recurring | Amount |
+  |---|---|---|---|
+  | `STRIPE_PRICE_STARTER`        | Starter | Monthly | $49 |
+  | `STRIPE_PRICE_PRO`            | Pro     | Monthly | $129 |
+  | `STRIPE_PRICE_STARTER_ANNUAL` | Starter | Yearly  | **$468** |
+  | `STRIPE_PRICE_PRO_ANNUAL`     | Pro     | Yearly  | **$1188** |
+
+  ⚠️ The yearly prices are the **total charged once a year**, not the
+  per-month figure the pricing page displays ($39 / $99). Entering $39 as a
+  yearly price would sell a year of Starter for $39.
+
+  The two annual vars may be left blank: the Monthly/Yearly toggle is hidden
+  unless **every** paid plan has a price for that interval, so a partial
+  configuration degrades to monthly-only rather than half-working.
+
+- **USD only.** The INR prices (₹2,999 / ₹6,999) that used to appear on
+  `/pricing` were removed on 2026-08-18. They were never purchasable — no INR
+  price object existed and checkout only ever created USD sessions. Do not
+  re-add a currency to `PLAN_PRICING`: it needs a Stripe price per currency,
+  currency selection at checkout, and a rule for which currency an existing
+  subscriber is billed in.
+
+  If INR billing is revisited, note that **RBI e-mandate** rules cap
+  unattended recurring charges on Indian cards — an annual charge at these
+  prices would need re-authentication at every renewal. That is a reason
+  annual-on-Indian-cards is a real decision, not a formality.
 
 Trial: **14 days, no card required.** Handled at the app level via Clerk
 metadata — Stripe trial settings are not used, and there is no automatic

@@ -121,6 +121,24 @@ describe("public pages never hardcode the annual discount", () => {
     expect(body).not.toMatch(/30-day, no questions/i);
   });
 
+  it.each([
+    { file: "src/features/marketing/components/pricing-cards.tsx", label: "the pricing cards" },
+    { file: "src/app/pricing/page.tsx", label: "/pricing" },
+    { file: "src/features/billing/components/billing-screen.tsx", label: "/billing" },
+  ])("$label quotes no currency we cannot charge", ({ file }) => {
+    // INR prices (₹2,999 / ₹6,999) were rendered as "India: ₹2,999/month"
+    // with no INR price in Stripe and a checkout that only ever created USD
+    // sessions — an unpayable price, exactly like the annual ones beside it.
+    // Removed by founder decision 2026-08-18. Re-adding a currency needs a
+    // Stripe price per currency and currency selection at checkout, not a
+    // second number on a card.
+    const body = stripComments(read(file));
+    expect(body).not.toMatch(/₹/);
+    expect(body).not.toMatch(/\bINR\b/);
+    expect(body).not.toMatch(/monthlyInr|annualInr/);
+    expect(body).not.toMatch(/en-IN/);
+  });
+
   it("/faq does not promise proration it also denies two answers earlier", () => {
     const body = stripComments(read("src/app/faq/page.tsx"));
     expect(body).not.toMatch(/we'll prorate|we will prorate/i);
