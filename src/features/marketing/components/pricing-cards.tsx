@@ -15,8 +15,10 @@
  * customer read one number and was charged another, 26% higher.
  *
  * So the rule here is: never render a price for an interval the caller has not
- * confirmed is purchasable. When `annualAvailable` is false the toggle does
- * not appear and monthly is the only thing quoted.
+ * confirmed is purchasable. When `annualAvailable` is false the Yearly option
+ * still renders (disabled, "Coming soon") so the control isn't mistaken for
+ * missing, but it shows no price and cannot be selected — monthly is the only
+ * thing quoted or chargeable.
  */
 
 import Link from "next/link";
@@ -24,6 +26,7 @@ import { Check } from "lucide-react";
 import { useState } from "react";
 
 import { BillingIntervalToggle } from "@/features/billing/components/billing-interval-toggle";
+import { CurrencySelector } from "@/features/marketing/components/currency-selector";
 import {
   annualSavingsPercent,
   annualSavingsUsd,
@@ -56,15 +59,15 @@ export function PricingCards({
 
   return (
     <>
-      {annualAvailable && (
-        <div className="mb-8 flex justify-center">
-          <BillingIntervalToggle
-            value={interval}
-            onChange={setInterval}
-            savingsPercent={minAnnualSavingsPercent()}
-          />
-        </div>
-      )}
+      <div className="mb-8 flex flex-wrap items-center justify-center gap-3">
+        <BillingIntervalToggle
+          value={interval}
+          onChange={setInterval}
+          savingsPercent={minAnnualSavingsPercent()}
+          unavailableOptions={annualAvailable ? [] : ["annual"]}
+        />
+        <CurrencySelector />
+      </div>
 
       <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
         {plans.map((plan) => {
