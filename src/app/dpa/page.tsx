@@ -2,6 +2,7 @@
 import { COMPANY, companyLine, entityDescription } from "@/lib/legal/company";
 
 export const metadata = {
+  alternates: { canonical: "/dpa" },
   title: "Data Processing Agreement",
   description: "ReviewBox DPA — GDPR-compliant data processing agreement for EEA and UK customers.",
 };

@@ -11,6 +11,7 @@ import {
 import { Breadcrumb } from "@/features/marketing/components/breadcrumb";
 
 export const metadata = {
+  alternates: { canonical: "/blog" },
   title: "Blog",
   description:
     "Engineering notes and practical guides on managing App Store and Google Play reviews — replies, ratings, sentiment, and release health.",

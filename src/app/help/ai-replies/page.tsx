@@ -6,6 +6,7 @@ import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
 export const metadata = {
+  alternates: { canonical: "/help/ai-replies" },
   title: "How AI Replies Work — Help",
   description:
     "Learn how ReviewBox's 3-tier AI reply pipeline works: templates, cache, and Groq — and how 85% of replies cost $0.",
@@ -16,7 +17,6 @@ const TIERS = [
     number: "1",
     label: "Template match",
     cost: "$0 · instant",
-    color: "bg-[var(--rb-green-100)]0",
     description:
       "ReviewBox checks your review against 25 built-in reply templates. Templates match on rating + detected tags (crash, billing, login, feature request, etc.). If a template matches, the reply is returned instantly with zero AI tokens consumed.",
     detail: "~70% of all reviews are handled here.",
@@ -25,7 +25,6 @@ const TIERS = [
     number: "2",
     label: "Reply cache",
     cost: "$0 · ~5ms",
-    color: "bg-[var(--rb-mk-sunken)]0",
     description:
       "If no template matches, ReviewBox checks a Redis cache for a previously-generated reply to an identical or near-identical review. Cache keys are SHA-256 hashes of the review text + rating + tone. Cached replies are served instantly.",
     detail: "~15% of reviews are handled here. Cache entries live for 7 days.",
@@ -34,7 +33,6 @@ const TIERS = [
     number: "3",
     label: "AI generation",
     cost: "~$0.001 · ~600ms",
-    color: "bg-[var(--rb-mk-sunken)]0",
     description:
       "If neither tier 1 nor 2 matches, ReviewBox generates a new reply using Groq's Llama 3.3 70B model. Before sending, the review text is compressed (stripping filler phrases) to reduce token usage by ~73%. The generated reply is stored in the cache so identical future reviews are free.",
     detail: "~12–18% of reviews reach AI generation.",
@@ -88,7 +86,14 @@ export default function AiRepliesPage() {
                 {TIERS.map((tier) => (
                   <div key={tier.number} className="rounded-2xl border border-[var(--rb-mk-line)] bg-white p-6">
                     <div className="flex items-start gap-4">
-                      <div className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${tier.color} text-sm font-bold text-white`}>
+                      {/* One ink marker for all three tiers, not a tint per
+                          tier. The number is `text-white`, so the fill has to
+                          be dark — the three pastel fills that used to be here
+                          rendered white-on-pastel. (They were also corrupted:
+                          the colour sweep left `bg-[var(--rb-green-100)]0`,
+                          which is not a class name at all, so the badge had no
+                          background and the step number was invisible.) */}
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--rb-mk-ink)] text-sm font-bold text-white">
                         {tier.number}
                       </div>
                       <div className="flex-1">

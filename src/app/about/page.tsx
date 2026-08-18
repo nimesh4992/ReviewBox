@@ -16,6 +16,7 @@ import {
 import { Breadcrumb } from "@/features/marketing/components/breadcrumb";
 
 export const metadata = {
+  alternates: { canonical: "/about" },
   title: "About",
   description:
     "ReviewBox is the app-store review management platform built by people who've shipped apps.",

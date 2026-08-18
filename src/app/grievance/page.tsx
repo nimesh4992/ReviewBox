@@ -7,6 +7,7 @@ import {
 } from "@/lib/legal/company";
 
 export const metadata = {
+  alternates: { canonical: "/grievance" },
   title: "Grievance Redressal",
   description:
     "How to raise a complaint with ReviewBox, who handles it, and the timelines we commit to.",

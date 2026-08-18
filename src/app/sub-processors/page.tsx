@@ -2,6 +2,7 @@ import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-la
 import { COMPANY } from "@/lib/legal/company";
 
 export const metadata = {
+  alternates: { canonical: "/sub-processors" },
   title: "Sub-processors",
   description:
     "The third-party services ReviewBox uses to run the product, what each one receives, and how we notify you of changes.",

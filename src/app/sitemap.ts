@@ -34,11 +34,18 @@ export default function sitemap(): MetadataRoute.Sitemap {
     // Blog
     url("/blog/ai-cost-reduction",         0.7, "monthly"),
 
-    // Case studies
-
-    // Auth
-    url("/sign-up", 0.7, "yearly"),
-    url("/sign-in", 0.5, "yearly"),
+    // No /sign-in or /sign-up.
+    //
+    // They were listed here at priority 0.7 and 0.5, but middleware redirects
+    // both to app.tryreviewbox.com — and every public route on the app host is
+    // served with `X-Robots-Tag: noindex, nofollow`. So the sitemap was telling
+    // Google to index two URLs whose only possible outcome is a 307 into a page
+    // it is then forbidden to index. That is crawl budget spent to reach a
+    // closed door, on a domain that has very little to spend.
+    //
+    // The sign-up path still gets crawled — it is linked from the nav and every
+    // closing CTA on the site. It just should not be advertised as a
+    // destination.
 
     // Legal
     url("/terms",          0.3, "monthly"),

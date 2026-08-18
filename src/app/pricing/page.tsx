@@ -27,6 +27,7 @@ import { isIntervalPurchasable } from "@/lib/stripe";
 import { PricingCards, type PricingCard } from "@/features/marketing/components/pricing-cards";
 
 export const metadata = {
+  alternates: { canonical: "/pricing" },
   title: "Pricing",
   description:
     "Simple, transparent pricing for every team. Start free, no credit card required.",

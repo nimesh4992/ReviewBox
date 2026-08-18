@@ -5,6 +5,7 @@ import { MarketingShell } from "@/components/layout/marketing-shell";
 import { Breadcrumb } from "@/features/marketing/components/breadcrumb";
 
 export const metadata = {
+  alternates: { canonical: "/blog/ai-cost-reduction" },
   title: "How we reduced AI reply costs by 94% without hurting quality",
   description:
     "We rebuilt the reply pipeline from scratch — 25 templates, a Redis cache, and Gemini for the hard cases. Here's exactly how the math works.",

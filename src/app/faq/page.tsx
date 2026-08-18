@@ -17,6 +17,7 @@ import { annualSavingsPercent, minAnnualSavingsPercent } from "@/lib/plans";
 import { isIntervalPurchasable } from "@/lib/stripe";
 
 export const metadata = {
+  alternates: { canonical: "/faq" },
   title: "FAQ",
   description: "Frequently asked questions about ReviewBox — setup, pricing, AI replies, and more.",
 };

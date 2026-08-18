@@ -2,6 +2,7 @@ import { LegalPageLayout, LegalSection } from "@/components/layout/legal-page-la
 import { COMPANY, companyLine } from "@/lib/legal/company";
 
 export const metadata = {
+  alternates: { canonical: "/refund-policy" },
   title: "Refund & Cancellation Policy",
   description:
     "ReviewBox refund and cancellation policy — subscription payments are non-refundable; cancel any time to stop future renewals.",

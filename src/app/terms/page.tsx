@@ -2,6 +2,7 @@
 import { COMPANY, companyLine, entityDescription, formatRegisteredOffice, orPending } from "@/lib/legal/company";
 
 export const metadata = {
+  alternates: { canonical: "/terms" },
   title: "Terms of Service",
   description: "ReviewBox Terms of Service — the rules governing your use of the platform.",
 };
