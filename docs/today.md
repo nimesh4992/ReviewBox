@@ -1,11 +1,11 @@
-# Today — 2026-08-18 (marketing site rebuilt on the Envato theme, then the SEO unblock)
+# Today — 2026-08-18 (marketing site rebuilt on the Envato theme, then the SEO unblock, then the reason none of it was being read)
 
 **State of master:** `009484f` — PR #124 merged, every quality gate green.
 **But master has not reached production since 03:48 UTC on 2026-08-18 (PR #118).**
 The deploy job has failed on every merge since — #119, #120, #121, #123, #124 —
 on a wrong GitHub secret. Diagnosis and the exact fix are at the bottom; it is
 one value, and only the founder can change it.
-`tsc` clean, lint 0 errors, full `next build` passes, **591 unit tests** (was 539).
+`tsc` clean, lint 0 errors, full `next build` passes, **609 unit tests** (was 591).
 
 Two things shipped today, in order.
 
@@ -83,6 +83,86 @@ button: everything green, nothing rendered.
 
 ---
 
+## 3. SEO: Google could not read robots.txt or the sitemap at all (this PR)
+
+Section 2 above fixed the canonicals inside pages Google can reach. This is the
+layer underneath: **`/robots.txt` and `/sitemap.xml` returned 404 on every
+hostname**, so none of that work was ever collected.
+
+Verified against production before changing anything:
+
+```
+GET https://www.tryreviewbox.com/robots.txt
+→ 404,  x-clerk-auth-reason: protect-rewrite, session-token-and-uat-missing
+```
+
+Neither path was listed in middleware's `isPublicRoute`, and neither `.txt` nor
+`.xml` appears in the middleware matcher's extension-exclusion list — so both
+fell through to `auth.protect()`. Googlebot is always a signed-out visitor, so
+it got the 404 every time. `robots.ts` and `sitemap.ts` were correct, tested,
+and unreachable. **A missing robots.txt means "crawl everything"**, which is how
+`/customers`, `/status` and `/compare` were still ranking after being deleted:
+Google found them by link and was never handed a sitemap saying otherwise.
+
+**What Semrush actually shows** (us database, checked this session). Nine URLs
+rank, all on `www`, all at zero traffic — and three of the nine are dead:
+
+| URL | Keywords | State |
+|---|---|---|
+| `/blog` | 7 | live |
+| `/` | 6 | live |
+| `/pricing`, `/faq` | 3 each | live |
+| `/terms`, `/about` | 2 each | live |
+| `/customers` | 1 | deleted 2026-08-16 → 404 |
+| `/status` | 1 | deleted 2026-08-18 → 404 |
+| `/compare` | 1 | withdrawn → 307 |
+
+`app.tryreviewbox.com` returns **no rows at all** — the app host is not ranking
+for anything, which is what makes the `Disallow: /` below safe to ship now.
+
+**Fixed**
+
+- The three crawler files (`/robots.txt`, `/sitemap.xml`, `/opengraph-image`)
+  are public routes. `/opengraph-image` was 404ing to every social unfurler too,
+  so shared links rendered as a grey box.
+- **The app host serves its own robots.txt from middleware** — `Disallow: /`.
+  It has to be middleware: `next build` reports `/robots.txt` as `○ (Static)`,
+  one prerendered body for both hostnames, so `robots.ts` cannot tell them
+  apart. Making the path public without this would have served the *marketing*
+  robots.txt — an `Allow: /` over the entire signed-in product.
+- **Marketing pages on the app host now 301 to `www`.** They are public routes,
+  so `app.tryreviewbox.com/pricing` was rendering the full pricing page. The
+  noindex header kept it out of the index but discarded any link equity; a 301
+  passes it on.
+- **The root layout no longer asserts `index, follow` on every page.** It is
+  inherited by `/dashboard`, which therefore shipped `index, follow` in its
+  markup while middleware set `noindex, nofollow` in the header on the same
+  response. Nothing leaked — Google takes the most restrictive — but the page
+  was arguing with its own headers. The `(app)` and `/admin` trees now declare
+  `noindex` in their own metadata, so it holds on preview URLs and the apex too,
+  not only on the one host middleware adds a header to.
+- **Canonicals moved to `www`.** They named the apex, which 308s to www — a page
+  telling Google "the real me is over there" while the server says "not here".
+  `marketingUrl()` now also refuses to ever return the app host: it falls back
+  to `NEXT_PUBLIC_APP_URL`, so a missing `NEXT_PUBLIC_MARKETING_URL` in Vercel
+  would have pointed every canonical at the `Disallow: /` hostname. Verified in
+  a real build with only `NEXT_PUBLIC_APP_URL` set.
+
+`src/seo-indexing-contract.test.ts` (14 tests) reads middleware's source and
+fails if any of it regresses. Verified by mutation — four separate breakages
+were reintroduced and each turned it red. One early version of the ordering
+check could *not* fail (it matched the import line rather than the branch);
+that is fixed and the note is in the test.
+
+**Not done, deliberately: the deleted pages are NOT added to robots.txt.**
+`Disallow` and `noindex` cancel out — blocking a URL stops Google crawling it,
+so it never sees the 404 telling it to drop the page, and the URL sits in the
+index as "Indexed, though blocked by robots.txt". They 404 cleanly and are
+absent from the sitemap, which is what actually removes them. Search Console →
+Removals is the fast path if the founder wants them gone in a day.
+
+---
+
 ## Outstanding — founder only
 
 1. **`VERCEL_ORG_ID` is wrong. Nothing has deployed since #118 — fix this first.**
@@ -123,9 +203,22 @@ button: everything green, nothing rendered.
    keep failing forever until the secret changes. Both produce the same
    symptom — merged but not shipped — which is why the log line matters more
    than the red X.*
-2. **Confirm `www` is a redirect in Vercel, not an alias.** The canonicals make
-   an alias survivable; they do not make it correct. This is the last open part
-   of the plan's item #1.
+2. ~~**Confirm `www` is a redirect in Vercel, not an alias.**~~ **Resolved —
+   checked this session, no action needed.** `tryreviewbox.com` answers `308
+   Permanent Redirect` to `www.tryreviewbox.com`. It is a redirect. The site now
+   canonicalises to `www` to match.
+
+   **New, optional (2 min):** set `NEXT_PUBLIC_MARKETING_URL` to
+   `https://www.tryreviewbox.com` in Vercel → Settings → Environment Variables.
+   The code no longer needs it — `marketingUrl()` corrects the apex and refuses
+   the app host on its own — but setting it explicitly means the value is stated
+   rather than inferred.
+
+2b. **Submit the sitemap in Search Console, once this is deployed.** It has
+   never been fetchable, so this is the first time there is anything to submit.
+   Property `www.tryreviewbox.com` → Sitemaps → `sitemap.xml`. While there, use
+   **Removals** on `/customers`, `/status` and `/compare` to clear them in about
+   a day instead of waiting weeks for a recrawl.
 3. **`/blog/ai-cost-reduction` opens "We audited 10,000 reviews across our beta
    customers."** There are no customers. Same class as the claims already
    removed from `/about` and `/compare`. Copy edit drafted, not applied — it is

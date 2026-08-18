@@ -248,6 +248,26 @@ open, and it is founder-side: confirm in Vercel that `www` is configured as a
 **redirect**, not an alias. The canonicals make a `www` alias survivable; they
 do not make it correct.*
 
+### [x] SEO6 · robots.txt and sitemap.xml were 404 to Google · ICE 100 (10×10÷1) — SHIPPED 2026-08-18
+*The layer underneath SEO1. `/robots.txt` and `/sitemap.xml` were in neither of
+middleware's route matchers, and neither `.txt` nor `.xml` is in the matcher's
+extension-exclusion list, so both fell through to `auth.protect()` and answered
+Googlebot — always a signed-out visitor — with a 404. Verified in production:
+`x-clerk-auth-reason: protect-rewrite`. Every canonical SEO1 added was being
+collected by nobody, and a missing robots.txt means "crawl everything", which is
+why `/customers`, `/status` and `/compare` still ranked after deletion.*
+*Also shipped: the app host serves its own `Disallow: /` robots.txt from
+middleware (a static `robots.ts` is one prerendered body for both hostnames and
+cannot tell them apart); marketing pages 301 off the app host to `www`; the root
+layout stopped asserting `index, follow` over the signed-in product; and
+`marketingUrl()` can no longer resolve to the app host, which a missing
+`NEXT_PUBLIC_MARKETING_URL` would otherwise have made every canonical point at.*
+*`src/seo-indexing-contract.test.ts` — 14 tests, reads middleware's source,
+mutation-verified to fail on four separate regressions.*
+*Deliberately NOT done: adding the deleted pages to robots.txt. `Disallow` and
+`noindex` cancel out — a blocked URL is never recrawled, so Google never sees
+the 404 and the URL lingers as "Indexed, though blocked by robots.txt".*
+
 ### [ ] SEO2 · Reply template library · ICE 56 (8×7÷1)
 *Item 2 of `docs/SEO_KEYWORD_PLAN.md`. Cluster A: ~4,950/mo at KD 19–33 — the
 best demand-to-product fit on the site, and five of its eleven terms are ones

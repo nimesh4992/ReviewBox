@@ -907,6 +907,41 @@ the point, but it means the error is a bug in the new code, not in the schema.
 
 ## Known Issues (read before debugging)
 
+### ⚠️ A route in NEITHER middleware matcher is served to Googlebot as a 404
+
+`/robots.txt` and `/sitemap.xml` were absent from both `isPublicRoute` and
+`isAppRoute`, and neither `.txt` nor `.xml` is in the `config.matcher`
+extension-exclusion list — so both reached `auth.protect()`. A signed-out
+visitor got a 404. **Googlebot is always a signed-out visitor**, so the site had
+no robots.txt and no readable sitemap on any hostname, for months, while
+`robots.ts` and `sitemap.ts` were correct and under test.
+
+Two things generalise:
+
+1. **A path in neither matcher does not error — it just stops working**, and
+   only for people without a session. Every developer clicking around the site
+   is signed in, so nothing looks wrong. This is the same failure that silently
+   killed the `daily-digest` cron (see the `isPublicRoute` comments) and the
+   AppFollow import, Competitors and Slack OAuth routes.
+2. **Absent robots.txt means "crawl everything"**, not "crawl nothing". The
+   404 was permissive, not protective.
+
+`src/seo-indexing-contract.test.ts` now reads `middleware.ts` and fails if the
+crawler paths leave the public matcher, or if `.txt`/`.xml` are ever added to
+the extension exclusion.
+
+**Related rule: `Disallow` and `noindex` cancel each other out.** Blocking a URL
+in robots.txt stops Google crawling it, so it never sees the `noindex` or the
+404 telling it to drop the page — the URL stays indexed, labelled "Indexed,
+though blocked by robots.txt". To *remove* a page, leave it crawlable and let it
+404/410. Only `Disallow` things that are already gone from the index —
+`app.tryreviewbox.com` qualifies because Semrush shows it ranking for nothing.
+
+**The app host's robots.txt is served from `middleware.ts`, not `robots.ts`.**
+`next build` reports `/robots.txt` as `○ (Static)`: one prerendered body for
+both hostnames, with no access to the Host header. A host-aware `robots.ts`
+would be a coin flip over which host got the right file, and it 200s either way.
+
 ### ⚠️ Branch/preview deployments are intentionally DISABLED (2026-08-16, founder decision)
 
 `vercel.json` carries an `ignoreCommand` that skips the build for every git

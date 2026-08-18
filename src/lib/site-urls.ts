@@ -21,7 +21,22 @@
  * behaves exactly as before.
  */
 
-const DEFAULT_MARKETING = "https://tryreviewbox.com";
+/**
+ * `www.`, not the apex — this is the canonical marketing origin.
+ *
+ * Vercel serves the apex as a 308 to www, and Google has indexed www (every
+ * ranking URL Semrush reports is on www.tryreviewbox.com). The default here was
+ * the apex, so every `alternates.canonical`, every `og:url` and every sitemap
+ * entry named a URL that immediately redirects — a page telling Google "the
+ * real me lives over there" while the server answers "not here, try www". Two
+ * signals pointing at each other is the one thing a canonical exists to
+ * prevent.
+ *
+ * If the apex is ever made primary in Vercel instead, change this line and the
+ * MARKETING_ORIGIN constant in `middleware.ts` together — they must agree, or
+ * the app host redirects into a second redirect.
+ */
+const DEFAULT_MARKETING = "https://www.tryreviewbox.com";
 
 /**
  * Accept "tryreviewbox.com" as readily as "https://tryreviewbox.com", and
@@ -98,8 +113,43 @@ export function appUrl(): string {
 export function marketingUrl(): string {
   // Falls through to the app URL when the marketing one is unset OR unusable,
   // so one bad variable cannot take the other's correct value down with it.
-  return firstValid(
-    process.env.NEXT_PUBLIC_MARKETING_URL,
-    process.env.NEXT_PUBLIC_APP_URL,
+  return canonicalizeMarketing(
+    firstValid(
+      process.env.NEXT_PUBLIC_MARKETING_URL,
+      process.env.NEXT_PUBLIC_APP_URL,
+    ),
   );
+}
+
+/**
+ * Two corrections applied to whatever the environment supplied, because this
+ * value becomes every canonical tag on the site and both mistakes are silent.
+ *
+ * 1. **Never the app host.** `marketingUrl()` falls back to
+ *    `NEXT_PUBLIC_APP_URL`, which in production is app.tryreviewbox.com. If
+ *    `NEXT_PUBLIC_MARKETING_URL` is unset or gets a typo, every canonical URL,
+ *    every sitemap entry and every og:url would name the hostname whose entire
+ *    robots.txt is `Disallow: /` — instructing Google to drop the marketing
+ *    site in favour of a page it is forbidden to crawl. This is the exact
+ *    own-goal the header comment above warns about, left as a live possibility
+ *    by the fallback that comment describes.
+ *
+ * 2. **Apex upgrades to www.** Vercel 308s tryreviewbox.com to www, and www is
+ *    what Google has indexed. A canonical naming the apex points at a redirect,
+ *    which is a page disagreeing with its own server about where it lives.
+ *
+ * Deliberately scoped to the two production hostnames by exact match, so
+ * localhost, preview URLs and any future domain pass through untouched.
+ */
+function canonicalizeMarketing(resolved: string): string {
+  let host: string;
+  try {
+    host = new URL(resolved).hostname.toLowerCase();
+  } catch {
+    return DEFAULT_MARKETING;
+  }
+
+  if (host === "app.tryreviewbox.com") return DEFAULT_MARKETING;
+  if (host === "tryreviewbox.com") return DEFAULT_MARKETING;
+  return resolved;
 }
