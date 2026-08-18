@@ -28,6 +28,7 @@ export const metadata = {
 const FAQ_SECTIONS = [
   {
     title: "Getting started",
+    id: "getting-started",
     questions: [
       {
         q: "How do I connect Google Play?",
@@ -57,6 +58,7 @@ const FAQ_SECTIONS = [
   },
   {
     title: "AI replies",
+    id: "ai-replies",
     questions: [
       {
         q: "How does the AI reply system work?",
@@ -78,6 +80,7 @@ const FAQ_SECTIONS = [
   },
   {
     title: "Billing",
+    id: "billing",
     questions: [
       {
         q: "What happens if I go over my plan limits?",
@@ -111,6 +114,7 @@ const FAQ_SECTIONS = [
   },
   {
     title: "Privacy & security",
+    id: "privacy",
     questions: [
       {
         q: "Where is my data stored?",
@@ -174,7 +178,7 @@ export default function FaqPage() {
         <Breadcrumb trail={[{ label: "FAQ" }]} />
 
         {FAQ_SECTIONS.map((section, si) => (
-          <Section key={section.title} band={si % 2 === 1} tight={si > 0}>
+          <Section key={section.title} id={section.id} band={si % 2 === 1} tight={si > 0}>
             <div className="mx-auto max-w-[760px]">
               <Eyebrow>{section.title}</Eyebrow>
               {/* Native <details>, so the whole list is keyboard-operable and

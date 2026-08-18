@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CheckCircle, AlertCircle, ChevronRight } from "lucide-react";
 import { MarketingShell } from "@/components/layout/marketing-shell";
+import { Breadcrumb } from "@/features/marketing/components/breadcrumb";
 import { MarketingNav } from "@/components/layout/marketing-nav";
 import { MarketingFooter } from "@/components/layout/marketing-footer";
 
@@ -50,13 +51,13 @@ export default async function ConnectGooglePlayPage() {
               href="https://play.google.com/console"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-[#0A84FF] hover:underline"
+              className="text-[var(--rb-mk-orange-text)] hover:underline"
             >
               play.google.com/console
             </a>{" "}
             with the account that owns your app.
           </p>
-          <p className="mt-3 text-sm text-gray-500">
+          <p className="mt-3 text-sm text-[var(--rb-fg-3)]">
             You need to be an Admin or have user-management permission. If you&apos;re not, send this guide to whoever does.
           </p>
         </>
@@ -77,11 +78,11 @@ export default async function ConnectGooglePlayPage() {
       content: (
         <>
           <p>Paste this email address:</p>
-          <div className="mt-3 flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 shadow-sm">
-            <code className="flex-1 truncate font-mono text-[12px] text-gray-800">{email}</code>
-            <span className="text-[10px] font-medium text-gray-400">Copy from Settings → Integrations in-product</span>
+          <div className="mt-3 flex items-center gap-2 rounded-lg border border-[var(--rb-mk-line)] bg-white px-3 py-2 shadow-sm">
+            <code className="flex-1 truncate font-mono text-[12px] text-[var(--rb-fg-1)]">{email}</code>
+            <span className="text-[10px] font-medium text-[var(--rb-fg-3)]">Copy from Settings → Integrations in-product</span>
           </div>
-          <p className="mt-3 text-sm text-gray-500">
+          <p className="mt-3 text-sm text-[var(--rb-fg-3)]">
             This is our service account. It&apos;s not a human — Google Play treats it as a teammate so it can read your reviews and post replies through their API.
           </p>
         </>
@@ -93,7 +94,7 @@ export default async function ConnectGooglePlayPage() {
       content: (
         <>
           <p>Under <strong>App permissions</strong>, check the box next to:</p>
-          <ul className="mt-3 space-y-1.5 text-sm text-gray-700">
+          <ul className="mt-3 space-y-1.5 text-sm text-[var(--rb-fg-2)]">
             <li className="flex items-start gap-2">
               <CheckCircle className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
               <span><strong>View app information &amp; download bulk reports</strong></span>
@@ -120,7 +121,7 @@ export default async function ConnectGooglePlayPage() {
           <p>
             Choose <strong>Specific apps</strong> and select the app(s) you want ReviewBox to manage. This is safer than granting access to your entire Play Console.
           </p>
-          <p className="mt-2 text-sm text-gray-500">
+          <p className="mt-2 text-sm text-[var(--rb-fg-3)]">
             If you only have one app, you can use <strong>All apps</strong> — same result, slightly less safety if you launch more apps later.
           </p>
         </>
@@ -134,7 +135,7 @@ export default async function ConnectGooglePlayPage() {
           <p>
             Click <strong>Invite user</strong> → <strong>Send invitation</strong>. Service accounts auto-accept — there&apos;s no email back-and-forth.
           </p>
-          <p className="mt-3 text-sm text-gray-500">
+          <p className="mt-3 text-sm text-[var(--rb-fg-3)]">
             Google may take 5–60 minutes to propagate the permission. Most users see it within 5 minutes.
           </p>
         </>
@@ -147,7 +148,7 @@ export default async function ConnectGooglePlayPage() {
         <>
           <p>
             Back in ReviewBox, go to{" "}
-            <Link href="/settings?tab=integrations" className="text-[#0A84FF] hover:underline">
+            <Link href="/settings?tab=integrations" className="text-[var(--rb-mk-orange-text)] hover:underline">
               Settings → Integrations
             </Link>{" "}
             and click <strong>Sync now</strong> next to your app.
@@ -173,25 +174,19 @@ export default async function ConnectGooglePlayPage() {
     <MarketingShell>
       <MarketingNav />
 
-      <div className="mx-auto max-w-screen-xl px-6 py-3">
-        <nav className="flex items-center gap-1.5 text-xs text-gray-400">
-          <Link href="/" className="hover:text-gray-600">Home</Link>
-          <span>/</span>
-          <Link href="/help" className="hover:text-gray-600">Help Center</Link>
-          <span>/</span>
-          <span className="text-gray-600">Connect Google Play</span>
-        </nav>
-      </div>
+      <Breadcrumb
+        trail={[{ label: "Help centre", href: "/help" }, { label: "Connect Google Play" }]}
+      />
 
       <main className="mx-auto max-w-screen-xl px-6 pb-32">
         <div className="pt-10 pb-8 max-w-3xl">
           <span className="inline-flex items-center rounded-full bg-blue-50 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest text-blue-600">
             Getting started · 3 min
           </span>
-          <h1 className="mt-4 text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">
+          <h1 className="mt-4 text-3xl font-bold tracking-tight text-[var(--rb-fg-1)] sm:text-4xl">
             Connect Google Play
           </h1>
-          <p className="mt-3 text-gray-500 leading-relaxed">
+          <p className="mt-3 text-[var(--rb-fg-3)] leading-relaxed">
             You don&apos;t need to create any developer accounts or download files. Just invite ReviewBox&apos;s service account email to your Play Console with two permissions. Total time: 3 minutes.
           </p>
         </div>
@@ -202,15 +197,15 @@ export default async function ConnectGooglePlayPage() {
               <div
                 key={step.id}
                 id={step.id}
-                className="scroll-mt-24 rounded-2xl border border-gray-200 bg-white p-6"
+                className="scroll-mt-24 rounded-2xl border border-[var(--rb-mk-line)] bg-white p-6"
               >
                 <div className="flex items-start gap-4">
-                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[#0A84FF] text-xs font-bold text-white">
+                  <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--rb-mk-ink)] text-xs font-bold text-white">
                     {i + 1}
                   </div>
                   <div className="flex-1">
-                    <h2 className="font-semibold text-gray-900">{step.title}</h2>
-                    <div className="mt-3 text-sm text-gray-600 leading-relaxed space-y-2">
+                    <h2 className="font-semibold text-[var(--rb-fg-1)]">{step.title}</h2>
+                    <div className="mt-3 text-sm text-[var(--rb-fg-2)] leading-relaxed space-y-2">
                       {step.content}
                     </div>
                   </div>
@@ -231,13 +226,13 @@ export default async function ConnectGooglePlayPage() {
               </div>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-6">
-              <h2 className="font-semibold text-gray-900">Troubleshooting</h2>
+            <div className="rounded-2xl border border-[var(--rb-mk-line)] bg-white p-6">
+              <h2 className="font-semibold text-[var(--rb-fg-1)]">Troubleshooting</h2>
               <ul className="mt-4 space-y-4">
                 {TROUBLESHOOTING.map((t) => (
                   <li key={t.q}>
-                    <p className="text-sm font-semibold text-gray-800">{t.q}</p>
-                    <p className="mt-1.5 text-sm leading-relaxed text-gray-600">{t.a}</p>
+                    <p className="text-sm font-semibold text-[var(--rb-fg-1)]">{t.q}</p>
+                    <p className="mt-1.5 text-sm leading-relaxed text-[var(--rb-fg-2)]">{t.a}</p>
                   </li>
                 ))}
               </ul>
@@ -245,8 +240,8 @@ export default async function ConnectGooglePlayPage() {
           </div>
 
           <div className="space-y-6">
-            <div className="rounded-2xl border border-gray-200 bg-white p-5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
+            <div className="rounded-2xl border border-[var(--rb-mk-line)] bg-white p-5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-[var(--rb-fg-3)] mb-3">
                 On this page
               </p>
               <ul className="space-y-1">
@@ -254,9 +249,9 @@ export default async function ConnectGooglePlayPage() {
                   <li key={step.id}>
                     <a
                       href={`#${step.id}`}
-                      className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                      className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-[var(--rb-fg-2)] hover:bg-[var(--rb-mk-sunken)]"
                     >
-                      <span className="text-xs text-gray-400 w-4 shrink-0">{i + 1}.</span>
+                      <span className="text-xs text-[var(--rb-fg-3)] w-4 shrink-0">{i + 1}.</span>
                       {step.title}
                     </a>
                   </li>
@@ -264,8 +259,8 @@ export default async function ConnectGooglePlayPage() {
               </ul>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-5">
-              <p className="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">
+            <div className="rounded-2xl border border-[var(--rb-mk-line)] bg-white p-5">
+              <p className="text-xs font-semibold uppercase tracking-widest text-[var(--rb-fg-3)] mb-3">
                 Related
               </p>
               <ul className="space-y-1">
@@ -273,22 +268,22 @@ export default async function ConnectGooglePlayPage() {
                   <li key={r.title}>
                     <Link
                       href={r.href}
-                      className="flex items-center justify-between rounded-lg px-2 py-1.5 text-sm text-gray-600 hover:bg-gray-50"
+                      className="flex items-center justify-between rounded-lg px-2 py-1.5 text-sm text-[var(--rb-fg-2)] hover:bg-[var(--rb-mk-sunken)]"
                     >
                       {r.title}
-                      <ChevronRight className="h-3.5 w-3.5 text-gray-300 shrink-0" />
+                      <ChevronRight className="h-3.5 w-3.5 text-[var(--rb-fg-3)] shrink-0" />
                     </Link>
                   </li>
                 ))}
               </ul>
             </div>
 
-            <div className="rounded-2xl border border-gray-200 bg-white p-5 text-center">
-              <p className="text-sm font-semibold text-gray-900">Still stuck?</p>
-              <p className="mt-1 text-xs text-gray-500">We reply within one business day.</p>
+            <div className="rounded-2xl border border-[var(--rb-mk-line)] bg-white p-5 text-center">
+              <p className="text-sm font-semibold text-[var(--rb-fg-1)]">Still stuck?</p>
+              <p className="mt-1 text-xs text-[var(--rb-fg-3)]">We reply within one business day.</p>
               <a
                 href="mailto:hello@tryreviewbox.com"
-                className="mt-4 inline-flex rounded-lg bg-[#0A84FF] px-4 py-2 text-xs font-semibold text-white hover:bg-[#0070e0]"
+                className="mt-4 inline-flex rounded-lg bg-[var(--rb-mk-amber-500)] px-4 py-2 text-xs font-bold text-[var(--rb-mk-ink)] hover:bg-[var(--rb-mk-amber-600)]"
               >
                 Email us
               </a>
