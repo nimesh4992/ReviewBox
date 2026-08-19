@@ -1,10 +1,17 @@
 # Today — 2026-08-18 (marketing site rebuilt on the Envato theme, then the SEO unblock, then the reason none of it was being read)
 
-**State of master:** `009484f` — PR #124 merged, every quality gate green.
+**State of master:** every quality gate green on every merge.
 **But master has not reached production since 03:48 UTC on 2026-08-18 (PR #118).**
-The deploy job has failed on every merge since — #119, #120, #121, #123, #124 —
-on a wrong GitHub secret. Diagnosis and the exact fix are at the bottom; it is
-one value, and only the founder can change it.
+The deploy job has failed on every merge since — #119, #120, #121, #123, #124,
+#125, #127 — at `vercel pull`, the first Vercel step.
+
+**Still open as of 05:56 UTC on 2026-08-19, and my diagnosis was incomplete.**
+`VERCEL_ORG_ID` genuinely was wrong and is now fixed and verified in the log.
+The next deploy failed anyway, with both identifiers provably correct. So the
+ids were *a* fault, not *the* fault. The remaining candidate is the scope of
+`VERCEL_TOKEN` — which unlike the ids really is a GitHub secret. Rather than
+guess a third time, the job now prints `vercel whoami` and `vercel teams ls`
+into the run summary whenever the pull fails. See item 1 below.
 `tsc` clean, lint 0 errors, full `next build` passes, **609 unit tests** (was 591).
 
 Two things shipped today, in order.
@@ -247,13 +254,32 @@ marketing prefix is also a public route, so the two lists cannot drift again.
 
    `VERCEL_PROJECT_ID` was correct and is unchanged.
 
-   **One trap worth remembering.** A `VERCEL_TOKEN` scoped to the *right* team
-   makes this look worse, not better. With a wrong-team token the CLI says
-   `Project not found ({...ORG_ID})`, which names the culprit. With a
-   right-team token and a wrong org id it says `Could not retrieve Project
-   Settings. To link your Project, remove the .vercel directory` — which reads
-   like a broken token and sends you to re-issue the one thing that is fine.
-   Both were observed here, in that order, hours apart.
+   **It did not fix the deploy, and here is the honest version of why I
+   thought it would.** Two errors were observed hours apart — `Project not
+   found ({...ORG_ID})` and then `Could not retrieve Project Settings` — and I
+   built a rule out of them: wrong-team token gives the first, right-team token
+   plus wrong org id gives the second. That was inference from two data points
+   presented as fact. The #127 merge disproved it: both identifiers printed
+   correctly in the log and the pull failed on the same step, same message.
+
+   So the two messages do **not** distinguish "wrong id" from "token cannot
+   reach the team", and neither ever reports the token's own scope — the one
+   thing that cannot be read anywhere else and the only remaining candidate.
+
+   **What replaces the guess.** A `Who is this token?` step, running only when
+   the pull fails, writes into the run's step summary: the ids it targeted, the
+   account `vercel whoami` reports, and every team `vercel teams ls` can reach.
+
+   - Team holding `VERCEL_ORG_ID` **absent** from that list → the token is the
+     fault. Re-issue at Vercel → Account Settings → Tokens **scoped to that
+     team**, then replace `VERCEL_TOKEN` in GitHub → Settings → Secrets and
+     variables → Actions. This one really is a secret, so it really is
+     founder-only.
+   - Team **present** → an identifier is still wrong, and the ids are in
+     `ci.yml`, so it is mine to fix.
+
+   Either way the next failed deploy names its own cause instead of needing a
+   third round of inference.
 
    The whole run reads green except the last job. On the #124 merge, Build +
    type-check, Lint, Unit tests, Security audit and E2E all passed; **Deploy to

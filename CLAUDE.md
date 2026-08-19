@@ -973,22 +973,33 @@ merged-but-not-shipped outcome.
 
 | Error in the log | What it is | What to do |
 |---|---|---|
-| `Project not found ({…ORG_ID})` | `VERCEL_ORG_ID` in `ci.yml` names the wrong team | Fix the literal. Code change, not a secret. |
-| `Could not retrieve Project Settings` | **Also** the wrong org id — but with a token scoped to the *right* team | Same fix. Do **not** re-issue the token. |
+| `Project not found ({…ORG_ID})` | The org/project pair does not exist *for this token* | Read the step summary — see below |
+| `Could not retrieve Project Settings` | Same class. **Not** a distinct diagnosis | Read the step summary — see below |
 | `Too many requests … api-upload-free` | Upload quota, below | Wait out the 24h window. Re-running is useless. |
 
-The org-id bug cost **six merges** (#119–#125, 2026-08-18 → 19): every gate
-green, nothing in production for a day. Two things made it hard to see. It was
-never a GitHub secret at all — both Vercel identifiers are plain literals in
-`.github/workflows/ci.yml`'s workflow-level `env`, which is why the org id
-prints unmasked in the log while `VERCEL_TOKEN` prints `***`; if you are being
-sent to Settings → Secrets to change it, that is the tell that you have
-misdiagnosed it. And fixing the *token* first makes the symptom worse-looking,
-because a right-team token turns the specific error into the generic one.
+**Do not try to tell the first two apart by eye — they do not encode what you
+want to know.** `vercel pull` prints one or the other depending on internals,
+and neither says whether the fault is the org id, the project id, or a token
+that cannot reach the team. This was learned the expensive way over 2026-08-18
+→ 19: the org id **was** wrong, fixing it was necessary, and the deploy then
+failed *identically*. An earlier version of this table confidently mapped the
+second error to "wrong org id, right-team token." That was a guess presented as
+a rule, and it was wrong.
 
-To confirm either identifier without guessing, open any PR and read the Vercel
-bot's comment — its avatar URL carries both:
-`vercel.com/api/www/avatar?projectId=prj_…&teamId=team_…`.
+The job now answers this itself. On failure, a **"Who is this token?"** step
+writes to the run's step summary: the org and project ids it targeted, the
+account `vercel whoami` reports, and every team `vercel teams ls` can reach.
+
+- Team holding `VERCEL_ORG_ID` **not** in that list → the token is the fault.
+  Re-issue it at Vercel → Account Settings → Tokens, scoped to that team, and
+  replace the `VERCEL_TOKEN` secret. This one genuinely *is* a GitHub secret.
+- Team **is** listed → an identifier is wrong. Both are plain literals in
+  `ci.yml`'s workflow-level `env`, not secrets — which is why the org id prints
+  unmasked in the log while `VERCEL_TOKEN` prints `***`. Read the correct pair
+  off any PR's Vercel bot comment; its avatar URL carries both:
+  `vercel.com/api/www/avatar?projectId=prj_…&teamId=team_…`.
+
+Cost so far: **seven merges** (#119–#127) green with nothing in production.
 
 ### ⚠️ Vercel free plan: ~5,000 file uploads per 24h, shared across ALL deploys
 
