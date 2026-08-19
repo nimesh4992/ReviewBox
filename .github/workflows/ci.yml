@@ -24,42 +24,21 @@ concurrency:
 env:
   NODE_VERSION: "20"
 
-  # Vercel target for the deploy-production job at the bottom of this file.
-  # These two are identifiers, not credentials — Vercel's own bot prints them
-  # in its public PR comments — so they live here rather than in secrets, and
-  # the only thing you have to add is VERCEL_TOKEN.
-  #
-  # ⚠️ The org id was wrong here from the day it was written, and it cost six
-  # merges. `team_mQlD3mcz32rsA4HcPOBRiW6b` is not the team that owns this
-  # project, so `vercel pull` failed on the first Vercel step of every deploy
-  # after PR #118 — #119, #120, #121, #123, #124 and #125 all built green,
-  # passed every gate, and never reached production.
-  #
-  # To verify either value without guessing: open any PR and read the Vercel
-  # bot's comment. Its avatar URL carries both, authoritatively —
+  # No VERCEL_ORG_ID / VERCEL_PROJECT_ID here any more — nothing in this file
+  # deploys, so nothing reads them. If you re-add a deploy job, they are
+  # identifiers rather than credentials (Vercel's own bot prints both in its
+  # public PR comments), so they belong here rather than in secrets. Read the
+  # correct pair off any PR's bot comment — its avatar URL carries both:
   #   vercel.com/api/www/avatar?projectId=prj_…&teamId=team_…
-  # The project id below already matched it. The org id now does too.
-  #
-  # ⚠️ Fixing this was NECESSARY BUT NOT SUFFICIENT. The very next deploy, with
-  # both ids provably correct in the log, failed on the same step with "Could
-  # not retrieve Project Settings" — so something beyond the ids is also wrong,
-  # and the remaining candidate is VERCEL_TOKEN's scope. An earlier version of
-  # this comment asserted the opposite ("a right-team token turns the specific
-  # error into the generic one, do not re-issue it"). That was inference from
-  # two data points, stated as fact, and the next run disproved it.
-  #
-  # Do not replace that guess with another one. The "Who is this token?" step
-  # further down now prints `vercel whoami` and `vercel teams ls` into the run
-  # summary whenever the pull fails, which answers it directly.
-  VERCEL_ORG_ID: "team_YDfGTQhOF3TYQa36p7LILfuB"
-  VERCEL_PROJECT_ID: "prj_OE66Qpr8IdTXwLG6BOzevWYagRcl"
+  # The org id that used to sit here was wrong for the whole life of the job,
+  # which is worth knowing before copying an old value back in.
 
 # ⚠️ THE CI PLACEHOLDER KEYS BELOW MUST NEVER BE WORKFLOW-LEVEL `env`.
 #
 # They used to be, and it took production down on 2026-08-17.
 #
-# A workflow-level `env` block applies to EVERY job, including
-# `deploy-production`. `NEXT_PUBLIC_*` values are inlined into the browser
+# A workflow-level `env` block applies to EVERY job — including any deploy job
+# added later, which is the case that matters. `NEXT_PUBLIC_*` values are inlined into the browser
 # bundle at BUILD time, and a variable already present in the process
 # environment WINS over the values `vercel pull` writes to
 # `.vercel/.env.production.local`. So `vercel build --prod` compiled the real
@@ -75,6 +54,11 @@ env:
 # Rule: any job that DEPLOYS must inherit no build-time app config from CI.
 # Placeholders belong to the jobs that compile or run the app for TESTS only,
 # which is why each one now carries its own copy.
+#
+# No job here deploys today (see the note where deploy-production used to be),
+# so this rule currently guards nothing — keep it anyway. It is precisely what
+# makes re-adding a deploy job safe, and it was written after the rule's
+# absence took production down.
 #
 # The publishable key must be STRUCTURALLY valid, not just a placeholder
 # string: Clerk base64-decodes it to find the frontend API domain, and the old
@@ -280,225 +264,54 @@ jobs:
         run: npm audit --audit-level=high
         continue-on-error: true
 
-  # ── Production deploy ───────────────────────────────────────────────────────
+  # ── Production deploy: DELIBERATELY ABSENT ─────────────────────────────────
   #
-  # Deploys master to Vercel through the CLI instead of Vercel's Git
-  # integration.
+  # Vercel's Git integration deploys master. There is no deploy job here, and
+  # adding one back needs a reason that survives the history below.
   #
-  # Why: Vercel's Git integration only builds a commit whose *author* is a
-  # member of the Vercel team. The repo owner's GitHub account (nimesh4992) is
-  # not a member of the Vercel "ReviewBox" team, so every push and every
-  # Redeploy of master was answered with:
+  # There was one — `deploy-production`, a CLI deploy — removed 2026-08-19 on
+  # the founder's call. It was written because Vercel's Git integration refused
+  # this repo:
   #
   #   Deployment Blocked — the commit author did not have contributing access
   #   The Hobby Plan does not support collaboration for private repositories
   #
-  # That check does not apply to CLI deploys, which authenticate with a token
-  # belonging to the team itself. So this path does not care who authored or
-  # pushed the commit, and it keeps the project on the Hobby plan.
+  # Note "private". The repo is public now, so the block lapsed and the
+  # integration resumed on its own — every Vercel deployment record carries
+  # `githubRepoVisibility: "public"`. Nothing updated the comment, so for two
+  # days a failing CLI job painted master red while the site shipped fine
+  # without it, and an agent (me) told the founder seven merges were stuck in
+  # a queue that did not exist.
   #
-  # Gated on the four blocking jobs so a red master cannot reach production.
-  # e2e-tests is deliberately excluded — it is advisory and currently cannot
-  # pass without Clerk test credentials (BUG-037).
-  deploy-production:
-    name: Deploy to production
-    needs: [build-and-typecheck, lint, unit-tests, security-audit]
-    if: github.event_name == 'push' && github.ref == 'refs/heads/master'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment: production
-    steps:
-      - uses: actions/checkout@v4
-
-      # FAIL when the token is absent — do not skip.
-      #
-      # This originally skipped, reasoning that "a red pipeline that everyone
-      # learns to ignore is worse than no pipeline". That reasoning holds only
-      # if some other path still deploys. Here none does: the comment above
-      # this job records that Vercel's Git integration refuses to build master
-      # for this repo ("the commit author did not have contributing access"),
-      # which is why this CLI job exists at all. So with the token missing,
-      # BOTH production paths are closed and nothing reaches production.
-      #
-      # What that produced in practice: PR #77 merged on 2026-08-16, this job
-      # reported a green "Deploy to production", every deploy step inside it
-      # was skipped, and the code never shipped. A green check that means
-      # "deployed nothing" is precisely the silent-success failure the whole
-      # audit round was about — the pipeline should not model it differently
-      # from the product.
-      #
-      # Red master here is correct and actionable: it means master is genuinely
-      # not in production. Fix by adding the secret, not by softening this.
-      - name: Check for VERCEL_TOKEN
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: |
-          if [ -z "$VERCEL_TOKEN" ]; then
-            echo "::error::VERCEL_TOKEN is not set, so master was NOT deployed to production." >&2
-            {
-              echo "### ❌ Production deploy did not run"
-              echo ""
-              echo "\`VERCEL_TOKEN\` is missing, and Vercel's Git integration does not"
-              echo "build master for this repo — so **this commit is not in production.**"
-              echo ""
-              echo "To fix: create a token at Vercel → Account Settings → Tokens (scoped to"
-              echo "the ReviewBox team), then add it as \`VERCEL_TOKEN\` under"
-              echo "Settings → Secrets and variables → Actions. Re-run this job afterwards."
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit 1
-          fi
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-
-      - name: Install Vercel CLI
-        run: npm install --global vercel@latest
-
-      # `vercel pull` fetches the project's own production environment
-      # variables, so the real Clerk / Supabase / Groq values come from Vercel
-      # and are never duplicated into GitHub secrets.
-      - name: Pull Vercel production environment
-        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
-        env:
-          # VERCEL_ORG_ID and VERCEL_PROJECT_ID come from the workflow-level
-          # env block and are already present in every step's environment.
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-
-      # Runs ONLY when the pull above failed, and says who the token actually
-      # is instead of leaving it to be guessed.
-      #
-      # Why this exists: `vercel pull` reports the same two errors whether the
-      # org id is wrong, the project id is wrong, or the token cannot see the
-      # project — and it never names the token's own scope, which is the one
-      # thing you cannot read anywhere else. That ambiguity cost three rounds
-      # of diagnosis across 2026-08-18/19: the org id WAS wrong and fixing it
-      # was necessary, but the deploy failed identically afterwards, and the
-      # only way to tell "still the wrong id" from "the token cannot reach this
-      # team" was to change one and watch.
-      #
-      # `whoami` prints the authenticated account; `teams ls` prints every team
-      # that token can reach. If the team holding VERCEL_ORG_ID is not in that
-      # list, the token is the fault and no amount of id-fixing will help.
-      # Both are read-only and neither can deploy anything.
-      - name: Who is this token?
-        if: failure()
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-        run: |
-          {
-            echo "### ❌ Production deploy did not run"
-            echo ""
-            echo "\`vercel pull\` failed, so this commit is **not in production.**"
-            echo ""
-            echo "Targeting:"
-            echo ""
-            echo "| | |"
-            echo "|---|---|"
-            echo "| \`VERCEL_ORG_ID\` | \`$VERCEL_ORG_ID\` |"
-            echo "| \`VERCEL_PROJECT_ID\` | \`$VERCEL_PROJECT_ID\` |"
-            echo ""
-            echo "The token authenticates as:"
-            echo ""
-            echo '```'
-            vercel whoami --token="$VERCEL_TOKEN" 2>&1 || echo "(whoami failed — the token is invalid, revoked, or expired)"
-            echo '```'
-            echo ""
-            echo "and can reach these teams:"
-            echo ""
-            echo '```'
-            vercel teams ls --token="$VERCEL_TOKEN" 2>&1 || echo "(teams ls failed)"
-            echo '```'
-            echo ""
-            echo "**If the team holding \`VERCEL_ORG_ID\` is not listed above, the token is the"
-            echo "problem, not the ids.** Create a new one at Vercel → Account Settings →"
-            echo "Tokens with its scope set to that team, and replace \`VERCEL_TOKEN\` under"
-            echo "GitHub → Settings → Secrets and variables → Actions."
-            echo ""
-            echo "If it IS listed, the ids are wrong instead — read them off any PR's Vercel"
-            echo "bot comment, whose avatar URL carries both:"
-            echo "\`vercel.com/api/www/avatar?projectId=prj_…&teamId=team_…\`"
-          } >> "$GITHUB_STEP_SUMMARY"
-
-      # The check that would have caught the 2026-08-17 outage before it
-      # reached a customer. `vercel pull` writes the real production values
-      # here; if the Clerk publishable key is missing or still points at the
-      # CI placeholder instance, building would bake a dead key into the
-      # browser bundle and every page would answer "Invalid host". Fail here,
-      # loudly, instead of deploying it and reporting success.
-      - name: Verify pulled production env is real
-        run: |
-          envfile=".vercel/.env.production.local"
-          if [ ! -f "$envfile" ]; then
-            echo "::error::$envfile is missing — vercel pull did not fetch the production environment." >&2
-            exit 1
-          fi
-          key=$(grep -m1 '^NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=' "$envfile" | cut -d= -f2- | tr -d '"'"'"'')
-          if [ -z "$key" ]; then
-            echo "::error::NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY is absent from the pulled production env. Set it in Vercel → Project → Settings → Environment Variables (Production)." >&2
-            exit 1
-          fi
-          case "$key" in
-            *ci-placeholder*|*Y2ktcGxhY2Vob2xkZXI*)
-              echo "::error::The pulled Clerk key is the CI placeholder. Refusing to deploy — this is what took production down on 2026-08-17." >&2
-              exit 1
-              ;;
-          esac
-          echo "Production Clerk key present and not a placeholder."
-
-      - name: Build
-        run: vercel build --prod --token="$VERCEL_TOKEN"
-        env:
-          # VERCEL_ORG_ID and VERCEL_PROJECT_ID come from the workflow-level
-          # env block and are already present in every step's environment.
-          # NOTHING app-related is injected here on purpose: a variable already
-          # in the environment overrides .vercel/.env.production.local, which
-          # is exactly how the CI placeholder key shipped to production.
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-
-      # `--archive=tgz` uploads ONE tarball instead of every file individually.
-      #
-      # Without it, two master merges failed to deploy on 2026-08-17 with:
-      #
-      #   Too many requests - try again in 24 hours
-      #   (more than 5000, code: "api-upload-free")
-      #
-      # That is a per-24h cap on upload API requests on the free plan, and each
-      # deploy of this app uploads thousands of files (41MB of build output).
-      # Several merges in one evening exhausted it, so master built green and
-      # then did not ship — the same "merged but not in production" outcome the
-      # VERCEL_TOKEN check above exists to make visible.
-      #
-      # It is a quota, NOT a flake: re-running the job fails identically until
-      # the window resets. Archive mode is Vercel's own documented remedy and
-      # costs one upload request per deploy instead of thousands.
-      #
-      # The error is also captured below because it was invisible: the CLI
-      # retries the upload ~12 times and prints a generic "Upload aborted"
-      # stack for each, so the one actionable line scrolls off the end of the
-      # log. The retry noise looked exactly like a network blip, which is why
-      # the first instinct was to re-run it.
-      - name: Deploy
-        run: |
-          set +e
-          url=$(vercel deploy --prebuilt --prod --archive=tgz --token="$VERCEL_TOKEN" 2>/tmp/deploy.err)
-          code=$?
-          cat /tmp/deploy.err >&2
-          if [ "$code" -ne 0 ]; then
-            {
-              echo "### ❌ Production deploy failed — this commit is NOT in production"
-              echo ""
-              echo '```'
-              grep -m 3 -i "error" /tmp/deploy.err || tail -3 /tmp/deploy.err
-              echo '```'
-            } >> "$GITHUB_STEP_SUMMARY"
-            exit "$code"
-          fi
-          echo "Deployed: $url"
-          echo "### Production deploy" >> "$GITHUB_STEP_SUMMARY"
-          echo "$url" >> "$GITHUB_STEP_SUMMARY"
-        env:
-          # VERCEL_ORG_ID and VERCEL_PROJECT_ID come from the workflow-level
-          # env block and are already present in every step's environment.
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+  # Verified before removing, against the Vercel API rather than a CI log:
+  # dpl_F8nMNiuuMogC8RiT7Mmu3VFqWvKw (commit 0a4af8a, the #127 merge) is
+  # state READY, target "production", source "git", aliased to
+  # tryreviewbox.com, www.tryreviewbox.com and app.tryreviewbox.com.
+  #
+  # Two things were genuinely lost with it, so know what you are trading:
+  #
+  # 1. CI ORDERING. The job carried `needs: [build-and-typecheck, lint,
+  #    unit-tests, security-audit]`, so a red master could not reach
+  #    production. The Git integration has no such gate — it builds master
+  #    whatever CI says. #120 and #121 reached Vercel with a broken master and
+  #    failed at Vercel's own build rather than being held back. That is a
+  #    worse failure mode than being blocked, but it is a visible one, and it
+  #    was already the real behaviour while the CLI job was broken.
+  #
+  # 2. THE PRODUCTION-ENV GUARD. A step read `.vercel/.env.production.local`
+  #    after `vercel pull` and refused to deploy if the Clerk publishable key
+  #    was missing or still the CI placeholder — the check that would have
+  #    caught the 2026-08-17 outage. That whole class of bug came FROM the CLI
+  #    path: `vercel build --prod` inherits the runner's environment, and a
+  #    NEXT_PUBLIC_* value already present there beats what `vercel pull`
+  #    writes. Vercel's own builder has no CI environment to inherit, so the
+  #    guard protected against a hazard that only existed because the job did.
+  #
+  # The warning above `jobs:` about workflow-level NEXT_PUBLIC_* placeholders
+  # still stands and must NOT be relaxed — it is what makes re-adding a deploy
+  # job safe, and it is exactly the rule that was broken in 2026-08-17.
+  #
+  # If you do re-add one: gate it on the four blocking jobs, give it its own
+  # env block inheriting nothing app-related from CI, restore the pulled-env
+  # guard, and make sure it is not racing the Git integration for the same
+  # deployment.
