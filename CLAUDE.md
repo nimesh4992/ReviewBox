@@ -385,7 +385,8 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 >
 > The only artefact tracking the stronger claim is **`docs/SPINE.md`**, whose rule
 > is *"Done means a human walked this step against a REAL app and watched it
-> work."* It is **0 of 8**. Read SPINE.md to learn whether the product works;
+> work."* It reached **8 of 8 on 2026-08-19** — the first completed walk, and the
+> only evidence in this repo that the product works. Read SPINE.md to learn whether the product works;
 > read below to learn whether the code is present.
 >
 > **Do not promote a row here to ✅ on a passing test suite alone** — say what was
@@ -613,18 +614,23 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 
 ## Current Sprint
 
-**Active: SPINE — the 8-step launch walk (backlog ICE 100, D022 puts it ahead
-of the Issue Intelligence epic)**
-Last updated: 2026-08-19. Master `53001d4`: `tsc` clean, **649 unit tests in 63
+**Active: Issue Intelligence epic (II1–II11) — unblocked by SPINE reaching 8/8**
+Last updated: 2026-08-19. Master `a1b57b2`: `tsc` clean, **649 unit tests in 63
 files**. Read `docs/today.md` first — it carries the current narrative.
 
-**The bottleneck is not code any more, it is verification.** `docs/SPINE.md`
-defines the eight steps that decide whether the product works for a customer, and
-**zero of the eight have ever been marked verified** in the eleven weeks since it
-was written. Its two blocking defects were fixed on 2026-08-19 (PR #131) and are
-locked in by `src/spine-draft-mode-contract.test.ts`, so nothing in the repo
-blocks the walk. Nothing in the repo can complete it either — it needs a human,
-a real app, and a real store listing.
+**✅ SPINE is 8 of 8, walked by the founder against a real app on 2026-08-19.**
+The eight steps that decide whether the product works for a customer all passed,
+on the first completed walk in the eleven weeks since `docs/SPINE.md` was
+written. Its two blocking defects had been fixed the same day (PR #131, locked
+by `src/spine-draft-mode-contract.test.ts`). **The feature freeze it held is
+lifted**, and per D022 the Issue Intelligence epic is next.
+
+This is the only evidence in the repository that the product actually works —
+no agent verified any of it and none could. **One follow-up is still open:**
+step 8 passed "persists after reload", but that a replied status survives the
+*next daily sync* has not been walked. The code defends it (`review-sync.ts`
+refuses a blanket upsert; `reply_status`/`reply_text` are user-owned), which is
+a code guarantee, not a walked one.
 
 Founder-blocking behind it: **W5A** (review-volume limit, ADR waiting at
 `docs/adr/009-review-volume-limit.md`) which gates Stripe; **`ADMIN_CLERK_USER_ID`**

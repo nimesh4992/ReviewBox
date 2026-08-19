@@ -1,104 +1,97 @@
-# Today — 2026-08-19 (the deploy was never broken; the check was)
+# Today — 2026-08-19 (SPINE 8/8 — the launch gate is clear)
 
-**State of master:** `8727de3`. Every quality gate green on every merge.
+**State of master:** `a1b57b2`. `tsc` clean, **649 unit tests in 63 files**,
+lint 0 errors, CI green on the merge commit.
 
-**Production is live and current, and has been throughout.** The claim that
-dominated yesterday's notes and this file's last three revisions — that nine
-merges were sitting on master unshipped — was **wrong**. It was inferred from a
-red "Deploy to production" check and never verified against Vercel.
+**The founder walked all eight SPINE steps against a real app on production and
+reported every one working.** That is the first completed walk in the eleven
+weeks since `docs/SPINE.md` was written, and it is the only evidence this
+repository holds that the product actually works. Every ✅ in `CLAUDE.md` means
+"compiles and unit tests pass" — a different and much weaker claim.
 
-Verified now, against the Vercel API rather than a bot comment or a CI log:
+No agent verified any of this. None could: the walk needs a human, a real app,
+and a real store listing.
+
+---
+
+## What 8/8 means for the plan
 
 | | |
 |---|---|
-| deployment | `dpl_F8nMNiuuMogC8RiT7Mmu3VFqWvKw` (commit `0a4af8a`, the #127 merge) |
-| state | `READY` · `target: production` · `source: git` |
-| aliases | **tryreviewbox.com**, **www.tryreviewbox.com**, app.tryreviewbox.com |
+| **Feature freeze** | **Lifted.** `docs/SPINE.md` froze new feature work until 8/8. That condition is met. |
+| **Next epic** | **Issue Intelligence (II1–II11)**, per D022, which sequenced SPINE ahead of it. Startable now, in ICE order. |
+| **Launch** | Still a founder call. 8/8 clears the gate; it does not pull the trigger. |
 
-Every master merge from **#123 onward is `READY` in production the same way**.
-The only two that are not — #120 and #121 — errored at Vercel's own build
-because master was genuinely broken then (the JSX merge-fusion), which is a
-code fault, not a credential one.
+The two defects that would have produced a false ❌ on steps 7 and 8 were fixed
+the same morning in **#131** and are locked by
+`src/spine-draft-mode-contract.test.ts` (7 mutation-verified tests), so the walk
+met a product that had just been repaired rather than one that happened to work.
 
-## Why nobody noticed
+---
 
-There are two deploy paths and only one of them is the GitHub Actions job.
+## ⚠️ The one thing 8/8 does not yet cover — step 8 overnight
 
-Vercel's Git integration used to refuse this repo — *"the commit author did not
-have contributing access · The Hobby Plan does not support collaboration for
-**private** repositories"* — and that refusal is the entire reason the CLI
-deploy job was written. **The repo is public now.** Every Vercel deployment
-record carries `githubRepoVisibility: "public"`. The block lapsed, the
-integration resumed, and nothing updated the comment that said otherwise.
+Step 8 is defined as "status persists after page reload", and that passed. What a
+single-day walk cannot establish is that a replied review is **still replied after
+the next sync**. A review that reads `replied` tonight and `needs_reply` tomorrow
+is the failure that erased people's work before.
 
-So the CLI job has been failing on a bad `VERCEL_TOKEN` scope, turning master
-red on every merge, while the site shipped fine without it.
+The code defends it: `review-sync.ts` refuses a blanket upsert precisely because
+`reply_status` and `reply_text` are user-owned, and the promote-to-replied update
+is filtered `.eq("reply_status", "needs_reply")`. Asserted in
+`docs/specs/review-sync.md`. **That is a code guarantee, not a walked one** —
+exactly the distinction this whole file exists to keep.
 
-## The mistakes, in order, because they rhyme
+**Action:** after the 08:00 UTC daily sync, re-open the review that was marked
+replied and confirm it still reads replied. If it flipped back, SPINE step 8
+drops to ❌ and nothing else matters until it is fixed.
 
-1. **I trusted a stale comment over a live check.** `ci.yml` said the Git
-   integration refuses to build master. It was true when written. I never
-   tested it, and built two days of diagnosis on top.
-2. **I had the tool to settle it and didn't reach for it.** The Vercel MCP
-   tools (`list_teams` → `list_deployments` → `get_deployment`) answer "is this
-   live?" directly. I reached for them only after the third failed fix. The
-   agent egress proxy blocks `tryreviewbox.com`, so curl was never an option —
-   but the API always was.
-3. **I turned two observations into a rule.** `Project not found (…)` vs
-   `Could not retrieve Project Settings` do not distinguish a wrong id from a
-   wrong token scope. I wrote that they did, into `CLAUDE.md`, as fact. The
-   next run disproved it.
-4. **The fix I shipped for that wrote to the wrong place.** The "Who is this
-   token?" step logged only to `$GITHUB_STEP_SUMMARY` — invisible to anything
-   reading the job log through the API, which is how an agent reads it. It ran,
-   succeeded, and answered nobody. Now `tee`d to both.
+---
 
-The common shape: **a check that reports something other than what it measures.**
-Same family as the e2e job that was green because zero tests ran, and the
-deploy job that reported success while deploying nothing.
+## Founder actions still open (none block the epic)
 
-## What actually shipped 2026-08-18 → 19
+| # | Action | Why |
+|---|---|---|
+| 1 | **Step 8 overnight re-check** (above) | The only unverified part of the core loop. |
+| 2 | **Disclose Slack on `/sub-processors`** | The page lists ten processors and omits Slack, while `src/lib/slack.ts:198` sends a reviewer's name and a 120-char review snippet there. Third-party personal data to an undeclared processor. **D009 point 9 forbids an agent editing legal pages** — only the founder can close this. The only open item with real legal exposure. |
+| 3 | **Decide W5A** — the review-volume limit | ADR waiting at `docs/adr/009-review-volume-limit.md`. Gates Stripe going live. |
+| 4 | **`ADMIN_CLERK_USER_ID`** in Vercel production | `requireAdminUser()` is fail-closed, so `/api/admin/probe/stores` 403s without it. |
+| 5 | Stripe test keys (**N6**) | Agent verifies checkout → webhook → Supabase once keys exist. |
+| 6 | **LT2 / LT3** | Clerk preview keys; whether app deletion is recoverable. |
 
-All of it live. Marketing site rebuilt on the Envato-adapted design (#124);
-canonicals on all 22 indexable pages and `/sign-in`+`/sign-up` dropped from the
-sitemap (#125); `robots.txt` / `sitemap.xml` / `opengraph-image` unblocked from
-Clerk auth, app host serving `Disallow: /`, and the first two product pages
-(#126); the org-id correction (#127); the token diagnostic (#130).
+---
 
-`docs/SEO_KEYWORD_PLAN.md` is new — the founder's Semrush-backed plan against
-`appfollow.io`, which is the missing half of the July `SEO_CONTENT_PLAN.md`.
-Its actions are backlog **SEO1**–**SEO5**; SEO1 shipped, SEO2–SEO5 are queued.
+## Open code work
 
-## Outstanding
+No open PRs. Carried: **AU4** (swallowed-error sweep), **AS2** (finish the
+interrupted audit round), **R2/R3** (role enforcement — R2 gates selling a Team
+plan), **CM1** (multi-language), **CM2**, **CM4**, **DS2/DS4**, **LT1** (the
+PGRST204 sweep).
 
-1. **~~Decide what the CLI deploy job is for~~ — DONE. Founder chose remove.**
-   `deploy-production` is gone from `ci.yml`. Merging to master ships; Vercel's
-   Git integration builds it directly. Two consequences to hold onto: **CI
-   green is still the merge gate but is no longer a deploy gate** (the
-   integration builds master whatever CI says), and the pulled-production-env
-   guard went with the job — though that guard only ever protected against a
-   hazard the CLI path itself created. The `NEXT_PUBLIC_*` placeholder rule
-   above `jobs:` now guards nothing and must be kept anyway; it is the
-   precondition for adding a deploy job back safely.
+`auto_reply` stays out of `SELECTABLE_AUTOMATION_ACTIONS`. AS1's sync lock
+**fails open** when Redis is unreachable, and publishing un-reviewed model output
+to a live public listing needs an answer for "what happens when Redis is down" —
+a lock alone is not that answer. 8/8 does not change this.
 
-2. **`www.tryreviewbox.com` is an alias, not a redirect** — confirmed in that
-   deployment's alias list, so it genuinely serves a second copy of every page.
-   The canonicals shipped in #125 are what makes that survivable. Making it a
-   redirect in Vercel is still the cleaner fix.
+---
 
-3. **`/blog/ai-cost-reduction` opens "We audited 10,000 reviews across our beta
-   customers."** There are no customers. Same class as the claims already
-   removed from `/about`, `/compare` and `/status`. It is a public claim, so it
-   is the founder's call, not mine.
+## A flaky test, unidentified
 
-4. **15 `NEXT_PUBLIC_APP_URL ??` sites** share the empty-string bug fixed on the
-   Google Play guide (`??` does not catch `""`). Stripe checkout and portal,
-   Slack OAuth, team invites, five email templates. Untouched — D009 puts
-   billing behind founder approval.
+While verifying this change the unit suite failed **once** — `1 failed | 648
+passed` — on a run that took 14s against a normal 6s, i.e. under load. Four
+subsequent runs were 649/649 clean. The failing test's name was not captured
+before the output rolled, so it is not yet known which one it is.
 
-## Next
+Recording it rather than dismissing it: a suite that fails one run in five and
+passes on retry is exactly how a green check stops meaning anything, which is
+this repository's oldest and most expensive habit. If it recurs, capture the
+name (`npx vitest run --reporter=verbose`) before rerunning.
 
-**SEO2** — the reply template library, ~4,950/mo at KD 19–33 — is the best
-demand-to-product fit available. But read **SEO5** first: the plan's own
-conclusion is that every KD 24–33 target is gated on link acquisition rather
-than content, and no agent can do that part.
+## Note for the next session
+
+Two claims made confidently from code inspection this session turned out to be
+wrong, both corrected the same day: that the e2e check was "a real signal" (it
+still executes zero specs), and that two composer fixes existed in no branch
+(they were on `claude/spine-draft-mode-fixes`, merged as #131). The second came
+from running `git branch -r` in a clone holding 3 of 80+ refs. **Run
+`git fetch origin --prune` before concluding anything about what exists.**

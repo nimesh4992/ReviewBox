@@ -12,9 +12,10 @@ Status legend: `[ ]` queued · `[~]` in progress · `[x]` shipped · `[!]` block
 ## 🔵 STRATEGIC — "Issue Intelligence" pivot (founder input, 2026-08-19) — QUEUED AFTER SPINE
 
 **Sequencing decided:** see `docs/decisions.md` D022. The founder chose to finish SPINE first — no
-work starts on II1–II11 below until `docs/SPINE.md` is 8/8 verified against a real app. This
-section stays here, fully scored, so it's ready to pick up the moment that's true; it is not a
-signal to start now.
+work starts on II1–II11 below until `docs/SPINE.md` is 8/8 verified against a real app.
+
+**That condition was met on 2026-08-19: SPINE is 8/8, walked by the founder against a real app.**
+The gate this section waited behind is open, so II1–II11 are now startable in ICE order.
 
 **Source:** founder product critique, delivered directly in-session 2026-08-19, preserved in full
 in the session transcript. This section is the ICE-scored, buildable breakdown of it.
@@ -29,7 +30,8 @@ feature work until the 8-step core loop is verified end-to-end ("features frozen
 against a real app") — specifically because past feature pushes ahead of a proven core loop caused
 real production incidents (`docs/MARKET_READINESS_AUDIT.md`; the 2026-08-16 live-testing round).
 This epic is unambiguously new feature surface, and the founder chose to finish SPINE first
-(`docs/decisions.md` D022). Nothing below starts until SPINE is 8/8.
+(`docs/decisions.md` D022). SPINE reached 8/8 on 2026-08-19, so that precondition is satisfied —
+the reasoning is kept here because it is why this epic waited, not because it still blocks.
 
 **Also worth weighing before committing to the full scope:** several later items (customer
 segmentation, competitive review-level intelligence, a full outcome/ROI dashboard) pull toward the
@@ -440,9 +442,10 @@ and still will not rank on a 9–15 month horizon unless links run alongside the
 from week one. Directories, Product Hunt, mobile-dev communities. Nothing an
 agent can do.*
 
-### [ ] SPINE · Make the 8-step launch path 100% · ICE 100 — ACTIVE
-**The launch gate. See `docs/SPINE.md`.** Features frozen until 8/8 verified against a real app.
-Next build tasks: (1) Draft Mode composer — copy-to-store + mark-replied (step 7); (2) re-apply app-delete cookie-clear fix (missing from master, D019).
+### [x] SPINE · Make the 8-step launch path 100% · ICE 100 — ✅ 8/8 VERIFIED 2026-08-19
+**The launch gate is clear.** The founder walked all eight steps against a real app on production and reported every one working — the first completed walk since the file was written 2026-05-31. Both former blockers (Draft Mode composer; app-delete cookie clear) shipped in #131 ahead of it.
+**The feature freeze this item held is lifted.** Per D022, the Issue Intelligence epic (II1–II11) is next.
+**One follow-up, carried:** step 8 overnight. "Persists after reload" passed; that the status survives the *next daily sync* is defended in code (`review-sync.ts`) but not yet walked. Re-open the replied review after the 08:00 UTC sync and confirm it still reads replied.
 
 ---
 
