@@ -51,8 +51,17 @@ Status: ⬜ unverified · 🟡 in progress · ✅ verified against real app · �
    screens (sentiment, ASO, competitors, incidents, releases, automations,
    reports, Slack) are frozen — they may be half-broken; nobody launches
    because the ASO screen is pretty.
-2. **Walk it.** Founder runs all 8 steps against the real app on the Vercel
-   preview. Logs every break inline in this table (set to ❌ + a one-line note).
+2. **Walk it.** Founder runs all 8 steps against the real app **on production**
+   (`app.tryreviewbox.com`). Logs every break inline in this table (set to ❌ +
+   a one-line note).
+
+   *This said "on the Vercel preview" until 2026-08-19. There are no previews:
+   `vercel.json`'s `ignoreCommand` exits 0 for every git ref except `master`, so
+   a preview build never runs, and backlog LT2 (Clerk keys scoped to Preview) is
+   still open besides. Production is the only place the spine can be walked.
+   Verified the same day that production is current — the deploy blocker
+   recorded in `docs/today.md` was fixed by PR #127, and the #127 and #128
+   merges both reached production.*
 3. **Fix in order.** I fix top-down. After each fix, founder re-walks the
    whole spine. Repeat until 8/8 ✅.
 4. **Launch.** A narrow product where the spine is 100% beats a broad product
@@ -68,17 +77,53 @@ These can be imperfect at launch. Do not let them block:
 - Official-API ongoing sync (Pro, sequenced — D018)
 - Stripe / billing (deferred — D013)
 
-## Open dependency
+## Build tasks before the first walk — both DONE (verified 2026-08-19)
 
-Reply posting (step 7) in Draft Mode = **copy-to-clipboard + manual paste +
-"mark replied"**. The current composer has an API "Post reply" button that we
-cannot verify. First build task: add the Draft Mode copy/mark-replied path so
-step 7 becomes verifiable. Then walk the spine.
-## Open build tasks before the first spine walk
+This section listed two blockers. Both are in master; the list had gone stale.
+**There is nothing left to build before the first walk.**
 
-1. **Draft Mode in the composer (step 7):** add "Copy reply" (clipboard) +
-   "Mark as replied" toggle that persists. The current composer's API
-   "Post reply" button cannot be verified with user-level access.
-2. **Re-apply the app-delete fix (missing from master):** clear `rb_onboarded`
-   cookie in `apps/[id]/route.ts` DELETE so deleting an app doesn't trigger the
-   re-onboard loop. (Original branch was too stale to merge — D019.)
+1. ~~**Draft Mode in the composer (step 7)**~~ — **shipped.**
+   `src/features/reviews/components/reply-composer-panel.tsx` renders "Copy
+   reply" (real `navigator.clipboard.writeText`) and "Mark as replied" whenever
+   the app has no store API credentials — which is the founder's case, and most
+   customers'. "Mark as replied" POSTs `status: "manual_replied"` to
+   `/api/reviews/[id]/reply`, which persists `reply_status: "replied"` and
+   `replied_at` **without any store API call** (the store submit is fenced
+   inside `status === "sent"`).
+2. ~~**Re-apply the app-delete fix**~~ — **shipped.** `apps/[id]/route.ts`
+   DELETE clears `rb_onboarded` when the last live app goes.
+
+### Two defects found on the spine path while confirming the above
+
+Both were fixed the same day, before the first walk, because each would have
+produced a false ❌ on the two steps this file calls "the whole game":
+
+- **Step 8 was blocked for any reply over the store limit.** "Mark as replied"
+  was disabled on `overLimit` — but that limit describes what *we* may push
+  through the store's API, and this button pushes nothing: the user has already
+  pasted the reply into Play Console themselves. Since "Copy reply" was never
+  limit-gated, we handed the customer an over-limit reply to paste and then
+  refused to record that they had. Google Play's limit is 350 characters, which
+  an AI draft reaches easily, so this was likely to fire during the first walk.
+- **Step 7 failed silently.** `handleCopy`'s catch set `copied = false` and said
+  nothing, so a browser-blocked copy looked identical to not having clicked —
+  and the next thing the user does in Draft Mode is paste into a public store
+  reply. It now selects the text and says so.
+
+Locked in by `src/spine-draft-mode-contract.test.ts` (7 tests, each
+mutation-verified), since neither failure is reachable by this repo's
+pure-function unit suite.
+
+## Faster than a manual walk, for steps 3–5
+
+`GET /api/admin/probe/stores` runs the real store pipeline against the three
+fixture apps in `docs/PRODUCT_CONTEXT.md` (Mumbai One `in`, WhatsApp `us`,
+Instagram `us`) **from production's own IP**, and returns a verdict naming the
+likely cause: `healthy` · `google_blocked` · `apple_blocked` ·
+`regional_handling_broken` · `all_upstreams_unreachable` · `degraded`.
+
+Run it before walking steps 3–5 by hand. It answers "does the scrape path work
+at all" in one request, and distinguishes a regional-handling bug from an
+outright block — which a manual walk against a single app cannot. Needs an admin
+session (or `Bearer $CRON_SECRET`); a sandbox or local run proves nothing about
+what Google serves Vercel.

@@ -119,7 +119,9 @@ export function ReplyComposer({
   const [draftSaved, setDraftSaved]       = useState(false);
   // Draft Mode (D018): copy reply → user pastes into store → mark replied
   const [copied, setCopied]               = useState(false);
+  const [copyFailed, setCopyFailed]       = useState(false);
   const [isMarking, setIsMarking]         = useState(false);
+  const textareaRef                       = useRef<HTMLTextAreaElement>(null);
   // Learning loop: track draft source + whether user edited before sending
   const [draftSource, setDraftSource]     = useState<string | null>(null);
   const [originalDraft, setOriginalDraft] = useState<string | null>(null);
@@ -322,10 +324,22 @@ export function ReplyComposer({
     try {
       await navigator.clipboard.writeText(text.trim());
       setCopied(true);
+      setCopyFailed(false);
       setTimeout(() => setCopied(false), 4000);
     } catch {
-      // Clipboard API can fail on insecure origins / old browsers — select fallback
+      // The clipboard API rejects on insecure origins, when the document
+      // isn't focused, and wherever the permission is denied. The catch used
+      // to set `copied` false and say nothing, so a failed copy looked
+      // identical to not having clicked — and in Draft Mode the very next
+      // thing the user does is paste into Play Console. Pasting whatever was
+      // on the clipboard beforehand, into a public reply on their own store
+      // listing, is the failure this silence was hiding.
+      //
+      // Select the text so ⌘C/Ctrl+C works immediately, and say so.
       setCopied(false);
+      setCopyFailed(true);
+      textareaRef.current?.focus();
+      textareaRef.current?.select();
     }
   }
 
@@ -557,8 +571,11 @@ export function ReplyComposer({
         <div>
           <textarea
             id="rb-composer-input"
+            ref={textareaRef}
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            // Clearing copyFailed here because its message says "the reply is
+            // selected above" — the moment they type, that stops being true.
+            onChange={(e) => { setText(e.target.value); setCopyFailed(false); }}
             placeholder={alreadyReplied ? "Edit your reply…" : "Write a reply…"}
             rows={5}
             className={cn(
@@ -657,14 +674,37 @@ export function ReplyComposer({
                     >
                       {copied ? <><Check className="size-3.5" strokeWidth={3} />Copied</> : "Copy reply"}
                     </button>
+
+                    {/* NOT disabled on overLimit, unlike "Publish reply".
+                        The character limit describes what WE may send through
+                        the store's API. This button sends nothing: the user
+                        has already pasted the reply into Play Console / App
+                        Store Connect themselves and the store has already
+                        accepted or rejected it. Refusing to record something
+                        that already happened cannot prevent it.
+
+                        It was also incoherent next to "Copy reply", which has
+                        never been limit-gated — we handed the customer an
+                        over-limit reply to paste, then refused to write down
+                        that they had. The server agrees: the length check in
+                        /api/reviews/[id]/reply lives inside `status === "sent"`,
+                        so a manual_replied of any length is already accepted.
+                        The count and the red over-limit warning above stay
+                        visible, so nothing is hidden — it just isn't a block. */}
                     <button
                       onClick={handleMarkReplied}
-                      disabled={!text.trim() || overLimit || isMarking}
+                      disabled={!text.trim() || isMarking}
                       className="h-9 flex-1 rounded-[8px] border border-[var(--rb-border-3)] bg-surface text-[12px] font-semibold text-[var(--rb-fg-1)] transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0A84FF]"
                     >
                       {isMarking ? "Saving…" : alreadyReplied ? "Update reply" : "Mark as replied"}
                     </button>
                   </div>
+                  {copyFailed && (
+                    <p className="text-[11px] text-[var(--rb-red-500)]">
+                      Couldn&apos;t copy automatically — your browser blocked it. The reply is
+                      selected above: press {"⌘"}C (Mac) or Ctrl+C to copy it.
+                    </p>
+                  )}
                 </>
               )}
 
