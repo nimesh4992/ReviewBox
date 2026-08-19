@@ -6,12 +6,16 @@ AI-powered review management platform for Google Play and Apple App Store operat
 
 > **READ THESE FIRST, EVERY SESSION** (the autopilot relies on them):
 > 1. **`docs/PRODUCT_CONTEXT.md`** — who the customer is, what we promise, platform limits, fixture apps. **Read before any code.** Without it an audit can only find inconsistency, never wrongness (this is how the US-storefront bug hid for months).
-> 2. **`docs/decisions.md`** — IMMUTABLE rules + the non-coder contract. Agents obey D000–D022.
+> 2. **`docs/decisions.md`** — IMMUTABLE rules + the non-coder contract. Agents obey D000–D023.
 > 3. **`docs/backlog.md`** — single source of truth for what we build next. ICE-scored.
 > 4. **`docs/today.md`** — what shipped last session, what's queued. Overwritten each session.
 > 5. **`docs/specs/`** — the definition of done per feature (Given/When/Then). Touching a feature? Read its spec, and update it in the same PR if behaviour changes.
 > 6. **`docs/AUDIT_SYSTEM.md`** — the six review lenses, the process rules, and the live store probe.
-> 7. **`.claude/agents/*.md`** — pm, architect, coder, tester, reviewer, **triager** roles. Spawn per task.
+> 7. **`docs/ISSUE_INTELLIGENCE.md`** — **the target product.** Where the code actually stands
+>    against it (~25–30% of the differentiated product), the Issue primitive that six of the eight
+>    gaps are blocked behind, the build sequence, and the II1 ADR mandate. Constraints locked in
+>    `docs/decisions.md` **D023**. Read before starting anything in the II epic.
+> 8. **`.claude/agents/*.md`** — pm, architect, coder, tester, reviewer, **triager** roles. Spawn per task.
 
 > **Before shipping anything non-trivial:** does it hold for the region-locked
 > fixture app, not just a US one? Run `GET /api/admin/probe/stores`.
@@ -57,7 +61,7 @@ End of every session: overwrite `docs/today.md` with what shipped and what's nex
 | Payments | Stripe | 🔲 Keys not yet set — no monthly cost |
 | AI (phase 1) | **Groq** (Llama 3.3 70B) | Free tier: 6K req/day — use until $1K MRR |
 | AI (phase 2) | Claude Haiku 3.5 + prompt caching | Switch at $1K MRR — ~$10/month |
-| Local ML | @xenova/transformers (WASM) | Semantic tags, sentiment, clustering — $0 forever |
+| Local ML | ~~@xenova/transformers (WASM)~~ | ⚠️ **NOT INSTALLED — never was.** Not in `package.json`, absent from `src/`. "Semantic tags, sentiment, clustering — $0 forever" was aspiration recorded as fact, and the Issue Intelligence epic was sized against it. Tagging is 8 English regexes in `src/lib/rules-engine.ts`; `reviews.embedding vector(384)` exists and is never written. See `docs/ISSUE_INTELLIGENCE.md` §4 |
 | Rate limiting | Upstash Redis | Free: 10K commands/day |
 | Email | Resend | ✅ Client wired — free: 3K/month |
 | Analytics | PostHog | ✅ Installed (`posthog-js`) — free: 1M events/month |
@@ -403,7 +407,7 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 | Incident detail — status actions, timeline | ✅ Done (real data) |
 | Release health table — rollout bars | ✅ Done |
 | Release detail — rating dist, issue tags, reviews per version | ✅ Done (real data) |
-| Sentiment screen — trend chart + topic breakdown + AI recluster | ✅ Done (real data) |
+| Sentiment screen — trend chart + topic breakdown | ✅ Done (real data) — **"topics" are counts of the 8 fixed regex tags, not clustering.** No recluster exists |
 | Competitors screen — benchmark table + sparklines | ✅ Done (real data via `/api/competitors`) |
 | ASO screen — keyword rank tracker + AI suggestions panel | ✅ Done (real data) |
 | Reports screen — report cards + Send now | ✅ Done — `/api/reports/send-now` (user-scoped, rate-limited) |

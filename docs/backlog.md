@@ -42,22 +42,55 @@ enterprise BI surfaces. Not a reason not to build it — but worth deciding *whi
 is primarily for before P2/P3 are scoped, since it changes the UI and which pricing tier it lands
 in. `docs/PRODUCT_KNOWLEDGE.md` §2 has the fuller context on this tension.
 
-**What already exists to build on — this is an extension, not a green-field build:**
-- `Incidents` already does spike-detection, severity, owner, timeline.
-- `Release Health` already computes rating/complaint delta per version — "release regression" is
-  largely rewiring data that's already computed into a new relationship (`Release → Issue`), not a
-  new metric.
-- `Sentiment` already runs local topic clustering (`@xenova/transformers`, $0/forever), described
-  in `docs/COMPETITIVE_MAP.md` as "thin." Issue/Theme clustering is this same infrastructure,
-  deepened.
-- `Competitors` table (migration 016) already exists, currently placeholder data (backlog X6).
-- The zero-cost AI architecture means clustering can very likely run on the existing local-ML path
-  — not a new paid dependency.
+**⚠️ CORRECTED 2026-08-19 against the code. The three bullets this section used to carry were
+false, and sizing II1 against them cost a planning round.** Full assessment and evidence:
+**`docs/ISSUE_INTELLIGENCE.md`** — that document is the target for this epic, and
+`docs/decisions.md` **D023** carries the constraints on how it gets built. Read both before
+starting anything below.
+
+**What actually exists to build on:**
+- `Release Health` computes **avg-rating delta per version** of the same app
+  (`src/lib/release-versions.ts`), and `/releases/[version]` gives rating distribution, sentiment
+  split and top tags. This is real, and "release regression" genuinely is mostly rewiring it —
+  ~40% there, the closest of the eight gaps.
+- `reviews.escalation_state` already carries the exact workflow vocabulary the epic wants
+  (`none / support / product / engineering / incident`), and automations write it. Issue workflow
+  (II5) is the cheapest item here.
+- `reviews.embedding vector(384)` + an ivfflat index have existed since migration 001 — real
+  groundwork, **never read or written**. Per D023, choose the model first and adapt the schema;
+  do not let a dormant column pick the architecture.
+- `Competitors` table (migration 016) exists. **On ice per D023** — competitor *reviews* are not
+  fetched at all and getting them is a ToS/cost decision, not a sprint.
+
+**What does NOT exist, despite prior claims here:**
+- ❌ *"`Sentiment` already runs local topic clustering (`@xenova/transformers`, $0/forever)"* —
+  **`@xenova/transformers` is not in `package.json` and appears nowhere in `src/`.** There is no
+  clustering. What `/sentiment` shows is counts of **8 hardcoded English regexes** from
+  `src/lib/rules-engine.ts`. **II1 is green-field, and the zero-cost assumption is unproven.**
+- ❌ *"`Incidents` already does spike-detection"* — half true. `review-sync.ts` detects a rating
+  spike and **emails/Slacks** it. It does not create an incident. Only `POST /api/incidents`
+  inserts one, i.e. a human.
+- ❌ *"this is an extension, not a green-field build"* — for II1 specifically, it is green-field.
 
 ### Breakdown — effort is order-of-magnitude, needs an architect pass before any of this is built
 
 #### P0 — the foundation everything else depends on
 
+**Sequencing per D023: Phase 0 and the ADR come before II1's implementation.** See
+`docs/ISSUE_INTELLIGENCE.md` §5.
+
+- [ ] **II0 · Phase 0 — release-regression comparison on today's `issue_tags[]`** · ICE ~30 (7×8÷1.8)
+  **Done when:** a version comparison shows per-tag complaint-volume change between adjacent
+  versions of the same app ("Payment +375% 🔴, Scanner +140% 🟠, Login +12%, UX −18%") and flags a
+  probable regression. **Uses the existing 8 tags — does not wait for clustering.** A small
+  vertical slice, not a separate feature project. Best value-to-work ratio in the epic and the
+  demo that proves the thesis before the expensive primitive is built.
+- [ ] **II0a · The II1 ADR — architecture only, no implementation** · blocking
+  **Done when:** `docs/adr/` holds an ADR answering all 13 questions in
+  `docs/ISSUE_INTELLIGENCE.md` §7 — ontology, pipeline, embedding model, multilingual strategy,
+  storage shape, assignment, confidence, re-clustering, `first_detected` semantics, merge/split,
+  backfill, Vercel limits, cost at 5k/50k/500k, reproducibility — evaluating **≥3 approaches**
+  with a recommendation for an India-first SaaS. **Per D023 no II1 code starts until this exists.**
 - [ ] **II1 · Issue/Theme clustering engine** · ICE ~14 (10×7÷5)
   **Done when:** reviews describing the same underlying problem group into a persisted `issues`
   record (title, severity, first-detected date, affected version(s)/platform(s), review count,

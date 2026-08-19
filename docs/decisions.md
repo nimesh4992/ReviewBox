@@ -391,3 +391,57 @@ merely unprioritized.
 everything else in the epic reads or writes through it. It touches schema and introduces a new
 clustering pattern, so per the architect agent's remit it needs an ADR before implementation, not
 just a backlog item.
+
+---
+
+## D023 — Issue Intelligence: the target, and six constraints on how it gets built (2026-08-19)
+
+Founder decision, in-session, on reading a **code-level** gap assessment of the II1–II11 epic
+(D022 sequenced that epic behind SPINE; SPINE reached 8/8 the same day, so the gate is open).
+The full assessment, evidence and build sequence are in **`docs/ISSUE_INTELLIGENCE.md`** — that
+document is the target. This entry records only the decisions, so they survive the session.
+
+**The finding this rests on:** ReviewBox is ~25–30% of the way to the differentiated product, not
+70–75% as an earlier screenshot-based estimate suggested. Not because the product is 25% built —
+the Collect/Display/Reply infrastructure is substantial and the UI is ~8/10 — but because the
+differentiating intelligence layer does not exist. **There is no `issues` table, no `issue_id` on
+`reviews`, and nothing that groups reviews.** Six of the eight identified gaps read or write
+through that missing entity.
+
+**Decisions:**
+
+1. **The Issue primitive is the target.** An entity above the individual review — title, severity,
+   trend, frequency, first_detected, affected versions/platforms, status, owner, reviews[] — is
+   what the rest of the product organizes around. This is the fundamental product evolution, and
+   `docs/ISSUE_INTELLIGENCE.md` is the reference for it.
+
+2. **The II1 ADR is written before any II1 code.** The architect agent produces it; it must answer
+   issue ontology, creation pipeline, embedding model, multilingual strategy, storage shape,
+   assignment algorithm, confidence threshold, re-clustering, `first_detected` semantics, merge/
+   split, backfill, Vercel runtime limits, cost at 5k/50k/500k reviews, and reproducibility —
+   evaluating **at least three approaches** with a recommendation for an India-first SaaS. The
+   question is "what constitutes the identity of an issue?", not "how do I generate a nice AI
+   summary?". Full mandate: `docs/ISSUE_INTELLIGENCE.md` §7.
+
+3. **Multilingual is a P0 architectural requirement, not a side constraint.** Our ICP is
+   India-first and real review text code-switches mid-sentence ("payment कट गया but ticket nahi
+   aaya"). The engine must work on **semantic similarity, not keyword matching**. The existing
+   8-regex English tagger cannot be the basis of the intelligence layer.
+
+4. **Choose the embedding model first, then adapt the schema.** `reviews.embedding vector(384)` has
+   existed unused since migration 001. It is groundwork, not a constraint — 384 dimensions is a
+   fact about a model nobody has chosen yet. Do not let a dormant column dictate the architecture.
+
+5. **Prove the value before building the primitive.** Ship release-regression comparison on today's
+   `issue_tags[]` first ("v1.5 generated 375% more payment complaints than v1.4") as a small
+   vertical slice, not a separate feature project. Then build `issues`. Sequence in
+   `docs/ISSUE_INTELLIGENCE.md` §5.
+
+6. **Competitors is on ice, and the launch claim is "daily".** Do not spend engineering time
+   scraping competitor reviews before our own review intelligence works; the same applies to
+   advanced segmentation, enterprise BI, and Jira/Linear. Separately: Vercel Hobby caps cron at
+   daily, so "up 184% in the last 6 hours" is **physically undetectable** today. Build no UI and
+   make no marketing claim beyond **"daily feedback intelligence"** until ingestion can do more.
+
+**And the standing instruction that follows from all of it:** do not spend the next week polishing
+the dashboard. The dashboard is already good enough. Build the engine that makes it worth opening.
