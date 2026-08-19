@@ -28,7 +28,25 @@ env:
   # These two are identifiers, not credentials — Vercel's own bot prints them
   # in its public PR comments — so they live here rather than in secrets, and
   # the only thing you have to add is VERCEL_TOKEN.
-  VERCEL_ORG_ID: "team_mQlD3mcz32rsA4HcPOBRiW6b"
+  #
+  # ⚠️ The org id was wrong here from the day it was written, and it cost six
+  # merges. `team_mQlD3mcz32rsA4HcPOBRiW6b` is not the team that owns this
+  # project, so `vercel pull` failed on the first Vercel step of every deploy
+  # after PR #118 — #119, #120, #121, #123, #124 and #125 all built green,
+  # passed every gate, and never reached production.
+  #
+  # It reads as a credential problem and is not one. Nothing is missing; the
+  # deploy was pointed at the wrong team. Note that a token scoped to the RIGHT
+  # team makes the symptom look worse rather than better: the error changes
+  # from the specific "Project not found ({...ORG_ID})" to the generic "Could
+  # not retrieve Project Settings", which reads like a broken token and sends
+  # you to re-issue one that was never the problem.
+  #
+  # To verify either value without guessing: open any PR and read the Vercel
+  # bot's comment. Its avatar URL carries both, authoritatively —
+  #   vercel.com/api/www/avatar?projectId=prj_…&teamId=team_…
+  # The project id below already matched it. The org id now does too.
+  VERCEL_ORG_ID: "team_YDfGTQhOF3TYQa36p7LILfuB"
   VERCEL_PROJECT_ID: "prj_OE66Qpr8IdTXwLG6BOzevWYagRcl"
 
 # ⚠️ THE CI PLACEHOLDER KEYS BELOW MUST NEVER BE WORKFLOW-LEVEL `env`.
