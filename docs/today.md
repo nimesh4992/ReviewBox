@@ -19,6 +19,21 @@ match exactly.
 (workflow run `32221034591`, commit `0a4af8a`, 2026-08-19 05:56 UTC), with a
 **different** error than before:
 
+**State of master:** every quality gate green on every merge.
+**But master has not reached production since 03:48 UTC on 2026-08-18 (PR #118).**
+The deploy job has failed on every merge since — #119, #120, #121, #123, #124,
+#125, #127 — at `vercel pull`, the first Vercel step.
+
+**Still open as of 05:56 UTC on 2026-08-19, and my diagnosis was incomplete.**
+`VERCEL_ORG_ID` genuinely was wrong and is now fixed and verified in the log.
+The next deploy failed anyway, with both identifiers provably correct. So the
+ids were *a* fault, not *the* fault. The remaining candidate is the scope of
+`VERCEL_TOKEN` — which unlike the ids really is a GitHub secret. Rather than
+guess a third time, the job now prints `vercel whoami` and `vercel teams ls`
+into the run summary whenever the pull fails. See item 1 below.
+`tsc` clean, lint 0 errors, full `next build` passes, **609 unit tests** (was 591).
+
+Two things shipped today, in order.
 ```
 Retrieving project…
 Error: Could not retrieve Project Settings. To link your Project, remove the `.vercel` directory and deploy again.
@@ -151,6 +166,85 @@ descriptions and commit messages.
 
    `VERCEL_PROJECT_ID` was correct throughout and is unchanged.
 
+   **It did not fix the deploy, and here is the honest version of why I
+   thought it would.** Two errors were observed hours apart — `Project not
+   found ({...ORG_ID})` and then `Could not retrieve Project Settings` — and I
+   built a rule out of them: wrong-team token gives the first, right-team token
+   plus wrong org id gives the second. That was inference from two data points
+   presented as fact. The #127 merge disproved it: both identifiers printed
+   correctly in the log and the pull failed on the same step, same message.
+
+   So the two messages do **not** distinguish "wrong id" from "token cannot
+   reach the team", and neither ever reports the token's own scope — the one
+   thing that cannot be read anywhere else and the only remaining candidate.
+
+   **What replaces the guess.** A `Who is this token?` step, running only when
+   the pull fails, writes into the run's step summary: the ids it targeted, the
+   account `vercel whoami` reports, and every team `vercel teams ls` can reach.
+
+   - Team holding `VERCEL_ORG_ID` **absent** from that list → the token is the
+     fault. Re-issue at Vercel → Account Settings → Tokens **scoped to that
+     team**, then replace `VERCEL_TOKEN` in GitHub → Settings → Secrets and
+     variables → Actions. This one really is a secret, so it really is
+     founder-only.
+   - Team **present** → an identifier is still wrong, and the ids are in
+     `ci.yml`, so it is mine to fix.
+
+   Either way the next failed deploy names its own cause instead of needing a
+   third round of inference.
+
+   The whole run reads green except the last job. On the #124 merge, Build +
+   type-check, Lint, Unit tests, Security audit and E2E all passed; **Deploy to
+   production** then failed in two seconds at its first Vercel step:
+
+   ```
+   Retrieving project…
+   Error: Project not found ({"VERCEL_PROJECT_ID":"prj_OE66Qpr8IdTXwLG6BOzevWYagRcl",
+                             "VERCEL_ORG_ID":"team_mQlD3mcz32rsA4HcPOBRiW6b"})
+   ```
+
+   The project id there matches what Vercel's own bot reports on every PR; the
+   team id does not — the bot's avatar URL carries
+   `teamId=team_YDfGTQhOF3TYQa36p7LILfuB`. So the token authenticates fine and
+   then looks for the project inside a team that does not hold it.
+
+   Consequence while it was broken: **six merges sat on master and none were
+   live** — the whole marketing rebuild, both the `/compare` and `/status`
+   removals, the canonicals, and #126's product pages. Production served the
+   03:48 build of 2026-08-18 throughout.
+
+   *This is a distinct failure from the Vercel upload-quota one in yesterday's
+   notes. That one exhausted a 5,000-request budget and had to wait out a
+   24-hour window — re-running was useless. This one failed instantly on a
+   wrong identifier and would have failed forever, but a re-run IS the right
+   move once the id is fixed, because the input actually changed. Both produce
+   the same symptom — merged but not shipped — which is why the log line
+   matters more than the red X, and why "is re-running correct here?" has to be
+   answered from the error, not from habit.*
+2. ~~**Confirm `www` is a redirect in Vercel, not an alias.**~~ **Resolved —
+   checked this session, no action needed.** `tryreviewbox.com` answers `308
+   Permanent Redirect` to `www.tryreviewbox.com`. It is a redirect. The site now
+   canonicalises to `www` to match.
+
+   **New, optional (2 min):** set `NEXT_PUBLIC_MARKETING_URL` to
+   `https://www.tryreviewbox.com` in Vercel → Settings → Environment Variables.
+   The code no longer needs it — `marketingUrl()` corrects the apex and refuses
+   the app host on its own — but setting it explicitly means the value is stated
+   rather than inferred.
+
+2b. **Submit the sitemap in Search Console, once this is deployed.** It has
+   never been fetchable, so this is the first time there is anything to submit.
+   Property `www.tryreviewbox.com` → Sitemaps → `sitemap.xml`. While there, use
+   **Removals** on `/customers`, `/status` and `/compare` to clear them in about
+   a day instead of waiting weeks for a recrawl.
+3. **`/blog/ai-cost-reduction` opens "We audited 10,000 reviews across our beta
+   customers."** There are no customers. Same class as the claims already
+   removed from `/about` and `/compare`. Copy edit drafted, not applied — it is
+   a public claim, so it is the founder's call.
+4. **15 `NEXT_PUBLIC_APP_URL ??` sites** share the empty-string bug fixed on the
+   Google Play guide: `??` does not catch `""`. They cover Stripe checkout and
+   portal, Slack OAuth, team invites and five email templates. Untouched —
+   D009 puts billing behind founder approval.
    **One trap worth remembering.** A `VERCEL_TOKEN` scoped to the *right* team
    makes this look worse, not better. With a wrong-team token the CLI says
    `Project not found ({...ORG_ID})`, which names the culprit. With a

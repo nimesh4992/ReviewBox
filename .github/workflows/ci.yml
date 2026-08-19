@@ -35,17 +35,22 @@ env:
   # after PR #118 — #119, #120, #121, #123, #124 and #125 all built green,
   # passed every gate, and never reached production.
   #
-  # It reads as a credential problem and is not one. Nothing is missing; the
-  # deploy was pointed at the wrong team. Note that a token scoped to the RIGHT
-  # team makes the symptom look worse rather than better: the error changes
-  # from the specific "Project not found ({...ORG_ID})" to the generic "Could
-  # not retrieve Project Settings", which reads like a broken token and sends
-  # you to re-issue one that was never the problem.
-  #
   # To verify either value without guessing: open any PR and read the Vercel
   # bot's comment. Its avatar URL carries both, authoritatively —
   #   vercel.com/api/www/avatar?projectId=prj_…&teamId=team_…
   # The project id below already matched it. The org id now does too.
+  #
+  # ⚠️ Fixing this was NECESSARY BUT NOT SUFFICIENT. The very next deploy, with
+  # both ids provably correct in the log, failed on the same step with "Could
+  # not retrieve Project Settings" — so something beyond the ids is also wrong,
+  # and the remaining candidate is VERCEL_TOKEN's scope. An earlier version of
+  # this comment asserted the opposite ("a right-team token turns the specific
+  # error into the generic one, do not re-issue it"). That was inference from
+  # two data points, stated as fact, and the next run disproved it.
+  #
+  # Do not replace that guess with another one. The "Who is this token?" step
+  # further down now prints `vercel whoami` and `vercel teams ls` into the run
+  # summary whenever the pull fails, which answers it directly.
   VERCEL_ORG_ID: "team_YDfGTQhOF3TYQa36p7LILfuB"
   VERCEL_PROJECT_ID: "prj_OE66Qpr8IdTXwLG6BOzevWYagRcl"
 
@@ -360,6 +365,61 @@ jobs:
           # VERCEL_ORG_ID and VERCEL_PROJECT_ID come from the workflow-level
           # env block and are already present in every step's environment.
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+
+      # Runs ONLY when the pull above failed, and says who the token actually
+      # is instead of leaving it to be guessed.
+      #
+      # Why this exists: `vercel pull` reports the same two errors whether the
+      # org id is wrong, the project id is wrong, or the token cannot see the
+      # project — and it never names the token's own scope, which is the one
+      # thing you cannot read anywhere else. That ambiguity cost three rounds
+      # of diagnosis across 2026-08-18/19: the org id WAS wrong and fixing it
+      # was necessary, but the deploy failed identically afterwards, and the
+      # only way to tell "still the wrong id" from "the token cannot reach this
+      # team" was to change one and watch.
+      #
+      # `whoami` prints the authenticated account; `teams ls` prints every team
+      # that token can reach. If the team holding VERCEL_ORG_ID is not in that
+      # list, the token is the fault and no amount of id-fixing will help.
+      # Both are read-only and neither can deploy anything.
+      - name: Who is this token?
+        if: failure()
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          {
+            echo "### ❌ Production deploy did not run"
+            echo ""
+            echo "\`vercel pull\` failed, so this commit is **not in production.**"
+            echo ""
+            echo "Targeting:"
+            echo ""
+            echo "| | |"
+            echo "|---|---|"
+            echo "| \`VERCEL_ORG_ID\` | \`$VERCEL_ORG_ID\` |"
+            echo "| \`VERCEL_PROJECT_ID\` | \`$VERCEL_PROJECT_ID\` |"
+            echo ""
+            echo "The token authenticates as:"
+            echo ""
+            echo '```'
+            vercel whoami --token="$VERCEL_TOKEN" 2>&1 || echo "(whoami failed — the token is invalid, revoked, or expired)"
+            echo '```'
+            echo ""
+            echo "and can reach these teams:"
+            echo ""
+            echo '```'
+            vercel teams ls --token="$VERCEL_TOKEN" 2>&1 || echo "(teams ls failed)"
+            echo '```'
+            echo ""
+            echo "**If the team holding \`VERCEL_ORG_ID\` is not listed above, the token is the"
+            echo "problem, not the ids.** Create a new one at Vercel → Account Settings →"
+            echo "Tokens with its scope set to that team, and replace \`VERCEL_TOKEN\` under"
+            echo "GitHub → Settings → Secrets and variables → Actions."
+            echo ""
+            echo "If it IS listed, the ids are wrong instead — read them off any PR's Vercel"
+            echo "bot comment, whose avatar URL carries both:"
+            echo "\`vercel.com/api/www/avatar?projectId=prj_…&teamId=team_…\`"
+          } >> "$GITHUB_STEP_SUMMARY"
 
       # The check that would have caught the 2026-08-17 outage before it
       # reached a customer. `vercel pull` writes the real production values
