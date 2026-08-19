@@ -47,15 +47,34 @@ descriptions and commit messages — nothing here is more current than they are.
 ## Outstanding — founder only
 
 1. **`VERCEL_ORG_ID` is wrong. Confirmed still broken this session — fix this first.**
+1. **`VERCEL_ORG_ID` was wrong. Nothing deployed between #118 and the fix.**
 
-   GitHub → Settings → Secrets and variables → Actions → `VERCEL_ORG_ID`
+   **Corrected 2026-08-19 — and my first instruction here was wrong.** I sent
+   the founder to GitHub → Settings → Secrets and variables → Actions to change
+   `VERCEL_ORG_ID`. **There is no such secret.** Both Vercel identifiers are
+   plain literals in `.github/workflows/ci.yml`'s workflow-level `env` block —
+   the file even says why (they are identifiers, not credentials, and Vercel's
+   bot prints them publicly). The giveaway was in the log the whole time: the
+   org id printed unmasked while `VERCEL_TOKEN` printed as `***`. GitHub masks
+   secrets; it does not mask what it is not holding.
+
+   So this was never founder-only. It is a one-line code change, made in
+   `ci.yml` and shipped as a PR.
 
    | | |
    |---|---|
-   | currently | `team_mQlD3mcz32rsA4HcPOBRiW6b` |
-   | should be | `team_YDfGTQhOF3TYQa36p7LILfuB` |
+   | was | `team_mQlD3mcz32rsA4HcPOBRiW6b` |
+   | now | `team_YDfGTQhOF3TYQa36p7LILfuB` |
 
-   `VERCEL_PROJECT_ID` is correct and must not change.
+   `VERCEL_PROJECT_ID` was correct and is unchanged.
+
+   **One trap worth remembering.** A `VERCEL_TOKEN` scoped to the *right* team
+   makes this look worse, not better. With a wrong-team token the CLI says
+   `Project not found ({...ORG_ID})`, which names the culprit. With a
+   right-team token and a wrong org id it says `Could not retrieve Project
+   Settings. To link your Project, remove the .vercel directory` — which reads
+   like a broken token and sends you to re-issue the one thing that is fine.
+   Both were observed here, in that order, hours apart.
 
    Every other job on master's latest run is green (Security audit, Build +
    type-check, Unit tests, Lint, E2E). Only "Deploy to production" fails, at
@@ -81,6 +100,58 @@ descriptions and commit messages — nothing here is more current than they are.
    the Google Play guide (`??` doesn't catch `""`). Covers Stripe
    checkout/portal, Slack OAuth, team invites, five email templates.
    Untouched — D009 puts billing behind founder approval.
+   The whole run reads green except the last job. On the #124 merge, Build +
+   type-check, Lint, Unit tests, Security audit and E2E all passed; **Deploy to
+   production** then failed in two seconds at its first Vercel step:
+
+   ```
+   Retrieving project…
+   Error: Project not found ({"VERCEL_PROJECT_ID":"prj_OE66Qpr8IdTXwLG6BOzevWYagRcl",
+                             "VERCEL_ORG_ID":"team_mQlD3mcz32rsA4HcPOBRiW6b"})
+   ```
+
+   The project id there matches what Vercel's own bot reports on every PR; the
+   team id does not — the bot's avatar URL carries
+   `teamId=team_YDfGTQhOF3TYQa36p7LILfuB`. So the token authenticates fine and
+   then looks for the project inside a team that does not hold it.
+
+   Consequence while it was broken: **six merges sat on master and none were
+   live** — the whole marketing rebuild, both the `/compare` and `/status`
+   removals, the canonicals, and #126's product pages. Production served the
+   03:48 build of 2026-08-18 throughout.
+
+   *This is a distinct failure from the Vercel upload-quota one in yesterday's
+   notes. That one exhausted a 5,000-request budget and had to wait out a
+   24-hour window — re-running was useless. This one failed instantly on a
+   wrong identifier and would have failed forever, but a re-run IS the right
+   move once the id is fixed, because the input actually changed. Both produce
+   the same symptom — merged but not shipped — which is why the log line
+   matters more than the red X, and why "is re-running correct here?" has to be
+   answered from the error, not from habit.*
+2. ~~**Confirm `www` is a redirect in Vercel, not an alias.**~~ **Resolved —
+   checked this session, no action needed.** `tryreviewbox.com` answers `308
+   Permanent Redirect` to `www.tryreviewbox.com`. It is a redirect. The site now
+   canonicalises to `www` to match.
+
+   **New, optional (2 min):** set `NEXT_PUBLIC_MARKETING_URL` to
+   `https://www.tryreviewbox.com` in Vercel → Settings → Environment Variables.
+   The code no longer needs it — `marketingUrl()` corrects the apex and refuses
+   the app host on its own — but setting it explicitly means the value is stated
+   rather than inferred.
+
+2b. **Submit the sitemap in Search Console, once this is deployed.** It has
+   never been fetchable, so this is the first time there is anything to submit.
+   Property `www.tryreviewbox.com` → Sitemaps → `sitemap.xml`. While there, use
+   **Removals** on `/customers`, `/status` and `/compare` to clear them in about
+   a day instead of waiting weeks for a recrawl.
+3. **`/blog/ai-cost-reduction` opens "We audited 10,000 reviews across our beta
+   customers."** There are no customers. Same class as the claims already
+   removed from `/about` and `/compare`. Copy edit drafted, not applied — it is
+   a public claim, so it is the founder's call.
+4. **15 `NEXT_PUBLIC_APP_URL ??` sites** share the empty-string bug fixed on the
+   Google Play guide: `??` does not catch `""`. They cover Stripe checkout and
+   portal, Slack OAuth, team invites and five email templates. Untouched —
+   D009 puts billing behind founder approval.
 
 ## Next
 

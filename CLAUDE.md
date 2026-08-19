@@ -965,6 +965,31 @@ Consequences to respect:
 - To re-enable previews: remove `ignoreCommand` from `vercel.json` AND do LT2
   first, or previews stay un-testable.
 
+### ⚠️ "Deploy to production" red? Read the error before touching anything
+
+There are now **three** distinct ways this job fails, and they need opposite
+responses. Read the log line, not the red X — all three produce the same
+merged-but-not-shipped outcome.
+
+| Error in the log | What it is | What to do |
+|---|---|---|
+| `Project not found ({…ORG_ID})` | `VERCEL_ORG_ID` in `ci.yml` names the wrong team | Fix the literal. Code change, not a secret. |
+| `Could not retrieve Project Settings` | **Also** the wrong org id — but with a token scoped to the *right* team | Same fix. Do **not** re-issue the token. |
+| `Too many requests … api-upload-free` | Upload quota, below | Wait out the 24h window. Re-running is useless. |
+
+The org-id bug cost **six merges** (#119–#125, 2026-08-18 → 19): every gate
+green, nothing in production for a day. Two things made it hard to see. It was
+never a GitHub secret at all — both Vercel identifiers are plain literals in
+`.github/workflows/ci.yml`'s workflow-level `env`, which is why the org id
+prints unmasked in the log while `VERCEL_TOKEN` prints `***`; if you are being
+sent to Settings → Secrets to change it, that is the tell that you have
+misdiagnosed it. And fixing the *token* first makes the symptom worse-looking,
+because a right-team token turns the specific error into the generic one.
+
+To confirm either identifier without guessing, open any PR and read the Vercel
+bot's comment — its avatar URL carries both:
+`vercel.com/api/www/avatar?projectId=prj_…&teamId=team_…`.
+
 ### ⚠️ Vercel free plan: ~5,000 file uploads per 24h, shared across ALL deploys
 
 Hit on 2026-08-17. Two master merges built green and then failed to deploy:
