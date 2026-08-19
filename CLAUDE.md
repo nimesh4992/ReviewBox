@@ -6,7 +6,7 @@ AI-powered review management platform for Google Play and Apple App Store operat
 
 > **READ THESE FIRST, EVERY SESSION** (the autopilot relies on them):
 > 1. **`docs/PRODUCT_CONTEXT.md`** — who the customer is, what we promise, platform limits, fixture apps. **Read before any code.** Without it an audit can only find inconsistency, never wrongness (this is how the US-storefront bug hid for months).
-> 2. **`docs/decisions.md`** — IMMUTABLE rules + the non-coder contract. Agents obey D000–D018.
+> 2. **`docs/decisions.md`** — IMMUTABLE rules + the non-coder contract. Agents obey D000–D022.
 > 3. **`docs/backlog.md`** — single source of truth for what we build next. ICE-scored.
 > 4. **`docs/today.md`** — what shipped last session, what's queued. Overwritten each session.
 > 5. **`docs/specs/`** — the definition of done per feature (Given/When/Then). Touching a feature? Read its spec, and update it in the same PR if behaviour changes.
@@ -60,8 +60,8 @@ End of every session: overwrite `docs/today.md` with what shipped and what's nex
 | Local ML | @xenova/transformers (WASM) | Semantic tags, sentiment, clustering — $0 forever |
 | Rate limiting | Upstash Redis | Free: 10K commands/day |
 | Email | Resend | ✅ Client wired — free: 3K/month |
-| Analytics | PostHog | 🔲 Not installed yet — free: 1M events/month |
-| Errors | Sentry | 🔲 Not installed yet — free: 5K errors/month |
+| Analytics | PostHog | ✅ Installed (`posthog-js`) — free: 1M events/month |
+| Errors | Sentry | ✅ Installed (`@sentry/nextjs`) — free: 5K errors/month |
 | Icons | Lucide React | strokeWidth=1.5 globally via CSS |
 
 Path alias: `@/*` → `src/*`
@@ -364,6 +364,33 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 
 ## Current Build Status
 
+> ### ⚠️ What ✅ means in the tables below — read before trusting one
+>
+> **✅ means "the code exists, compiles, and its unit tests pass." It does NOT
+> mean a human has watched it work.** Those are different claims, and this
+> project has paid for confusing them four separate times:
+>
+> - **CI ran zero times.** The workflow triggers were filtered to `main`; this
+>   repo's default branch is `master` and no `main` has ever existed. So it ran
+>   **zero times across 45 branches and every merged PR** — "CI is green"
+>   throughout these docs was never an observed fact (see `ci.yml`'s header).
+> - **136 green tests defended a bug.** A `CHECK` constraint rejected `free` and
+>   `enterprise` while the app wrote both, so **no trial had ever expired**.
+>   TypeScript cannot see a SQL constraint (PR #97).
+> - **The deploy job reported success while shipping a broken bundle.** Every
+>   page answered `{"errors":[{"message":"Invalid host"}]}` because a CI
+>   placeholder Clerk key was inlined at build time (PR #94).
+> - **"E2E tests (advisory)" is green while executing zero specs.** Still true
+>   today; `src/ci-contract.test.ts` now fails if this document claims otherwise.
+>
+> The only artefact tracking the stronger claim is **`docs/SPINE.md`**, whose rule
+> is *"Done means a human walked this step against a REAL app and watched it
+> work."* It is **0 of 8**. Read SPINE.md to learn whether the product works;
+> read below to learn whether the code is present.
+>
+> **Do not promote a row here to ✅ on a passing test suite alone** — say what was
+> verified and how.
+
 ### Frontend
 | Feature | Status |
 |---|---|
@@ -421,7 +448,7 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 | Admin panel wired to real customer data | ✅ Done — overview KPIs, customer detail, support tickets (needs migration 017) |
 | Security audit + RLS verification | ✅ Done (3 passes: 2026-05-21 + 2026-05-25 round-1/2 + 2026-05-26 cross-verify — 44+ fixes) |
 | Next.js 15 → 16 upgrade | 🔲 When stable |
-| Unit test suite (Vitest) | ✅ Done — 136 tests across 15 files, CI-gated. Node env, pure functions only (no React Testing Library) |
+| Unit test suite (Vitest) | ✅ Done — 649 tests across 63 files, CI-gated. Node env, pure functions only (no React Testing Library) |
 | CI pipeline (tsc, lint, vitest, e2e, audit) | ✅ Done — `.github/workflows/ci.yml` |
 | Launch checklist | ✅ `docs/LAUNCH_CHECKLIST.md` (80+ items) |
 | App Store / Google Play search during onboarding | ✅ Done — `/api/onboarding/search-app` |
@@ -586,15 +613,26 @@ ADMIN_CLERK_USER_ID=                🔲 Not set — Clerk dashboard → Users �
 
 ## Current Sprint
 
-**Active: live-testing repair loop**
-Last updated: 2026-08-16
+**Active: SPINE — the 8-step launch walk (backlog ICE 100, D022 puts it ahead
+of the Issue Intelligence epic)**
+Last updated: 2026-08-19. Master `53001d4`: `tsc` clean, **649 unit tests in 63
+files**. Read `docs/today.md` first — it carries the current narrative.
 
-PR #85 merged — 13 defects from a founder testing round on production. Read
-`docs/today.md` first; it has the full narrative and the founder actions still
-outstanding. Three of the thirteen were **whole-population** failures (no
-signup could complete; no Android customer could post a reply; the inbox was
-empty for anyone who had disconnected an app) and none were findable by
-reading code — see `docs/AUDIT_SYSTEM.md` → "2026-08-16 round".
+**The bottleneck is not code any more, it is verification.** `docs/SPINE.md`
+defines the eight steps that decide whether the product works for a customer, and
+**zero of the eight have ever been marked verified** in the eleven weeks since it
+was written. Its two blocking defects were fixed on 2026-08-19 (PR #131) and are
+locked in by `src/spine-draft-mode-contract.test.ts`, so nothing in the repo
+blocks the walk. Nothing in the repo can complete it either — it needs a human,
+a real app, and a real store listing.
+
+Founder-blocking behind it: **W5A** (review-volume limit, ADR waiting at
+`docs/adr/009-review-volume-limit.md`) which gates Stripe; **`ADMIN_CLERK_USER_ID`**
+in Vercel production, without which `/api/admin/probe/stores` 403s because
+`requireAdminUser()` is fail-closed; and the **Slack sub-processor disclosure** —
+`/sub-processors` lists ten processors and omits Slack while `src/lib/slack.ts:198`
+sends a reviewer's name and a 120-char review snippet there. D009 point 9 forbids
+an agent editing legal pages, so only the founder can close that one.
 
 ### ⚠️ Read this before touching the dashboard
 
@@ -643,8 +681,15 @@ never hand-blend the two.
 
 ### Open PRs
 
-#92 (security round, GDPR, tag/device/language work). #93 and #94 merged
-2026-08-17; #86, #73, #76–#85, #87, #88, #90, #91 are merged.
+Check GitHub rather than trusting this line — several sessions run in parallel
+and it goes stale within hours. As of 2026-08-19 09:20Z only **#133** (this
+documentation pass) was open; #92–#132 are merged or closed.
+
+⚠️ **`git branch -r` in a fresh session may list only the few refs the clone
+fetched.** Run `git fetch origin --prune` before concluding that a fix "exists
+in no branch" — this repo has 80+ remote refs, and on 2026-08-19 that mistake
+produced a confident, wrong claim that two already-merged composer fixes did not
+exist anywhere.
 
 ### ⚠️ Two error codes mean "column missing", not one
 
@@ -1162,7 +1207,12 @@ Code patterns:
 
 Workflow (autopilot guardrails — `docs/decisions.md` D009):
 - Don't push to `main` directly. PRs only.
-- Don't merge a PR — that's the founder's job.
+- Don't merge a PR **unless every CI check is green on the exact head commit** —
+  D020 delegates the merge (and so the production deploy) to Claude on that
+  condition alone. **Count** the checks and assert each succeeded; "no red
+  checks" is not "all checks green" (#95 merged having received 1 of 6). If
+  anything is not green, or the change is still-reserved (legal pages, pricing,
+  migrations, real emails), open the PR and stop.
 - Don't deploy to production. Vercel auto-deploys on merge.
 - Don't run a migration against production Supabase. Founder runs the SQL.
 - Don't send a real email to a real customer. Drafts only.
