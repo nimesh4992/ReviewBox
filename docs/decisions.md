@@ -365,3 +365,29 @@ document that silently stops matching the code is worse than no document,
 because it is trusted. When code and an IMMUTABLE decision disagree in future:
 **stop and reconcile them in a new entry — do not "fix" the code to match a
 stale rule, and do not silently change the code and leave the rule.**
+
+---
+
+## D022 — Sequencing: SPINE first, then the "Issue Intelligence" pivot (2026-08-19)
+
+Founder decision, in-session, in direct response to a proposed product pivot (a full critique
+proposing reviews cluster into "Issues" as the atomic unit, with impact scoring, release-regression
+correlation, resolution tracking, smart alerts, competitive/segmentation intelligence, and a
+diagnostic AI layer — captured as backlog items II1–II11 under "STRATEGIC — Issue Intelligence
+pivot" in `docs/backlog.md`).
+
+**Decision:** the `docs/SPINE.md` feature freeze stands. No work starts on II1–II11 until the
+8-step core loop is verified 8/8 against a real app. This was a genuine three-way choice (finish
+SPINE first / start now alongside SPINE / start now with SPINE on hold) and the founder chose the
+first.
+
+**Why this is written down, not just left in chat:** the same failure mode D021 describes — a
+decision made in one session silently not reaching the next — applies here. A future PM or Coder
+agent session reading `docs/backlog.md` top-to-bottom could otherwise see a large, well-scored,
+ready-looking epic and start on it without knowing it was explicitly deferred by the founder, not
+merely unprioritized.
+
+**When SPINE reaches 8/8:** II1 (Issue/Theme clustering engine) is the unblocked starting point —
+everything else in the epic reads or writes through it. It touches schema and introduces a new
+clustering pattern, so per the architect agent's remit it needs an ADR before implementation, not
+just a backlog item.

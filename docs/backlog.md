@@ -9,7 +9,12 @@ Status legend: `[ ]` queued · `[~]` in progress · `[x]` shipped · `[!]` block
 
 ---
 
-## 🔵 STRATEGIC — "Issue Intelligence" pivot (founder input, 2026-08-19) — SEQUENCING PENDING
+## 🔵 STRATEGIC — "Issue Intelligence" pivot (founder input, 2026-08-19) — QUEUED AFTER SPINE
+
+**Sequencing decided:** see `docs/decisions.md` D022. The founder chose to finish SPINE first — no
+work starts on II1–II11 below until `docs/SPINE.md` is 8/8 verified against a real app. This
+section stays here, fully scored, so it's ready to pick up the moment that's true; it is not a
+signal to start now.
 
 **Source:** founder product critique, delivered directly in-session 2026-08-19, preserved in full
 in the session transcript. This section is the ICE-scored, buildable breakdown of it.
@@ -19,12 +24,12 @@ in the session transcript. This section is the ICE-scored, buildable breakdown o
 reviews describing the same underlying problem** ("an Issue"), not an individual review, as the
 atomic unit the rest of the product organizes around.
 
-**Conflicts with the current top NOW item.** `docs/SPINE.md` freezes new feature work until the
-8-step core loop is verified end-to-end ("features frozen until 8/8 verified against a real app")
-— specifically because past feature pushes ahead of a proven core loop caused real production
-incidents (`docs/MARKET_READINESS_AUDIT.md`; the 2026-08-16 live-testing round). This epic is
-unambiguously new feature surface. **Sequencing — build now vs. after SPINE clears — is a founder
-decision, not made here.**
+**Conflicts with the current top NOW item — resolved, see D022.** `docs/SPINE.md` freezes new
+feature work until the 8-step core loop is verified end-to-end ("features frozen until 8/8 verified
+against a real app") — specifically because past feature pushes ahead of a proven core loop caused
+real production incidents (`docs/MARKET_READINESS_AUDIT.md`; the 2026-08-16 live-testing round).
+This epic is unambiguously new feature surface, and the founder chose to finish SPINE first
+(`docs/decisions.md` D022). Nothing below starts until SPINE is 8/8.
 
 **Also worth weighing before committing to the full scope:** several later items (customer
 segmentation, competitive review-level intelligence, a full outcome/ROI dashboard) pull toward the
