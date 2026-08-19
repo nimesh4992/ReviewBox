@@ -29,11 +29,15 @@ env:
   # in its public PR comments — so they live here rather than in secrets, and
   # the only thing you have to add is VERCEL_TOKEN.
   #
-  # ⚠️ The org id was wrong here from the day it was written, and it cost six
-  # merges. `team_mQlD3mcz32rsA4HcPOBRiW6b` is not the team that owns this
-  # project, so `vercel pull` failed on the first Vercel step of every deploy
-  # after PR #118 — #119, #120, #121, #123, #124 and #125 all built green,
-  # passed every gate, and never reached production.
+  # ⚠️ The org id was wrong here from the day it was written.
+  # `team_mQlD3mcz32rsA4HcPOBRiW6b` is not the team that owns this project, so
+  # `vercel pull` failed on the first Vercel step of every deploy after #118.
+  #
+  # It did NOT cost six merges, whatever earlier versions of this comment and
+  # docs/today.md said. Vercel's Git integration was deploying master the whole
+  # time and the site stayed current — see the lapsed-premise note above the
+  # deploy-production job. What this cost was a permanently red check and two
+  # days of chasing it.
   #
   # To verify either value without guessing: open any PR and read the Vercel
   # bot's comment. Its avatar URL carries both, authoritatively —
@@ -285,10 +289,10 @@ jobs:
   # Deploys master to Vercel through the CLI instead of Vercel's Git
   # integration.
   #
-  # Why: Vercel's Git integration only builds a commit whose *author* is a
-  # member of the Vercel team. The repo owner's GitHub account (nimesh4992) is
-  # not a member of the Vercel "ReviewBox" team, so every push and every
-  # Redeploy of master was answered with:
+  # Why it was added: Vercel's Git integration only builds a commit whose
+  # *author* is a member of the Vercel team. The repo owner's GitHub account
+  # (nimesh4992) is not, so every push and every Redeploy of master was
+  # answered with:
   #
   #   Deployment Blocked — the commit author did not have contributing access
   #   The Hobby Plan does not support collaboration for private repositories
@@ -296,6 +300,33 @@ jobs:
   # That check does not apply to CLI deploys, which authenticate with a token
   # belonging to the team itself. So this path does not care who authored or
   # pushed the commit, and it keeps the project on the Hobby plan.
+  #
+  # ⚠️ THAT PREMISE HAS LAPSED, AND THIS JOB IS NOW REDUNDANT. Read before
+  # spending any more time on it.
+  #
+  # Note the second line of that error: the Hobby restriction is on *private*
+  # repositories. This repo is now public — every Vercel deployment record
+  # carries `githubRepoVisibility: "public"` — so the block no longer applies
+  # and the Git integration has been deploying master on its own.
+  #
+  # Verified against the Vercel API on 2026-08-19, not inferred: deployment
+  # dpl_F8nMNiuuMogC8RiT7Mmu3VFqWvKw (commit 0a4af8a, the #127 merge) is
+  # state READY, target "production", source "git", and its aliases are
+  # tryreviewbox.com, www.tryreviewbox.com and app.tryreviewbox.com. Every
+  # master merge from #123 onward is READY the same way. The two that are not
+  # (#120, #121) failed because master was genuinely broken at the time — the
+  # JSX merge-fusion — not because of any credential.
+  #
+  # So while THIS job was failing on a bad token scope and reporting master
+  # red, the site was live and current the whole time. Anyone reading a red
+  # "Deploy to production" as "the site is stale" will be wrong; check the
+  # Vercel dashboard, or ask the Vercel MCP tools, before believing it.
+  #
+  # What is still worth keeping here, if this job is kept: `needs` gates the
+  # deploy on the four blocking checks, whereas the Git integration deploys
+  # master regardless of CI — #120 and #121 went to Vercel and errored there
+  # rather than being held back. Whether that ordering is worth a permanently
+  # red check is a founder call, pending.
   #
   # Gated on the four blocking jobs so a red master cannot reach production.
   # e2e-tests is deliberately excluded — it is advisory and currently cannot
@@ -314,11 +345,15 @@ jobs:
       #
       # This originally skipped, reasoning that "a red pipeline that everyone
       # learns to ignore is worse than no pipeline". That reasoning holds only
-      # if some other path still deploys. Here none does: the comment above
-      # this job records that Vercel's Git integration refuses to build master
-      # for this repo ("the commit author did not have contributing access"),
-      # which is why this CLI job exists at all. So with the token missing,
-      # BOTH production paths are closed and nothing reaches production.
+      # if some other path still deploys, and at the time none did.
+      #
+      # ⚠️ One now does — see the lapsed-premise note above this job. Vercel's
+      # Git integration deploys master by itself since the repo went public.
+      # Which means the fail-loudly reasoning has inverted: this job going red
+      # no longer means "nothing reached production", and a check that is red
+      # on every single merge while the site ships fine is precisely the
+      # pipeline everyone learns to ignore. Do not soften this step to fix
+      # that — decide whether the job should exist at all.
       #
       # What that produced in practice: PR #77 merged on 2026-08-16, this job
       # reported a green "Deploy to production", every deploy step inside it
@@ -387,6 +422,16 @@ jobs:
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
+          # Written to BOTH the step summary and stdout, deliberately.
+          #
+          # The first version of this step wrote only to $GITHUB_STEP_SUMMARY.
+          # That renders nicely for a human on the run page and is invisible
+          # to anything reading the job log through the API — which is how an
+          # agent reads it, and the log is what gets pasted into a chat. The
+          # step "succeeded" and answered nobody. Same silent-success shape as
+          # the rest of this file's history: the output existed, in a place the
+          # reader was not.
+          exec > >(tee -a "$GITHUB_STEP_SUMMARY")
           {
             echo "### ❌ Production deploy did not run"
             echo ""
@@ -419,7 +464,7 @@ jobs:
             echo "If it IS listed, the ids are wrong instead — read them off any PR's Vercel"
             echo "bot comment, whose avatar URL carries both:"
             echo "\`vercel.com/api/www/avatar?projectId=prj_…&teamId=team_…\`"
-          } >> "$GITHUB_STEP_SUMMARY"
+          }
 
       # The check that would have caught the 2026-08-17 outage before it
       # reached a customer. `vercel pull` writes the real production values

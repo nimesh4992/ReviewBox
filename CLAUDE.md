@@ -965,11 +965,49 @@ Consequences to respect:
 - To re-enable previews: remove `ignoreCommand` from `vercel.json` AND do LT2
   first, or previews stay un-testable.
 
-### ⚠️ "Deploy to production" red? Read the error before touching anything
+### ⚠️ A red "Deploy to production" does NOT mean the site is stale
 
-There are now **three** distinct ways this job fails, and they need opposite
-responses. Read the log line, not the red X — all three produce the same
-merged-but-not-shipped outcome.
+**Read this before acting on that check at all.** There are two production
+deploy paths, and only one of them is this job.
+
+Vercel's **Git integration deploys master by itself.** It was blocked once —
+"the commit author did not have contributing access · The Hobby Plan does not
+support collaboration for **private** repositories" — which is the entire
+reason the CLI job below was written. The repo is public now, so the block
+lapsed and the integration resumed, quietly.
+
+Verified against the Vercel API on 2026-08-19, not inferred from a bot comment:
+deployment `dpl_F8nMNiuuMogC8RiT7Mmu3VFqWvKw` (commit `0a4af8a`, the #127
+merge) is `READY`, `target: production`, `source: git`, aliased to
+**tryreviewbox.com, www.tryreviewbox.com and app.tryreviewbox.com**. Every
+master merge from #123 on is `READY` the same way. The two that are not — #120
+and #121 — errored because master was genuinely broken then (the JSX
+merge-fusion), not for any credential reason.
+
+So through 2026-08-18/19, while this job failed on every merge and master read
+red, **the site was live and current the whole time.** An agent (me) told the
+founder repeatedly that seven merges were not in production. That was inferred
+from the failing job and never checked against Vercel, and it was wrong.
+
+**Check the deploy, don't infer it.** The Vercel MCP tools answer this directly
+— `list_teams` → `list_deployments` → `get_deployment` shows state, target and
+the alias list. `tryreviewbox.com` is blocked by the agent egress proxy, so
+curling the site is not an option; the API is.
+
+Two consequences worth holding onto:
+
+- `www.tryreviewbox.com` is an **alias serving the site**, not a redirect —
+  confirmed in that deployment's alias list. So the duplicate-content problem
+  the canonical tags fix is real, not hypothetical.
+- The Git integration deploys master **regardless of CI**. #120 and #121 went
+  to Vercel with a broken master and failed at Vercel's own build. The CLI job
+  is the only thing that gates deploy on the four blocking checks — which is
+  the one argument for keeping it.
+
+#### If you still need to debug the CLI job
+
+Three distinct ways it fails, needing different responses. Read the log line,
+not the red X.
 
 | Error in the log | What it is | What to do |
 |---|---|---|
