@@ -226,16 +226,34 @@ marketing prefix is also a public route, so the two lists cannot drift again.
 
 ## Outstanding — founder only
 
-1. **`VERCEL_ORG_ID` is wrong. Nothing has deployed since #118 — fix this first.**
+1. **`VERCEL_ORG_ID` was wrong. Nothing deployed between #118 and the fix.**
 
-   GitHub → Settings → Secrets and variables → Actions → `VERCEL_ORG_ID`
+   **Corrected 2026-08-19 — and my first instruction here was wrong.** I sent
+   the founder to GitHub → Settings → Secrets and variables → Actions to change
+   `VERCEL_ORG_ID`. **There is no such secret.** Both Vercel identifiers are
+   plain literals in `.github/workflows/ci.yml`'s workflow-level `env` block —
+   the file even says why (they are identifiers, not credentials, and Vercel's
+   bot prints them publicly). The giveaway was in the log the whole time: the
+   org id printed unmasked while `VERCEL_TOKEN` printed as `***`. GitHub masks
+   secrets; it does not mask what it is not holding.
+
+   So this was never founder-only. It is a one-line code change, made in
+   `ci.yml` and shipped as a PR.
 
    | | |
    |---|---|
-   | currently | `team_mQlD3mcz32rsA4HcPOBRiW6b` |
-   | should be | `team_YDfGTQhOF3TYQa36p7LILfuB` |
+   | was | `team_mQlD3mcz32rsA4HcPOBRiW6b` |
+   | now | `team_YDfGTQhOF3TYQa36p7LILfuB` |
 
-   `VERCEL_PROJECT_ID` is correct and must not change.
+   `VERCEL_PROJECT_ID` was correct and is unchanged.
+
+   **One trap worth remembering.** A `VERCEL_TOKEN` scoped to the *right* team
+   makes this look worse, not better. With a wrong-team token the CLI says
+   `Project not found ({...ORG_ID})`, which names the culprit. With a
+   right-team token and a wrong org id it says `Could not retrieve Project
+   Settings. To link your Project, remove the .vercel directory` — which reads
+   like a broken token and sends you to re-issue the one thing that is fine.
+   Both were observed here, in that order, hours apart.
 
    The whole run reads green except the last job. On the #124 merge, Build +
    type-check, Lint, Unit tests, Security audit and E2E all passed; **Deploy to
@@ -252,18 +270,19 @@ marketing prefix is also a public route, so the two lists cannot drift again.
    `teamId=team_YDfGTQhOF3TYQa36p7LILfuB`. So the token authenticates fine and
    then looks for the project inside a team that does not hold it.
 
-   Consequence: **everything merged today is on master and none of it is live.**
-   The whole marketing rebuild, both `/compare` and `/status` removals, all of
-   it. Production is still serving the 03:48 build. Once the secret is
-   corrected, re-run the failed job on the latest master run — no new commit is
-   needed.
+   Consequence while it was broken: **six merges sat on master and none were
+   live** — the whole marketing rebuild, both the `/compare` and `/status`
+   removals, the canonicals, and #126's product pages. Production served the
+   03:48 build of 2026-08-18 throughout.
 
    *This is a distinct failure from the Vercel upload-quota one in yesterday's
    notes. That one exhausted a 5,000-request budget and had to wait out a
-   24-hour window; this one fails instantly with a project-not-found and will
-   keep failing forever until the secret changes. Both produce the same
-   symptom — merged but not shipped — which is why the log line matters more
-   than the red X.*
+   24-hour window — re-running was useless. This one failed instantly on a
+   wrong identifier and would have failed forever, but a re-run IS the right
+   move once the id is fixed, because the input actually changed. Both produce
+   the same symptom — merged but not shipped — which is why the log line
+   matters more than the red X, and why "is re-running correct here?" has to be
+   answered from the error, not from habit.*
 2. ~~**Confirm `www` is a redirect in Vercel, not an alias.**~~ **Resolved —
    checked this session, no action needed.** `tryreviewbox.com` answers `308
    Permanent Redirect` to `www.tryreviewbox.com`. It is a redirect. The site now
