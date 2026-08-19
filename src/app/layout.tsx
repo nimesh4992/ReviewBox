@@ -69,11 +69,22 @@ export const metadata: Metadata = {
     description:
       "AI-powered review management for Google Play and App Store.",
   },
-  robots: {
-    index: true,
-    follow: true,
-    googleBot: { index: true, follow: true },
-  },
+  // No `robots` key here, deliberately.
+  //
+  // This is the ROOT layout: whatever it declares is inherited by every page in
+  // the app, including the signed-in product. It said `index: true, follow:
+  // true`, so /dashboard shipped `<meta name="robots" content="index, follow">`
+  // in its HTML while middleware set `X-Robots-Tag: noindex, nofollow` on the
+  // very same response. Google resolves a conflict like that by taking the most
+  // restrictive directive, so nothing leaked — but the page was arguing with
+  // its own headers, and the next person to trust the markup over the header
+  // would have been badly misled.
+  //
+  // Omitting the key is not a weaker signal than asserting it: absent a robots
+  // directive a page is indexable by default. The only thing lost is the
+  // contradiction. Pages that must NOT be indexed now say so themselves — see
+  // the `(app)` layout — rather than depending on the host they happen to be
+  // served from.
 };
 
 export default function RootLayout({

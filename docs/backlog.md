@@ -248,6 +248,42 @@ open, and it is founder-side: confirm in Vercel that `www` is configured as a
 **redirect**, not an alias. The canonicals make a `www` alias survivable; they
 do not make it correct.*
 
+### [x] SEO6 · robots.txt and sitemap.xml were 404 to Google · ICE 100 (10×10÷1) — SHIPPED 2026-08-18
+*The layer underneath SEO1. `/robots.txt` and `/sitemap.xml` were in neither of
+middleware's route matchers, and neither `.txt` nor `.xml` is in the matcher's
+extension-exclusion list, so both fell through to `auth.protect()` and answered
+Googlebot — always a signed-out visitor — with a 404. Verified in production:
+`x-clerk-auth-reason: protect-rewrite`. Every canonical SEO1 added was being
+collected by nobody, and a missing robots.txt means "crawl everything", which is
+why `/customers`, `/status` and `/compare` still ranked after deletion.*
+*Also shipped: the app host serves its own `Disallow: /` robots.txt from
+middleware (a static `robots.ts` is one prerendered body for both hostnames and
+cannot tell them apart); marketing pages 301 off the app host to `www`; the root
+layout stopped asserting `index, follow` over the signed-in product; and
+`marketingUrl()` can no longer resolve to the app host, which a missing
+`NEXT_PUBLIC_MARKETING_URL` would otherwise have made every canonical point at.*
+*`src/seo-indexing-contract.test.ts` — 14 tests, reads middleware's source,
+mutation-verified to fail on four separate regressions.*
+*Deliberately NOT done: adding the deleted pages to robots.txt. `Disallow` and
+`noindex` cancel out — a blocked URL is never recrawled, so Google never sees
+the 404 and the URL lingers as "Indexed, though blocked by robots.txt".*
+
+### [x] SEO7 · The first two product pages · ICE 90 (9×10÷1) — SHIPPED 2026-08-18
+*Spec: `docs/specs/marketing-product-pages.md`.*
+*The nav was Pricing/Blog/Help — no product page existed, so the site's only
+self-description was ~268 words on the homepage. Shipped `/app-review-management`
+(170/mo, KD 18 — the highest-value term reachable at AS 2, and AppFollow defends
+it with their homepage rather than a dedicated page) and `/alternatives/appfollow`
+(the KD 0 modifier cluster, the only thing this domain can rank for this
+quarter). `/vs/appfollow` 301s to the latter to avoid cannibalising it.*
+*Every price is imported from `lib/plans.ts` and the template count exported from
+`lib/templates.ts`; no AppFollow fact appears at all, because appfollow.io is
+unreachable from the build environment and an unsourced competitor price is what
+`/compare` was withdrawn for. `marketing-claims-contract.test.ts` enforces it.*
+*Found on the way in: the new routes were in the sitemap but not in
+`isPublicRoute` — a 404 for every signed-out visitor, the same defect as SEO6.
+The contract test now ties the two lists together.*
+
 ### [ ] SEO2 · Reply template library · ICE 56 (8×7÷1)
 *Item 2 of `docs/SEO_KEYWORD_PLAN.md`. Cluster A: ~4,950/mo at KD 19–33 — the
 best demand-to-product fit on the site, and five of its eleven terms are ones

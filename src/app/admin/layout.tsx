@@ -1,8 +1,22 @@
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { auth } from "@clerk/nextjs/server";
 
 import { isAdminUser } from "@/lib/admin-auth";
+
+/**
+ * Same reasoning as the (app) layout: say it in the markup, so it holds on
+ * every hostname and not just the one middleware knows to add a header to.
+ * `isAdminUser` below is the access control — this is only about crawlers.
+ */
+export const metadata: Metadata = {
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: { index: false, follow: false },
+  },
+};
 
 const NAV_ITEMS = [
   { href: "/admin", label: "Overview" },

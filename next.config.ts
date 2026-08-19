@@ -38,6 +38,20 @@ const nextConfig: NextConfig = {
         destination: "/pricing",
         permanent: false,
       },
+      {
+        // Two URLs, one intent. "appfollow alternative" and "appfollow vs"
+        // searchers want the same page, and shipping both would split the
+        // ranking signal between them and leave neither able to hold the term —
+        // self-inflicted cannibalisation on a domain with no authority to
+        // spare.
+        //
+        // `/alternatives/appfollow` is the canonical one because it matches the
+        // higher-volume phrasing. Permanent, because the decision is: this is
+        // not a page we intend to bring back separately.
+        source: "/vs/appfollow",
+        destination: "/alternatives/appfollow",
+        permanent: true,
+      },
     ];
   },
   async headers() {

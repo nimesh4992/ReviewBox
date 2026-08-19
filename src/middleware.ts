@@ -2,14 +2,40 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 
 import { isEntitledPlan } from "@/lib/plans";
+import {
+  APP_HOST_ROBOTS_TXT,
+  CRAWLER_FILE_PATHS,
+  isMarketingOnlyPath,
+} from "@/lib/seo-routes";
 
 const APP_HOST    = "app.tryreviewbox.com";
 const MARKETING_HOST = "tryreviewbox.com";
+
+/**
+ * Where to SEND traffic bound for the marketing site — always `www.`.
+ *
+ * Distinct from MARKETING_HOST above, which is only ever compared against, and
+ * which the host normalisation below strips `www.` from so both spellings match
+ * one branch. This constant is the opposite job: the single canonical origin.
+ *
+ * `www.` is canonical because it is what Vercel already serves — the apex
+ * 308s to www — and what Google has indexed (all nine ranking URLs are on www).
+ * Redirecting to the apex instead would mean app → apex → www, and a redirect
+ * chain sheds link equity at every hop.
+ */
+const MARKETING_ORIGIN = "https://www.tryreviewbox.com";
 
 // All marketing/public paths — never require auth
 const isPublicRoute = createRouteMatcher([
   "/",
   "/pricing(.*)",
+  // Product pages. A marketing page missing from this list is served to every
+  // signed-out visitor — Googlebot included — as a 404, which is precisely how
+  // robots.txt and sitemap.xml were lost for months. `seo-indexing-contract`
+  // now asserts every MARKETING_ONLY_PREFIXES entry appears here.
+  "/app-review-management(.*)",
+  "/alternatives(.*)",
+  "/vs(.*)",
   "/about(.*)",
   "/blog(.*)",
   "/changelog(.*)",
@@ -57,6 +83,15 @@ const isPublicRoute = createRouteMatcher([
   "/api/demo/(.*)",
   "/api/auth/clear-onboarded-cookie",
   "/monitoring(.*)",
+  // robots.txt, sitemap.xml, opengraph-image. Absent from this list until
+  // 2026-08-18, and because neither `.txt` nor `.xml` is in the matcher's
+  // extension exclusion below, both fell through to auth.protect() and served
+  // Googlebot a 404 — see lib/seo-routes.ts for the production evidence.
+  //
+  // Spread from the shared constant rather than retyped: the contract test
+  // reads this file and asserts the import is present, so a future edit cannot
+  // quietly drop one of the three back behind the auth wall.
+  ...CRAWLER_FILE_PATHS,
 ]);
 
 // App-only paths (authenticated product)
@@ -143,9 +178,47 @@ export default clerkMiddleware(async (auth, request) => {
 
   // ── Subdomain routing (production only) ────────────────────────────────────
   if (isProd) {
+    // The app host answers its own robots.txt, disallowing everything.
+    //
+    // This must run before the isPublicRoute branch below. /robots.txt is now
+    // public on both hosts, so without this the app host would be served the
+    // MARKETING robots.txt — an `Allow: /` inviting Google to crawl the whole
+    // signed-in product. Making the path public and leaving it host-blind is
+    // strictly worse than the 404 it replaced.
+    if (isAppHost && nextUrl.pathname === "/robots.txt") {
+      return new NextResponse(APP_HOST_ROBOTS_TXT, {
+        status: 200,
+        headers: {
+          "content-type": "text/plain; charset=utf-8",
+          // Same lifetime Google assumes for a robots.txt it cannot re-fetch.
+          "cache-control": "public, max-age=86400",
+          "X-Robots-Tag": "noindex, nofollow",
+        },
+      });
+    }
+
     // app.tryreviewbox.com root → sign-in
     if (isAppHost && nextUrl.pathname === "/") {
       return NextResponse.redirect(new URL("/sign-in", request.url));
+    }
+
+    // Marketing content served from the app host → 301 to its canonical home.
+    //
+    // These pages are public routes, so they rendered in full on
+    // app.tryreviewbox.com — a byte-identical duplicate of the page the
+    // marketing host is trying to rank. The noindex header kept them out of the
+    // index but threw away any link equity pointing at them; a 301 passes it on
+    // instead.
+    //
+    // 301, not the NextResponse default of 307: these are GET-only content
+    // pages, and 301 is the status search engines consolidate ranking signals
+    // across. Nothing here accepts a POST, so the method-rewriting difference
+    // between 301 and 308 cannot bite.
+    if (isAppHost && isMarketingOnlyPath(nextUrl.pathname)) {
+      return NextResponse.redirect(
+        new URL(nextUrl.pathname + nextUrl.search, MARKETING_ORIGIN),
+        301,
+      );
     }
 
     // app subdomain: unknown (non-app, non-public) path → dashboard
