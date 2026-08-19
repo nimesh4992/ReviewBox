@@ -9,6 +9,110 @@ Status legend: `[ ]` queued · `[~]` in progress · `[x]` shipped · `[!]` block
 
 ---
 
+## 🔵 STRATEGIC — "Issue Intelligence" pivot (founder input, 2026-08-19) — SEQUENCING PENDING
+
+**Source:** founder product critique, delivered directly in-session 2026-08-19, preserved in full
+in the session transcript. This section is the ICE-scored, buildable breakdown of it.
+
+**The thesis:** ReviewBox today is `Collect → Display → Analyze → Reply`. The proposal is
+`Collect → Understand → Prioritize → Investigate → Act → Measure → Learn` — treating a **cluster of
+reviews describing the same underlying problem** ("an Issue"), not an individual review, as the
+atomic unit the rest of the product organizes around.
+
+**Conflicts with the current top NOW item.** `docs/SPINE.md` freezes new feature work until the
+8-step core loop is verified end-to-end ("features frozen until 8/8 verified against a real app")
+— specifically because past feature pushes ahead of a proven core loop caused real production
+incidents (`docs/MARKET_READINESS_AUDIT.md`; the 2026-08-16 live-testing round). This epic is
+unambiguously new feature surface. **Sequencing — build now vs. after SPINE clears — is a founder
+decision, not made here.**
+
+**Also worth weighing before committing to the full scope:** several later items (customer
+segmentation, competitive review-level intelligence, a full outcome/ROI dashboard) pull toward the
+more senior "Head of Product" buyer the founder's own message names in its closing section — in
+tension with `docs/PRODUCT_CONTEXT.md`'s India-first, non-technical solo-founder ICP and the
+explicit refusal (`docs/COMPETITIVE_MAP.md`) to chase agent-performance dashboards and deep
+enterprise BI surfaces. Not a reason not to build it — but worth deciding *which buyer* this epic
+is primarily for before P2/P3 are scoped, since it changes the UI and which pricing tier it lands
+in. `docs/PRODUCT_KNOWLEDGE.md` §2 has the fuller context on this tension.
+
+**What already exists to build on — this is an extension, not a green-field build:**
+- `Incidents` already does spike-detection, severity, owner, timeline.
+- `Release Health` already computes rating/complaint delta per version — "release regression" is
+  largely rewiring data that's already computed into a new relationship (`Release → Issue`), not a
+  new metric.
+- `Sentiment` already runs local topic clustering (`@xenova/transformers`, $0/forever), described
+  in `docs/COMPETITIVE_MAP.md` as "thin." Issue/Theme clustering is this same infrastructure,
+  deepened.
+- `Competitors` table (migration 016) already exists, currently placeholder data (backlog X6).
+- The zero-cost AI architecture means clustering can very likely run on the existing local-ML path
+  — not a new paid dependency.
+
+### Breakdown — effort is order-of-magnitude, needs an architect pass before any of this is built
+
+#### P0 — the foundation everything else depends on
+
+- [ ] **II1 · Issue/Theme clustering engine** · ICE ~14 (10×7÷5)
+  **Done when:** reviews describing the same underlying problem group into a persisted `issues`
+  record (title, severity, first-detected date, affected version(s)/platform(s), review count,
+  trend), with an `issue_id` join on `reviews`. Built on existing local-ML clustering.
+  **Why P0:** every item below reads or writes through this table.
+- [ ] **II2 · Issue detail page** · ICE ~24 (8×8÷2.7)
+  **Done when:** `/issues/[id]` shows the issue's reviews, trend chart, and affected
+  version/platform breakdown. Mostly UI once II1 exists.
+- [ ] **II3 · Impact/priority score** · ICE ~20 (8×7÷2.8)
+  **Done when:** each issue gets a computed score from frequency, rating, sentiment, growth rate,
+  affected-version breadth and recurrence — replacing "7 urgent reviews" with "these 3 problems
+  matter most today." Needs an architect pass on the formula before implementation — a
+  confidently-wrong score is worse than today's raw urgent-count.
+
+#### P1 — connects Issues to the rest of the product
+
+- [ ] **II4 · Issue → Release correlation ("what changed")** · ICE ~28 (8×7÷2)
+  **Done when:** a new release version shows before/after complaint-volume comparison per issue and
+  flags a probable regression.
+- [ ] **II5 · Issue workflow (status, owner, related release/reviews)** · ICE ~18 (7×6÷2.3)
+  **Done when:** an issue has status (new/investigating/planned/in progress/fixed/closed) and owner
+  (product/engineering/support/marketing) — turns ReviewBox into part of the team's operating
+  workflow, not just a read-only signal.
+- [ ] **II6 · Resolution tracking** · ICE ~21 (7×6÷2)
+  **Done when:** marking an issue "fixed" captures before/after negative-review-rate and rating, so
+  ReviewBox can show "detected → team fixed it → sentiment improved" — the strongest retention/
+  expansion story in this epic.
+- [ ] **II7 · Smart alerts on issues, not just reviews** · ICE ~24 (8×6÷2)
+  **Done when:** "Payment complaints up 184% in 6 hours" / "v1.5 generated 3.4× more scanner
+  complaints than v1.4" fire proactively (email/Slack). Extends the existing rating-spike Redis
+  dedup pattern to issue-level trends.
+
+#### P2 — deepens the story once P0/P1 are proven
+
+- [ ] **II8 · Competitive review-level intelligence** · ICE ~12 (6×6÷3)
+  **Done when:** the Competitors screen (currently placeholder, X6) compares *what customers
+  complain about*, not just star rating. Depends on X6 shipping real competitor data first.
+- [ ] **II9 · Customer segmentation** · ICE ~10 (6×5÷3)
+  **Done when:** issue breakdown by platform/version/rating is queryable ("Android users on v1.5
+  are 4.2× more likely to report payment problems"). Most "enterprise BI"-flavored item on this
+  list — check against the ICP note above before building.
+- [ ] **II10 · Outcome / Feedback Health score** · ICE ~16 (7×6÷2.6)
+  **Done when:** one customer-facing score (rating trend, negative-review rate, response time,
+  unreplied count, resolution time, recurring-complaint trend) proves ReviewBox's value over time.
+  Depends on II6 existing first.
+
+#### P3
+
+- [ ] **II11 · AI layer redesign: diagnose, not just draft** · ICE ~9 (6×5÷3.3)
+  **Done when:** the AI panel answers what's happening / why / how serious / what to do / who owns
+  it / what to tell customers — not just "generate a reply." Depends on II1 and II3 (needs issues
+  and impact scores to reason over); sequenced last because it has the least standalone value until
+  the data model under it exists.
+
+**Open strategic question folded into this epic, not yet answered:** who is the primary buyer for
+this deepened product — support/community manager, product manager, ASO/growth marketer, or head
+of product? `docs/decisions.md` D011/D017 and `docs/PRODUCT_CONTEXT.md` already disagree with each
+other on ICP sophistication and price point. This epic is a good forcing function to resolve that,
+not a reason to avoid resolving it.
+
+---
+
 ## 🔴 NOW — this week
 
 These are the next items to ship. Don't skip; don't reorder without thinking.
