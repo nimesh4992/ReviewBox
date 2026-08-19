@@ -1,4 +1,79 @@
-# Today — 2026-08-19 (SPINE 8/8 — the launch gate is clear)
+# Today — 2026-08-19 (SPINE 8/8, and the target is now written down)
+
+> Two things happened today. The morning: **SPINE reached 8/8** and the feature
+> freeze lifted (below). The evening: **the target for what comes next was
+> assessed against the code and documented** — read this part first, because it
+> changes what the next session should start on.
+
+---
+
+## The Issue Intelligence target — documented, and it moved the estimate
+
+**New: `docs/ISSUE_INTELLIGENCE.md` is the target. `docs/decisions.md` D023 holds the
+constraints.** Both are in the every-session reading list in `CLAUDE.md` now.
+
+The founder asked how far the code is from the product discussed in the II1–II11
+critique. Answered by reading the codebase rather than the product surface, and the
+number moved a long way:
+
+| | |
+|---|---|
+| Earlier, screenshot-based estimate | ~70–75% of the differentiated product |
+| **Code-level assessment** | **~25–30%** |
+
+**Not** "the product is 25% built" — the Collect/Display/Reply infrastructure is
+substantial and the UI is ~8/10. The differentiating intelligence layer is what does
+not exist. As a differentiated product: **~6/10 today**, ~8.5–9/10 after II1–II11.
+
+**The bottleneck, in one sentence:** there is no `issues` table, no `issue_id` on
+`reviews`, and nothing that groups reviews. Six of the eight gaps read or write
+through that missing entity, which is why no amount of UI work moves them.
+
+### Three documented claims turned out to be false in the code
+
+Each was being planned against. All three are now corrected at source in `CLAUDE.md`
+and `docs/backlog.md`:
+
+1. **`@xenova/transformers` is not installed and never was** — not in `package.json`,
+   absent from `src/`. "Sentiment already runs local topic clustering" was false;
+   `/sentiment`'s "topics" are counts of **8 hardcoded English regexes**.
+   **II1 is green-field, and the $0 clustering assumption is unproven.**
+2. **`reviews.embedding vector(384)`** + ivfflat index have existed since migration
+   001 and are **never read or written**. Real groundwork, no pipeline.
+3. **"Incidents already does spike-detection"** — half true. `review-sync.ts`
+   emails/Slacks a spike; it does **not** create an incident. Only a human does.
+
+### What the next session should start on
+
+**Not II1's implementation.** Per D023:
+
+1. **II0a — the II1 ADR, architecture only.** The keystone. 13 questions, ≥3
+   approaches evaluated, recommendation for an India-first SaaS
+   (`docs/ISSUE_INTELLIGENCE.md` §7). The framing is *"what constitutes the identity
+   of an issue?"*, not *"how do I generate a nice AI summary?"*. **No II1 code until
+   this exists.**
+2. **II0 — Phase 0 release-regression** on today's `issue_tags[]`
+   ("Payment +375% 🔴 in v1.5 vs v1.4"). Small vertical slice, ships the story
+   without waiting for clustering. Can run in parallel with the ADR.
+
+### Three constraints that are now decisions, not opinions
+
+- **Multilingual is P0 architectural**, not a side note. India-first ICP, review text
+  code-switches mid-sentence ("payment कट गया but ticket nahi aaya"). The engine must
+  work on semantic similarity, not keywords.
+- **Choose the embedding model first, then adapt the schema.** The dormant
+  `vector(384)` column is groundwork, not a constraint.
+- **The launch claim is "daily feedback intelligence."** Vercel Hobby caps cron at
+  daily, so "up 184% in the last 6 hours" is *physically undetectable* today. Build no
+  UI and make no claim beyond what the pipeline can do.
+
+**On ice per D023:** competitor review scraping, advanced segmentation, enterprise BI,
+Jira/Linear. **And the standing instruction:** don't spend the next week polishing the
+dashboard — build the engine that makes it worth opening.
+
+---
+
+# Earlier today — SPINE 8/8 — the launch gate is clear
 
 **State of master:** `a1b57b2`. `tsc` clean, **649 unit tests in 63 files**,
 lint 0 errors, CI green on the merge commit.
