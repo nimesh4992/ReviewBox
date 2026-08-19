@@ -1,4 +1,23 @@
-# Today — 2026-08-18 (marketing site rebuilt on the Envato theme, then the SEO unblock, then the reason none of it was being read)
+# Today — 2026-08-19 (the VERCEL_ORG_ID fix landed but did NOT restore deploys — new evidence points at VERCEL_TOKEN — plus a VS Code context-continuity question, and a merge that silently corrupted this file)
+
+**State of master:** `0a4af8a` — PR #127 (org/project ID fix) and PR #128
+(product knowledge docs) both merged, every quality gate green **except
+Deploy**, which is still red on this exact commit.
+
+**Production has still not deployed since 03:48 UTC on 2026-08-18 (PR #118) —
+nine merges in now (#119–#128), none of them live.** PR #127 was right that
+`VERCEL_ORG_ID` had been wrong, and its fix is real: both the org id and
+project id in `ci.yml` are now independently confirmed correct — checked
+directly against the Vercel API on a separate credentialed path, not just
+inferred from a bot comment (`list_teams` shows this account belongs to
+exactly one team, "Amnex Infotechnologies" / `amnexweb` /
+`team_YDfGTQhOF3TYQa36p7LILfuB`; `get_project` on that team confirms it owns
+`reviewbox` / `prj_OE66Qpr8IdTXwLG6BOzevWYagRcl`). Both values in `ci.yml`
+match exactly.
+
+**The very next run on that exact fix still failed at the same step**
+(workflow run `32221034591`, commit `0a4af8a`, 2026-08-19 05:56 UTC), with a
+**different** error than before:
 
 **State of master:** every quality gate green on every merge.
 **But master has not reached production since 03:48 UTC on 2026-08-18 (PR #118).**
@@ -15,225 +34,117 @@ into the run summary whenever the pull fails. See item 1 below.
 `tsc` clean, lint 0 errors, full `next build` passes, **609 unit tests** (was 591).
 
 Two things shipped today, in order.
-
----
-
-## 1. The marketing site, rebuilt (PR #124 — merged)
-
-The founder bought **SassTech — SaaS Software IT Solution Multipurpose** on
-Envato and asked to adapt its `index-4` (CRM) demo. The theme is
-Bootstrap + jQuery; this repo is Next.js 15 + Tailwind v4, so **the design was
-adapted, not the code** — no theme file is in this repository, which also keeps
-us inside the Elements licence (use in an end product, yes; redistribution, no).
-
-**What that produced**
-
-- A marketing palette scoped to `.rb-marketing` in `globals.css` (`--rb-mk-*`):
-  amber actions, an ink ramp, hairlines, card radii, the hero mesh. The app
-  keeps `#0A84FF`; the two never mix. `src/marketing-shell-contract.test.ts`
-  enforces the scoping.
-- A shared vocabulary — `features/marketing/components/primitives.tsx` —
-  so every page uses the same `Section`, `Card`, `PageHero`, `Disclosure`,
-  `Breadcrumb`, rather than 20 hand-rolled variants.
-- Dark mode removed from marketing (founder decision). Light only.
-- Every marketing page converted: landing, pricing, about, contact, blog,
-  changelog, faq, help centre + 5 help articles, and the legal set.
-
-**What came out rather than went in**
-
-- `/compare` — its ROI calculator understated our own price by $80/month and it
-  carried three invented testimonials. 307 to `/pricing`. (See SEO4.)
-- `/status` — it could not report an outage.
-- `roi-calculator.tsx`, 13 dead links, a search box that could not search, and
-  category filter pills with no handler.
-
-**Two corrections I owe the record.** I claimed "zero legacy colour references
-left" after grepping only for `gray-*` and hex literals — `/blog/ai-cost-reduction`
-had not been converted at all and five help articles still carried
-amber/blue/emerald/purple. Fixed in `34d0187`. And the `/help` pages shipped
-with the nav's "Start free" button rendering with **no background**, because
-those six pages were never wrapped in `MarketingShell`; type-check, lint, build
-and every test passed. Only a screenshot caught it. That is what the shell
-contract test now exists for.
-
----
-
-## 2. SEO: canonicals, and the sitemap's closed door (this PR)
-
-The founder supplied a **Semrush-backed keyword plan** built against
-`appfollow.io` — now `docs/SEO_KEYWORD_PLAN.md`. It is the missing half of
-`docs/SEO_CONTENT_PLAN.md`, which was written in July with no volume data at
-all because the Ahrefs account had no API access. That older document's §0 now
-says so and points here.
-
-Its item #1 is the gate on everything else, and two thirds of it were real:
-
-- **Canonicals.** One deployment serves `tryreviewbox.com`,
-  `www.tryreviewbox.com` and `app.tryreviewbox.com`. Only `/` declared a
-  canonical. The other 21 indexable pages had none, so each was free to be
-  indexed once per hostname, per trailing slash, per query string. All 22 now
-  declare one, verified in the built HTML — not just in the source.
-- **The sitemap advertised `/sign-in` and `/sign-up`.** Middleware 307s both to
-  the app host, where every public route is served `X-Robots-Tag: noindex`. We
-  were spending crawl budget to reach a closed door. Removed.
-- **The "3 blog 404s" were already gone** — PR #124 cut them.
-
-`src/canonical-contract.test.ts` fails the build if a sitemap entry ever loses
-its canonical, or points at the wrong path. Verified to fail by reintroducing
-the bug.
-
-Also fixed here: three corrupted Tailwind class names my own colour sweep left
-behind in `/help/ai-replies` — `bg-[var(--rb-green-100)]0`, with a trailing
-zero, is not a class name, so the three pipeline step badges had no background
-and their white numerals were invisible. Same silent class as the `/help` nav
-button: everything green, nothing rendered.
-
----
-
-## 3. SEO: Google could not read robots.txt or the sitemap at all (this PR)
-
-Section 2 above fixed the canonicals inside pages Google can reach. This is the
-layer underneath: **`/robots.txt` and `/sitemap.xml` returned 404 on every
-hostname**, so none of that work was ever collected.
-
-Verified against production before changing anything:
-
 ```
-GET https://www.tryreviewbox.com/robots.txt
-→ 404,  x-clerk-auth-reason: protect-rewrite, session-token-and-uat-missing
+Retrieving project…
+Error: Could not retrieve Project Settings. To link your Project, remove the `.vercel` directory and deploy again.
 ```
 
-Neither path was listed in middleware's `isPublicRoute`, and neither `.txt` nor
-`.xml` appears in the middleware matcher's extension-exclusion list — so both
-fell through to `auth.protect()`. Googlebot is always a signed-out visitor, so
-it got the 404 every time. `robots.ts` and `sitemap.ts` were correct, tested,
-and unreachable. **A missing robots.txt means "crawl everything"**, which is how
-`/customers`, `/status` and `/compare` were still ranking after being deleted:
-Google found them by link and was never handed a sitemap saying otherwise.
+Full diagnosis and the likely next fix are under "Outstanding" item 1 below
+— short version: the IDs are no longer suspects, so `VERCEL_TOKEN` itself
+is. That one is genuinely founder-only; it's a credential, not a literal.
 
-**What Semrush actually shows** (us database, checked this session). Nine URLs
-rank, all on `www`, all at zero traffic — and three of the nine are dead:
-
-| URL | Keywords | State |
-|---|---|---|
-| `/blog` | 7 | live |
-| `/` | 6 | live |
-| `/pricing`, `/faq` | 3 each | live |
-| `/terms`, `/about` | 2 each | live |
-| `/customers` | 1 | deleted 2026-08-16 → 404 |
-| `/status` | 1 | deleted 2026-08-18 → 404 |
-| `/compare` | 1 | withdrawn → 307 |
-
-`app.tryreviewbox.com` returns **no rows at all** — the app host is not ranking
-for anything, which is what makes the `Disallow: /` below safe to ship now.
-
-**Fixed**
-
-- The three crawler files (`/robots.txt`, `/sitemap.xml`, `/opengraph-image`)
-  are public routes. `/opengraph-image` was 404ing to every social unfurler too,
-  so shared links rendered as a grey box.
-- **The app host serves its own robots.txt from middleware** — `Disallow: /`.
-  It has to be middleware: `next build` reports `/robots.txt` as `○ (Static)`,
-  one prerendered body for both hostnames, so `robots.ts` cannot tell them
-  apart. Making the path public without this would have served the *marketing*
-  robots.txt — an `Allow: /` over the entire signed-in product.
-- **Marketing pages on the app host now 301 to `www`.** They are public routes,
-  so `app.tryreviewbox.com/pricing` was rendering the full pricing page. The
-  noindex header kept it out of the index but discarded any link equity; a 301
-  passes it on.
-- **The root layout no longer asserts `index, follow` on every page.** It is
-  inherited by `/dashboard`, which therefore shipped `index, follow` in its
-  markup while middleware set `noindex, nofollow` in the header on the same
-  response. Nothing leaked — Google takes the most restrictive — but the page
-  was arguing with its own headers. The `(app)` and `/admin` trees now declare
-  `noindex` in their own metadata, so it holds on preview URLs and the apex too,
-  not only on the one host middleware adds a header to.
-- **Canonicals moved to `www`.** They named the apex, which 308s to www — a page
-  telling Google "the real me is over there" while the server says "not here".
-  `marketingUrl()` now also refuses to ever return the app host: it falls back
-  to `NEXT_PUBLIC_APP_URL`, so a missing `NEXT_PUBLIC_MARKETING_URL` in Vercel
-  would have pointed every canonical at the `Disallow: /` hostname. Verified in
-  a real build with only `NEXT_PUBLIC_APP_URL` set.
-
-`src/seo-indexing-contract.test.ts` (14 tests) reads middleware's source and
-fails if any of it regresses. Verified by mutation — four separate breakages
-were reintroduced and each turned it red. One early version of the ordering
-check could *not* fail (it matched the import line rather than the branch);
-that is fixed and the note is in the test.
-
-**Not done, deliberately: the deleted pages are NOT added to robots.txt.**
-`Disallow` and `noindex` cancel out — blocking a URL stops Google crawling it,
-so it never sees the 404 telling it to drop the page, and the URL sits in the
-index as "Indexed, though blocked by robots.txt". They 404 cleanly and are
-absent from the sitemap, which is what actually removes them. Search Console →
-Removals is the fast path if the founder wants them gone in a day.
+`tsc` clean, lint 0 errors, full `next build` passes, unit tests green
+(all reconfirmed on this run).
 
 ---
 
-## 4. The first two product pages (this PR)
+## This session (2026-08-19)
 
-The nav was `Pricing · Blog · Help`. There was **no product page at all**, so
-the only description of what ReviewBox does was ~268 words on the homepage —
-nothing for a visitor to read and nothing for Google to classify the site by.
+No code shipped from this branch. Four things happened, in order, and the
+honest record of a couple of missteps is worth keeping — that's the point of
+this file.
 
-Two pages, chosen by what is reachable at Authority Score 2 rather than by what
-is biggest (Semrush US, checked this session):
+**1. I repeated a diagnosis instead of re-deriving it.** Earlier this session
+I re-checked the Aug-18 deploy failure, saw the same job fail the same way,
+and told the founder in chat to fix `VERCEL_ORG_ID` in GitHub → Settings →
+Secrets. That was wrong — carried forward from the Aug-18 doc without
+independently checking where the value actually lives. It is a literal in
+`ci.yml`, not a secret. A concurrent session (PR #127) had already found and
+fixed the real thing by the time I said it.
 
-| Page | Term | Vol/mo | KD |
-|---|---|---|---|
-| `/app-review-management` | app review management | 170 | **18** |
-| `/alternatives/appfollow` | appfollow alternative / competitors / pricing | ~150 | **0** |
+**2. "Update branch" silently corrupted this file.** PR #127 corrected the
+Aug-18 `docs/today.md` in place; this branch, in parallel, had replaced the
+whole file with a shorter rewrite. This PR's branch got updated against
+master (most likely via the PR's "Update branch" button), and the merge
+produced **no conflict markers anywhere in the tree** (checked with
+`git grep` across the full merged tree) but silently interleaved both
+rewrites anyway — two different opening lines for "Outstanding" item 1 back
+to back, stale paragraphs sitting next to their own correction. Per this
+file's own standing rule for exactly this situation ("take ONE side's file
+whole, never hand-blend the two"), this version starts from master's clean
+`docs/today.md` and adds only new sections — nothing from my interim
+rewrite survives except what's written here.
 
-`/vs/appfollow` **301s to `/alternatives/appfollow`**. Same intent — shipping
-both would split the ranking signal and leave neither able to hold the term.
+**3. Checking whether PR #127's fix actually worked turned up more.** It
+hadn't, fully. See "Outstanding" item 1 — the IDs are now provably right and
+the deploy still fails, on a different error string than before.
 
-A "Product" dropdown now carries them in the nav. Deliberately three items, not
-a six-cell mega-menu: we have two product pages and an `/integrations` page that
-does not exist yet, and a grid with two padded cells reads as a smaller company
-than a tight list.
+**4. The actual founder-facing question this session answered:** how to keep
+working on this project in VS Code without losing context from a Claude Code
+web session. Web and local Claude Code sessions keep **separate conversation
+histories** — no import path between them — but this project's own
+continuity system (`CLAUDE.md` + this file + `docs/decisions.md` +
+`docs/backlog.md`) auto-loads into any session opened on this repo, cloud or
+local, which is what actually carries continuity. Practical steps given:
+install the Claude Code VS Code extension, then — PowerShell 5.1 doesn't
+support `&&`, use separate lines — `git fetch origin`, then
+`git checkout claude/visual-studio-context-sm0iqe`, open the folder, start a
+new session; it reads this file first, same as this one did. This session's
+own detour is itself the demonstration of why chat history isn't what
+matters: everything worth keeping is in this file, not in a transcript.
 
-**The claims discipline is the point of this slice.** `/compare`, `/customers`
-and `/status` were withdrawn within 48 hours for publishing things that were not
-true. So:
+---
 
-- Every price is **imported from `lib/plans.ts`**, never typed. The template
-  count is exported from `lib/templates.ts` and rendered from there.
-- **No AppFollow price, plan or feature appears anywhere.** `appfollow.io` is
-  unreachable from the build environment, so nothing about them could be
-  sourced. The page links to their own pages and lets the reader check. A
-  sourced, dated table remains SEO4.
-- No testimonials, no customer names, no `aggregateRating`, no time-to-value
-  claim — every spine step is still ⬜ unverified.
-- The page describes **Draft Mode** (copy the reply into Play Console), because
-  that is the launch tier. One-click API posting is offered, never assumed.
+## What shipped 2026-08-18 (detail lives in PRs #124–#126 and git log)
 
-`src/marketing-claims-contract.test.ts` enforces all of the above by scanning
-the two pages' source; mutation-verified against four reintroduced breakages.
-
-**One defect found and fixed on the way in.** The new pages were added to the
-sitemap and to `MARKETING_ONLY_PREFIXES` but not to middleware's
-`isPublicRoute` — which would have served them to every signed-out visitor,
-Googlebot included, as a 404. That is the *identical* failure this PR's first
-half exists to fix. `seo-indexing-contract.test.ts` now asserts every
-marketing prefix is also a public route, so the two lists cannot drift again.
-
-### Stale public claims found while sourcing numbers (NOT fixed here)
-
-1. `/help/ai-replies` says **25 built-in templates**; the code has **19**.
-2. The same page lists tones "Professional, **Friendly**, Empathetic, **Brief**,
-   **Custom**". The real type is professional, empathetic, casual, direct —
-   three of the five named do not exist.
-3. The same page describes auto-publish as being "on the **Team plan**". There
-   is no Team plan.
-4. `docs/marketing/BRAND_MESSAGING.md` quotes us at "$49–$199/month" (no $199
-   plan exists), an unsourced "0.5★ bump lifts conversion 15–30%", and unsourced
-   competitor pricing. Use it for tone, not for facts, until corrected.
+Marketing site rebuilt on the Envato-adapted design (PR #124); SEO fixes —
+canonicals on all 22 indexable pages, `robots.txt`/`sitemap.xml`/
+`opengraph-image` unblocked from Clerk auth, app host now serves
+`Disallow: /` (PR #125); and the first two product pages,
+`/app-review-management` + `/alternatives/appfollow` (PR #126). Full
+narrative, numbers, and defects found/fixed along the way are in those PR
+descriptions and commit messages.
 
 ---
 
 ## Outstanding — founder only
 
-1. **`VERCEL_ORG_ID` was wrong. Nothing deployed between #118 and the fix.**
+1. **`VERCEL_ORG_ID` was wrong, is now fixed, and it wasn't enough — deploy is still red.**
+
+   **Update 2026-08-19 ~05:56 UTC.** The fix described below (both ids
+   corrected in `ci.yml`) is real and independently verified — confirmed
+   directly against the Vercel API rather than just inferred from a bot
+   comment: `list_teams` shows this account belongs to exactly one team,
+   "Amnex Infotechnologies" / `amnexweb` / `team_YDfGTQhOF3TYQa36p7LILfuB`;
+   `get_project` on that team confirms it owns `reviewbox` /
+   `prj_OE66Qpr8IdTXwLG6BOzevWYagRcl`. Both values now in `ci.yml` are
+   correct.
+
+   The next run on master after the fix (workflow run `32221034591`, commit
+   `0a4af8a`, 2026-08-19 05:56 UTC) failed anyway, at the same step, with a
+   **different** error than before:
+
+   ```
+   Retrieving project…
+   Error: Could not retrieve Project Settings. To link your Project, remove the `.vercel` directory and deploy again.
+   ```
+
+   This is the exact symptom this file's own "trap worth remembering" note
+   (right below) predicted for "a token scoped to the right team, wrong org
+   id" — but the org id is no longer wrong. With both ids independently
+   confirmed correct and the same error still firing, the remaining variable
+   is the credential itself: **`VERCEL_TOKEN` (the GitHub secret) is most
+   likely not scoped to the `amnexweb` team**, or has been revoked or expired.
+   That is genuinely founder-only this time — it is a real credential, not a
+   literal, so it can't be verified or rotated from here.
+
+   **To fix:** Vercel → Amnex Infotechnologies (amnexweb) team → Settings →
+   Tokens. Create a new token scoped to that **team** specifically (not a
+   personal-account token — that mismatch is the most common way this exact
+   error happens when the ids are otherwise correct), with access to the
+   `reviewbox` project. Then GitHub → Settings → Secrets and variables →
+   Actions → update `VERCEL_TOKEN`. No re-run needed after — the next merge
+   picks it up, or re-run the failed job on run `32221034591` directly.
 
    **Corrected 2026-08-19 — and my first instruction here was wrong.** I sent
    the founder to GitHub → Settings → Secrets and variables → Actions to change
@@ -244,15 +155,16 @@ marketing prefix is also a public route, so the two lists cannot drift again.
    org id printed unmasked while `VERCEL_TOKEN` printed as `***`. GitHub masks
    secrets; it does not mask what it is not holding.
 
-   So this was never founder-only. It is a one-line code change, made in
-   `ci.yml` and shipped as a PR.
+   So this specific mixup was never founder-only. It was a one-line code
+   change, made in `ci.yml` and shipped as a PR — see the fix above for why
+   it alone wasn't the whole story.
 
    | | |
    |---|---|
    | was | `team_mQlD3mcz32rsA4HcPOBRiW6b` |
    | now | `team_YDfGTQhOF3TYQa36p7LILfuB` |
 
-   `VERCEL_PROJECT_ID` was correct and is unchanged.
+   `VERCEL_PROJECT_ID` was correct throughout and is unchanged.
 
    **It did not fix the deploy, and here is the honest version of why I
    thought it would.** Two errors were observed hours apart — `Project not
@@ -333,10 +245,53 @@ marketing prefix is also a public route, so the two lists cannot drift again.
    Google Play guide: `??` does not catch `""`. They cover Stripe checkout and
    portal, Slack OAuth, team invites and five email templates. Untouched —
    D009 puts billing behind founder approval.
+   **One trap worth remembering.** A `VERCEL_TOKEN` scoped to the *right* team
+   makes this look worse, not better. With a wrong-team token the CLI says
+   `Project not found ({...ORG_ID})`, which names the culprit. With a
+   right-team token and a wrong org id it says `Could not retrieve Project
+   Settings. To link your Project, remove the .vercel directory` — which reads
+   like a broken token and sends you to re-issue the one thing that is fine.
+   **Both have now actually been observed here**, in that order, across two
+   separate fixes.
+
+   Every non-deploy job passes on every run since #124 (Security audit, Build
+   + type-check, Unit tests, Lint, E2E). Only "Deploy to production" fails.
+   **Nothing merged since 2026-08-18 03:48 UTC is live** — the marketing
+   rebuild, all SEO fixes, both product pages, and the ci.yml fix itself.
+
+   *This is a distinct failure class from the Vercel upload-quota one noted
+   below. That one exhausts a 5,000-request budget and has to wait out a
+   24-hour window — re-running is useless. Identifier and credential failures
+   fail instantly and predictably, and re-running IS the right move once the
+   actual input changes — but only once you've confirmed which input was
+   wrong. Two different "fixes" have now each resolved one real problem and
+   left the deploy red, which is exactly why the log line matters more than
+   the red X, every single time, not just the first time.*
+
+2. **Once deploy is fixed, submit the sitemap in Search Console.** Property
+   `www.tryreviewbox.com` → Sitemaps → `sitemap.xml`. It has never been
+   fetchable until this deploys. While there, use **Removals** on
+   `/customers`, `/status` and `/compare` to clear them in about a day.
+   Optional 2-min extra: set `NEXT_PUBLIC_MARKETING_URL` to
+   `https://www.tryreviewbox.com` in Vercel env vars — the code no longer
+   needs it (`marketingUrl()` self-corrects) but it's cleaner stated than
+   inferred.
+
+3. **`/blog/ai-cost-reduction` opens "We audited 10,000 reviews across our
+   beta customers."** There are no customers. Same class as claims already
+   removed from `/about` and `/compare`. Copy edit drafted, not applied —
+   it's a public claim, so it's the founder's call.
+
+4. **15 `NEXT_PUBLIC_APP_URL ??` sites** share the empty-string bug fixed on
+   the Google Play guide (`??` doesn't catch `""`). Covers Stripe
+   checkout/portal, Slack OAuth, team invites, five email templates.
+   Untouched — D009 puts billing behind founder approval.
 
 ## Next
 
 `SEO2` (reply template library, ~4,950/mo at KD 19–33) is the highest-value
 content item and the best product fit we have. But read **SEO5** first: the
 plan's own conclusion is that every KD 24–33 target is gated on link
-acquisition, not on content, and nothing an agent does changes that.
+acquisition, not on content, and nothing an agent does changes that. This is
+still blocked behind item 1 above being *actually* resolved, not just
+attempted twice.
