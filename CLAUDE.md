@@ -749,6 +749,12 @@ Placeholders belong only to jobs that compile or run the app for tests, which
 is why each such job now carries its own copy. Never hoist them back up to the
 workflow level to remove the duplication.
 
+`deploy-production` was removed on 2026-08-19 (see the Vercel section below),
+so **this rule currently guards nothing** — which is exactly why it is worth
+keeping and exactly why it will be tempting to undo. The duplication looks
+gratuitous with no deploy job in the file. It is the precondition for ever
+adding one back safely.
+
 ### Design-system notes
 
 - `--rb-fg-4` measures **2.15:1** on a light surface — below the 3.0 floor even
@@ -965,79 +971,69 @@ Consequences to respect:
 - To re-enable previews: remove `ignoreCommand` from `vercel.json` AND do LT2
   first, or previews stay un-testable.
 
-### ⚠️ A red "Deploy to production" does NOT mean the site is stale
+### ⚠️ Vercel's Git integration deploys master. CI does not.
 
-**Read this before acting on that check at all.** There are two production
-deploy paths, and only one of them is this job.
+There is **no deploy job in `ci.yml`** — removed 2026-08-19, founder's call.
+Merging to master is what ships; Vercel builds it directly.
 
-Vercel's **Git integration deploys master by itself.** It was blocked once —
-"the commit author did not have contributing access · The Hobby Plan does not
-support collaboration for **private** repositories" — which is the entire
-reason the CLI job below was written. The repo is public now, so the block
-lapsed and the integration resumed, quietly.
+**Check the deploy, never infer it.** The Vercel MCP tools answer it in three
+calls — `list_teams` → `list_deployments` → `get_deployment` gives state,
+target and the alias list. `tryreviewbox.com` is blocked by the agent egress
+proxy (403 on CONNECT), so curling the site is not an option; the API is. Do
+not substitute a CI check for that, which is the whole point of what follows.
 
-Verified against the Vercel API on 2026-08-19, not inferred from a bot comment:
-deployment `dpl_F8nMNiuuMogC8RiT7Mmu3VFqWvKw` (commit `0a4af8a`, the #127
-merge) is `READY`, `target: production`, `source: git`, aliased to
-**tryreviewbox.com, www.tryreviewbox.com and app.tryreviewbox.com**. Every
-master merge from #123 on is `READY` the same way. The two that are not — #120
-and #121 — errored because master was genuinely broken then (the JSX
-merge-fusion), not for any credential reason.
+#### Why the job went, and what went with it
 
-So through 2026-08-18/19, while this job failed on every merge and master read
-red, **the site was live and current the whole time.** An agent (me) told the
-founder repeatedly that seven merges were not in production. That was inferred
-from the failing job and never checked against Vercel, and it was wrong.
+A CLI `deploy-production` job existed because Vercel's Git integration once
+refused this repo: *"the commit author did not have contributing access · The
+Hobby Plan does not support collaboration for **private** repositories"*. Note
+"private" — the repo is public now, so the block lapsed and the integration
+resumed on its own. Nothing updated the comment saying it hadn't.
 
-**Check the deploy, don't infer it.** The Vercel MCP tools answer this directly
-— `list_teams` → `list_deployments` → `get_deployment` shows state, target and
-the alias list. `tryreviewbox.com` is blocked by the agent egress proxy, so
-curling the site is not an option; the API is.
+Result: for two days the CLI job failed on a bad token scope and painted master
+red, while the site shipped fine without it — and an agent (me) told the founder
+seven merges were stuck in a queue that did not exist. That claim was inferred
+from the red check and never once checked against Vercel. Verified afterwards:
+`dpl_F8nMNiuuMogC8RiT7Mmu3VFqWvKw` (commit `0a4af8a`, the #127 merge) is
+`READY`, `target: production`, `source: git`, aliased to **tryreviewbox.com,
+www.tryreviewbox.com and app.tryreviewbox.com**. Every master merge from #123 on
+is `READY` the same way; #120 and #121 are the only exceptions and they errored
+at Vercel's own build because master was genuinely broken then.
 
-Two consequences worth holding onto:
+Two things were genuinely lost with the job — know the trade:
 
-- `www.tryreviewbox.com` is an **alias serving the site**, not a redirect —
-  confirmed in that deployment's alias list. So the duplicate-content problem
-  the canonical tags fix is real, not hypothetical.
-- The Git integration deploys master **regardless of CI**. #120 and #121 went
-  to Vercel with a broken master and failed at Vercel's own build. The CLI job
-  is the only thing that gates deploy on the four blocking checks — which is
-  the one argument for keeping it.
+1. **CI ordering.** It carried `needs: [build-and-typecheck, lint, unit-tests,
+   security-audit]`, so a red master could not reach production. The Git
+   integration has no such gate: it builds master whatever CI says. #120 and
+   #121 reached Vercel broken and failed there rather than being held back.
+   That was already the real behaviour while the CLI job was broken, but it is
+   now the permanent one. **CI green is still the merge gate — but it is no
+   longer a deploy gate.**
+2. **The production-env guard.** A step refused to deploy if the pulled Clerk
+   key was missing or still the CI placeholder — the check that would have
+   caught the 2026-08-17 outage. That entire class of bug came *from* the CLI
+   path (`vercel build --prod` inherits the runner's env, and a `NEXT_PUBLIC_*`
+   already present there beats what `vercel pull` writes). Vercel's builder has
+   no CI env to inherit, so the guard protected against a hazard the job itself
+   created.
 
-#### If you still need to debug the CLI job
+The warning above `jobs:` about workflow-level `NEXT_PUBLIC_*` placeholders
+**still stands and must not be relaxed.** It guards nothing today and is
+exactly what makes re-adding a deploy job safe.
 
-Three distinct ways it fails, needing different responses. Read the log line,
-not the red X.
+#### Two facts worth keeping
 
-| Error in the log | What it is | What to do |
-|---|---|---|
-| `Project not found ({…ORG_ID})` | The org/project pair does not exist *for this token* | Read the step summary — see below |
-| `Could not retrieve Project Settings` | Same class. **Not** a distinct diagnosis | Read the step summary — see below |
-| `Too many requests … api-upload-free` | Upload quota, below | Wait out the 24h window. Re-running is useless. |
-
-**Do not try to tell the first two apart by eye — they do not encode what you
-want to know.** `vercel pull` prints one or the other depending on internals,
-and neither says whether the fault is the org id, the project id, or a token
-that cannot reach the team. This was learned the expensive way over 2026-08-18
-→ 19: the org id **was** wrong, fixing it was necessary, and the deploy then
-failed *identically*. An earlier version of this table confidently mapped the
-second error to "wrong org id, right-team token." That was a guess presented as
-a rule, and it was wrong.
-
-The job now answers this itself. On failure, a **"Who is this token?"** step
-writes to the run's step summary: the org and project ids it targeted, the
-account `vercel whoami` reports, and every team `vercel teams ls` can reach.
-
-- Team holding `VERCEL_ORG_ID` **not** in that list → the token is the fault.
-  Re-issue it at Vercel → Account Settings → Tokens, scoped to that team, and
-  replace the `VERCEL_TOKEN` secret. This one genuinely *is* a GitHub secret.
-- Team **is** listed → an identifier is wrong. Both are plain literals in
-  `ci.yml`'s workflow-level `env`, not secrets — which is why the org id prints
-  unmasked in the log while `VERCEL_TOKEN` prints `***`. Read the correct pair
-  off any PR's Vercel bot comment; its avatar URL carries both:
-  `vercel.com/api/www/avatar?projectId=prj_…&teamId=team_…`.
-
-Cost so far: **seven merges** (#119–#127) green with nothing in production.
+- **`www.tryreviewbox.com` is an alias serving the site, not a redirect** —
+  confirmed in that deployment's alias list. The duplicate-content problem the
+  canonical tags fix is real, not hypothetical. Making it a redirect in Vercel
+  is still the cleaner fix.
+- **Two error strings do not distinguish two faults.** `vercel pull` prints
+  either `Project not found ({…ORG_ID})` or `Could not retrieve Project
+  Settings` depending on internals, and neither says whether the org id, the
+  project id or the token's scope is at fault. An earlier version of this file
+  mapped them to distinct diagnoses. That was inference stated as a rule, and
+  the next run disproved it. If a deploy job is ever re-added, get the answer
+  from `vercel whoami` / `vercel teams ls`, not from the error text.
 
 ### ⚠️ Vercel free plan: ~5,000 file uploads per 24h, shared across ALL deploys
 

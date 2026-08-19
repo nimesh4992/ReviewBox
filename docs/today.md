@@ -71,16 +71,15 @@ Its actions are backlog **SEO1**–**SEO5**; SEO1 shipped, SEO2–SEO5 are queue
 
 ## Outstanding
 
-1. **Decide what the CLI deploy job is for — founder call, pending.**
-   It is redundant: the Git integration ships master without it. Two options.
-   *Remove it* — a check that is red on every merge while the site ships fine
-   is exactly the pipeline everyone learns to ignore, and this file records the
-   cost of that. *Fix the token* — a new `VERCEL_TOKEN` scoped to the
-   `amnexweb` team, which is a real GitHub secret and so founder-only.
-   The one thing keeping it: `needs: [build, lint, unit, security]` gates the
-   deploy on CI, while the Git integration deploys master regardless — #120 and
-   #121 reached Vercel with a broken master and failed there rather than being
-   held back.
+1. **~~Decide what the CLI deploy job is for~~ — DONE. Founder chose remove.**
+   `deploy-production` is gone from `ci.yml`. Merging to master ships; Vercel's
+   Git integration builds it directly. Two consequences to hold onto: **CI
+   green is still the merge gate but is no longer a deploy gate** (the
+   integration builds master whatever CI says), and the pulled-production-env
+   guard went with the job — though that guard only ever protected against a
+   hazard the CLI path itself created. The `NEXT_PUBLIC_*` placeholder rule
+   above `jobs:` now guards nothing and must be kept anyway; it is the
+   precondition for adding a deploy job back safely.
 
 2. **`www.tryreviewbox.com` is an alias, not a redirect** — confirmed in that
    deployment's alias list, so it genuinely serves a second copy of every page.
