@@ -33,17 +33,48 @@ Status: ⬜ unverified · 🟡 in progress · ✅ verified against real app · �
 
 | # | Step | How the FOUNDER verifies (no code reading) | Status |
 |---|------|--------------------------------------------|--------|
-| 1 | Sign up / sign in | Create a new account → land inside the app | ⬜ |
-| 2 | Onboarding: workspace + pick real app | Search your real app (both platforms), select it, finish wizard | ⬜ |
-| 3 | Bootstrap scrape pulls real reviews | Inbox shows YOUR app's actual recent reviews (not demo data) | ⬜ |
-| 4 | Reviews display correctly | Rating ★, date, text, version, author each match the store | ⬜ |
-| 5 | Dashboard numbers correct | Portfolio rating + total review count match the store page | ⬜ |
-| 6 | AI draft generates in brand voice | Open a review → AI text appears → reads in your chosen tone | ⬜ |
-| 7 | Copy reply to store | "Copy reply" → paste into Play Console → reply posts on the store | ⬜ |
-| 8 | Mark as replied | Toggle review → replied → status persists after page reload | ⬜ |
+| 1 | Sign up / sign in | Create a new account → land inside the app | ✅ |
+| 2 | Onboarding: workspace + pick real app | Search your real app (both platforms), select it, finish wizard | ✅ |
+| 3 | Bootstrap scrape pulls real reviews | Inbox shows YOUR app's actual recent reviews (not demo data) | ✅ |
+| 4 | Reviews display correctly | Rating ★, date, text, version, author each match the store | ✅ |
+| 5 | Dashboard numbers correct | Portfolio rating + total review count match the store page | ✅ |
+| 6 | AI draft generates in brand voice | Open a review → AI text appears → reads in your chosen tone | ✅ |
+| 7 | Copy reply to store | "Copy reply" → paste into Play Console → reply posts on the store | ✅ |
+| 8 | Mark as replied | Toggle review → replied → status persists after page reload | ✅ |
 
 **Steps 3 and 7 are the whole game.** 3 = do we actually see real data.
 7 = can the user actually act on it. Both must be ✅ before launch.
+
+## ✅ 8 of 8 — walked 2026-08-19 by the founder, against a real app
+
+**The launch gate is clear.** The founder walked all eight steps end to end on
+production and reported every one working. This is the first completed walk in
+the eleven weeks since this file was written, and it is the only evidence in
+this repository that the product works — every ✅ in `CLAUDE.md` means "compiles
+and unit tests pass", which is a different claim (see the note above the
+build-status tables there).
+
+Recorded from the founder's report, which is exactly what this file's rule asks
+for: *"Done means a human walked this step against a REAL app and watched it
+work."* No agent verified any of this and none could.
+
+**One follow-up is genuinely still open — step 8 overnight.** Step 8 as defined
+above is "persists after a page reload", and that passed. What a single-day walk
+cannot establish is that the status survives the **next sync**: a review that
+reads `replied` tonight and `needs_reply` tomorrow is the failure mode that
+erased people's work before. The code defends it — `review-sync.ts` refuses a
+blanket upsert because `reply_status`/`reply_text` are user-owned, and the
+promote-to-replied update is filtered `.eq("reply_status", "needs_reply")` — but
+that is a code guarantee, not a walked one. **Re-open the replied review after
+the next daily sync (08:00 UTC) and confirm it still reads replied.** If it has
+flipped back, this drops to ❌ and nothing else matters until it is fixed.
+
+### What this unblocks
+
+Feature work was frozen behind this gate ("no new feature work until all 8 are
+✅") and that freeze is now lifted. D022 sequenced SPINE ahead of the Issue
+Intelligence epic, so that epic is next in line. Launch itself remains a founder
+call, not an automatic consequence of 8/8.
 
 ## How we work the spine
 
