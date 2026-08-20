@@ -29,9 +29,10 @@ import { createClient } from "@supabase/supabase-js";
 
 import { classifyLanguageBucket } from "../../src/lib/eval/language-bucket.ts";
 import { toCsv } from "../../src/lib/eval/csv.ts";
-
-/** Target composition. India-first: Hinglish is the largest slice on purpose. */
-const TARGET_MIX = { hinglish: 0.35, "native-script": 0.25, english: 0.4 };
+import {
+  DEFAULT_TARGET_MIX,
+  selectStratifiedSample,
+} from "../../src/lib/eval/sampling.ts";
 
 const HEADER = [
   // --- filled by this script ---
@@ -59,45 +60,6 @@ function loadEnvLocal() {
 function arg(name, fallback) {
   const index = process.argv.indexOf(`--${name}`);
   return index === -1 ? fallback : process.argv[index + 1];
-}
-
-/** Stable 32-bit string hash — the deterministic stand-in for shuffling. */
-function hash(value) {
-  let h = 2166136261;
-  for (let i = 0; i < value.length; i++) {
-    h ^= value.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-/**
- * Pick `count` rows, spreading across ratings so the sample is not all 1★.
- * Round-robins the rating groups, each internally ordered by hash.
- */
-function pickSpread(rows, count) {
-  const byRating = new Map();
-  for (const row of rows) {
-    const list = byRating.get(row.rating) ?? [];
-    list.push(row);
-    byRating.set(row.rating, list);
-  }
-  for (const list of byRating.values()) list.sort((a, b) => hash(a.id) - hash(b.id));
-
-  const ratings = [...byRating.keys()].sort();
-  const picked = [];
-  let exhausted = false;
-  while (picked.length < count && !exhausted) {
-    exhausted = true;
-    for (const rating of ratings) {
-      const list = byRating.get(rating);
-      if (list.length === 0) continue;
-      picked.push(list.shift());
-      exhausted = false;
-      if (picked.length === count) break;
-    }
-  }
-  return picked;
 }
 
 async function main() {
@@ -147,28 +109,16 @@ async function main() {
       Object.entries(buckets).map(([k, v]) => `${k} ${v.length}`).join(" · "),
   );
 
-  const selected = [];
-  const shortfalls = [];
-  for (const [bucket, share] of Object.entries(TARGET_MIX)) {
-    const want = Math.round(count * share);
-    const picked = pickSpread(buckets[bucket], want);
-    if (picked.length < want) shortfalls.push(`${bucket}: wanted ${want}, got ${picked.length}`);
-    selected.push(...picked.map((review) => ({ review, bucket })));
-  }
-
-  // Top up from whatever is left, largest bucket first, so a short quota still
-  // yields `count` rows rather than a small sample nobody notices is small.
-  if (selected.length < count) {
-    const used = new Set(selected.map((s) => s.review.id));
-    const rest = Object.entries(buckets)
-      .flatMap(([bucket, rows]) => rows.map((review) => ({ review, bucket })))
-      .filter((s) => !used.has(s.review.id))
-      .sort((a, b) => hash(a.review.id) - hash(b.review.id));
-    selected.push(...rest.slice(0, count - selected.length));
-  }
+  // Quota fill, top-up and the no-duplicates guarantee all live in
+  // src/lib/eval/sampling.ts, where they are unit-tested.
+  const { selected, shortfalls } = selectStratifiedSample({
+    byBucket: buckets,
+    count,
+    mix: DEFAULT_TARGET_MIX,
+  });
 
   const rows = [HEADER];
-  for (const { review, bucket } of selected) {
+  for (const { item: review, bucket } of selected) {
     rows.push([
       review.id,
       appNames.get(review.app_id) ?? "",
@@ -190,7 +140,9 @@ async function main() {
   console.log("No author names were selected — nothing in this file identifies a person.");
   if (shortfalls.length) {
     console.log("\n⚠ Language quota not met:");
-    for (const line of shortfalls) console.log(`   ${line}`);
+    for (const { bucket, wanted, got } of shortfalls) {
+      console.log(`   ${bucket}: wanted ${wanted}, got ${got}`);
+    }
     console.log(
       "   A sample without enough Hinglish will certify an engine that fails for\n" +
         "   most of our customers. Consider syncing more reviews before labelling.",
