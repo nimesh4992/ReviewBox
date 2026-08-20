@@ -27,7 +27,7 @@ import { dirname } from "node:path";
 
 import { createClient } from "@supabase/supabase-js";
 
-import { classifyLanguageBucket } from "../../src/lib/eval/language-bucket.ts";
+import { classifyLanguageBucket } from "../../src/lib/language-detect.ts";
 import { toCsv } from "../../src/lib/eval/csv.ts";
 import {
   DEFAULT_TARGET_MIX,
