@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 
-import { classifyLanguageBucket, isLanguageBucket, LANGUAGE_BUCKETS } from "./language-bucket";
+import { isLanguageBucket, LANGUAGE_BUCKETS } from "./language-bucket";
+// The classifier moved to language-detect.ts so this file stays import-free
+// for the CLIs (see its header). Every assertion below is unchanged.
+import { classifyLanguageBucket } from "../language-detect";
 
 describe("classifyLanguageBucket", () => {
   it("classifies plain English as english", () => {

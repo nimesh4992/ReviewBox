@@ -17,6 +17,20 @@
  * See `docs/GOLDEN_SET.md` and ADR 011 §9.
  */
 
+/**
+ * The three slices the bake-off reports on (ADR 011 §9).
+ *
+ * ⚠️ **This file must contain no runtime imports.** The eval CLIs load it
+ * directly via Node's `--experimental-strip-types`, which resolves neither the
+ * `@/` alias nor an extensionless relative `.ts` import. Type-only imports are
+ * erased and therefore safe; a value import breaks `npm run eval:score` while
+ * leaving `tsc` and vitest green, because both of those resolve aliases.
+ * `src/eval-cli-import-contract.test.ts` enforces this.
+ *
+ * The classifier itself lives in `src/lib/language-detect.ts` — script and
+ * language are detected as two independent facts and this is a projection
+ * over them. Import `classifyLanguageBucket` from there.
+ */
 export type LanguageBucket = "english" | "native-script" | "hinglish";
 
 export const LANGUAGE_BUCKETS: readonly LanguageBucket[] = [
@@ -27,63 +41,4 @@ export const LANGUAGE_BUCKETS: readonly LanguageBucket[] = [
 
 export function isLanguageBucket(value: string): value is LanguageBucket {
   return (LANGUAGE_BUCKETS as readonly string[]).includes(value);
-}
-
-/** Devanagari block — Hindi and Marathi both sit here. */
-const DEVANAGARI = /[ऀ-ॿ]/g;
-const LATIN_LETTER = /[A-Za-z]/g;
-
-/**
- * Romanised-Hindi markers: tokens that are common in Hinglish and vanishingly
- * rare in English review text. Deliberately excludes short ambiguous ones
- * ("se", "ka", "ki", "to", "me") which collide with English words and would
- * mark ordinary English reviews as Hinglish.
- */
-const ROMANISED_MARKERS = new Set([
-  "nahi", "nahin", "hai", "hain", "tha", "thi", "hua", "hui", "raha", "rahi",
-  "kar", "karo", "karna", "kiya", "kyun", "kyu", "kaise", "kitna", "kitne",
-  "gaya", "gayi", "aaya", "aayi", "mila", "milega", "diya", "liya", "lekin",
-  "bahut", "bohot", "accha", "acha", "achha", "theek", "thik", "sahi", "galat",
-  "paisa", "paise", "rupaye", "rupay", "kripya", "krupya", "mera", "meri",
-  "aapka", "apna", "bhai", "yaar", "matlab", "jaldi", "wapas", "khatam",
-  "band", "chalu", "chal", "dena", "dijiye", "karna", "hoga", "hogaya",
-  "problem_hai", "kuch", "kuchh", "phir", "abhi", "bilkul", "zyada", "jyada",
-]);
-
-/** Tokens strong enough that one occurrence is enough. */
-const STRONG_MARKERS = new Set([
-  "nahi", "nahin", "kyun", "kripya", "krupya", "hogaya", "khatam", "bohot",
-  "rupaye", "paisa", "paise", "matlab", "wapas",
-]);
-
-function countMatches(text: string, pattern: RegExp): number {
-  const matches = text.match(pattern);
-  return matches ? matches.length : 0;
-}
-
-/**
- * Classify review text into a language slice.
- *
- * - Any Devanagari **and** Latin letters → code-switched → `hinglish`.
- * - Devanagari only → `native-script`.
- * - Latin only → `hinglish` if romanised markers are present, else `english`.
- */
-export function classifyLanguageBucket(text: string): LanguageBucket {
-  const devanagari = countMatches(text, DEVANAGARI);
-  const latin = countMatches(text, LATIN_LETTER);
-
-  if (devanagari > 0) {
-    // "payment कट गया but ticket nahi aaya" — the case the whole epic turns on.
-    return latin > 0 ? "hinglish" : "native-script";
-  }
-
-  const tokens = text.toLowerCase().split(/[^a-z]+/).filter(Boolean);
-  let markers = 0;
-  for (const token of tokens) {
-    if (STRONG_MARKERS.has(token)) return "hinglish";
-    if (ROMANISED_MARKERS.has(token)) markers++;
-    if (markers >= 2) return "hinglish";
-  }
-
-  return "english";
 }
