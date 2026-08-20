@@ -85,12 +85,19 @@ starting anything below.
   probable regression. **Uses the existing 8 tags — does not wait for clustering.** A small
   vertical slice, not a separate feature project. Best value-to-work ratio in the epic and the
   demo that proves the thesis before the expensive primitive is built.
-- [ ] **II0a · The II1 ADR — architecture only, no implementation** · blocking
-  **Done when:** `docs/adr/` holds an ADR answering all 13 questions in
-  `docs/ISSUE_INTELLIGENCE.md` §7 — ontology, pipeline, embedding model, multilingual strategy,
-  storage shape, assignment, confidence, re-clustering, `first_detected` semantics, merge/split,
-  backfill, Vercel limits, cost at 5k/50k/500k, reproducibility — evaluating **≥3 approaches**
-  with a recommendation for an India-first SaaS. **Per D023 no II1 code starts until this exists.**
+- [x] **II0a · The II1 ADR — architecture only, no implementation** — WRITTEN 2026-08-20,
+  **awaiting founder ratification.** `docs/adr/011-issue-identity-and-clustering.md`.
+  Identity rule: *two reviews are the same Issue if the same code change would resolve both*.
+  Storage: many-to-many `issues` + `issue_reviews`. Assignment: incremental, not batch.
+  Recommends **LLM assignment (Groq, already wired)** over local or hosted embeddings, on
+  multilingual grounds — and **deliberately does not ratify itself**: §9 defines a bake-off that
+  scores all three on the same labelled data first. Delivery plan: `docs/II_DELIVERY_PLAN.md`.
+- [ ] **II0b · Golden set + eval harness** · blocking, **founder-blocking input**
+  **Done when:** ~200 real reviews from the fixture apps — English, Hindi, Marathi, **Hinglish and
+  transliterated Latin-script**, code-switched — are labelled into expected Issue groups using the
+  ADR's identity rule, and `npm run eval:issues` scores an approach's precision/recall/F1 **broken
+  out by language bucket**. **This is what decides ADR 011** (§9) and it is the regression gate for
+  every later engine change. No agent can label it — labelling it *is* the product knowledge.
 - [ ] **II1 · Issue/Theme clustering engine** · ICE ~14 (10×7÷5)
   **Done when:** reviews describing the same underlying problem group into a persisted `issues`
   record (title, severity, first-detected date, affected version(s)/platform(s), review count,
