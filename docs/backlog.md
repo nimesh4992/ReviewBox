@@ -145,11 +145,13 @@ starting anything below.
   and impact scores to reason over); sequenced last because it has the least standalone value until
   the data model under it exists.
 
-**Open strategic question folded into this epic, not yet answered:** who is the primary buyer for
-this deepened product — support/community manager, product manager, ASO/growth marketer, or head
-of product? `docs/decisions.md` D011/D017 and `docs/PRODUCT_CONTEXT.md` already disagree with each
-other on ICP sophistication and price point. This epic is a good forcing function to resolve that,
-not a reason to avoid resolving it.
+**The strategic question this epic carried is ANSWERED — `docs/decisions.md` D024 (2026-08-19),
+which supersedes D011 and D017.** `docs/PRODUCT_CONTEXT.md`'s ICP is the only one: solo founder or
+small mobile team, 1–5 apps, no support staff, non-technical to semi-technical, India first, at
+$49 Starter / $129 Pro. **The epic does not re-target the product** — our buyer *is* the support,
+product and engineering team at once, which is exactly why an Issue layer helps them. Consequences:
+`owner` is a label not a Jira integration; **II9 stays P2** and is built only on customer request;
+Issue Intelligence ships in **Pro**, no new tier. Reasoning in `docs/ISSUE_INTELLIGENCE.md` §11.
 
 ---
 

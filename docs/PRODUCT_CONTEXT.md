@@ -23,6 +23,11 @@ Keep it current. A stale brief produces confidently wrong audits.
 
 ## Who this is for (ICP)
 
+> **This table is the single authoritative ICP, ratified 2026-08-19 by
+> `docs/decisions.md` D024, which superseded D011 ("indie dev, English-speaking
+> primary") and D017 ("boutique SaaS, $200–500/mo"). If another document
+> describes a different customer, it is stale — this one wins.**
+
 | | |
 |---|---|
 | **Buyer** | Solo founders and small mobile teams, 1–5 apps, no dedicated support staff |
