@@ -41,3 +41,8 @@ yarn-error.log*
 # IDE
 *.tsbuildinfo
 
+
+# Golden set — real customer review text. The labelled file stays local.
+# Only the label-only projection (review_id, issue_id, language_bucket, …)
+# may be committed. See docs/GOLDEN_SET.md.
+/eval/*.csv
