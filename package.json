@@ -13,7 +13,9 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:coverage": "vitest run --coverage",
-    "assumptions": "node scripts/assumptions.mjs --write"
+    "assumptions": "node scripts/assumptions.mjs --write",
+    "eval:export": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning scripts/eval/export-golden-set.mjs",
+    "eval:score": "node --experimental-strip-types --disable-warning=MODULE_TYPELESS_PACKAGE_JSON --disable-warning=ExperimentalWarning scripts/eval/score.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.3.3",
