@@ -33,6 +33,7 @@ import {
   DEFAULT_TARGET_MIX,
   selectStratifiedSample,
 } from "../../src/lib/eval/sampling.ts";
+import { applyEnv, readEnvFile } from "../../src/lib/eval/env-file.ts";
 
 const HEADER = [
   // --- filled by this script ---
@@ -42,19 +43,17 @@ const HEADER = [
   "theme", "issue_id", "issue_title", "is_actionable", "severity", "language_bucket",
 ];
 
+/**
+ * Load .env.local into process.env, and REPORT what happened.
+ *
+ * The previous version swallowed every failure, so a Windows .env.local that
+ * parsed to nothing (CRLF — see src/lib/eval/env-file.ts) was indistinguishable
+ * from no file at all. The founder was told to add a file they already had.
+ */
 function loadEnvLocal() {
-  try {
-    const text = readFileSync(".env.local", "utf8");
-    for (const line of text.split("\n")) {
-      const match = /^\s*([A-Z0-9_]+)\s*=\s*(.*)$/.exec(line);
-      if (!match) continue;
-      const [, key, rawValue] = match;
-      if (process.env[key]) continue;
-      process.env[key] = rawValue.trim().replace(/^["']|["']$/g, "");
-    }
-  } catch {
-    // No .env.local — fall back to whatever is already in the environment.
-  }
+  const { values, found } = readEnvFile(".env.local", (p) => readFileSync(p, "utf8"));
+  const applied = applyEnv(values, process.env);
+  return { found, parsed: Object.keys(values).length, applied: applied.length };
 }
 
 function arg(name, fallback) {
@@ -63,15 +62,38 @@ function arg(name, fallback) {
 }
 
 async function main() {
-  loadEnvLocal();
+  const env = loadEnvLocal();
 
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) {
+    const missing = [
+      !url && "NEXT_PUBLIC_SUPABASE_URL",
+      !key && "SUPABASE_SERVICE_ROLE_KEY",
+    ].filter(Boolean);
+
+    console.error(`\nCannot connect to Supabase — missing ${missing.join(" and ")}.\n`);
+    console.error(`  working directory : ${process.cwd()}`);
     console.error(
-      "Missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY.\n" +
-        "Run this from the project root with .env.local present.",
+      `  .env.local        : ${env.found ? `found, ${env.parsed} key(s) parsed, ${env.applied} applied` : "NOT FOUND here"}`,
     );
+
+    if (!env.found) {
+      console.error(
+        "\n  Run this from the project root (the folder containing package.json),\n" +
+          "  or create .env.local there with the two values above.",
+      );
+    } else if (env.parsed === 0) {
+      console.error(
+        "\n  The file was read but no KEY=value lines were understood.\n" +
+          "  Check it is a plain-text .env file, not renamed from something else.",
+      );
+    } else {
+      console.error(
+        "\n  The file parsed, but those two keys were not in it. Check the spelling\n" +
+          "  of the key names — they must match exactly.",
+      );
+    }
     process.exit(1);
   }
 
