@@ -56,6 +56,38 @@ and `docs/backlog.md`:
    ("Payment +375% 🔴 in v1.5 vs v1.4"). Small vertical slice, ships the story
    without waiting for clustering. Can run in parallel with the ADR.
 
+### The ICP contradiction is resolved — D024
+
+Three documents described three different customers, and the epic could not scope its UI or its
+pricing tier until one won. **`docs/PRODUCT_CONTEXT.md` wins; D011 and D017 are superseded**
+(both marked in place, log stays append-only).
+
+Decided on evidence, not preference — every superseded claim is contradicted by something already
+shipped: D011 still carries its own uncarried-out instruction *"[FOUNDER: edit this paragraph
+today]"*; D017's **$200–500/mo** is contradicted by the live **$49 / $129** in `plans.ts` and on the
+pricing page; "English-first" is the assumption behind the `country: "us"` bug and is contradicted
+by CM1 sitting top of NOW; and "technical indie dev" is contradicted by the search-by-name and
+Draft Mode onboarding we actually built.
+
+**Consequence for the epic:** it does *not* re-target the product. Our buyer is the support,
+product and engineering team all at once — which is why the Issue layer helps them. So `owner` is a
+label not a Jira integration, **II9 stays P2**, and Issue Intelligence ships in **Pro**, no new tier.
+
+> ⚠️ **One founder-only item.** The pricing page's feature matrix says *"Topic clustering across
+> your reviews — Pro ✅"* and there is no clustering. The comment above that matrix states the rule
+> it breaks: a row "must be something a customer can do today. A pricing page is a contract."
+> Reword it, or ship II1 and make it true. **D009 reserves pricing-page edits to you.**
+
+### How long the epic takes — estimated against measured throughput
+
+`docs/ISSUE_INTELLIGENCE.md` §12. Short version: **~8–12 weeks for all of II1–II11**, **~3 weeks to
+the point where the pitch changes**, at the current near-daily cadence (PRs #78–#135 merged in four
+days). Evenings-and-weekends cadence multiplies by ~3. Agent build time is only 10–15 sessions —
+the calendar is set by your decisions, manual migrations, walked verification, and in two cases the
+customer's own release cycle: **II6/II10 are built in days but cannot be *proven* for 4–8 weeks
+after a real fix ships.** Largest variance is multilingual clustering quality (±3 weeks), which is
+empirical and only answerable by running it on the fixture app.
+
 ### Three constraints that are now decisions, not opinions
 
 - **Multilingual is P0 architectural**, not a side note. India-first ICP, review text

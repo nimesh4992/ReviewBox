@@ -181,6 +181,12 @@ Adding a NEW item to this list requires a new decision entry.
 
 ## D011 — ICP (2026-05-17)
 
+> **⚠️ SUPERSEDED 2026-08-19 by D024 — see the bottom of this file.
+> `docs/PRODUCT_CONTEXT.md` holds the current ICP. Kept verbatim because this
+> log is append-only.** The bracketed instruction below was never carried out,
+> which is part of why this entry lost: it describes itself as a hypothesis
+> awaiting the founder's edit, and stayed that way for three months.
+
 **[FOUNDER: edit this paragraph today.]**
 
 Working hypothesis: indie iOS/Android dev or small studio with 1–3
@@ -247,6 +253,12 @@ account deletion (D008), GDPR erasure, app disconnect. 90 days is the
 ---
 
 ## D017 — ICP: boutique SaaS (2026-05-30)
+
+> **⚠️ SUPERSEDED 2026-08-19 by D024 — see the bottom of this file.
+> `docs/PRODUCT_CONTEXT.md` holds the current ICP. Kept verbatim because this
+> log is append-only.** In particular the "$200–500/mo" below is not our
+> pricing and was not our pricing when this was written: the product ships
+> Starter at $49 and Pro at $129.
 
 Indie dev / small studio (1–5 people), 1–4 mobile apps, 500–50K lifetime
 reviews/app, currently on AppFollow / spreadsheets / nothing, English-first,
@@ -445,3 +457,57 @@ through that missing entity.
 
 **And the standing instruction that follows from all of it:** do not spend the next week polishing
 the dashboard. The dashboard is already good enough. Build the engine that makes it worth opening.
+
+---
+
+## D024 — ICP, resolved (2026-08-19) — supersedes D011 and D017
+
+Founder instruction, in-session: resolve the standing contradiction between D011, D017 and
+`docs/PRODUCT_CONTEXT.md`. Three documents described three different customers, and the Issue
+Intelligence epic (D023) could not scope its UI or its pricing tier until one of them won.
+
+**Decision: `docs/PRODUCT_CONTEXT.md`'s ICP is authoritative. D011 and D017 are superseded.**
+
+| | Buyer | Market | Price | Sophistication |
+|---|---|---|---|---|
+| D011 (2026-05-17) | indie dev / studio, $5K–100K MRR | English-speaking primary | "AppFollow at 1/4 the price" | technical |
+| D017 (2026-05-30) | boutique SaaS, 1–5 people | English-first | **$200–500/mo** | pays for reliability |
+| **PRODUCT_CONTEXT** ✅ | **solo founder / small team, 1–5 apps, no support staff** | **India first**, then global English | **$49 Starter / $129 Pro** | **non-technical to semi-technical** |
+
+**This was decided by evidence, not preference. Each superseded claim is contradicted by something
+already shipped:**
+
+1. **D011 was never ratified.** It still carries its own unexecuted instruction —
+   *"[FOUNDER: edit this paragraph today]"* — and calls itself a "working hypothesis". It is a
+   day-one placeholder that outlived its own deadline by three months.
+2. **D017's $200–500/mo is contradicted by the product.** `.env.example` and `src/lib/plans.ts`
+   ship Starter at **$49** and Pro at **$129**, and the pricing page is live at those numbers. The
+   product settled this months ago; the decisions log did not notice.
+3. **"English-first" is the assumption that caused the most expensive bug in this repo.** The
+   `country: "us"` defect is the entire reason `docs/PRODUCT_CONTEXT.md` exists, and **CM1**
+   (multi-language reviews, ICE 60) is the top NOW item in the backlog. A decision that says
+   English-first while the roadmap's top item says otherwise is not a live decision.
+4. **"Technical indie dev" is contradicted by the onboarding we actually built.** Search-by-name
+   (because customers do not know their package name) and Draft Mode (D018, because they do not
+   have Play Console owner access) were built for PRODUCT_CONTEXT's buyer, not D011's.
+
+**The ICP, stated once:** a solo founder or small mobile team (1–5 apps) with no dedicated support
+staff, non-technical to semi-technical, India first then global English-speaking, at $49/$129.
+**Not for:** enterprise portfolios, agencies, SOC 2 / SSO / SLA buyers, or agent-performance
+analytics (`docs/COMPETITIVE_MAP.md`'s three standing refusals hold unchanged).
+
+**Consequence for Issue Intelligence (the reason this was asked now):**
+
+- **The epic does not re-target the product.** Our buyer *is* the support team, the product team
+  and the engineering team. That is why an Issue layer helps them — nobody else will triage 200
+  reviews into "these three problems matter today". It is not a step toward a head-of-product buyer.
+- **`owner` on an issue is a label, not a routing integration.** Jira/Linear stays on ice (D023 §6).
+- **II9 (segmentation) stays P2** and is built only if a real customer asks for it.
+- **Issue Intelligence lands in Pro ($129)**, consistent with the shipped pricing page, which already
+  gates its "Intelligence" category to Pro. No new tier.
+
+**One item left for the founder, which no agent may touch (D009 point 8):** the pricing page's
+feature matrix carries *"Topic clustering across your reviews — Pro ✅"*, and there is no clustering
+(`docs/ISSUE_INTELLIGENCE.md` §2, §4). The comment directly above that matrix states the rule it
+breaks: a row "must be something a customer can do today. A pricing page is a contract." Either
+reword it to what exists today ("Topic breakdown across your reviews") or ship II1 and make it true.

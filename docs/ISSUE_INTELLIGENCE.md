@@ -353,7 +353,114 @@ and a much stronger one.
 
 ---
 
-## 11. Keeping this document honest
+## 11. Who this is for — resolved
+
+**The open question this epic used to carry ("which of four buyers is this
+for?") is answered. `docs/decisions.md` D024 holds the decision; it supersedes
+D011 and D017.**
+
+**One buyer, unchanged by this epic:** a solo founder or small mobile team
+(1–5 apps) with no dedicated support staff, non-technical to semi-technical,
+**India first** then global English-speaking, paying **$49 Starter / $129 Pro**.
+That is `docs/PRODUCT_CONTEXT.md`'s ICP, and it is now the only one.
+
+**Issue Intelligence does not re-target the product — it serves the same person
+better.** The founder's critique frames Issues around a company with a support
+team, a product team and an engineering team to route between. Our buyer *is*
+all three. That is precisely why the Issue layer helps them: nobody else is
+going to triage 200 reviews into "these three problems matter today". Read the
+epic that way and two things follow:
+
+- **`owner` is a label, not a routing integration.** "Product" / "Engineering"
+  on an issue is how one person tags their own week. Jira/Linear stays on ice
+  (D023 §6) — it is the enterprise-shaped half of II5.
+- **II9 (segmentation) stays P2 and stays suspect.** It is the most
+  enterprise-flavoured item on the list. Build it only if a real customer asks.
+
+**Tier: Issue Intelligence is Pro.** Not a new tier, not Starter. The shipped
+pricing page already gates its whole "Intelligence" category to Pro and tells
+customers "Pro adds the intelligence and collaboration layer", so this epic is
+the thing that finally makes the $129 tier worth its price rather than a
+feature-count difference.
+
+> ⚠️ **Founder decision waiting.** That same feature matrix carries the row
+> *"Topic clustering across your reviews" — Pro ✅*. There is no clustering
+> (§2, §4). The comment directly above the matrix says a row "must be something
+> a customer can do today. A pricing page is a contract." This row is currently
+> outside that rule. Either it is reworded to what the product does today
+> ("Topic breakdown across your reviews"), or II1 ships and makes it true.
+> **D009 reserves pricing-page changes to the founder, so no agent may fix it.**
+
+---
+
+## 12. How long this takes
+
+Estimated 2026-08-19 against this repo's measured throughput: PRs #78–#135
+merged over four days (2026-08-16 → 08-19), ~14 PRs/day with the founder
+actively driving.
+
+**Two clocks, and the second one governs.** Agent build time for the whole
+epic is roughly **10–15 working sessions**. Calendar time is set by four things
+no agent can compress: founder decisions, manual migrations against production
+Supabase (D009), *walked* verification (a green build is not a working feature —
+see the ⚠️ block atop `CLAUDE.md`), and in two cases the customer's own release
+cycle.
+
+| Stage | Agent build | Founder time | Calendar |
+|---|---|---|---|
+| **II0 · Phase 0 release-regression** | ~1 session | verify against a real app | **2–3 days** |
+| **II0a · The ADR** | ~1 session | read + decide the embedding approach | **3–5 days** |
+| **Sprint 2 · `issues` + `issue_reviews` + assignment + backfill** | 3–5 sessions | run the migration; verify clusters are *right*, not merely present | **2–3 weeks** |
+| **Sprint 3 · Issues list, detail page, impact score** | 2–3 sessions | mostly UI — fast to verify | **1–2 weeks** |
+| **Sprint 4 · Release correlation, workflow, alerts (II4/II5/II7)** | 3–4 sessions | migration + alert verification | **2–3 weeks** |
+| **II6 / II10 · Resolution + outcome** | 1–2 sessions | — | **built in days, provable in 4–8 weeks** |
+
+**Headline: ~8–12 weeks to all of II1–II11 at the current cadence. ~3 weeks to
+the point where the pitch changes** (Phase 0 + ADR + the issues primitive with a
+working Issues list).
+
+This assumes near-daily sessions, same-day merges and decisions answered within
+a day. **At evenings-and-weekends cadence, multiply by about three.** The
+cautionary data point is in this repo: `docs/SPINE.md` waited eleven weeks to be
+walked once, and walking it was eight steps of clicking, not code.
+
+### The part no engineering compresses
+
+**II6 and II10 are gated by the customer's release cycle, not by us.**
+"Detected Aug 3 → fixed Aug 15 → complaints fell 1.8/day → 0.3/day" needs an
+issue found, a customer's team to actually ship the fix, and then weeks of real
+reviews to arrive. The measurement is a couple of days' work; the *proof* cannot
+exist until a customer has shipped at least once after we flagged something.
+Budget 4–8 weeks after the first real fix. This is the strongest part of the
+pitch and it is structurally the last thing to become true — plan the launch
+narrative around that, don't discover it in month three.
+
+### Three things that would blow the estimate out
+
+1. **Multilingual clustering quality is empirical.** No spec can tell you
+   whether a given model groups "payment कट गया but ticket nahi aaya" with
+   "UPI payment failed". You find out by running it against the fixture app's
+   real reviews. Budget 2–3 model iterations — **the single largest variance in
+   the plan, roughly ±3 weeks.**
+2. **The embedding decision may collide with the one rule.** If local WASM is
+   too slow on Vercel and the honest answer is a hosted embedding API, that is a
+   paid dependency before a paying customer — a founder-only call, and stalling
+   on it stalls Sprint 2 entirely. Surfacing that collision early is a large part
+   of what the ADR is for.
+3. **Parallel sessions on the same files.** Six dashboard manglings are on
+   record, and this repo's own lesson is that two independent *fixes* for one bug
+   collide worse than two features. Sprint 2 touches schema and sync, both hot.
+   **One branch at a time on this epic.**
+
+### What compresses it
+
+The buyer question, now closed by D024 (§11), was worth about a week: an Issues
+page for a solo Indian founder and one for a head of product are different
+screens, and building the wrong one is rework in Sprint 3 and 4.
+
+---
+
+## 13. Keeping this document honest
 
 The percentages in §3 are a snapshot of 2026-08-19 and will rot. The file paths
 won't. When updating this file:
