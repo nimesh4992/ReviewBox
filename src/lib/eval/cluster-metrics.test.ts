@@ -125,8 +125,10 @@ describe("scoreClustering", () => {
       [pred("1", "x"), pred("2", "x")],
     );
 
-    expect(Object.keys(forward.bySlice)).toEqual(["cross:english×hinglish"]);
-    expect(Object.keys(reverse.bySlice)).toEqual(["cross:english×hinglish"]);
+    // Every expected slice is always present now, so compare the one that has
+    // pairs rather than the key list.
+    expect(forward.bySlice["cross:english×hinglish"].pairs).toBe(1);
+    expect(Object.keys(forward.bySlice)).toEqual(Object.keys(reverse.bySlice));
   });
 
   it("measures discovery separately from classification", () => {
@@ -189,7 +191,7 @@ describe("formatScoreReport", () => {
     expect(text).toContain("Groq / LLM assignment");
     expect(text).toContain("cross:english×hinglish");
     expect(text).toContain("NOT a headline");
-    expect(text).toContain("Read the Hinglish row");
+    expect(text).toContain("Diagnostic only");
   });
 
   it("surfaces missing predictions in the output rather than silently scoring fewer pairs", () => {
