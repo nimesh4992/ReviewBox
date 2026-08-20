@@ -237,6 +237,13 @@ Deferred by D023, so a future session doesn't pick them up as "quick wins":
 
 ## 7. The keystone: the II1 ADR
 
+> **Written 2026-08-20 — `docs/adr/011-issue-identity-and-clustering.md`, status
+> Proposed, awaiting founder ratification.** It answers the questions below and
+> then declines to ratify itself: §9 defines a bake-off that measures all three
+> approaches against a labelled golden set before the decision is made. **How it
+> all gets built solidly is `docs/II_DELIVERY_PLAN.md`.** The section below is
+> kept as the mandate the ADR was written against.
+
 **Write the ADR first. Do not implement II1 yet.** This is the decision that
 turns the rest of the epic from product speculation into an engineering
 sequence.

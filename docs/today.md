@@ -56,6 +56,48 @@ and `docs/backlog.md`:
    ("Payment +375% 🔴 in v1.5 vs v1.4"). Small vertical slice, ships the story
    without waiting for clustering. Can run in parallel with the ADR.
 
+### The epic has a build plan, and Task 1 is done — ADR 011 is written
+
+**`docs/II_DELIVERY_PLAN.md`** — how this gets built solidly, not just what gets built. Eight
+stages, each with a gate that must be green before the next starts. Every mechanism in it closes a
+*specific* failure this repo has already suffered (green tests defending a SQL-level bug, docs
+claiming a system that didn't exist, a check that was green while running nothing, `country: "us"`,
+six merge corruptions). Its centrepiece is §3: **you cannot unit-test "did it cluster correctly"**,
+so quality is measured by a labelled golden set scored per language bucket — not by an assertion.
+
+**`docs/adr/011-issue-identity-and-clustering.md`** — the keystone, **Proposed, awaiting your
+ratification.** The four decisions:
+
+1. **Identity rule — the most important sentence:** *two reviews belong to the same Issue if the
+   same code change would resolve both.* So "UPI payment failed" and "payment deducted but no
+   ticket" are **separate Issues under one Payments theme**. This rule is what makes the golden set
+   labellable consistently by two different people.
+2. **Many-to-many `issues` + `issue_reviews`** — because "app crashes AND payment failed" is one
+   review describing two problems, and a foreign key would force us to silently drop one.
+   `reviews` is not altered, so rollback is "drop two tables".
+3. **Incremental assignment, not batch re-clustering** — batch breaks `first_detected_at`, which is
+   a customer-facing claim, and reshuffles the list for no visible reason.
+4. **Recommends LLM assignment (Groq — already wired, free tier) over local or hosted embeddings**,
+   on multilingual grounds. The assumed "$0 forever" local path fails exactly where we need it:
+   multilingual encoders are trained on native-script Hindi, and **Latin-script Hinglish is
+   out-of-distribution**. Backfill scale is handled by a funnel — pre-group cheaply, ask the LLM
+   once per distinct problem, not once per review.
+
+**The ADR deliberately does not ratify itself.** Every multilingual claim in it is a prediction, so
+§9 defines a bake-off: score all three approaches on the same ~200 labelled reviews, record the
+numbers in §10, *then* decide. If all three score badly on Hinglish, that is the most valuable
+outcome — found in week one instead of week six, with release-regression (II0/II4) still shippable
+without any clustering at all.
+
+### What we need from you
+
+| # | Ask | Why it blocks |
+|---|---|---|
+| 1 | **Ratify the identity rule** (ADR §3) | A product judgement an agent genuinely cannot make |
+| 2 | **~2 hours to label the golden set** (II0b) | The only founder-blocking input; nothing downstream is trustworthy without it |
+| 3 | Confirm the bake-off runs before implementation | Converts the ±3 week risk into a scheduled experiment |
+| 4 | If the bake-off picks hosted embeddings: does the already-configured Gemini key stay inside the one rule? | Decides whether Stage 3 stalls on policy |
+
 ### The ICP contradiction is resolved — D024
 
 Three documents described three different customers, and the epic could not scope its UI or its
