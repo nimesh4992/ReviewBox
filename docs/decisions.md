@@ -511,3 +511,63 @@ feature matrix carries *"Topic clustering across your reviews — Pro ✅"*, and
 (`docs/ISSUE_INTELLIGENCE.md` §2, §4). The comment directly above that matrix states the rule it
 breaks: a row "must be something a customer can do today. A pricing page is a contract." Either
 reword it to what exists today ("Topic breakdown across your reviews") or ship II1 and make it true.
+
+---
+
+## D025 — Issue Intelligence: identity rule ratified, bake-off is a hard gate (2026-08-20)
+
+Founder decisions, in-session, answering the four asks in
+`docs/adr/011-issue-identity-and-clustering.md` §11.
+
+1. **The identity rule is ratified, wording preserved:**
+
+   > **Two reviews belong to the same Issue if the same code change would resolve both.**
+
+   With one nuance the founder added, now in ADR §3: this is **issue equivalence, not
+   implementation equivalence.** Two Issues may be fixed in the same release, by the same
+   person, in the same file, and still be two Issues. The question is *"would fixing one, by
+   itself, resolve the other?"* — not *"were they fixed together?"*
+
+2. **The merge/split asymmetry is a product safety property, not a tuning knob:**
+
+   > **When uncertain, separate rather than merge.**
+
+   A false split costs a click and is self-correcting. A false merge — three unrelated
+   engineering problems presented as one confident *"Payment failures · 47 reviews ·
+   Critical"* — is invisible, and sends the customer to spend their week on the wrong thing.
+   The bake-off weights false merges heaviest and the engine opens a new Issue when it cannot
+   tell. See ADR §6.
+
+3. **The bake-off is a HARD GATE.** No implementation begins until results are recorded in
+   ADR §10. It scores assignment precision and recall, false merges, false splits, new-issue
+   detection, latency, and cost at 5k/50k/500k — **reported per language bucket (English /
+   native-script / Hinglish), never averaged into a headline number.** Reporting "overall 86%"
+   over a 42% Hinglish column is the specific failure this forbids: for an India-first
+   product that column is not a detail of the result, it is the result.
+
+4. **The Gemini question is deliberately NOT decided**, at the founder's direction: *"the
+   key/provider rule needs to be explicit in the ADR"* rather than being established quietly
+   by an implementation choice. **ADR §12 now states it**, from the repo rather than from
+   assumption — and the answer is more useful than the question:
+
+   - **The cost rule** (CLAUDE.md's one rule + D009 point 10) is about paid vendors. Groq and
+     Gemini both satisfy it: configured, free tier, already in production.
+   - **The data rule** is not a sentence anywhere; it is the public `/sub-processors` page,
+     which D009 point 9 reserves to the founder. Operative rule, now stated: *any provider
+     receiving customer review text must appear there with an accurate purpose line.*
+   - **Both providers are already disclosed, so no option crosses a new boundary** — but
+     **neither disclosed purpose covers issue clustering.** "Reply drafting" is not "grouping
+     reviews into issues". **The recommended option (Groq) needs a purpose-line update
+     exactly as much as the Gemini option does.**
+
+   **Consequence:** the bake-off is not blocked (public store reviews, author names stripped
+   at export). **Shipping the engine to customers is blocked** on the founder updating that
+   purpose line. If the founder intends a stricter boundary than `/sub-processors` currently
+   implies, that is a new rule and belongs here, not in an ADR.
+
+5. **The unidentified test failure stays unresolved, not "a flake."** 21 passing runs do not
+   explain a failure whose name was never captured. Full output is teed to a file on every
+   run from now on, so a recurrence is diagnosable rather than re-argued.
+
+**Scope holds:** II2/II3 implementation does not start. The next artefact the founder wants is
+**the bake-off results**.

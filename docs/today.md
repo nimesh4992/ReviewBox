@@ -56,6 +56,36 @@ and `docs/backlog.md`:
    ("Payment +375% 🔴 in v1.5 vs v1.4"). Small vertical slice, ships the story
    without waiting for clustering. Can run in parallel with the ADR.
 
+### ✅ Founder ratified — D025. The gate is set; next artefact is the bake-off result
+
+| Ask | Decision |
+|---|---|
+| Identity rule | **Ratified**, wording preserved + "issue equivalence, not implementation equivalence" |
+| Golden set (~2h) | **Yes** — the highest-value use of that time right now |
+| Bake-off first | **Yes, hard gate.** No implementation until ADR §10 has numbers |
+| Gemini key | **Deliberately not decided** — the rule is now stated in ADR §12 instead of assumed |
+
+**Two things came out of this that were not in the original ADR:**
+
+**1. "When uncertain, separate rather than merge" is now ratified policy.** A false split
+costs a click and self-corrects; a false merge presents three unrelated engineering problems
+as one confident *"Payment failures · 47 reviews · Critical"* and sends the customer to spend
+their week on the wrong thing. The bake-off weights false merges heaviest.
+
+**2. The provider question had a better answer than expected.** Reading the repo rather than
+assuming: the **cost rule** (the one rule + D009 #10) is about paid vendors — Groq and Gemini
+both pass. The **data rule** isn't a sentence anywhere; it is the public `/sub-processors`
+page, which D009 #9 reserves to you. Both providers are already disclosed, so **no option
+crosses a new boundary** — but **neither disclosed purpose covers issue clustering**, so the
+recommended Groq option needs a purpose-line update exactly as much as Gemini would.
+→ Bake-off is **not** blocked (public store reviews, author names stripped at export).
+→ **Shipping the engine to customers is**, on one founder-written sentence.
+
+**Golden set schema is now six fields, not one** — theme, issue_id, issue_title,
+is_actionable, severity, language_bucket — because *"did we discover the right Issues?"* and
+*"did we classify this review correctly?"* are different evaluation problems, and the product
+claim rests on the harder one.
+
 ### The epic has a build plan, and Task 1 is done — ADR 011 is written
 
 **`docs/II_DELIVERY_PLAN.md`** — how this gets built solidly, not just what gets built. Eight
