@@ -6,6 +6,12 @@
 - §6 **merge/split asymmetry — ACCEPTED** the same day, as a product safety property.
 - §7–§8 **approach recommendation — still Proposed.** The bake-off in §9 is a
   **hard gate**: implementation may not begin until its results are recorded in §10.
+  **§10 now carries a recorded outcome and the gate is still CLOSED.** The
+  outcome is §9's fourth: *insufficient corpus coverage — no engine
+  recommendation* (§10.3). A filled-in §10 is not the same as a passed gate, and
+  this is the case that separates them: English is decision-grade, Hinglish is
+  low-n, native-script is untested at `n = 0`. Partial benchmark measurement,
+  **not** multilingual certification.
 - §12 **provider and data policy — stated, not assumed**, at the founder's direction.
   The Gemini question in §11.4 is **deliberately not decided here**.
 **Relates to:** `docs/ISSUE_INTELLIGENCE.md` · `docs/II_DELIVERY_PLAN.md` ·
@@ -354,7 +360,7 @@ and celebrating the 86%. For an India-first product the Hinglish column is not
 a detail of the result — for a large share of our customers' reviews, it *is*
 the result. **A weighted average may not be reported as the headline score.**
 
-### Three outcomes, all acceptable
+### Four outcomes, all acceptable
 
 - The recommendation holds → proceed, B stays the scale valve.
 - B is close and much cheaper at volume → B primary, C for naming only.
@@ -362,6 +368,23 @@ the result. **A weighted average may not be reported as the headline score.**
   week one rather than week six. Fallback: keep Theme-level grouping (today's
   tags, which work) and ship II0/II4 release-regression, which need no
   clustering at all.
+- **Insufficient corpus coverage — no engine recommendation.** Added 2026-08-20.
+  The bake-off ran, the engines were scored, and the corpus could not support a
+  choice: a language bucket had too few labelled reviews to decide, or none at
+  all. This is a **result of the gate, not a failure to reach it**, and it is
+  the outcome the first clean golden set actually produces (§10.3).
+
+  The three outcomes above all assume every bucket was measured. This one exists
+  because that assumption was silently false and nothing in the report said so —
+  the scorer omitted buckets it had no examples for, which read as completeness.
+  It now renders them as `N/A — 0 examples` and `compareEngines()` withholds a
+  winner unless every bucket had an eligible slice.
+
+  **What it does NOT license:** proceeding on the buckets that did pass. An
+  English-only result is not a quieter version of outcome 1. The correct
+  responses are to obtain corpus coverage, or to take the outcome-3 fallback
+  (Theme-level grouping, II0/II4) which needs no clustering — never to promote
+  the English number to a recommendation because it was the only one available.
 
 This is the ±3 week variance in `docs/ISSUE_INTELLIGENCE.md` §12, converted from
 a risk into a scheduled experiment.
@@ -399,6 +422,15 @@ six judgements is the most dangerous number in the report.
 Anything below a floor is labelled `low-n / exploratory`. It is published, and
 it is not evidence.
 
+> **These are benchmark policy thresholds, not statistical-significance
+> thresholds.** Nobody computed a power analysis; 10 and 30 are round numbers
+> chosen so that a slice cannot decide an engine on a handful of human
+> judgements. They carry no confidence level, no p-value and no error bound, and
+> clearing them does not make a slice statistically significant — it makes it
+> *admissible*. Treat them as a floor beneath which we have agreed not to argue,
+> not as evidence that anything above them is proven. Changing them is a
+> methodology decision for the founder, not a tuning exercise.
+
 **Two numbers may never choose an engine.** `overall` (already labelled *not a
 headline* under D025) and `safety.weightedErrors`. The second is the one that
 nearly got through: it is the only single figure in the report, it is documented
@@ -431,6 +463,48 @@ slices are `N/A`. So a bake-off run on it **cannot produce a §10 recommendation
 — by design, and the tooling will say so rather than return an English answer.
 
 **When this section is filled in, it must record which buckets were untested.**
+
+### 10.3 Recorded benchmark status — 2026-08-20
+
+**Outcome: insufficient corpus coverage — no engine recommendation** (§9,
+outcome 4). Recorded by the founder's direction after the readiness review.
+
+| Bucket | Standing | Basis |
+|---|---|---|
+| **English** | **decision-grade** | 194 labelled-eligible reviews, 18,721 pairs — clears both floors |
+| **Hinglish** | **low-n / exploratory** | 6 reviews; 15 within-pairs, and 1,164 cross-pairs resting on those same 6 |
+| **Native-script** | **untested (`n = 0`)** | no reviews; all three slices render `N/A — 0 examples` |
+| **Overall engine recommendation** | **NONE** | one bucket of three had an eligible slice |
+
+> **This is a partial benchmark measurement. It is not a multilingual
+> certification, and it must never be cited as one.**
+>
+> What it can support: a statement about English clustering, if and when
+> engines are scored. What it cannot support: any claim about Hinglish or
+> native-script behaviour, in either direction. Untested is not passed, and it
+> is not failed either — there is no evidence, which is a third thing.
+>
+> The Hinglish row is the one most likely to be misread. Six reviews produce
+> real-looking percentages; those percentages can be moved from 0% to 100% by
+> one human's labelling judgement on one review. That is why the row is
+> published and simultaneously barred from deciding anything.
+
+**Corpus provenance.** `eval/golden-set-v2.csv` — workspace
+`93629c77-146f-4687-92a8-b9377001cee2` (Mumbai One), single app, exported
+2026-08-20. 221 reviews read, 200 eligible, **all 200 selected**: this is a
+census of the workspace, not a sample, so no re-sampling, re-stratification or
+change of `--count` can alter the language mix above. Script detection reports
+`{latin: 200}`.
+
+**What must NOT be done to this dataset.** Not augmented with synthetic
+reviews, not merged with another workspace's reviews, not topped up from the
+App Store listing of the same app. Each of those changes what the corpus is
+while leaving its name and its labels intact — which is how a benchmark starts
+measuring something other than what its results claim.
+
+**The open decision, deliberately left open.** Whether to obtain a genuinely
+multilingual corpus for the benchmark is a separate methodology and product
+decision, not a patch to this dataset. It is not taken here.
 "English certified" and "certified" are different claims, and only one of them
 is available from this corpus.
 

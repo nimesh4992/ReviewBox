@@ -151,6 +151,11 @@ Those numbers go into **ADR 011 §10**, and only then does implementation start.
 Record the eligibility footer with them: §10.2 requires the untested buckets to
 be named, not omitted.
 
+**A `Winner: NONE` is a real result**, not a broken run — §9's fourth outcome,
+*insufficient corpus coverage*. It is what the current corpus produces, and it
+is recorded in §10.3. It does not license proceeding on whichever bucket did
+pass.
+
 ---
 
 ## 6. Sharing labels without sharing review text
