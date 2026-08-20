@@ -74,16 +74,42 @@ describe the same problem is a human who knows the product.
    **Hinglish and transliterated Hindi in Latin script**, and code-switched
    sentences ("payment कट गया but ticket nahi aaya"). If the set is 90% English,
    it will certify an engine that fails for most of our customers.
-2. **Labelled by hand** — founder-led, agent-assisted — into expected issue
-   groups, using the identity rule from ADR 011 (*two reviews are the same issue
-   if the same code change would resolve both*). The rule matters more than the
-   labels: without one, two labellers produce two different answers and the
-   score means nothing.
-3. **Scored by an eval harness** (`npm run eval:issues`) reporting pairwise
-   precision, recall and F1 against the labels, **broken out by language bucket**
-   so an engine that is excellent in English and useless in Hinglish cannot hide
-   behind an average.
-4. **Run against every candidate approach** — the bake-off that decides ADR 011,
+2. **Labelled by hand** — founder-led, agent-assisted — using the identity rule
+   from ADR 011 (*two reviews are the same issue if the same code change would
+   resolve both*). The rule matters more than the labels: without one, two
+   labellers produce two different answers and the score means nothing.
+
+   **Each review gets six fields, not one** (founder, 2026-08-20):
+
+   ```
+   Review
+    ├── theme            Payments / Ticketing / Crashes / …
+    ├── issue_id         the grouping key — same id = same underlying problem
+    ├── issue_title      what the problem actually is, in plain words
+    ├── is_actionable    could a team act on this, or is it noise/opinion?
+    ├── severity         critical / high / medium / low
+    └── language_bucket  english / native-script / hinglish
+   ```
+
+   **Author names are stripped at export.** The evaluation needs review text
+   only, so no personal data enters the golden set (ADR 011 §12.3).
+
+3. **Because those are two different evaluation problems**, and the product
+   claim depends on the harder one:
+
+   | Question | What it measures |
+   |---|---|
+   | *"Did ReviewBox put this review in the right Issue?"* | **classification** — easier, and not what we sell |
+   | *"Did ReviewBox discover the right Issues at all?"* | **discovery** — the actual claim: "identifies the issues customers are actually experiencing" |
+
+   `is_actionable` and `severity` exist so the impact score (II3) can be
+   evaluated later against the same labelled data instead of needing a second
+   labelling round.
+4. **Scored by an eval harness** (`npm run eval:issues`) reporting the full
+   metric set in ADR 011 §9 — precision, recall, **false merges (weighted
+   heaviest)**, false splits, new-issue detection, latency, cost — **broken out
+   by language bucket, never averaged into a headline number.**
+5. **Run against every candidate approach** — the bake-off that decides ADR 011,
    and the regression gate for every later change to the engine.
 
 **Two rules about the harness itself:**
@@ -93,6 +119,24 @@ describe the same problem is a human who knows the product.
 - **It is not in the blocking CI job at first.** It needs API keys and real
   data. It runs on demand, and its last score is recorded in the ADR with the
   commit it was measured at. Promote it to CI only once it is stable and cheap.
+
+### The acceptance test this all serves
+
+Discipline is not the goal; a working product is. However sophisticated the
+architecture gets, the test stays brutally simple (founder, 2026-08-20):
+
+> Give ReviewBox 200 real reviews. Can it produce:
+>
+> > **Payment deducted but ticket not issued**
+> > 17 reviews · Critical · first detected Aug 3
+> > ↑ 241% after v1.5 · 82% Android · 3.1× baseline
+>
+> — and when you click it, do **all 17 reviews genuinely describe the same
+> underlying problem?**
+>
+> If yes, the most important product threshold has been crossed and everything
+> else builds on it. **If the architecture is getting more sophisticated
+> without moving this test, stop and re-read this box.**
 
 **The golden set is a founder-blocking input.** No agent can label it, because
 labelling it *is* the product knowledge. Two hours of your time here is worth

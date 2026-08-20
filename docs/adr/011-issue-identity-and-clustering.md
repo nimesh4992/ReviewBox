@@ -1,9 +1,13 @@
 # ADR 011 — Issue identity, and how reviews become Issues
 
 **Date:** 2026-08-20
-**Status:** **Proposed — recommendation stated, ratification deliberately withheld
-pending the bake-off in §9.** No II1 implementation may start until the founder
-ratifies (D023).
+**Status:** **Split, deliberately.**
+- §3 **identity rule — ACCEPTED**, ratified by the founder 2026-08-20, wording preserved.
+- §6 **merge/split asymmetry — ACCEPTED** the same day, as a product safety property.
+- §7–§8 **approach recommendation — still Proposed.** The bake-off in §9 is a
+  **hard gate**: implementation may not begin until its results are recorded in §10.
+- §12 **provider and data policy — stated, not assumed**, at the founder's direction.
+  The Gemini question in §11.4 is **deliberately not decided here**.
 **Relates to:** `docs/ISSUE_INTELLIGENCE.md` · `docs/II_DELIVERY_PLAN.md` ·
 `docs/decisions.md` D023 (constraints) · D024 (buyer) · backlog II0a/II1
 **Supersedes no ADR.** First architecture decision of the Issue Intelligence epic.
@@ -61,6 +65,12 @@ golden set (`docs/II_DELIVERY_PLAN.md` §3) labellable by two different people
 with the same answer, and it is what the engine is measured against. It is also
 what a PM actually means by "issue", which is why it produces groupings a
 customer recognises.
+
+**Nuance that prevents a future ambiguity (founder, 2026-08-20):** the rule
+describes **issue equivalence, not implementation equivalence.** Two Issues may
+end up fixed in the same release, by the same engineer, in adjacent lines of the
+same file, and still be two Issues. The question is not *"were these fixed
+together?"* but *"would fixing one, by itself, resolve the other?"*
 
 Rejected alternatives: *same words* (fails on Hinglish and on synonyms), *same
 tag* (that is today's product), *same sentiment+version* (an artefact, not a
@@ -154,8 +164,21 @@ score, which drives what the customer works on that morning. An unattached
 review is visible and countable ("18 reviews not yet grouped"); a wrongly
 attached one is invisible and inflates a number someone will act on.
 
-**Bias the threshold toward precision over recall.** Missing a review is a gap;
-merging two unrelated problems is a lie.
+**The asymmetry, ratified 2026-08-20 — this is policy, not tuning:**
+
+> **When uncertain, separate rather than merge.**
+
+The two errors are not equally bad and must never be traded off as if they were:
+
+| Error | What the customer sees | Cost |
+|---|---|---|
+| **False split** — one problem becomes two Issues | Two similar cards near each other | Annoying. Visible. Self-correcting — a human merges them |
+| **False merge** — three unrelated problems become one "Payment Issue" | One confident card: *"Payment failures · 47 reviews · Critical"* | **Dangerous.** Invisible. The product has made a confidently wrong recommendation, and the customer spends their week on it |
+
+A false split costs a click. A false merge costs trust in the entire product,
+and it is the specific failure this epic must not ship. So: bias the threshold
+toward precision, weight the bake-off accordingly (§9), and when the engine
+cannot tell, it creates a new Issue rather than attaching to an existing one.
 
 ---
 
@@ -270,30 +293,78 @@ re-validation a one-command answer instead of an argument.
 
 ---
 
-## 9. Why this ADR does not ratify itself
+## 9. The bake-off — a hard gate
 
-Every claim in §7 about multilingual quality is a **prediction**. The honest
-version of this decision is a measurement, and the measurement is cheap:
+**Ratified as a hard gate by the founder, 2026-08-20.** The sequence this
+exists to prevent:
 
-**The bake-off.** Build the golden set and harness
-(`docs/II_DELIVERY_PLAN.md` §3), then score **A, B and C on the same ~200
-labelled reviews**, broken out by language bucket. Record precision, recall and
-F1 per approach in a §10 appended to this ADR, with the commit they were
-measured at. Then ratify.
+```
+choose Groq → build engine → discover Groq isn't good enough → rewrite engine
+```
 
-Three outcomes, all fine:
-- C wins as predicted → proceed, B stays the scale valve.
+The sequence required instead:
+
+```
+                    ~200 labelled reviews
+                           │
+             ┌─────────────┼─────────────┐
+             ↓             ↓             ↓
+        Groq / LLM     Embeddings      Lexical
+             │             │             │
+             └─────────────┼─────────────┘
+                           ↓
+                  score, by language bucket
+                           ↓
+                    quality + cost
+                           ↓
+                   ADR decision (§10)
+                           ↓
+                     implementation
+```
+
+**No implementation may begin until §10 below is filled in.** That is the gate.
+
+### What gets measured
+
+Not "accuracy". Accuracy hides exactly the failure we care about.
+
+| Metric | Why |
+|---|---|
+| Assignment **precision** | of the reviews put in an Issue, how many belong |
+| Assignment **recall** | of the reviews that belong, how many were found |
+| **False merges** | unrelated problems fused into one Issue — **weighted heaviest** (§6) |
+| **False splits** | one problem scattered across several Issues |
+| **Unknown / new-issue detection** | does it correctly open a *new* Issue rather than forcing a bad fit? |
+| **Latency** per review | it runs inside the sync path |
+| **Cost at 5k / 50k / 500k** reviews | measured on the funnel (§8), not extrapolated per-review |
+
+### Reported per language bucket, never averaged
+
+| Bucket | |
+|---|---|
+| English | |
+| Native-script Indian languages | Hindi, Marathi — Devanagari |
+| **Hinglish / code-switching** | Latin-script Hindi, mixed sentences |
+
+The failure mode this prevents, in the founder's words: reporting
+
+> English 91% · Hindi 89% · **Hinglish 42%** · **Overall 86%**
+
+and celebrating the 86%. For an India-first product the Hinglish column is not
+a detail of the result — for a large share of our customers' reviews, it *is*
+the result. **A weighted average may not be reported as the headline score.**
+
+### Three outcomes, all acceptable
+
+- The recommendation holds → proceed, B stays the scale valve.
 - B is close and much cheaper at volume → B primary, C for naming only.
-- **All three score badly on Hinglish** → the most valuable outcome, discovered
-  in week one for a few hours of work rather than in week six after a schema,
-  a backfill and a UI have been built on it. Fallback: keep Theme-level grouping
-  (today's tags, which work) and ship II0/II4 release-regression, which need no
+- **All three score badly on Hinglish** → the most valuable outcome, found in
+  week one rather than week six. Fallback: keep Theme-level grouping (today's
+  tags, which work) and ship II0/II4 release-regression, which need no
   clustering at all.
 
 This is the ±3 week variance in `docs/ISSUE_INTELLIGENCE.md` §12, converted from
 a risk into a scheduled experiment.
-
----
 
 ## 10. Measurements
 
@@ -301,15 +372,82 @@ a risk into a scheduled experiment.
 
 ---
 
-## 11. What the founder is being asked
+## 11. What the founder was asked, and answered (2026-08-20)
 
-1. **Ratify the identity rule (§3)** — *same fix resolves both*. This is a
-   product judgement, not a technical one, and it is the one thing here an agent
-   genuinely cannot decide.
-2. **Confirm the bake-off before implementation (§9)** rather than building on
-   the recommendation directly.
-3. **Book ~2 hours to label the golden set.** It is the only founder-blocking
-   input, and nothing downstream is trustworthy without it.
-4. **Note for later:** if the bake-off says B, that is a hosted embedding call —
-   confirm whether the already-configured Gemini key keeps it inside the one
-   rule, or whether it counts as a new paid service.
+| # | Ask | Answer |
+|---|---|---|
+| 1 | Ratify the identity rule (§3) | **Yes**, wording preserved, plus the equivalence nuance now in §3 |
+| 2 | ~2 hours to label the golden set | **Yes** — named the highest-value use of that time |
+| 3 | Bake-off before implementation | **Yes, as a hard gate** — §9 rewritten accordingly |
+| 4 | Gemini key for hosted embeddings | **Deliberately not decided.** "State the rule explicitly rather than letting an implementation decision quietly establish it" → §12 |
+
+**Still open, and founder-only:** the sub-processor purpose lines (§12.3).
+
+---
+
+## 12. Provider and data policy — stated, not assumed
+
+Written at the founder's direction, because two different rules were being
+referred to by one name and they impose materially different constraints.
+
+### 12.1 The cost rule — what it actually says
+
+> **CLAUDE.md:** *"Do not add a paid service until a customer pays first. Every
+> tool has a free tier that covers 0–20 customers."*
+> **D009 point 10 (IMMUTABLE):** I will refuse to *"add a new paid SaaS
+> dependency. (Founder signs up + adds keys.)"*
+
+This is a **cost and vendor-count rule**, not a data rule. It is satisfied by
+any provider already configured with a free tier that covers our volume.
+**Groq and Gemini both satisfy it today** — both keys are set, both are used in
+production, neither is billed.
+
+### 12.2 The data rule — where it actually lives
+
+There is no sentence anywhere in the repo saying "review text may not leave
+provider X". The operative constraint is **disclosure**, and it lives in a
+public legal page:
+
+> **`/sub-processors`** lists every processor with the data it receives.
+> **D009 point 9** forbids an agent editing legal pages without founder approval.
+
+So the real rule, stated plainly for the first time:
+
+> **Any provider that receives customer review text must appear on
+> `/sub-processors` with an accurate purpose line, and only the founder may
+> write that line.**
+
+That this is the live rule is not an interpretation — it is why the Slack
+omission (`src/lib/slack.ts:198` sends a reviewer name and a 120-char snippet to
+an undisclosed processor) has been carried as an open founder-blocking item.
+
+### 12.3 What that means for this epic — including for the recommended option
+
+Both providers are **already disclosed**, and review text already reaches both:
+
+| Processor | Disclosed purpose today | Disclosed data today |
+|---|---|---|
+| **Groq** | "AI inference for reply drafting" | "Review text and your reply templates and knowledge-base entries, at the moment a draft is generated" |
+| **Google (Gemini API)** | "AI inference for sentiment analysis and keyword suggestions" | "Review text submitted for classification" |
+
+**So no option in §7 crosses a new provider boundary.** But note what this
+*does* catch, which the narrow "is Gemini allowed?" question would have missed:
+
+> **Neither disclosed purpose covers issue clustering.** "Reply drafting" is not
+> "grouping reviews into issues"; "sentiment analysis and keyword suggestions"
+> is not either. **The recommended option (C, Groq) needs a purpose-line update
+> exactly as much as option B (Gemini) does.**
+
+Consequences, in order:
+
+1. **The bake-off (§9) is not blocked.** It is internal evaluation over reviews
+   that are already public on the store listings, and the exporter strips author
+   names so no personal data is in the golden set at all.
+2. **Shipping the engine to customers IS blocked** on the founder updating the
+   purpose line for whichever provider wins. One sentence on one page — but it
+   is a legal page, so an agent may not write it (D009 point 9).
+3. **The §11.4 question stays open on purpose.** Under 12.1 Gemini is fine.
+   Under 12.2 Gemini is fine *and so is Groq*, provided the disclosure is
+   corrected. If the founder's intent is a stricter boundary than what
+   `/sub-processors` currently implies, that is a new rule and belongs in
+   `docs/decisions.md`, not in this ADR.
