@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 
-import { detectLanguage, detectScript, toEvalBucket } from "./language-detect";
+import {
+  ENGLISH_CERTAINTY,
+  detectLanguage,
+  detectScript,
+  isLikelyEnglish,
+  toEvalBucket,
+} from "./language-detect";
 
 describe("detectScript", () => {
   it("identifies Latin", () => {
@@ -160,5 +166,82 @@ describe("toEvalBucket", () => {
     expect(d.language).toBeNull();
     expect(d.confidence).toBe(0);
     expect(toEvalBucket(d)).toBe("english");
+  });
+});
+
+/**
+ * The Latin branch absorbed `language.ts`'s English-evidence heuristic when the
+ * two detectors were merged. Before that it treated every Latin-script review
+ * as English at 0.9, which was fine for the eval bucket it was written for and
+ * would have been wrong the moment a runtime call site used it: the translate
+ * button would have vanished from Spanish and German reviews.
+ */
+describe("detectLanguage — Latin is not automatically English", () => {
+  it("needs positive evidence before calling Latin text English with confidence", () => {
+    // "Não consigo abrir": Latin, one diacritic, no marker in any list, and no
+    // English function word either. English stays the baseline, but the
+    // confidence says how little that is worth.
+    const d = detectLanguage("Não consigo abrir");
+    expect(d.language).toBe("en");
+    expect(d.confidence).toBeLessThan(ENGLISH_CERTAINTY);
+  });
+
+  it("reports non-English Latin languages as an honest gap, not as English", () => {
+    for (const text of [
+      "no puedo entrar con mi cuenta",
+      "Die App startet nicht mehr nach dem update",
+      "aplikasi tidak bisa dibuka sama sekali",
+      "cette application ne marche pas du tout",
+      "sehr gut",
+      "bagus sekali",
+    ]) {
+      const d = detectLanguage(text);
+      expect(d.language, text).toBeNull();
+      expect(d.script.primary, text).toBe("latin");
+    }
+  });
+
+  it("rules English out on accented Latin at any real density", () => {
+    expect(detectLanguage("Aplicación pésima").language).toBeNull();
+    // ...but one accent is a name or a loanword, not a language switch.
+    expect(detectLanguage("The café booking screen is broken and I can't check out").language).toBe("en");
+  });
+
+  it("keeps romanised Hindi ahead of the non-English check", () => {
+    // Both signals can be present at once. Hindi is the one our ICP writes, and
+    // "hi-Latn" is a more useful answer than "not English".
+    expect(detectLanguage("app hai bahut slow").language).toBe("hi-Latn");
+    expect(detectLanguage("kya hua, paisa nahi mila").language).toBe("hi-Latn");
+  });
+
+  it("leaves the eval buckets exactly where they were", () => {
+    // The new "not English, undetermined" answer must not move anything between
+    // buckets: `toEvalBucket` maps both `en` and `null` on Latin script to
+    // "english", so the bake-off's slices are unaffected by the merge.
+    expect(toEvalBucket(detectLanguage("no puedo entrar con mi cuenta"))).toBe("english");
+    expect(toEvalBucket(detectLanguage("sehr gut"))).toBe("english");
+    expect(toEvalBucket(detectLanguage("Não consigo abrir"))).toBe("english");
+  });
+});
+
+describe("isLikelyEnglish", () => {
+  it("suppresses translation only on positively-evidenced English", () => {
+    expect(isLikelyEnglish("The app keeps crashing when I open the wallet tab.")).toBe(true);
+    expect(isLikelyEnglish("Best app ever")).toBe(true);
+  });
+
+  it("keeps the button visible wherever English is merely the baseline", () => {
+    // A false negative shows a button that was already there. A false positive
+    // hides translation from a review that needed it, which is the bad one.
+    expect(isLikelyEnglish("Não consigo abrir")).toBe(false);   // en, low confidence
+    expect(isLikelyEnglish("the ui hai slow")).toBe(false);     // en, one weak marker
+    expect(isLikelyEnglish("no puedo entrar con mi cuenta")).toBe(false);
+    expect(isLikelyEnglish("पैसा कट गया")).toBe(false);
+  });
+
+  it("treats absent or letterless text as unknown, never as English", () => {
+    for (const text of ["", "   ", null, undefined, "👍👍👍", "5/5"]) {
+      expect(isLikelyEnglish(text)).toBe(false);
+    }
   });
 });

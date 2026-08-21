@@ -20,6 +20,7 @@ import {
   DEFAULT_PERSONA,
 } from "@/lib/workspace-persona";
 import { composeReply } from "@/lib/reply-composer";
+import { mayServeEnglishCannedReply, resolveReplyLanguage } from "@/lib/reply-language";
 import type { AIReplyTone } from "@/lib/templates";
 import type { AppReview } from "@/types/review";
 
@@ -198,6 +199,16 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     const tone        = normaliseTone(body.tone);
     const review      = buildReview({ ...body, tags: safeTags });
 
+    // Which language to reply in — derived here, on the server, from the review
+    // text we are replying to. `DraftRequestBody` deliberately has no language
+    // field: the resolved label is interpolated into the system prompt and the
+    // reply is published on a public store listing under the customer's
+    // developer name, so letting a request name its own reply language would be
+    // both a free text channel into the prompt and a way to make a customer
+    // publish in a language they never chose. A client that sends one is
+    // ignored, which `src/reply-language-contract.test.ts` holds us to.
+    const replyLanguage = resolveReplyLanguage(reviewBody);
+
     // ── Workspace context ──────────────────────────────────────────────────
     // Resolve which app this review belongs to before building the persona.
     // The reply is signed with the app's name, and a workspace can hold more
@@ -246,6 +257,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // TIER 0 — Reply-Kit: user's own saved templates
     // Matched by tag overlap + rating range. Highest priority.
     // ══════════════════════════════════════════════════════════════════════
+    // Deliberately NOT filtered by reply language, unlike TIER 1 below. These
+    // are the customer's own saved replies and they chose the matching rules;
+    // silently withholding one because we detected Hindi would be us overriding
+    // them. `reply_templates.language` exists and is unused here — wiring it
+    // into the match is a product decision, not a bug fix.
     if (workspaceId) {
       const sb = getServiceClient();
       const { data: kitTemplates } = await sb
@@ -301,8 +317,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // TIER 1 — Built-in templates: ONLY trivially simple reviews
     // (rating-only, short 5★ praise — no brand voice needed, AI adds nothing)
     // ══════════════════════════════════════════════════════════════════════
+    // The built-in templates are written in English and only in English, and
+    // `rating_only` matches any review under 15 words with no tags — which is
+    // most short Hindi, Tamil or Thai reviews. Before reply languages existed
+    // that tier answered them in English and the customer never saw why. Sending
+    // them to the AI tier instead is the whole point of P1-2; it costs an AI
+    // call on reviews that used to be free, and only for non-English ones.
+    //
+    // The gate here first read `replyLanguage.code === "en"`, which was wrong in
+    // a way worth remembering: `code` is the language we will WRITE IN, and it
+    // says "en" for every English fallback as well as for real English. So
+    // "बहुत अच्छा" — reported honestly as undetermined — passed the gate and got
+    // a canned English "Thank you for the 5 stars!". `mayServeEnglishCannedReply`
+    // asks the question this line actually meant to ask; see its doc comment.
     const matchedDef = getMatchedTemplate(review);
-    if (matchedDef && TRIVIAL_TEMPLATE_IDS.has(matchedDef.id)) {
+    if (matchedDef && TRIVIAL_TEMPLATE_IDS.has(matchedDef.id) && mayServeEnglishCannedReply(replyLanguage)) {
       const raw   = matchedDef.pick(review, tone);
       const reply = humanizePunctuation(enforceCharLimit(personalizeText(raw, persona), charLimit));
       log("template", { templateId: matchedDef.id });
@@ -328,6 +357,9 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       kbEntries = data ?? [];
     }
 
+    // `replyLanguage` reaching the prompt also puts it in the cache key: the
+    // key hashes the system prompt, so a Hindi draft and an English draft of the
+    // same review text can never be served for one another.
     const systemPrompt = buildSystemPrompt({
       tone,
       contextEntries: kbEntries,
@@ -335,6 +367,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       teamName:       persona.teamName,
       supportEmail:   persona.supportEmail,
       charLimit,
+      replyLanguage,
     });
 
     const cacheScope = {
@@ -391,7 +424,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       // key — stale drafts age out rather than being served.
       await setCachedReply(cacheScope, { text: reviewBody, rating }, tone, aiReply);
 
-      log(aiSource, { hasBrandVoice: !!persona.brandVoice, hasKb: kbEntries.length > 0 });
+      log(aiSource, {
+        hasBrandVoice: !!persona.brandVoice,
+        hasKb: kbEntries.length > 0,
+        replyLanguage: replyLanguage.code,
+        languageReason: replyLanguage.reason,
+      });
       return NextResponse.json({ source: aiSource as ReplySource, reply }, { status: 200 });
 
     } catch {
@@ -402,6 +440,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // TIER 4 — Composer: emergency fallback only
     // Both AI providers are down. Produces a deterministic reply so the
     // user always gets something they can edit and send.
+    //
+    // English only, including for a Hindi review: the composer assembles fixed
+    // English sentences and has no translated set. That is a known gap and the
+    // right trade in degraded mode, where the alternative is no draft at all.
+    // The draft is editable before it is posted, so nothing reaches the store
+    // without the customer seeing it.
     // ══════════════════════════════════════════════════════════════════════
     const composedReply = composeReply(review, tone, persona);
     const reply = humanizePunctuation(enforceCharLimit(composedReply, charLimit));

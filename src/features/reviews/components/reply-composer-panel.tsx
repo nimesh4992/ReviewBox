@@ -10,7 +10,7 @@ import { useApps } from "@/hooks/use-apps";
 import { AppReview, ReviewSentiment, AIReplyTone } from "@/types/review";
 import { formatReviewDate } from "@/utils/format";
 import { canPostRepliesViaApi } from "@/lib/sync-status";
-import { isLikelyEnglish } from "@/lib/language";
+import { isLikelyEnglish } from "@/lib/language-detect";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { ReviewTagEditor } from "./review-tag-editor";
 import { Stars, ReviewerAvatar, shortTitle, ToneSelector, SENTIMENT_DOT } from "./review-primitives";
