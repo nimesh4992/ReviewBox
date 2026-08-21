@@ -4,6 +4,8 @@ import {
   DEFAULT_REPLY_LANGUAGE,
   MIN_REPLY_CONFIDENCE,
   REPLY_LANGUAGES,
+  isConfirmedEnglish,
+  mayServeEnglishCannedReply,
   replyLanguageInstruction,
   resolveReplyLanguage,
 } from "./reply-language";
@@ -141,10 +143,15 @@ describe("resolveReplyLanguage — the fallback is deliberate, not accidental", 
   });
 
   it("honours MIN_REPLY_CONFIDENCE as a standing guard", () => {
-    // Nothing the detector emits today is a named language under this bar, so
-    // this asserts the guard exists rather than that it currently fires. That
-    // is the point: a future detector that starts guessing must not silently
-    // start steering what we publish.
+    // The bar is live, not decorative: Latin text with no English function word
+    // and no marker for anything else is recorded as English at 0.4, and this
+    // is what stops that baseline being acted on as a language decision.
+    const baseline = resolveReplyLanguage("Não consigo abrir");
+    expect(baseline.detected).toBe("en");
+    expect(baseline.confidence).toBeLessThan(MIN_REPLY_CONFIDENCE);
+    expect(baseline.reason).toBe("low-confidence");
+    expect(baseline.fallback).toBe(true);
+
     expect(MIN_REPLY_CONFIDENCE).toBeGreaterThan(0);
     const corpus = ["पैसा कट गया", "paisa nahi mila", "แอปใช้ไม่ได้", "The app crashed"];
     for (const text of corpus) {
@@ -205,5 +212,105 @@ describe("replyLanguageInstruction", () => {
     const instruction = replyLanguageInstruction(d);
     expect(instruction).not.toContain(injection);
     expect(instruction).not.toContain("Ignore previous");
+  });
+});
+
+/**
+ * Which reviews may be answered with a pre-written English canned reply.
+ *
+ * This is the tier-1 routing gate, and it is the one that shipped wrong. It
+ * asked `code === "en"`, which is true for every English *fallback* as well as
+ * for real English, so "बहुत अच्छा" — honestly reported as undetermined — was
+ * answered "Thank you for the 5 stars!" in English with the AI tier never
+ * reached. The distinction below is the whole fix.
+ */
+describe("mayServeEnglishCannedReply", () => {
+  it("allows it for a review that positively evidences English", () => {
+    const d = resolveReplyLanguage("Great app, very easy to use.");
+    expect(d.detected).toBe("en");
+    expect(mayServeEnglishCannedReply(d)).toBe(true);
+  });
+
+  it("blocks it for Hindi in Devanagari", () => {
+    expect(mayServeEnglishCannedReply(resolveReplyLanguage("यह ऐप बहुत अच्छा है और इस्तेमाल करना आसान है।"))).toBe(false);
+  });
+
+  it("blocks it for Tamil", () => {
+    expect(mayServeEnglishCannedReply(resolveReplyLanguage("இந்த ஆப் மிகவும் நன்றாக உள்ளது."))).toBe(false);
+  });
+
+  it("blocks it for romanised Hindi", () => {
+    expect(mayServeEnglishCannedReply(resolveReplyLanguage("paisa cut gaya but ticket nahi aaya"))).toBe(false);
+  });
+
+  it("blocks it when the language is undetermined — the regression", () => {
+    // "बहुत अच्छा" is Devanagari carrying no token that separates Hindi from
+    // Marathi or Nepali, so the detector declines to name a language. That is
+    // correct and deliberately unchanged. What must not happen is the review
+    // being handed a canned English reply because the *fallback* is English.
+    const d = resolveReplyLanguage("बहुत अच्छा");
+    expect(d.detected).toBeNull();
+    expect(d.reason).toBe("undetermined");
+    expect(d.code).toBe("en");           // we will still WRITE in English...
+    expect(mayServeEnglishCannedReply(d)).toBe(false); // ...but not from a can.
+  });
+
+  it("blocks it for a language we detect but do not publish in", () => {
+    const d = resolveReplyLanguage("ගෙවීම අසාර්ථක විය");
+    expect(d.reason).toBe("unsupported");
+    expect(mayServeEnglishCannedReply(d)).toBe(false);
+  });
+
+  it("blocks it for Latin text where English is only the baseline", () => {
+    // Same bug class as the Devanagari case, and the reason `detected === "en"`
+    // alone would not have been a sufficient fix: Portuguese lands here as
+    // English at 0.4, which is a baseline, not evidence.
+    const d = resolveReplyLanguage("Não consigo abrir");
+    expect(d.detected).toBe("en");
+    expect(d.confidence).toBeLessThan(0.8);
+    expect(mayServeEnglishCannedReply(d)).toBe(false);
+  });
+
+  it("allows it when there is no language to get wrong", () => {
+    // Letterless text has nothing to mismatch, and the AI tier would be told to
+    // write English anyway — so blocking would spend a provider call to reach
+    // the same sentence. Deliberately allowed; see the doc comment.
+    for (const text of ["👍👍👍", "5/5", "!!!"]) {
+      const d = resolveReplyLanguage(text);
+      expect(d.reason, text).toBe("no-text");
+      expect(mayServeEnglishCannedReply(d), text).toBe(true);
+    }
+  });
+
+  it("agrees exactly with the prompt staying silent about language", () => {
+    // The two are one idea: we say nothing about language precisely when we are
+    // sure it is English. If these ever disagree, one of them is wrong.
+    const corpus = [
+      "Great app, very easy to use.", "Please fix the login bug, it fails every time",
+      "बहुत अच्छा", "यह ऐप बहुत अच्छा है", "இந்த ஆப் மிகவும் நன்றாக உள்ளது.",
+      "paisa cut gaya but ticket nahi aaya", "Não consigo abrir", "ගෙවීම අසාර්ථක විය",
+      "no puedo entrar con mi cuenta", "the ui hai slow",
+    ];
+    for (const text of corpus) {
+      const d = resolveReplyLanguage(text);
+      expect(isConfirmedEnglish(d), text).toBe(replyLanguageInstruction(d) === "");
+    }
+  });
+});
+
+describe("isConfirmedEnglish", () => {
+  it("is not satisfied by the reply language being English", () => {
+    // The distinction the bug turned on, stated directly.
+    for (const text of ["बहुत अच्छा", "ගෙවීම අසාර්ථක විය", "no puedo entrar con mi cuenta"]) {
+      const d = resolveReplyLanguage(text);
+      expect(d.code, text).toBe("en");
+      expect(isConfirmedEnglish(d), text).toBe(false);
+    }
+  });
+
+  it("is not satisfied by English held at low confidence", () => {
+    const d = resolveReplyLanguage("the ui hai slow");
+    expect(d.detected).toBe("en");
+    expect(isConfirmedEnglish(d)).toBe(false);
   });
 });

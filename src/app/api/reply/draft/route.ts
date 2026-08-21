@@ -20,7 +20,7 @@ import {
   DEFAULT_PERSONA,
 } from "@/lib/workspace-persona";
 import { composeReply } from "@/lib/reply-composer";
-import { resolveReplyLanguage } from "@/lib/reply-language";
+import { mayServeEnglishCannedReply, resolveReplyLanguage } from "@/lib/reply-language";
 import type { AIReplyTone } from "@/lib/templates";
 import type { AppReview } from "@/types/review";
 
@@ -323,8 +323,15 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     // that tier answered them in English and the customer never saw why. Sending
     // them to the AI tier instead is the whole point of P1-2; it costs an AI
     // call on reviews that used to be free, and only for non-English ones.
+    //
+    // The gate here first read `replyLanguage.code === "en"`, which was wrong in
+    // a way worth remembering: `code` is the language we will WRITE IN, and it
+    // says "en" for every English fallback as well as for real English. So
+    // "बहुत अच्छा" — reported honestly as undetermined — passed the gate and got
+    // a canned English "Thank you for the 5 stars!". `mayServeEnglishCannedReply`
+    // asks the question this line actually meant to ask; see its doc comment.
     const matchedDef = getMatchedTemplate(review);
-    if (matchedDef && TRIVIAL_TEMPLATE_IDS.has(matchedDef.id) && replyLanguage.code === "en") {
+    if (matchedDef && TRIVIAL_TEMPLATE_IDS.has(matchedDef.id) && mayServeEnglishCannedReply(replyLanguage)) {
       const raw   = matchedDef.pick(review, tone);
       const reply = humanizePunctuation(enforceCharLimit(personalizeText(raw, persona), charLimit));
       log("template", { templateId: matchedDef.id });

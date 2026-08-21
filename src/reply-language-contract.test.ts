@@ -96,7 +96,21 @@ describe("the reply language is decided on the server", () => {
     // most short Hindi, Tamil or Thai reviews, and every built-in template is
     // written in English. Without this gate P1-2 would be silently bypassed for
     // exactly the reviews it exists to serve.
-    expect(src).toMatch(/TRIVIAL_TEMPLATE_IDS\.has\(matchedDef\.id\)\s*&&\s*replyLanguage\.code === "en"/);
+    expect(src).toMatch(
+      /TRIVIAL_TEMPLATE_IDS\.has\(matchedDef\.id\)\s*&&\s*mayServeEnglishCannedReply\(replyLanguage\)/,
+    );
+  });
+
+  it("gates that tier on established English, never on the language we will write in", () => {
+    // The original gate was `replyLanguage.code === "en"`. `code` is the
+    // language we WRITE IN and reads "en" for every English fallback too, so an
+    // undetermined Devanagari review passed it and got a canned English reply.
+    // A future edit that reaches for `code` here reintroduces exactly that bug.
+    const start = src.indexOf("const matchedDef = getMatchedTemplate(review);");
+    expect(start).toBeGreaterThan(-1);
+    const gate = src.slice(start, src.indexOf("{", src.indexOf("if (matchedDef", start)));
+    expect(gate).not.toMatch(/replyLanguage\.code\s*===/);
+    expect(gate).not.toMatch(/replyLanguage\.detected\s*===/);
   });
 
   it("logs which language was chosen and why", () => {

@@ -39,10 +39,14 @@ export const DEFAULT_REPLY_LANGUAGE = "en";
 /**
  * Below this, a named language is treated as a guess and not acted on.
  *
- * Today `detectLanguage` never returns a non-null language under 0.5, so this
- * rejects nothing — which is the point. It is a standing guard, so that a
- * future detector change that starts emitting low-confidence guesses cannot
- * silently begin steering what we publish on a customer's store listing.
+ * **This fires in practice** — an earlier version of this comment claimed it
+ * rejected nothing, which was wrong and would have made the bar look like dead
+ * code worth deleting. The case it catches: Latin text carrying no English
+ * function word and no marker for anything else, such as "Não consigo abrir",
+ * which the detector records as English at 0.4. That is a baseline, not a
+ * finding. This bar is what keeps it from being read as a language decision, so
+ * the review gets the explicit English fallback and is barred from a canned
+ * English reply, rather than passing as confirmed English.
  */
 export const MIN_REPLY_CONFIDENCE = 0.5;
 
@@ -187,10 +191,78 @@ export function replyLanguageInstruction(decision: ReplyLanguageDecision): strin
     );
   }
 
-  const confidentlyEnglish =
-    decision.detected === DEFAULT_REPLY_LANGUAGE &&
-    decision.confidence >= ENGLISH_CERTAINTY;
-  if (confidentlyEnglish) return "";
+  if (isConfirmedEnglish(decision)) return "";
 
   return " Write the reply in English.";
+}
+
+/**
+ * Did detection *positively establish* English, as opposed to English being
+ * where we landed after failing to identify something?
+ *
+ * **`code === "en"` does not answer this and must never be used as if it did.**
+ * `code` is the language we will write in, and it reads "en" in five different
+ * situations: English was detected, the detector declined to name a language,
+ * it named one we do not publish in, it named one below the confidence bar, or
+ * there were no letters at all. Only the first is a statement about the review.
+ *
+ * `detected === "en"` is closer but still not enough, because the detector
+ * records English at three confidence levels: 0.9 (English function words are
+ * present), 0.6 (Latin text carrying one romanised-Hindi marker) and 0.4 (Latin
+ * script and nothing else to go on — where "Não consigo abrir" lands). Only 0.9
+ * is evidence; the other two are a baseline with the doubt attached.
+ *
+ * So this is the conjunction, and it is deliberately the same test that decides
+ * whether the system prompt says anything about language at all. The two are one
+ * idea: **we stay silent about language exactly when we are sure it is English.**
+ */
+export function isConfirmedEnglish(decision: ReplyLanguageDecision): boolean {
+  return (
+    decision.detected === DEFAULT_REPLY_LANGUAGE &&
+    decision.confidence >= ENGLISH_CERTAINTY
+  );
+}
+
+/**
+ * May the reply pipeline serve a pre-written **English** canned reply for this
+ * review, skipping AI generation entirely?
+ *
+ * ── The bug this exists to prevent ──────────────────────────────────────────
+ *
+ * The tier-1 built-in templates are written in English and only in English, and
+ * `rating_only` matches any review under 15 words with no tags — in any
+ * language. The gate on that tier asked `replyLanguage.code === "en"`, which is
+ * true for every English *fallback* as well as for real English. So a five-word
+ * Devanagari review like "बहुत अच्छा" — which the detector honestly reports as
+ * `null` / 0.30 / `undetermined`, because it carries no token separating Hindi
+ * from Marathi or Nepali — resolved to `code: "en"`, passed the gate, and was
+ * answered with "Thank you for the 5 stars!" in English. The AI tier, which
+ * would at least have replied in *something* considered, was never reached.
+ *
+ * ── The rule ────────────────────────────────────────────────────────────────
+ *
+ * A canned English reply is safe in exactly two situations:
+ *
+ *   1. **English is established** (`isConfirmedEnglish`) — the ordinary case.
+ *   2. **There is no language to get wrong** (`reason === "no-text"`) — the
+ *      review is emoji, digits or punctuation, so no text exists to mismatch.
+ *
+ * Everything else — undetermined, unsupported, low-confidence, and English held
+ * at low confidence — goes to the AI tier instead.
+ *
+ * ── Why `no-text` is allowed rather than blocked ────────────────────────────
+ *
+ * It looks like the same class of doubt, and it is not. `undetermined` means
+ * "there are letters here and we could not place them", so a canned English
+ * reply can be visibly wrong. `no-text` means there are no letters at all: a
+ * "👍👍👍" review has no language to contradict. Blocking it would also change
+ * nothing about the output — with `no-text` the AI tier is instructed to
+ * "Write the reply in English" anyway — so it would spend a provider call and a
+ * quota token to arrive at the same English sentence. That is strictly worse.
+ *
+ * (A genuinely empty body never reaches here: `/api/reply/draft` rejects it
+ * with `INVALID_INPUT` before any of this runs.)
+ */
+export function mayServeEnglishCannedReply(decision: ReplyLanguageDecision): boolean {
+  return decision.reason === "no-text" || isConfirmedEnglish(decision);
 }
