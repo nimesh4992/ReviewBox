@@ -99,6 +99,17 @@ interface SystemPromptOptions {
   teamName?: string;
   /** Hard character limit for the reply (e.g. 350 for Google Play). */
   charLimit?: number;
+  /**
+   * The workspace's real support address (`persona.supportEmail`).
+   *
+   * The AI tier was the ONLY tier that never received it: tier-1 templates
+   * substitute {supportEmail} in 83 places and the tier-4 composer in 9, this
+   * prompt in none. Given room to write a contact line and no address to use,
+   * the model invented `support@reviewbox.com`. Replies publish publicly under
+   * the customer's developer name, so a confabulated address is a real defect,
+   * not a cosmetic one.
+   */
+  supportEmail?: string;
 }
 
 /**
@@ -119,7 +130,7 @@ export function buildSystemPrompt(
       ? { tone: toneOrOptions, contextEntries }
       : { contextEntries, ...toneOrOptions };
 
-  const { tone, brandVoice, teamName, charLimit } = opts;
+  const { tone, brandVoice, teamName, charLimit, supportEmail } = opts;
   const entries = opts.contextEntries ?? contextEntries;
 
   const toneMap: Record<string, string> = {
@@ -132,6 +143,14 @@ export function buildSystemPrompt(
   const tonePhrase = toneMap[tone] ?? "professional and helpful";
   const signoff    = teamName ?? "The Support Team";
   const limitNote  = charLimit ? ` Stay under ${charLimit} characters total.` : " Under 120 words.";
+
+  // Unconditional: the model must never invent contact details even when we
+  // have no address to give it. Supplying the real one is the other half.
+  const contactRule = supportEmail
+    ? ` If you point the reviewer at support, use exactly ${supportEmail}.` +
+      ` Never invent an email address, URL, or phone number.`
+    : ` Never invent an email address, URL, or phone number, and do not tell` +
+      ` the reviewer to contact support at a specific address.`;
 
   // Brand voice block — most impactful quality lever
   const brandBlock = brandVoice
@@ -168,6 +187,7 @@ export function buildSystemPrompt(
     brandBlock +
     ` Be ${tonePhrase}.` +
     styleRules +
+    contactRule +
     limitNote +
     ` End with a sign-off line: "- ${signoff}".` +
     contextBlock

@@ -1,10 +1,30 @@
 import Groq from "groq-sdk";
 
-const GROQ_MODEL =
-  process.env.GROQ_MODEL ?? "llama-3.3-70b-versatile";
+/**
+ * Groq retired the entire Llama family from its production line-up; the old
+ * default `llama-3.3-70b-versatile` answers 404 `model_not_found`. Exported so
+ * the public demo route cannot drift back to a hardcoded id (it had one).
+ */
+export const GROQ_MODEL = process.env.GROQ_MODEL ?? "openai/gpt-oss-120b";
 
-/** Reduced from 200 to match the "under 120 words" system prompt instruction. */
-const MAX_TOKENS = 150;
+/**
+ * gpt-oss is a REASONING model: it spends output tokens thinking before it
+ * emits any visible text, and those tokens count against max_tokens. At the
+ * old cap of 150 the whole budget went to reasoning and the API returned an
+ * empty completion -- which this module reported as AI_UNAVAILABLE, i.e.
+ * indistinguishable from a dead provider. Measured on a 5-language smoke run:
+ * 1/5 replies survived at 150, 5/5 at "low" effort with a 400 cap.
+ *
+ * Keep the effort low rather than raising caps further: it is the lever that
+ * bounds cost and latency, and reply drafting needs no deep reasoning.
+ */
+const REASONING_EFFORT = "low" as const;
+
+/**
+ * 400, not 150: the visible reply is still short (the prompt caps it), but the
+ * budget must also cover the model's reasoning tokens. See REASONING_EFFORT.
+ */
+const MAX_TOKENS = 400;
 
 let _client: Groq | null = null;
 
@@ -49,6 +69,7 @@ export async function generateReply(params: {
     const completion = await client.chat.completions.create({
       model: GROQ_MODEL,
       max_tokens: MAX_TOKENS,
+      reasoning_effort: REASONING_EFFORT,
       messages: [
         { role: "system", content: finalSystemPrompt },
         { role: "user",   content: userContent },
@@ -56,11 +77,28 @@ export async function generateReply(params: {
     });
 
     const text = completion.choices[0]?.message?.content;
-    if (!text) throw new Error("AI_UNAVAILABLE");
+    if (!text) {
+      // An empty completion is NOT the same as a failed request, and it used
+      // to be indistinguishable: this throw is re-thrown unlogged by the catch
+      // below. A reasoning model that spends the whole max_tokens budget on
+      // reasoning returns exactly this, and it looks like a dead provider.
+      console.error("[groq] empty completion", {
+        model: GROQ_MODEL,
+        maxTokens: MAX_TOKENS,
+        finishReason: completion.choices[0]?.finish_reason,
+      });
+      throw new Error("AI_UNAVAILABLE");
+    }
     return text;
   } catch (err) {
     if (err instanceof Error && err.message === "AI_UNAVAILABLE") throw err;
-    throw new Error("AI_UNAVAILABLE");
+    // Log and attach the cause. generateSummary() below carries a long comment
+    // about how a bare `catch` here left "nothing to look at either" -- that
+    // same defect lived on in this function until a P1-2 smoke run hit it and
+    // could not tell a bad key from a blocked network from a wrong model name.
+    // Callers only ever compare `.message`, so behaviour is unchanged.
+    console.error("[groq] generateReply failed:", err);
+    throw new Error("AI_UNAVAILABLE", { cause: err });
   }
 }
 
@@ -74,7 +112,8 @@ export async function translateText(
     const client = getGroqClient();
     const completion = await client.chat.completions.create({
       model: GROQ_MODEL,
-      max_tokens: 600,
+      max_tokens: 800,
+      reasoning_effort: REASONING_EFFORT,
       messages: [
         {
           role: "system",
@@ -128,7 +167,8 @@ export async function generateSummary(snippets: string[]): Promise<string> {
     const client = getGroqClient();
     const completion = await client.chat.completions.create({
       model: GROQ_MODEL,
-      max_tokens: 200,
+      max_tokens: 500,
+      reasoning_effort: REASONING_EFFORT,
       messages: [
         { role: "system", content: SUMMARY_SYSTEM_PROMPT },
         { role: "user",   content: snippets.join("\n") },
