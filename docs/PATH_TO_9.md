@@ -121,6 +121,7 @@ watch. A row may not claim a gate is green — only §2's table may, and only af
 | 2026-08-21 19:46 | M1 · `src/lib/release-regression.ts` + 18 unit tests | `vitest` 18/18; **5 mutations applied, all 5 caught** (drop normalisation, drop tag floor, swap old/new, drop version floor, trust array adjacency) | — |
 | 2026-08-21 19:52 | M1 · "What changed vs vX" card on `/releases/[version]`, workspace tag labels, `issue_tags_override` honoured, 024-missing fallback | `tsc` clean · `vitest` **965/965 in 84 files** · `lint` 0 errors (13 pre-existing warnings) · `next build` | **AC-6: open a real app's release and name the biggest mover.** Nothing here proves that |
 | 2026-08-21 19:58 | Spec `docs/specs/release-regression.md`; backlog II0 marked *implemented, not walked* | — | — |
+| 2026-08-21 19:57 | PR **#150** opened as draft from base `ddf9e41` | CI **6 of 6 green** on head `d74a7a5` — counted, not "nothing red". Note: *E2E (advisory)* passed in 43s while executing **zero specs** (BUG-037) and is not evidence of anything | Merge is the founder's call while the bake-off is live — see §6.5 |
 
 ---
 
@@ -177,3 +178,23 @@ it quietly removed.
 
 Fill this in from the founder's own check. **An agent may not score itself** — including
 this one. Claude's row above is deliberately blank for that reason.
+
+### 6.5 Why PR #150 is not merged, though it is entitled to be
+
+**D020 permits it** — every CI check is green on the exact head commit, and nothing in the
+change touches a reserved category (no migration, no pricing, no legal page, no email, no
+new dependency). Under the normal loop it would be merged and verified on production.
+
+It is being held for one reason: **§6.1 rule 1 requires all three agents to start from the
+same base commit.** Merge II0 into master and Codex and Cursor inherit this solution in
+their base — the comparison the bake-off exists to make becomes impossible to run.
+
+So this is a founder choice between two things worth having, and it should be made
+deliberately rather than by default:
+
+| Merge now | Hold for the bake-off |
+|---|---|
+| AC-6 walkable on production in ~2 minutes | AC-6 needs a local run, or waits |
+| Task A is no longer runnable against Codex/Cursor | Three agents, one base, comparable results |
+
+**Either is defensible. Say the word and it merges.**
