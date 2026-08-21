@@ -8,6 +8,11 @@
  * Also builds minimal system prompts that are cached per tone+context hash.
  */
 
+import {
+  replyLanguageInstruction,
+  type ReplyLanguageDecision,
+} from "./reply-language";
+
 // ── Filler phrases ────────────────────────────────────────────────────────────
 // Sorted longest-first to prevent partial matches when iterating.
 // All matched case-insensitively.
@@ -99,6 +104,16 @@ interface SystemPromptOptions {
   teamName?: string;
   /** Hard character limit for the reply (e.g. 350 for Google Play). */
   charLimit?: number;
+  /**
+   * Which language to write the reply in, from `resolveReplyLanguage()`.
+   *
+   * A decision object rather than a ready-made string on purpose: the wording
+   * is derived here from a fixed table, so no caller can push arbitrary text
+   * into the system prompt. Omitted entirely by callers that do not generate a
+   * reply from a review (there are none today, but the tier-1 template path is
+   * one edit away from being one).
+   */
+  replyLanguage?: ReplyLanguageDecision;
 }
 
 /**
@@ -119,7 +134,7 @@ export function buildSystemPrompt(
       ? { tone: toneOrOptions, contextEntries }
       : { contextEntries, ...toneOrOptions };
 
-  const { tone, brandVoice, teamName, charLimit } = opts;
+  const { tone, brandVoice, teamName, charLimit, replyLanguage } = opts;
   const entries = opts.contextEntries ?? contextEntries;
 
   const toneMap: Record<string, string> = {
@@ -163,11 +178,19 @@ export function buildSystemPrompt(
     ` feedback". No marketing language, no emoji unless the tone is casual.` +
     ` If you cannot promise a fix, do not imply one.`;
 
+  // Empty for a review already confidently detected as English, which keeps
+  // the prompt for the common path byte-identical to what it was before reply
+  // languages existed. That matters beyond tidiness: the prompt is part of the
+  // reply cache key, so a gratuitous change here would cold-start every
+  // workspace's cache.
+  const languageNote = replyLanguage ? replyLanguageInstruction(replyLanguage) : "";
+
   return (
     `You are a support agent replying to an app store review.` +
     brandBlock +
     ` Be ${tonePhrase}.` +
     styleRules +
+    languageNote +
     limitNote +
     ` End with a sign-off line: "- ${signoff}".` +
     contextBlock

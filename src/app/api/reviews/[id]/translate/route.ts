@@ -4,7 +4,7 @@ import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { apiError, captureAndError } from "@/lib/api-response";
 import { rateLimit } from "@/lib/api-rate-limit";
 import { translateText } from "@/lib/groq";
-import { isLikelyEnglish } from "@/lib/language";
+import { isLikelyEnglish } from "@/lib/language-detect";
 import { Redis } from "@upstash/redis";
 
 const CACHE_TTL_SECONDS = 60 * 60 * 24 * 7; // 7 days
