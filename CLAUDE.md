@@ -15,7 +15,12 @@ AI-powered review management platform for Google Play and Apple App Store operat
 >    against it (~25–30% of the differentiated product), the Issue primitive that six of the eight
 >    gaps are blocked behind, the build sequence, and the II1 ADR mandate. Constraints locked in
 >    `docs/decisions.md` **D023**. Read before starting anything in the II epic.
-> 8. **`.claude/agents/*.md`** — pm, architect, coder, tester, reviewer, **triager** roles. Spawn per task.
+> 8. **`docs/PRODUCT_READINESS.md`** — the reconciled readiness scorecard (two assessments,
+>    one number, evidence per row) and the **definition of 9/10 as five gates R1–R5 that can
+>    be failed.** Quote this file's numbers, not an older assessment's.
+> 9. **`docs/PATH_TO_9.md`** — the ordered plan to those gates, the reasoning behind the
+>    order, the live progress log, and the Codex/Cursor bake-off protocol.
+> 10. **`.claude/agents/*.md`** — pm, architect, coder, tester, reviewer, **triager** roles. Spawn per task.
 
 > **Before shipping anything non-trivial:** does it hold for the region-locked
 > fixture app, not just a US one? Run `GET /api/admin/probe/stores`.

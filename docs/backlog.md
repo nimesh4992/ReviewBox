@@ -85,6 +85,11 @@ starting anything below.
   probable regression. **Uses the existing 8 tags — does not wait for clustering.** A small
   vertical slice, not a separate feature project. Best value-to-work ratio in the epic and the
   demo that proves the thesis before the expensive primitive is built.
+  **Status 2026-08-21: implemented, not walked.** `src/lib/release-regression.ts` (+18 unit tests,
+  5 mutations caught) and the "What changed vs vX" card on `/releases/[version]`, on branch
+  `claude/review-issue-schema-kn2ayd`. Spec: `docs/specs/release-regression.md`. **The box stays
+  unchecked until a founder opens a real app's release and names the biggest mover (AC-6)** — a
+  green suite is not this item's definition of done.
 - [x] **II0a · The II1 ADR — architecture only, no implementation** — WRITTEN 2026-08-20,
   **awaiting founder ratification.** `docs/adr/011-issue-identity-and-clustering.md`.
   Identity rule: *two reviews are the same Issue if the same code change would resolve both*.
