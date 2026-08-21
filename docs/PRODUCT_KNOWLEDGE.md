@@ -292,8 +292,9 @@ customer flow unless separately noted.
 - **Why:** A founder checking in weekly, not living in the inbox, needs a pushed summary rather
   than a pulled one.
 - **What:** CSV export with totals, a manual "send now" report action, and automated weekly digest
-  + daily unreplied-backlog email (Vercel Cron, daily-only — see the Vercel Hobby constraint in
-  Section 9).
+  + daily unreplied-backlog email (Vercel Cron). *The "daily-only" limit these were
+  designed around was a Hobby-plan constraint; the project is on Pro as of
+  2026-08-21, so digest frequency is now a product choice, not a platform limit.*
 - **Pending:** 2 of 4 report card types (crash report, retention report) are UI stubs behind a
   "coming soon" label — not silently broken, just not built yet.
 
@@ -369,7 +370,7 @@ customer flow unless separately noted.
 | Cache / rate limit | Upstash Redis | Free tier 10K commands/day |
 | Email | Resend | Free tier 3K/month |
 | Payments | Stripe | Built, not activated (Section 4) |
-| Hosting | Vercel (Hobby plan today) | Crons capped at once/day on Hobby — shapes several product decisions, see Section 9 |
+| Hosting | Vercel (**Pro** plan, confirmed 2026-08-21) | Crons may fire once/minute. This row said "Hobby / capped at once per day" until 2026-08-21 and was wrong; several product decisions were shaped by that false premise — see Section 9 |
 | Errors / analytics | Sentry, PostHog | Both installed |
 | Testing | Vitest (unit) + Playwright (e2e) | 609+ unit tests as of last session; e2e suite currently skips entirely in CI — see Section 7 |
 
@@ -437,8 +438,8 @@ writes an ADR for anything non-trivial (auth, billing, schema, new external serv
 agent** branches, implements, opens a PR with a 5-minute plain-English test plan; a **Tester agent**
 adds Vitest/Playwright coverage; a **Reviewer agent** flags BLOCKER/NIT issues before the founder
 looks at it. CI (build, type-check, lint, unit tests, e2e, security audit) is the only pre-merge
-gate — branch previews are disabled on the Vercel Hobby plan, so a PR is never merged while CI is
-red. As of 16 Aug 2026 the founder delegated merge-and-deploy authority to Claude once CI is fully
+gate — branch previews are disabled (a founder decision, originally argued partly from Hobby-plan
+build queueing), so a PR is never merged while CI is red. As of 16 Aug 2026 the founder delegated merge-and-deploy authority to Claude once CI is fully
 green (decision D020); everything else — no direct pushes to `main`, no production migrations, no
 real customer emails, no pricing changes without an ADR, no new paid dependency — remains a hard
 guardrail the agents are instructed to refuse even if asked.

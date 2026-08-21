@@ -282,7 +282,9 @@ that is the common case — the most likely explanation for a customer seeing
   deleted so nobody can paste the wrong shape into a fresh database.
 - **Deploy pipeline reported success while deploying nothing** (found
   2026-08-16, immediately after PR #77 merged). Vercel's Git integration
-  refuses to build master for this repo (Hobby-plan contributor block), and the
+  refuses to build master for this repo (a contributor block Vercel attributed
+  to the Hobby plan and private-repo collaboration; both conditions have since
+  lapsed — the repo is public and the project is on Pro), and the
   CLI `deploy-production` job *skipped* on a missing `VERCEL_TOKEN` while still
   reporting green. Both production paths were closed at once and CI said
   everything was fine. Fixed: the job now fails loudly. **The secret is still

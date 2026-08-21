@@ -323,14 +323,24 @@ bug, one layer up.
 
 ## 9. Ingestion honesty
 
-Vercel Hobby caps cron at daily, so **sync runs once per day**. Real-time
-incident intelligence is not merely unbuilt — it is **physically undetectable**
-with the current ingestion architecture.
+> **⚠️ The premise of this section was false, corrected 2026-08-21.** It read
+> "Vercel Hobby caps cron at daily, so **sync runs once per day**." **Confirmed by the founder 2026-08-21: the ReviewBox project is on the Vercel PRO plan.**
+> Pro allows once-per-minute crons, and **sync now runs every 3 hours** (P1-1,
+> shipped on `fix/p0-commercial-readiness`). A 6-hour window IS now detectable.
 
-So do not build UI, or make marketing claims, that promise something the
-pipeline can't do. For launch the claim is:
+**The honesty rule below still stands — only the number moved.** Do not build UI,
+or make marketing claims, that promise something the pipeline can't do. What the
+pipeline can now do is a **~3-hour** cadence with a 4-hour worst-case freshness
+guarantee, not real-time.
+
+The launch claim on record is:
 
 > **Daily feedback intelligence**
+
+**That claim is now more conservative than the pipeline.** Whether to restate it
+is a **founder decision, not an agent's** — it is a marketing claim, and D023
+point 6 fixed it deliberately. An agent must not widen it unilaterally. Flagged
+for the founder; until they rule, keep making no claim beyond "daily".
 
 Moving to Vercel Pro, or the `pg_cron` + `pg_net` path already noted in
 `CLAUDE.md`, is what would later earn:

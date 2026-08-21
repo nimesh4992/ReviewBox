@@ -1011,7 +1011,11 @@ ref except `master`. Only master builds, straight to production. Why:
 - Clerk isn't configured for preview URLs (backlog **LT2**), so previews could
   not be signed into and every fix was verified on production anyway.
 - Preview builds queued ahead of production builds on the Hobby plan and
-  spammed PRs with bot comments.
+  spammed PRs with bot comments. *(That queueing was a Hobby behaviour; the
+  project is on Pro as of 2026-08-21, so this particular reason no longer
+  applies. The Clerk reason above and the fail-open reason below still do,
+  so previews stay disabled — but re-enabling is now a smaller question
+  than this list implies.)*
 - Preview deployments were the fail-open risk surface flagged in
   `docs/ROLE_AUDIT.md` #6 (sync route authorizes when `CRON_SECRET` is unset
   outside production).
@@ -1090,7 +1094,13 @@ exactly what makes re-adding a deploy job safe.
   the next run disproved it. If a deploy job is ever re-added, get the answer
   from `vercel whoami` / `vercel teams ls`, not from the error text.
 
-### ⚠️ Vercel free plan: ~5,000 file uploads per 24h, shared across ALL deploys
+### ⚠️ ~5,000 file uploads per 24h, shared across ALL deploys (measured on Hobby)
+
+> **Stale-premise warning (2026-08-21):** this was measured while the project
+> was on the **free/Hobby** plan — note the error code `api-upload-free`. The
+> project is now on **Pro**, where this limit is higher or absent. The
+> mechanism and the diagnostic advice below still hold; **the number does
+> not**. Do not cite it as a current constraint without re-checking.
 
 Hit on 2026-08-17. Two master merges built green and then failed to deploy:
 
@@ -1117,23 +1127,43 @@ message. **If it recurs anyway, the answer is to wait for the window or
 upgrade the plan — not to re-run.** The previous deployment stays live
 throughout, so the site is never down; it is just stale.
 
-### ⚠️ Vercel Hobby plan: cron jobs MUST be daily-or-less-frequent
+### ⚠️ Vercel cron frequency — the Hobby cap does NOT apply (corrected 2026-08-21)
 
-`vercel.json` cron schedules cannot fire more than once per day on the Hobby plan. Schedules like `0 */4 * * *` or `*/30 * * * *` will be rejected at deploy time with:
+**Confirmed by the founder 2026-08-21: the ReviewBox project is on the Vercel PRO plan.** Pro allows a cron
+to fire as often as **once per minute**, with per-minute schedule precision.
 
-> This cron expression would run more than once per day. Upgrade to the Pro plan to unlock all Cron Jobs features on Vercel.
+**Every other document in this repo said Hobby, and they were all wrong about
+it.** That single false premise had cascaded a long way — it was recorded as the
+blocker on sub-daily sync, as the reason `pg_cron` was the documented path to
+fresher data, and (via D023 point 6) as the reason the launch claim is capped at
+*"daily feedback intelligence"*. Treat any remaining "Hobby" in this repo as
+stale, and do not re-derive a constraint from it.
 
-Current schedules are all daily-or-less-frequent:
-- `/api/sync/reviews` → `0 8 * * *` (daily 8am UTC)
+Current schedules:
+- `/api/sync/reviews` → `0 */3 * * *` (every 3 hours — P1-1, see below)
 - `/api/reports/weekly-digest` → `0 9 * * 1` (Mondays 9am)
 - `/api/reports/unreplied-alert` → `0 10 * * *` (daily 10am)
 
-**Do NOT change these to higher frequencies without upgrading the Vercel project to Pro first**, or the deploy fails entirely (taking the whole app offline).
+**The sync cadence is not a free parameter.** `SYNC_CRON_INTERVAL_HOURS` in
+`src/lib/sync-candidate.ts` must match the cron expression above —
+`src/subdaily-sync.test.ts` parses `vercel.json` and fails if they drift — and
+`SUB_DAILY_CADENCE_HOURS` is **derived** from it, not chosen, because the cron
+interval and the staleness threshold compound (worst case `C + h`). Changing the
+schedule without reading that module's header re-opens a 5-hour freshness gap
+that no paper reasoning will surface. See `docs/MARKET_READINESS_AUDIT.md`
+Part 6.
 
-For fresher data without upgrading Vercel:
+For historical context, the error this section used to document — emitted when
+the project *was* on Hobby — was:
+
+> This cron expression would run more than once per day. Upgrade to the Pro plan to unlock all Cron Jobs features on Vercel.
+
+Other ways fresher data reaches a workspace, independent of the cron:
 1. New workspaces get an immediate one-off sync via `/api/onboarding/complete` (fire-and-forget)
 2. Settings → Apps "Sync now" button hits the per-workspace worker
-3. Future option: Supabase `pg_cron` + `pg_net` can call the sync endpoint on any schedule for free
+3. Supabase `pg_cron` + `pg_net` can call the sync endpoint on any schedule for
+   free. **No longer needed for frequency** — it remains an option only if you
+   want scheduling to survive independently of Vercel.
 
 **Also: `vercel.json` schema rejects `_comment` and other unknown top-level keys.** Use `$schema` for IDE hints but don't add custom comment fields — keep the rationale here in CLAUDE.md instead.
 

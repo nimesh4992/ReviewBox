@@ -1,5 +1,13 @@
-#!/usr/bin/env node --experimental-strip-types
 /**
+ * NO SHEBANG, deliberately. This file is never executed directly - the only
+ * entry point is `npm run eval:export`, which already passes
+ * --experimental-strip-types on the command line, so a shebang here is dead
+ * weight. It is also actively harmful: `src/eval-exporter-tenant-isolation.test.ts`
+ * imports this module, and on a Windows checkout (CRLF) esbuild's shebang
+ * stripping leaves the `#!` in the transformed output, so the whole test file
+ * dies with `SyntaxError: Invalid or unexpected token`. Linux CI is unaffected,
+ * which is why that failure reproduces only on the founder's machine.
+ *
  * Golden-set exporter — the input to the ADR 011 §9 bake-off.
  *
  * Pulls a stratified sample of REAL reviews out of Supabase and writes a CSV

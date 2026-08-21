@@ -60,8 +60,11 @@ the code or the promise is a defect — do not leave the gap silent.
 
 ## Operating constraints that shape correctness
 
-- **Vercel Hobby:** crons run at most **daily**; a serverless function freezes
-  the moment its response is sent (hence `after()`, never `void fetch`).
+- **Vercel Pro** (confirmed 2026-08-21; this line previously said Hobby and was
+  wrong): crons may fire as often as **once per minute**. Sync currently runs
+  **every 3 hours**. A serverless function still freezes the moment its response
+  is sent — hence `after()`, never `void fetch`. That part was never about the
+  plan.
 - **Zero paid services until a customer pays** (CLAUDE.md's one rule). Rules
   out paid scraping proxies, higher cron frequency, and paid store APIs today.
 - **Non-coder founder:** every PR needs a 5-minute plain-English test plan; the
