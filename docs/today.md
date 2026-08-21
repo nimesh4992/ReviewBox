@@ -167,9 +167,13 @@ empirical and only answerable by running it on the fixture app.
   work on semantic similarity, not keywords.
 - **Choose the embedding model first, then adapt the schema.** The dormant
   `vector(384)` column is groundwork, not a constraint.
-- **The launch claim is "daily feedback intelligence."** Vercel Hobby caps cron at
-  daily, so "up 184% in the last 6 hours" is *physically undetectable* today. Build no
-  UI and make no claim beyond what the pipeline can do.
+- **The launch claim is "daily feedback intelligence."** ~~Vercel Hobby caps cron at
+  daily, so "up 184% in the last 6 hours" is *physically undetectable* today.~~
+  **Premise false, corrected 2026-08-21:** the project is on Vercel **Pro**, and
+  sync now runs **every 3 hours** (P1-1). A 6-hour window is detectable. The
+  claim cap still stands until the founder restates it — widening a marketing
+  claim is not an agent's call. Build no UI and make no claim beyond what the
+  founder has approved.
 
 **On ice per D023:** competitor review scraping, advanced segmentation, enterprise BI,
 Jira/Linear. **And the standing instruction:** don't spend the next week polishing the

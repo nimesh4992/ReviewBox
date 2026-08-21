@@ -168,11 +168,28 @@ jobs:
     name: E2E tests (advisory)
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    continue-on-error: true
+    # Advisory-vs-blocking is decided at the STEP level below, not here.
+    # GitHub does not allow the `secrets` context in
+    # `jobs.<job_id>.continue-on-error` (only github/needs/vars/strategy/
+    # matrix/inputs). Referencing it here is a workflow VALIDATION error, so
+    # every job in this file — build, type-check, lint, unit tests, audit —
+    # fails to start. CI is the only pre-merge gate in this repo, and a PR with
+    # no checks at all reads as "nothing red". That is precisely how #95 was
+    # merged having received 1 of 6 checks.
     # Test-only placeholders — see the warning above the `jobs:` key.
     env:
-      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: pk_test_Y2ktcGxhY2Vob2xkZXIuY2xlcmsuYWNjb3VudHMuZGV2JA==
-      CLERK_SECRET_KEY: sk_test_ci-placeholder
+      # `jobs.<id>.env` is the ONE place the secrets context is unambiguously
+      # permitted for our purposes, so every expression in this job lives here
+      # and the steps below read plain environment variables.
+      #
+      # BOTH keys are required. Gating on the publishable key alone made the
+      # steps blocking while scripts/e2e-execution-report.mjs still classed the
+      # run as a declared skip (it treats EITHER key being a placeholder as
+      # such) — so a half-configured repo produced a green, blocking check that
+      # proved nothing. That is the exact vacuous-pass this gate exists to catch.
+      E2E_BLOCKING: ${{ secrets.CLERK_PUBLISHABLE_KEY_TEST != '' && secrets.CLERK_SECRET_KEY_TEST != '' }}
+      NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: ${{ secrets.CLERK_PUBLISHABLE_KEY_TEST || 'pk_test_Y2ktcGxhY2Vob2xkZXIuY2xlcmsuYWNjb3VudHMuZGV2JA==' }}
+      CLERK_SECRET_KEY: ${{ secrets.CLERK_SECRET_KEY_TEST || 'sk_test_ci-placeholder' }}
       NEXT_PUBLIC_CLERK_SIGN_IN_URL: /sign-in
       NEXT_PUBLIC_CLERK_SIGN_UP_URL: /sign-up
       NEXT_PUBLIC_SUPABASE_URL: https://placeholder.supabase.co
@@ -185,15 +202,54 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
+      # Advisory-vs-blocking is enforced in the SHELL, from $E2E_BLOCKING above
+      # — deliberately not by a ${{ }} expression in `continue-on-error`.
+      #
+      # `jobs.<id>.continue-on-error` forbids the secrets context outright, and a
+      # rejected expression is a workflow VALIDATION error: no job in the file
+      # starts, so the PR arrives with zero checks and reads as "nothing red".
+      # Whether the STEP-level form is accepted cannot be settled without
+      # pushing, and a wrong guess has that same blast radius. Keeping every
+      # expression in `env:` removes the question entirely.
+      #
+      # While the Clerk keys are absent every spec skips (tests/e2e/clerk-env.ts)
+      # and a dev-server or browser-install hiccup must not paint master red on a
+      # check this file itself calls advisory. The moment both secrets are set,
+      # these steps become blocking with no further edit here.
       - name: Install Playwright browsers
-        run: npx playwright install --with-deps chromium
-      - run: npm run test:e2e
+        run: |
+          set +e
+          npx playwright install --with-deps chromium
+          code=$?
+          set -e
+          if [ "$E2E_BLOCKING" = "true" ]; then exit $code; fi
+          if [ $code -ne 0 ]; then
+            echo "::warning::Playwright browser install exited $code — advisory (no Clerk CI secrets configured)"
+          fi
+          exit 0
+
+      - name: Run npm run test:e2e
         env:
           PLAYWRIGHT_BASE_URL: http://localhost:3000
+        run: |
+          set +e
+          npm run test:e2e
+          code=$?
+          set -e
+          if [ "$E2E_BLOCKING" = "true" ]; then exit $code; fi
+          if [ $code -ne 0 ]; then
+            echo "::warning::e2e suite exited $code — advisory (no Clerk CI secrets configured)"
+          fi
+          exit 0
 
       # A green tick on this job has meant "0 tests ran" for weeks. This step
       # makes the job state its own result in the checks UI, and fails if the
       # suite went vacuous for a reason nobody declared. See BUG-037 / audit H-8.
+      #
+      # No shell guard here on purpose: the script self-gates. It only ever
+      # exits non-zero when the Clerk keys are REAL, because with placeholders
+      # nothing it observes is evidence about the code in either direction. See
+      # finish() in that file.
       - name: Report what actually executed
         if: always()
         run: node scripts/e2e-execution-report.mjs
