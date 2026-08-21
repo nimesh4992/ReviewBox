@@ -516,6 +516,17 @@ that is a real, unclosed dependency, not a footnote.
 | `npm run test:e2e` (local) | **20 passed · 4 skipped · 0 failed** |
 | CI-contract mutation test | **9 / 9 mutations caught** |
 
+One genuine failure was found by this pass and fixed rather than explained
+away: `src/eval-exporter-tenant-isolation.test.ts` died with `SyntaxError:
+Invalid or unexpected token`. `scripts/eval/export-golden-set.mjs` carried a
+shebang, and on a Windows checkout (CRLF) esbuild's shebang stripping leaves
+the `#!` in the transformed output, so the whole file fails to load. **Linux CI
+is unaffected — it passed 886/886 on the same commit** — which is why the
+failure reproduces only on the founder's machine and why a green CI tick would
+never have surfaced it. The shebang was redundant anyway (`npm run eval:export`
+passes `--experimental-strip-types` explicitly and the file is never executed
+directly), so it was removed and the reason recorded in the file.
+
 **The 4 skipped Playwright specs are skipped, not passed.** Three "mocked
 inbox" specs and `spine-flow.spec.ts`'s full customer journey need an
 authenticated browser session, and **there is no implemented way to create
