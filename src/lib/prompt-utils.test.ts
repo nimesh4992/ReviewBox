@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { compressReviewText, humanizePunctuation } from "./prompt-utils";
+import { buildSystemPrompt, compressReviewText, humanizePunctuation } from "./prompt-utils";
 
 describe("compressReviewText", () => {
   it("strips common filler phrases", () => {
@@ -82,5 +82,35 @@ describe("humanizePunctuation", () => {
 
   it("is safe on empty text", () => {
     expect(humanizePunctuation("")).toBe("");
+  });
+});
+
+describe("buildSystemPrompt contact rule", () => {
+  // A live 5-language smoke run had the model answer a payment complaint with
+  // "bhejein support@reviewbox.com" -- an address that does not exist. The AI
+  // tier was the only tier never given persona.supportEmail, so with room to
+  // write a contact line it confabulated one. These replies publish publicly
+  // under the customer's developer name.
+  it("uses the real support address when one is supplied", () => {
+    const prompt = buildSystemPrompt({
+      tone: "professional",
+      supportEmail: "hello@tryreviewbox.com",
+    });
+    expect(prompt).toContain("hello@tryreviewbox.com");
+  });
+
+  it("forbids inventing contact details even with an address supplied", () => {
+    const prompt = buildSystemPrompt({
+      tone: "professional",
+      supportEmail: "hello@tryreviewbox.com",
+    });
+    expect(prompt).toMatch(/never invent an email address/i);
+  });
+
+  it("forbids inventing contact details when NO address is supplied", () => {
+    // The important half: absence of an address must not license invention.
+    const prompt = buildSystemPrompt({ tone: "professional" });
+    expect(prompt).toMatch(/never invent an email address/i);
+    expect(prompt).not.toMatch(/@/);
   });
 });

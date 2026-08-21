@@ -333,6 +333,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       contextEntries: kbEntries,
       brandVoice:     persona.brandVoice,
       teamName:       persona.teamName,
+      supportEmail:   persona.supportEmail,
       charLimit,
     });
 
