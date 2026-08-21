@@ -49,11 +49,15 @@ export async function generateReplyWithGemini(params: {
     return text;
   } catch (err) {
     if (err instanceof Error && err.message === "AI_UNAVAILABLE") throw err;
-    throw new Error("AI_UNAVAILABLE");
+    // See the matching comment in groq.ts -- log the cause, keep the message.
+    console.error("[gemini] generateReplyWithGemini failed:", err);
+    throw new Error("AI_UNAVAILABLE", { cause: err });
   }
 }
 
-const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.0-flash-exp";
+// Google shut down Gemini 2.0 Flash; `gemini-2.0-flash-exp` answers 404 on
+// v1beta. 2.5 Flash is the current stable workhorse and the closest analogue.
+const GEMINI_MODEL = process.env.GEMINI_MODEL ?? "gemini-2.5-flash";
 
 // ── Singleton client ──────────────────────────────────────────────────────────
 

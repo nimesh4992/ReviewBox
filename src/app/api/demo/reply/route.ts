@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Groq from "groq-sdk";
 import { rateLimit } from "@/lib/api-rate-limit";
+import { GROQ_MODEL } from "@/lib/groq";
 
 // Public demo endpoint — no auth required. IP-based rate limit via Redis
 // (in-memory Map doesn't work on serverless cold-start).
@@ -63,9 +64,12 @@ Write only the reply text.`;
 
   try {
     const completion = await groq.chat.completions.create({
-      model: "llama-3.3-70b-versatile",
+      // Was hardcoded to the retired llama-3.3-70b-versatile, so this public
+      // demo kept 404ing even when GROQ_MODEL was set. Share the one constant.
+      model: GROQ_MODEL,
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 180,
+      max_tokens: 450,
+      reasoning_effort: "low",
       temperature: 0.65,
     });
     const reply = completion.choices[0]?.message?.content?.trim() ?? "";
