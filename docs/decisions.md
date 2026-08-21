@@ -455,6 +455,18 @@ through that missing entity.
    daily, so "up 184% in the last 6 hours" is **physically undetectable** today. Build no UI and
    make no marketing claim beyond **"daily feedback intelligence"** until ingestion can do more.
 
+   > **Note appended 2026-08-21 — the stated premise of this point is false; the
+   > decision itself is untouched and still binding.** **Confirmed by the founder 2026-08-21: the ReviewBox project is on the Vercel PRO plan.**
+   > Pro allows once-per-minute crons, and sync now runs **every 3 hours** (P1-1).
+   > So "up 184% in the last 6 hours" is **no longer physically undetectable** —
+   > the ingestion constraint this point rests on does not exist.
+   >
+   > **The claim cap stands until the founder rules**, because widening a
+   > marketing claim is explicitly not an agent's call (D009). An agent recorded
+   > this correction; only the founder may act on it. The "on ice" list in the
+   > first half of the point is unaffected — it was never argued from cron
+   > frequency.
+
 **And the standing instruction that follows from all of it:** do not spend the next week polishing
 the dashboard. The dashboard is already good enough. Build the engine that makes it worth opening.
 

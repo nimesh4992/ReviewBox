@@ -12,24 +12,27 @@ verified.
 Full report (verdict, cadence diagram, findings, verification):
 https://claude.ai/code/artifact/04c21459-eb96-458f-81ff-0001e24468a1
 
-## The one thing waiting on the founder
+## ~~The one thing waiting on the founder~~ — RESOLVED, and it was never real
 
-`vercel.json` sets the sync cron to `0 */3 * * *`. **Vercel Hobby rejects any
-cron that fires more than once per day, at deploy time** — confirmed against
-Vercel's live docs (Hobby: minimum interval once per day, ±59 min precision;
-Pro: once per minute). Every doc in this repo records this project as Hobby.
+**Corrected 2026-08-21. Nothing is waiting on the founder here.**
 
-Two options, founder's call:
-- **Vercel Pro, $20/mo.** Works immediately, no code change. Note Hobby's ±59min
-  jitter would breach 4h regardless of the threshold, so per-minute precision is
-  a correctness requirement here, not a nicety.
-- **Supabase `pg_cron` + `pg_net`, free.** Extension already enabled; already the
-  documented zero-cost path (`ZERO_COST_PLAN.md`, `ISSUE_INTELLIGENCE.md`).
-  Needs a SQL job calling `/api/sync/reviews` with the `CRON_SECRET` bearer, and
-  `vercel.json`'s cron reverted to daily as a backstop.
+This section reported that `0 */3 * * *` could not deploy, because "Vercel Hobby
+rejects any cron that fires more than once per day, at deploy time" and "every
+doc in this repo records this project as Hobby". The first half is true of Hobby.
+The second half was the error: **the founder confirmed the project is on Vercel
+Pro**, which allows once-per-minute crons and per-minute precision. The cron
+deploys as shipped. No upgrade, no `pg_cron` job, no decision.
 
-The cron was deliberately NOT reverted — that would delete the feature while
-looking like a fix.
+The reasoning failure is worth keeping even though the finding is void: the
+Hobby claim was verified against **Vercel's public docs** — carefully, and the
+docs were quoted correctly — but never against **this account**. Confirming what
+a plan *would* do is not confirming which plan you are *on*. Ten documents
+repeated the wrong premise, and it had propagated far enough to fix the launch
+marketing claim at "daily" in `docs/decisions.md` D023 point 6.
+
+The cron was deliberately NOT reverted to daily, which turned out to be the right
+call for a second reason: reverting would have destroyed a working feature to
+satisfy a constraint that did not apply.
 
 ## The cadence defect, and the rule that prevents it recurring
 

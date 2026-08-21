@@ -5,11 +5,17 @@
 
 > ## Delivery status — updated 2026-08-21
 >
-> **P0 implementation COMPLETE. P1-1 — PASS WITH EXTERNAL DEPLOYMENT
-> CONFIGURATION.** Both are engineering-verified and sitting on
-> `fix/p0-commercial-readiness`. See **Part 6** for the item-by-item record,
-> the verified numbers, and the four external blockers that no amount of code
-> closes.
+> **P0 implementation COMPLETE. P1-1 — PASS, ENGINEERING VERIFIED.** Both are
+> engineering-verified and sitting on `fix/p0-commercial-readiness`. See
+> **Part 6** for the item-by-item record, the verified numbers, and the
+> remaining external blockers.
+>
+> **Corrected 2026-08-21:** P1-1 was first recorded here as *PASS WITH EXTERNAL
+> DEPLOYMENT CONFIGURATION*, on the belief that Vercel Hobby would reject the
+> 3-hour cron. **The founder has confirmed the project is on Vercel PRO**, where
+> once-per-minute crons are allowed, so `0 */3 * * *` deploys as shipped. That
+> blocker did not exist. Every document in this repo said Hobby; all of them
+> were wrong, and the stale claims have been corrected at source.
 >
 > This document remains the commercial-readiness audit of record. Part 6 is
 > appended to it rather than written elsewhere, so the gaps in Part 2 and the
@@ -295,12 +301,15 @@ tell you tomorrow" is a weak value proposition, and competitors sync hourly.
 any schedule for free — the extension is already enabled per CLAUDE.md. Worth
 doing before charging $99/mo.
 
-**Status 2026-08-21 — this is P1-1. The code is done and verified; the
-schedule cannot run on the current plan.** `vercel.json` now declares
-`0 */3 * * *`, and **Vercel Hobby rejects any cron firing more than once per
-day, at deploy time.** The application side of G-5 is closed; the deployment
-side is a founder decision between Vercel Pro and the `pg_cron` path this
-recommendation already names. Full record in **Part 6**.
+**Status 2026-08-21 — CLOSED by P1-1.** `vercel.json` declares `0 */3 * * *`
+and the project is on **Vercel Pro** (founder-confirmed), which allows
+once-per-minute crons — so it deploys as shipped. Sync latency is now ~3 hours
+with a 4-hour worst-case freshness guarantee, down from 24.
+
+The `pg_cron` path this recommendation names was **never needed**: it was
+proposed to work around a Hobby cron cap that did not apply to this project.
+It remains available if you ever want scheduling to survive independently of
+Vercel, but not for frequency. Full record in **Part 6**.
 
 ---
 
@@ -463,11 +472,18 @@ the product needed someone to ask "what happens the second time?"
 
 ### P1-1 — sub-daily review synchronization
 
-**Status: PASS WITH EXTERNAL DEPLOYMENT CONFIGURATION.**
+**Status: PASS — ENGINEERING VERIFIED.**
 
-Engineering is complete and verified. The label is not "ENGINEERING VERIFIED"
-alone because the shipped cron **cannot run on the current deployment plan** —
-that is a real, unclosed dependency, not a footnote.
+Engineering is complete and verified, and the shipped cron runs on the current
+plan.
+
+*This was first recorded as "PASS WITH EXTERNAL DEPLOYMENT CONFIGURATION",
+because every document in this repo said the project was on Vercel Hobby and
+Hobby rejects a sub-daily cron at deploy time. **The founder confirmed on
+2026-08-21 that the project is on Vercel Pro.** The blocker was an artefact of a
+stale document, not a property of the system — which is worth recording, because
+the same false premise had also fixed the launch marketing claim at "daily" (see
+`docs/decisions.md` D023 point 6).*
 
 | | |
 |---|---|
@@ -480,7 +496,7 @@ that is a real, unclosed dependency, not a footnote.
 | **Tenant isolation** | Every candidate query is scoped by `workspace_id`; workers are pinned to one workspace and a session caller's `?workspaceId=` is overridden with their own. Covered by `tenant-isolation.test.ts`. |
 | **Provider-load behavior** | **Two DB queries per tick, regardless of workspace count**, and no provider is contacted to discover a workspace is not due. Raising the cron 8× therefore costs nothing upstream. The candidate filter is an **optimisation, not a correctness gate**: if the `apps` listing errors, or hits PostgREST's 1,000-row cap, the filter is disabled and every workspace is synced — i.e. exactly the pre-P1-1 behaviour, so it cannot regress. That fail-open matters: the first draft discarded the query error, so a failed listing made every workspace look app-less, queued nothing, and reported "all up to date" — a total sync outage reading as success. |
 | **Sync Now production fix** | `/api/sync/reviews` was left in **neither** middleware matcher: P0 correctly removed it from `isPublicRoute` and never added it to `isAppRoute`. On the production app host a path in neither matcher is 307'd to `/dashboard`, returning HTML to a `fetch()` expecting JSON — so Settings → "Sync now" and the dashboard self-heal kick were broken **in production only** (localhost is not `isProd`). This is the **sixth** occurrence of this bug class in this repo. Fixed by adding `"/api/sync(.*)"` to `isAppRoute`, deliberately **not** to `isBilledRoute`: collecting a customer's own reviews is not a metered feature, and a trial-expired workspace still needs its data. |
-| **CI configuration fixes** | See below. |
+| **CI configuration fixes** | See "Defects found inside the surrounding P0 work" below. |
 | **Playwright discovery fix** | `playwright.config.ts` never loaded `.env*`, so the skip gate read an empty `process.env`, concluded "placeholder", and skipped all 24 specs **on every developer machine** — for a reason that had nothing to do with the local environment. It now calls `loadEnvConfig()` from `@next/env` (Next's own loader, so test process and app resolve identically, and values already in `process.env` still win — which is what keeps CI's placeholders authoritative). The gate itself also modelled two states where there are three: **no keys at all is not a placeholder** — Clerk's Next SDK falls back to keyless mode in development and the app genuinely works. 20 of 24 specs are real signal in that state, and they were all being thrown away. |
 
 ### Defects found inside the surrounding P0 work (all fixed)
@@ -552,23 +568,21 @@ before the tree was restored. Every guard here is falsified, not trusted.
 
 ### Remaining external blockers — none of these is closable in code
 
-1. **Vercel Hobby cannot run the 3-hour cron.** `0 */3 * * *` is rejected at
-   **deploy** time — which takes the whole deploy down, not just the cron. Two
-   valid production options, founder's call:
-   - **A. Vercel Pro ($20/mo).** Works immediately, no code change. Note that
-     Hobby's ±59-minute schedule jitter would breach the 4h objective even if
-     the interval were allowed, so per-minute precision is a **correctness**
-     requirement here, not a nicety.
-   - **B. Supabase `pg_cron` + `pg_net` (free).** The extension is already
-     enabled and this is the documented zero-cost path (`ZERO_COST_PLAN.md`).
-     Needs a SQL job calling `/api/sync/reviews` with the `CRON_SECRET` bearer,
-     and `vercel.json`'s cron reverted to daily as a backstop.
+1. ~~**Vercel Hobby cannot run the 3-hour cron.**~~ **RESOLVED 2026-08-21 —
+   this blocker never existed.** The founder confirmed the project is on
+   **Vercel Pro**, which permits once-per-minute crons and per-minute schedule
+   precision, so `0 */3 * * *` deploys as shipped with no upgrade, no `pg_cron`
+   job, and no decision required. The ±59-minute jitter argument recorded here —
+   that Hobby's imprecision would breach the 4h objective independently — is
+   likewise void.
 
-     **Not implemented — no `pg_cron` job was written.** Doing so unasked would
-     mean an agent authoring SQL for production against D009.
-
-   The cron was deliberately **not** reverted to daily: that would delete the
-   feature while looking like a fix.
+   **Keep the lesson, not the blocker.** This was reported to the founder as the
+   single thing standing between P1-1 and production, and it was wrong, because
+   ten documents in this repo asserted "Hobby" and none of them had been checked
+   against the account. It is the same class of error as "CI is green" (Part 4)
+   and the deploy job that reported success while shipping nothing: **a claim
+   believed because it was written down.** A platform limit is a fact about an
+   account, not a fact about a repository — read it from the provider.
 2. **Clerk test secrets are not configured in GitHub.** Until
    `CLERK_PUBLISHABLE_KEY_TEST` and `CLERK_SECRET_KEY_TEST` exist as repo
    secrets, `E2E_BLOCKING` is false, every spec skips, and the e2e job proves
