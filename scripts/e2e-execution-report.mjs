@@ -64,6 +64,37 @@ function emit(lines) {
   }
 }
 
+/**
+ * Exit, but never fail the build while CI has no real Clerk instance.
+ *
+ * This step runs with `if: always()`, so its exit code decides the e2e job's
+ * fate. That was harmless while the job carried a job-level
+ * `continue-on-error: true`; once tolerance moved to the individual steps, an
+ * exit 1 here could fail the whole workflow -- on a check the file itself names
+ * "advisory", and for reasons that have nothing to do with the change under
+ * test. `next dev` timing out at 120s on a loaded runner is the documented
+ * historical failure mode for this exact job.
+ *
+ * So: with placeholder keys this step may only ever INFORM. Nothing it can
+ * observe is evidence about the code, in either direction, so nothing it
+ * observes should gate a merge. With real keys the check is meaningful and a
+ * failure is real signal.
+ */
+function finish(code, placeholder) {
+  if (code !== 0 && placeholder) {
+    emit([
+      "",
+      "_Reported as advisory: CI has no real Clerk instance, so this check " +
+        "cannot prove anything either way. It will start blocking once " +
+        "CLERK_PUBLISHABLE_KEY_TEST and CLERK_SECRET_KEY_TEST are set._",
+    ]);
+    process.exit(0);
+  }
+  process.exit(code);
+}
+
+const placeholder = clerkKeyIsPlaceholder();
+
 if (!existsSync(REPORT)) {
   emit([
     "## E2E: ⚠️ no report produced",
@@ -71,7 +102,7 @@ if (!existsSync(REPORT)) {
     `Playwright wrote no \`${REPORT}\`, so it is not possible to say whether any`,
     "test ran. Treat this check as having proven nothing.",
   ]);
-  process.exit(1);
+  finish(1, placeholder);
 }
 
 let report;
@@ -79,7 +110,7 @@ try {
   report = JSON.parse(readFileSync(REPORT, "utf8"));
 } catch (err) {
   emit(["## E2E: ⚠️ unreadable report", "", `\`${REPORT}\` could not be parsed: ${err.message}`]);
-  process.exit(1);
+  finish(1, placeholder);
 }
 
 const acc = { expected: 0, skipped: 0, unexpected: 0, flaky: 0 };
@@ -87,9 +118,39 @@ for (const suite of report.suites ?? []) countOutcomes(suite, acc);
 
 const executed = acc.expected + acc.unexpected + acc.flaky;
 const total = executed + acc.skipped;
-const placeholder = clerkKeyIsPlaceholder();
 
-if (executed === 0 && total > 0 && placeholder) {
+// total === 0 means Playwright never reached a single spec: a webServer that
+// never became ready, a browser that would not install, a config error. That is
+// an INFRASTRUCTURE failure, categorically different from "specs were collected
+// and skipped".
+//
+// This branch did not exist, so a webServer timeout fell through to the
+// vacuous-pass branch below and printed "A real Clerk key appears to be
+// configured" -- while CI was running the placeholder pair. Wrong diagnosis and
+// wrong exit code, on the one check whose whole job is to describe itself
+// accurately.
+if (total === 0) {
+  const firstErrors = (report.errors ?? [])
+    .slice(0, 3)
+    .map((e) => "- `" + String(e.message ?? e).split("\n")[0] + "`");
+  emit([
+    "## E2E: 0 specs collected -- the suite never started",
+    "",
+    "Playwright produced a report containing no specs at all, so this is not a",
+    "skip: nothing was even collected. Usual causes, likeliest first:",
+    "",
+    "- the dev server did not become ready inside `webServer.timeout`",
+    "- `npx playwright install` failed",
+    "- a config or import error aborted the run before collection",
+    ...(firstErrors.length ? ["", "Playwright reported:", "", ...firstErrors] : []),
+    "",
+    "Read the HEAD of the test step's log, not the tail -- the actionable line",
+    "scrolls off the end.",
+  ]);
+  finish(1, placeholder);
+}
+
+if (executed === 0 && placeholder) {
   // Known, declared, and deliberate — but it must not read as a pass.
   emit([
     "## E2E: ⏭️ 0 of " + total + " specs executed — SUITE DID NOT RUN",
@@ -116,7 +177,7 @@ if (executed === 0) {
     "vacuous-pass failure mode this gate exists to catch — the suite is not",
     "testing anything and the job would otherwise be green.",
   ]);
-  process.exit(1);
+  finish(1, placeholder);
 }
 
 emit([

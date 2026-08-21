@@ -1,7 +1,8 @@
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse, type NextFetchEvent } from "next/server";
 
 import { isEntitledPlan } from "@/lib/plans";
+import { canBypassClerkForSyncCron } from "@/lib/sync-cron-auth";
 import {
   APP_HOST_ROBOTS_TXT,
   CRAWLER_FILE_PATHS,
@@ -60,7 +61,6 @@ const isPublicRoute = createRouteMatcher([
   "/sign-up(.*)",
   "/invite(.*)",
   "/api/stripe/webhook",
-  "/api/sync/(.*)",
   "/api/reports/weekly-digest",
   "/api/reports/unreplied-alert",
   // Every cron target must be listed. daily-digest was added later and missed,
@@ -149,6 +149,15 @@ const isAppRoute = createRouteMatcher([
   "/api/import(.*)",
   "/api/competitors(.*)",
   "/api/auth/slack(.*)",
+  // The sync route is no longer blanket-public (the cron authenticates with
+  // CRON_SECRET above, before Clerk initializes), so it MUST be listed here or
+  // it lands in neither matcher — and a path in neither matcher is 307'd to
+  // /dashboard on the prod app host. That returns HTML to a fetch() expecting
+  // JSON, breaking Settings -> "Sync now" and the dashboard self-heal kick in
+  // production while both work fine on localhost, which is not `isProd`.
+  // Deliberately NOT in isBilledRoute: collecting a customer's own reviews is
+  // not a metered feature, and a trial-expired workspace still needs its data.
+  "/api/sync(.*)",
 ]);
 
 // Routes that require an active paid plan
@@ -158,11 +167,11 @@ const isBilledRoute = createRouteMatcher([
   "/api/reply(.*)",
 ]);
 
-export default clerkMiddleware(async (auth, request) => {
+function handlePublicOrHostRouting(request: NextRequest): NextResponse | null {
   const { nextUrl } = request;
   // Normalize before comparing: strip the port, lowercase, and treat a leading
   // "www." as the bare domain. Without this, www.tryreviewbox.com matched
-  // NEITHER host branch below — so the authenticated product was served
+  // NEITHER host branch below - so the authenticated product was served
   // directly from the marketing domain instead of redirecting to the app
   // subdomain, and Clerk's session cookie could go missing across the
   // www/non-www boundary, leaving sign-in unable to see an existing session.
@@ -182,7 +191,7 @@ export default clerkMiddleware(async (auth, request) => {
     //
     // This must run before the isPublicRoute branch below. /robots.txt is now
     // public on both hosts, so without this the app host would be served the
-    // MARKETING robots.txt — an `Allow: /` inviting Google to crawl the whole
+    // MARKETING robots.txt - an `Allow: /` inviting Google to crawl the whole
     // signed-in product. Making the path public and leaving it host-blind is
     // strictly worse than the 404 it replaced.
     if (isAppHost && nextUrl.pathname === "/robots.txt") {
@@ -197,15 +206,15 @@ export default clerkMiddleware(async (auth, request) => {
       });
     }
 
-    // app.tryreviewbox.com root → sign-in
+    // app.tryreviewbox.com root -> sign-in
     if (isAppHost && nextUrl.pathname === "/") {
       return NextResponse.redirect(new URL("/sign-in", request.url));
     }
 
-    // Marketing content served from the app host → 301 to its canonical home.
+    // Marketing content served from the app host -> 301 to its canonical home.
     //
     // These pages are public routes, so they rendered in full on
-    // app.tryreviewbox.com — a byte-identical duplicate of the page the
+    // app.tryreviewbox.com - a byte-identical duplicate of the page the
     // marketing host is trying to rank. The noindex header kept them out of the
     // index but threw away any link equity pointing at them; a 301 passes it on
     // instead.
@@ -221,32 +230,41 @@ export default clerkMiddleware(async (auth, request) => {
       );
     }
 
-    // app subdomain: unknown (non-app, non-public) path → dashboard
+    // app subdomain: unknown (non-app, non-public) path -> dashboard
     if (isAppHost && !isAppRoute(request) && !isPublicRoute(request)) {
       return NextResponse.redirect(new URL("/dashboard", request.url));
     }
 
-    // Marketing domain: sign-in/sign-up → redirect to app subdomain
+    // Marketing domain: sign-in/sign-up -> redirect to app subdomain
     if (!isAppHost && hostname === MARKETING_HOST &&
         (nextUrl.pathname.startsWith("/sign-in") || nextUrl.pathname.startsWith("/sign-up"))) {
       const appUrl = new URL(nextUrl.pathname + nextUrl.search, `https://${APP_HOST}`);
       return NextResponse.redirect(appUrl);
     }
 
-    // Marketing domain: app path → redirect to app subdomain
+    // Marketing domain: app path -> redirect to app subdomain
     if (!isAppHost && hostname === MARKETING_HOST && isAppRoute(request)) {
       const appUrl = new URL(nextUrl.pathname + nextUrl.search, `https://${APP_HOST}`);
       return NextResponse.redirect(appUrl);
     }
   }
 
-  // ── Auth guard ─────────────────────────────────────────────────────────────
+  // ── Auth guard for public routes (bypasses Clerk initialization) ───────────
   if (isPublicRoute(request)) {
     const res = NextResponse.next();
     // Tell crawlers not to index the app subdomain
     if (isAppHost) res.headers.set("X-Robots-Tag", "noindex, nofollow");
     return res;
   }
+
+  return null;
+}
+
+const handleClerkAuth = clerkMiddleware(async (auth, request) => {
+  const { nextUrl } = request;
+  const rawHost = (request.headers.get("host") ?? "").toLowerCase().split(":")[0];
+  const hostname = rawHost.startsWith("www.") ? rawHost.slice(4) : rawHost;
+  const isAppHost = hostname === APP_HOST;
 
   const { sessionClaims } = await auth.protect();
   const metadata = (sessionClaims?.metadata ?? {}) as {
@@ -259,7 +277,7 @@ export default clerkMiddleware(async (auth, request) => {
   const trialEndsAt = metadata.trialEndsAt;
   const accountDeletedAt = metadata.accountDeletedAt;
 
-  // Account scheduled for deletion — let restore endpoint and the
+  // Account scheduled for deletion - let restore endpoint and the
   // restore page through; block everything else.
   if (accountDeletedAt) {
     const isRestorePath =
@@ -275,9 +293,9 @@ export default clerkMiddleware(async (auth, request) => {
   // `onboarded` flag from Clerk's session JWT causes infinite redirect loops
   // when the JWT is stale (Clerk caches metadata up to 60s after we update
   // it server-side). Onboarding routing is handled at the PAGE level:
-  //   - Signed-in user with no workspace → dashboard renders an empty-state
+  //   - Signed-in user with no workspace -> dashboard renders an empty-state
   //     CTA pointing to /onboarding.
-  //   - User on /onboarding who already has a workspace → onboarding page
+  //   - User on /onboarding who already has a workspace -> onboarding page
   //     redirects to /dashboard via useEffect.
   // Both checks read fresh state from /api/onboarding/state (DB-authoritative),
   // never from the JWT.
@@ -312,7 +330,7 @@ export default clerkMiddleware(async (auth, request) => {
   //
   // The set itself lives in lib/plans.ts (ENTITLED_PLANS), typed against the
   // plan vocabulary, so adding or renaming a tier can't silently leave this
-  // gate behind. It used to be a bare string literal Set here — the one
+  // gate behind. It used to be a bare string literal Set here - the one
   // untyped copy that, if missed when a tier was added, would lock a paying
   // customer out of every billed route with nothing in CI to catch it.
   if (isBilledRoute(request) && !isEntitledPlan(plan)) {
@@ -332,6 +350,29 @@ export default clerkMiddleware(async (auth, request) => {
   if (isAppHost) res.headers.set("X-Robots-Tag", "noindex, nofollow");
   return res;
 });
+
+export default async function middleware(request: NextRequest, event: NextFetchEvent) {
+  // Cron requests authenticate with CRON_SECRET inside the route, so Clerk
+  // must not initialize first. A user-triggered "Sync now" request does not
+  // have that secret and must continue through Clerk to make auth() available
+  // in the route handler.
+  if (
+    request.nextUrl.pathname === "/api/sync/reviews" &&
+    canBypassClerkForSyncCron(
+      request.headers.get("authorization"),
+      process.env.CRON_SECRET,
+      process.env.NODE_ENV,
+    )
+  ) {
+    return NextResponse.next();
+  }
+
+  const publicOrHostRes = handlePublicOrHostRouting(request);
+  if (publicOrHostRes) {
+    return publicOrHostRes;
+  }
+  return handleClerkAuth(request, event);
+}
 
 export const config = {
   matcher: [

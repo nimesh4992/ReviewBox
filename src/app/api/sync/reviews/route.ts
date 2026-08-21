@@ -5,6 +5,12 @@ import { auth } from "@clerk/nextjs/server";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { syncWorkspace } from "@/services/review-sync";
 import { rateLimit } from "@/lib/api-rate-limit";
+import {
+  evaluateWorkspaceSyncCandidate,
+  SUB_DAILY_CADENCE_HOURS,
+  SYNC_CRON_INTERVAL_HOURS,
+  type AppSyncState,
+} from "@/lib/sync-candidate";
 
 // A workspace sync scrapes the public store, hits the Publisher/Connect APIs,
 // and runs enrichment — comfortably more than the default function budget.
@@ -75,6 +81,13 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   if (workspaceId) {
     try {
       const summary = await syncWorkspace(workspaceId);
+      const quotaErr = summary.errors.find((e) => e.includes("Monthly review limit reached"));
+      if (quotaErr) {
+        return NextResponse.json(
+          { error: "REVIEW_LIMIT_REACHED", message: quotaErr, ...summary, workspaceId },
+          { status: 402 },
+        );
+      }
       return NextResponse.json({ ...summary, workspaceId });
     } catch (err) {
       // Logged in full below, but NOT returned. Every other route funnels
@@ -93,6 +106,8 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   // Only the cron can reach here (signed-in users get pinned to their own
   // workspace above and end up in worker mode).
   const sb = getServiceClient();
+  const force = req.nextUrl.searchParams.get("force") === "1";
+
   const { data: workspaces } = await sb
     .from("workspaces")
     .select("id")
@@ -100,6 +115,73 @@ async function handler(req: NextRequest): Promise<NextResponse> {
 
   if (!workspaces?.length) {
     return NextResponse.json({ message: "No active workspaces to sync", workspacesQueued: 0 });
+  }
+
+  // Active workspace filter: read every live app once, then decide per
+  // workspace in memory. Two DB queries per cron tick regardless of how many
+  // workspaces exist — no provider is contacted to discover that a workspace
+  // isn't due, so raising the cron frequency costs nothing upstream.
+  //
+  // SCALE LIMIT, stated rather than engineered around: PostgREST caps a select
+  // at 1,000 rows by default, so past ~1,000 live apps this listing truncates.
+  // Two DB reads is the right shape for MVP volumes (tens of workspaces); the
+  // fix when it matters is keyset pagination here, not a queue. The guard below
+  // exists so we find out from a log line instead of from a customer whose
+  // reviews stopped arriving.
+  const APPS_PAGE_LIMIT = 1000;
+  const workspaceIds = workspaces.map((w) => w.id);
+  const { data: allApps, error: appsError } = await sb
+    .from("apps")
+    .select("id, workspace_id, store_id, deleted_at, last_synced_at, last_sync_attempted_at")
+    .in("workspace_id", workspaceIds)
+    .is("deleted_at", null);
+
+  // The candidate filter is an OPTIMISATION, not a correctness gate. If we
+  // cannot read the apps table we must fall back to syncing everyone — that is
+  // exactly the pre-P1-1 behaviour, so it cannot be a regression, whereas
+  // trusting an empty result means every workspace looks app-less and the
+  // coordinator cheerfully reports "all up to date" having queued nothing.
+  // Three of the selected columns arrived in later migrations (013/015), so a
+  // missing-column error here is a live possibility, not a theoretical one.
+  const filterUnavailable = !!appsError;
+  if (appsError) {
+    console.error(
+      "[sync coordinator] apps listing failed — syncing all workspaces unfiltered:",
+      appsError.message,
+    );
+  } else if ((allApps?.length ?? 0) >= APPS_PAGE_LIMIT) {
+    // Truncated listing: workspaces whose apps fell off the end would look
+    // app-less and be skipped silently. Sync everyone instead.
+    console.error(
+      `[sync coordinator] apps listing hit the ${APPS_PAGE_LIMIT}-row cap — ` +
+      `candidate filter disabled for this run; paginate this query.`,
+    );
+  }
+
+  const filterActive =
+    !filterUnavailable && (allApps?.length ?? 0) < APPS_PAGE_LIMIT;
+
+  const appsByWorkspace = new Map<string, AppSyncState[]>();
+  for (const app of allApps ?? []) {
+    const list = appsByWorkspace.get(app.workspace_id) ?? [];
+    list.push(app as AppSyncState);
+    appsByWorkspace.set(app.workspace_id, list);
+  }
+
+  const now = new Date();
+  const targetWorkspaces = workspaces.filter((ws) => {
+    if (force || !filterActive) return true;
+    const apps = appsByWorkspace.get(ws.id) ?? [];
+    return evaluateWorkspaceSyncCandidate(apps, now).shouldSync;
+  });
+
+  if (!targetWorkspaces.length) {
+    return NextResponse.json({
+      message: "All active workspaces are up to date within sub-daily cadence window",
+      workspacesEvaluated: workspaces.length,
+      workspacesQueued: 0,
+      coordinatedAt: now.toISOString(),
+    });
   }
 
   const baseUrl =
@@ -113,13 +195,13 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   const headers: HeadersInit = secret ? { authorization: `Bearer ${secret}` } : {};
 
   // Fanout inside after(): a bare fire-and-forget fetch dies when Vercel
-  // freezes the lambda on response — which silently skipped the daily sync.
+  // freezes the lambda on response — which silently skipped the sub-daily sync.
   // after() keeps the invocation alive; each worker still runs in its own
   // invocation with its own budget, and once a worker request has been
   // RECEIVED it completes even if the coordinator is later reclaimed.
   after(async () => {
     await Promise.allSettled(
-      workspaces.map((ws) =>
+      targetWorkspaces.map((ws) =>
         fetch(`${baseUrl}/api/sync/reviews?workspaceId=${ws.id}`, {
           method: "GET",
           headers,
@@ -131,8 +213,14 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   });
 
   return NextResponse.json({
-    workspacesQueued: workspaces.length,
-    coordinatedAt: new Date().toISOString(),
+    workspacesEvaluated: workspaces.length,
+    workspacesQueued: targetWorkspaces.length,
+    // Derived, not written by hand: a stale literal here is how "we sync every
+    // 3 hours" would keep being reported after someone changed the schedule.
+    cadence: `${SYNC_CRON_INTERVAL_HOURS}h`,
+    stalenessThresholdHours: SUB_DAILY_CADENCE_HOURS,
+    candidateFilterApplied: filterActive && !force,
+    coordinatedAt: now.toISOString(),
   });
 }
 

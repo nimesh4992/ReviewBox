@@ -187,11 +187,8 @@ describe("checkReviewLimit", () => {
     expect(msg).toMatch(/upgrade/i);
   });
 
-  it("is still not wired into the sync pipeline", async () => {
-    // Audit finding M-6: this function is fully implemented but has no call
-    // site, so the review-volume cap advertised on /pricing and /billing is
-    // not enforced anywhere. Recorded as a test so the gap is visible rather
-    // than forgotten — delete this case when the call site is added.
+  it("is wired into the sync pipeline", async () => {
+    // Assert checkReviewLimit is called in the sync pipeline (services/review-sync.ts and/or api/sync/reviews)
     const { readFileSync, readdirSync, statSync } = await import("node:fs");
     const { join } = await import("node:path");
     const hits: string[] = [];
@@ -200,12 +197,11 @@ describe("checkReviewLimit", () => {
         const full = join(dir, e);
         if (statSync(full).isDirectory()) walk(full);
         else if (/\.tsx?$/.test(e) && !e.endsWith(".test.ts")) {
-          if (readFileSync(full, "utf8").includes("checkReviewLimit")) hits.push(full);
+          if (readFileSync(full, "utf8").includes("checkReviewLimit")) hits.push(full.replace(/\\/g, "/"));
         }
       }
     };
     walk(join(process.cwd(), "src"));
-    // Only its own definition.
-    expect(hits.filter((h) => !h.endsWith("plan-enforcement.ts"))).toEqual([]);
+    expect(hits.filter((h) => !h.endsWith("plan-enforcement.ts")).length).toBeGreaterThan(0);
   });
 });

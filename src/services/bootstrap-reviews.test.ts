@@ -72,4 +72,68 @@ describe("bootstrapAppStoreReviews — failures must be loud", () => {
     const rows = await bootstrapAppStoreReviews("app", "ws", "com.x.y", "us");
     expect(rows).toHaveLength(2);
   });
+
+  it("passes US country through as 'US' on mapped App Store review rows", async () => {
+    const entry = (id: string) => ({
+      id: { label: id },
+      author: { name: { label: "US User" } },
+      "im:rating": { label: "5" },
+      title: { label: "Great app" },
+      content: { label: "Works fine in US" },
+      updated: { label: new Date().toISOString() },
+    });
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ resultCount: 1, results: [{ trackId: 101 }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ feed: { entry: [entry("meta"), entry("r1")] } }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const rows = await bootstrapAppStoreReviews("app-us", "ws-us", "com.example.usapp", "us");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].country).toBe("US");
+  });
+
+  it("passes regional country through to mapped App Store review rows", async () => {
+    const entry = (id: string) => ({
+      id: { label: id },
+      author: { name: { label: "Mumbai User" } },
+      "im:rating": { label: "5" },
+      title: { label: "Great transit app" },
+      content: { label: "Very helpful for daily commute" },
+      updated: { label: new Date().toISOString() },
+    });
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ resultCount: 1, results: [{ trackId: 100 }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ feed: { entry: [entry("meta"), entry("r1")] } }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    const rows = await bootstrapAppStoreReviews("app-mumbai", "ws-mumbai", "com.mmrda.mumbaione", "in");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].country).toBe("IN");
+  });
+
+  it("explicitly defaults no-country parameter to DEFAULT_STOREFRONT ('US')", async () => {
+    const entry = (id: string) => ({
+      id: { label: id },
+      author: { name: { label: "Default User" } },
+      "im:rating": { label: "4" },
+      title: { label: "Good" },
+      content: { label: "Decent app" },
+      updated: { label: new Date().toISOString() },
+    });
+
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ resultCount: 1, results: [{ trackId: 102 }] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ feed: { entry: [entry("meta"), entry("r1")] } }) });
+    vi.stubGlobal("fetch", fetchMock);
+
+    // Call without country parameter
+    const rows = await bootstrapAppStoreReviews("app-def", "ws-def", "com.example.defapp");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].country).toBe("US");
+  });
 });

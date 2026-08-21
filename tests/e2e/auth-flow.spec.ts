@@ -1,5 +1,10 @@
 import { expect, test } from "@playwright/test";
-import { clerkKeyIsPlaceholder, SKIP_REASON } from "./clerk-env";
+import {
+  AUTHENTICATED_E2E_AVAILABLE,
+  AUTH_SKIP_REASON,
+  clerkKeyIsPlaceholder,
+  SKIP_REASON,
+} from "./clerk-env";
 
 /**
  * Auth-flow e2e tests — verifies the critical paths without requiring
@@ -86,16 +91,19 @@ test.describe("onboarding page", () => {
 // Clerk account. We also inject the rb_onboarded cookie so middleware
 // doesn't redirect us away from the app shell.
 //
-// The Clerk auth guard runs server-side; to bypass it in e2e we set the
-// BYPASS_AUTH env var... but we removed that for security (AUD-005).
-// Instead, these tests rely on the dev server having NEXT_PUBLIC_BYPASS_E2E=1
-// set, which makes `auth.protect()` return a mock userId for e2e only.
-// If that env var is absent, these tests are skipped automatically.
+// The Clerk auth guard runs server-side, so these need an authenticated
+// session. The comment that used to sit here said they "rely on the dev server
+// having NEXT_PUBLIC_BYPASS_E2E=1 set, which makes auth.protect() return a mock
+// userId for e2e only". That mechanism does not exist: nothing in src/ reads
+// that variable, and it is absent from the built .next/ output too. Its
+// predecessor BYPASS_AUTH was removed as a security defect (SEC-005/AUD-005)
+// and no replacement was ever built, so setting the flag changed nothing —
+// middleware redirects to /sign-in before any route stub below is consulted.
+//
+// See AUTH_SKIP_REASON in ./clerk-env for what would actually enable these.
 
-const E2E_BYPASS = !!process.env.NEXT_PUBLIC_BYPASS_E2E;
-
-test.describe("mocked inbox (requires NEXT_PUBLIC_BYPASS_E2E=1)", () => {
-  test.skip(!E2E_BYPASS, "Skipped: set NEXT_PUBLIC_BYPASS_E2E=1 to enable mocked auth tests");
+test.describe("mocked inbox (needs an authenticated browser session)", () => {
+  test.skip(!AUTHENTICATED_E2E_AVAILABLE, AUTH_SKIP_REASON);
 
   test.beforeEach(async ({ context }) => {
     // Inject the onboarded cookie so middleware lets us through

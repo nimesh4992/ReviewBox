@@ -226,7 +226,7 @@ function writeSites(late: Map<string, string>): WriteSite[] {
 
       if (columns.length) {
         sites.push({
-          file: file.slice(process.cwd().length + 1),
+          file: file.slice(process.cwd().length + 1).replace(/\\/g, "/"),
           line: source.slice(0, m.index).split("\n").length,
           table,
           columns,

@@ -1,4 +1,5 @@
 import { defineConfig, devices } from "@playwright/test";
+import { loadEnvConfig } from "@next/env";
 
 /**
  * Playwright config for ReviewBox.
@@ -7,6 +8,29 @@ import { defineConfig, devices } from "@playwright/test";
  * chromium-only headless. Locally, run `npx playwright test --ui`
  * to debug.
  */
+
+/**
+ * Load .env* the same way the app under test does.
+ *
+ * The skip gate in tests/e2e/clerk-env.ts asks "are we pointed at a real Clerk
+ * instance?" by reading process.env. But Playwright's own process is NOT the
+ * Next dev server: Next loads .env.local for itself, and nothing loaded it
+ * here. So the gate saw no Clerk variables at all, concluded "placeholder", and
+ * every spec skipped — locally, for a reason that had nothing to do with the
+ * local environment. The suite could therefore never run on a developer machine
+ * no matter what was in .env.local.
+ *
+ * `loadEnvConfig` is Next's own loader (@next/env, exact-pinned by next itself),
+ * so the test process and the app resolve identical values with identical
+ * precedence — .env.local over .env.development over .env. Re-implementing
+ * dotenv parsing here would be one more thing to get subtly wrong.
+ *
+ * It does NOT overwrite variables already present in process.env, so CI's
+ * job-level `env:` block and any explicit shell override still win. That
+ * ordering matters: it is what keeps CI's placeholder keys authoritative.
+ */
+loadEnvConfig(process.cwd());
+
 export default defineConfig({
   testDir: "./tests/e2e",
   fullyParallel: true,

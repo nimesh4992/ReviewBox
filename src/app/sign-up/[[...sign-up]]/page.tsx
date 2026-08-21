@@ -8,9 +8,13 @@ import { CLERK_APPEARANCE } from "@/components/auth/clerk-appearance";
 
 export default async function SignUpPage() {
   // Already signed in → skip the blank form, send them onward.
-  const { userId } = await auth();
-  if (userId) {
-    redirect("/dashboard");
+  try {
+    const { userId } = await auth();
+    if (userId) {
+      redirect("/dashboard");
+    }
+  } catch {
+    // Public page isolation: auth() throws if clerkMiddleware did not run or during auth outages
   }
 
   return (

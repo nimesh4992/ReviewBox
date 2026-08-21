@@ -28,6 +28,7 @@ import { findAppAcrossStorefronts, fetchAppMetadata } from "@/services/store-sea
 import { DEFAULT_STOREFRONT as DEFAULT_SYNC_STOREFRONT, normalizeStorefront } from "@/lib/storefronts";
 import { buildEnrichedRow } from "@/lib/review-mapper";
 import { bootstrapReviews } from "@/services/bootstrap-reviews";
+import { checkReviewLimit } from "@/lib/plan-enforcement";
 import { planSyncWrites, mergeReviewRows, isGpPermissionError } from "@/lib/sync-writes";
 import { buildMetadataUpdate, needsStorefrontReprobe } from "@/lib/app-metadata";
 import { isMissingColumnError, writeWithOptionalColumns } from "@/lib/db-errors";
@@ -794,6 +795,25 @@ async function syncWorkspaceApps(workspaceId: string): Promise<SyncSummary> {
   const summary: SyncSummary = { appsProcessed: 0, reviewsUpserted: 0, spikesDetected: 0, errors: [] };
 
   const allApps = await loadWorkspaceApps(workspaceId, summary);
+
+  // Enforce plan's monthly review limit before ingesting additional reviews.
+  const { data: wsData } = await sb
+    .from("workspaces")
+    .select("plan")
+    .eq("id", workspaceId)
+    .maybeSingle();
+
+  const plan = (wsData?.plan as string | null) ?? "trial";
+  const quotaMsg = await checkReviewLimit(workspaceId, plan).catch((err) => {
+    console.warn(`[sync] checkReviewLimit failed for ${workspaceId}:`, err);
+    return null;
+  });
+
+  if (quotaMsg) {
+    console.warn(`[sync] workspace ${workspaceId} quota reached: ${quotaMsg}`);
+    summary.errors.push(quotaMsg);
+    return summary;
+  }
 
   // Apps without a store identifier can't sync — there's nothing to scrape.
   // This happens when onboarding's manual-entry path was used with just an

@@ -46,3 +46,6 @@ yarn-error.log*
 # Only the label-only projection (review_id, issue_id, language_bucket, …)
 # may be committed. See docs/GOLDEN_SET.md.
 /eval/*.csv
+
+# clerk configuration (can include secrets)
+/.clerk/

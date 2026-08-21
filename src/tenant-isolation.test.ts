@@ -72,7 +72,7 @@ describe("tenant isolation", () => {
       const src = readFileSync(file, "utf8");
       if (!src.includes("getServiceClient")) continue;
 
-      const rel = relative(API_DIR, file);
+      const rel = relative(API_DIR, file).replace(/\\/g, "/");
       if (rel in GLOBAL_BY_DESIGN) continue;
       if (!mentionsWorkspaceScope(src)) offenders.push(rel);
     }
