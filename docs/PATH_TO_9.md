@@ -121,6 +121,7 @@ watch. A row may not claim a gate is green — only §2's table may, and only af
 | 2026-08-21 19:46 | M1 · `src/lib/release-regression.ts` + 18 unit tests | `vitest` 18/18; **5 mutations applied, all 5 caught** (drop normalisation, drop tag floor, swap old/new, drop version floor, trust array adjacency) | — |
 | 2026-08-21 19:52 | M1 · "What changed vs vX" card on `/releases/[version]`, workspace tag labels, `issue_tags_override` honoured, 024-missing fallback | `tsc` clean · `vitest` **965/965 in 84 files** · `lint` 0 errors (13 pre-existing warnings) · `next build` | **AC-6: open a real app's release and name the biggest mover.** Nothing here proves that |
 | 2026-08-21 19:58 | Spec `docs/specs/release-regression.md`; backlog II0 marked *implemented, not walked* | — | — |
+| 2026-08-21 20:58 | **M2** · `src/pricing-contract.test.ts` — every pricing row must name the code that makes it true | 7/7 green; **4 mutations applied, 4 caught** (add an unbacked row, reword the excepted row, delete an implementation, empty the matrix). Pricing page left byte-identical to HEAD | Apply the §7 diff — founder-only (D009 §9) |
 | 2026-08-21 19:57 | PR **#150** opened as draft from base `ddf9e41` | CI **6 of 6 green** on head `d74a7a5` — counted, not "nothing red". Note: *E2E (advisory)* passed in 43s while executing **zero specs** (BUG-037) and is not evidence of anything | Merge is the founder's call while the bake-off is live — see §6.5 |
 
 ---
@@ -198,3 +199,47 @@ deliberately rather than by default:
 | Task A is no longer runnable against Codex/Cursor | Three agents, one base, comparable results |
 
 **Either is defensible. Say the word and it merges.**
+
+---
+
+## 7. M2 — the drafted pricing diff (founder applies, D009 §9)
+
+The pricing page carries its own rule, written above `FEATURE_MATRIX`:
+
+> *"If you add a row here, it must be something a customer can do today. A
+> pricing page is a contract."*
+
+Seven rows were deleted in the past for breaking it. One row breaks it now, and
+**nothing enforced the rule** — that is what `src/pricing-contract.test.ts` fixes.
+The row itself an agent may not touch.
+
+### The change
+
+`src/app/pricing/page.tsx`, one line in the **Intelligence** category:
+
+```diff
+-      { label: "Topic clustering across your reviews", starter: false, pro: true, enterprise: true },
++      { label: "Topic breakdown across your reviews", starter: false, pro: true, enterprise: true },
+```
+
+**Why this wording is true and the current one is not.** `/api/sentiment/overview`
+does group every review by issue tag and report each one's count, share, 7-day
+trend and top reviews — that is a *breakdown* across your reviews, and it ships
+today. **Clustering** means discovering the groups from the text, which needs the
+`issues` table and an engine that does not exist (`docs/ISSUE_INTELLIGENCE.md` §2).
+One word separates a true claim from a promise a paying customer cannot collect.
+
+### The alternative
+
+Ship II1 and leave the wording alone. That is M4, and it is blocked on the corpus
+decision — so the row would keep overclaiming for weeks. **Rewording now does not
+foreclose it:** when clustering ships, the row can change back, and by then it
+will be true.
+
+### After you apply it
+
+Two tests go red **on purpose**, and the whole fix is written at the top of
+`KNOWN_UNBACKED` in `src/pricing-contract.test.ts`: add one EVIDENCE line, empty
+the exception object, change one assertion to `[]`. Say the word and I will push
+it the moment you apply the diff — or apply it yourself, it is three lines.
+
