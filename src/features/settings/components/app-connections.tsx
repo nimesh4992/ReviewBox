@@ -395,7 +395,28 @@ function AppRow({
       : "bg-[var(--rb-amber-500)]/10 text-[var(--rb-amber-500)] border-[var(--rb-amber-500)]/25";
 
   async function handleDelete() {
-    if (!confirm(`Remove "${app.name}"? This will delete all synced reviews.`)) return;
+    // LT3: this is irreversible and the old wording did not say so.
+    //
+    // The app row is soft-deleted (`deleted_at`), but the reviews are a hard
+    // `.delete()` — sanctioned by D015, and gone the moment this resolves.
+    // What makes it worse than it sounds is the asymmetry with re-adding:
+    // Google Play's API serves roughly the last week (`/help/review-history`),
+    // so reconnecting does NOT bring the archive back. A customer who removes
+    // an app to "re-add it cleanly" loses months of history permanently.
+    //
+    // Deleting the whole WORKSPACE, by contrast, has a 30-day grace period
+    // (`danger-zone.tsx`). The more destructive action had the weaker warning.
+    //
+    // Behaviour is unchanged here — only the sentence the customer reads
+    // before they agree to it. Whether app deletion should become recoverable
+    // is LT3's open question and is the founder's to answer.
+    const warning =
+      `Remove "${app.name}"?\n\n` +
+      `This permanently deletes every review synced for this app. It cannot be undone.\n\n` +
+      `Reconnecting later will not bring them back — Google Play only serves about ` +
+      `the last week of reviews, so the older history is lost for good.\n\n` +
+      `Export from Reports first if you want a copy.`;
+    if (!confirm(warning)) return;
     setDeleting(true);
     try {
       const res = await fetch(`/api/apps/${app.id}`, { method: "DELETE" });

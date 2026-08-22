@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   CheckCircle2,
   Clock,
@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
+import { LoadErrorState } from "@/components/load-error-state";
 import type { AutomationExecutionLog, AutomationPreset, AutomationRule } from "@/types/review";
 import { featuredPresets, automationPresets } from "@/features/automations/data/mock-automations";
 import { RuleBuilderModal } from "./rule-builder-modal";
@@ -215,14 +216,31 @@ const ACTION_LABEL: Record<string, string> = {
 function RunHistoryPanel() {
   const [logs, setLogs]       = useState<AutomationExecutionLog[]>([]);
   const [loading, setLoading] = useState(true);
+  const [failed,  setFailed]  = useState(false);
 
-  useEffect(() => {
-    fetch("/api/automations/logs?limit=20")
-      .then((r) => r.json())
-      .then((d: { logs: AutomationExecutionLog[] }) => setLogs(d.logs ?? []))
-      .catch(() => undefined)
-      .finally(() => setLoading(false));
+  /**
+   * "No runs yet" and "we could not read the log" are opposite facts, and this
+   * panel rendered the first for both. A customer debugging why an automation
+   * did nothing would have concluded it never fired — the single most
+   * misleading answer this screen can give, because it is the question the
+   * screen exists to answer.
+   */
+  const loadLogs = useCallback(async () => {
+    setLoading(true);
+    setFailed(false);
+    try {
+      const res = await fetch("/api/automations/logs?limit=20");
+      if (!res.ok) throw new Error(`automation logs load failed: ${res.status}`);
+      const d = (await res.json()) as { logs?: AutomationExecutionLog[] };
+      setLogs(d.logs ?? []);
+    } catch {
+      setFailed(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { void loadLogs(); }, [loadLogs]);
 
   function timeAgo(iso: string): string {
     const diff = Date.now() - new Date(iso).getTime();
@@ -242,6 +260,10 @@ function RunHistoryPanel() {
         ))}
       </div>
     );
+  }
+
+  if (failed) {
+    return <LoadErrorState subject="your automation run history" onRetry={() => void loadLogs()} compact />;
   }
 
   if (logs.length === 0) {
@@ -384,22 +406,30 @@ export function AutomationHub() {
   const [editingRule, setEditingRule]   = useState<AutomationRule | null>(null);
   const [loading, setLoading]           = useState(false);
   const [actionError, setActionError]   = useState<string | null>(null);
+  const [rulesFailed, setRulesFailed]   = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  /**
+   * This one DID check `res.ok` — and then returned, leaving `rules` empty.
+   * The empty branch renders "No automation rules yet · Create first rule", so
+   * a customer whose rules failed to load was invited to build them again. The
+   * check was there; the branch for what it found was not.
+   */
+  const loadRules = useCallback(async () => {
     setLoading(true);
-    fetch("/api/automations/rules")
-      .then(async (res) => {
-        if (!res.ok) return;
-        const json = (await res.json()) as { rules: AutomationRule[] };
-        if (!cancelled && Array.isArray(json.rules)) {
-          setRules(json.rules);
-        }
-      })
-      .catch(() => undefined)
-      .finally(() => { if (!cancelled) setLoading(false); });
-    return () => { cancelled = true; };
+    setRulesFailed(false);
+    try {
+      const res = await fetch("/api/automations/rules");
+      if (!res.ok) throw new Error(`automation rules load failed: ${res.status}`);
+      const json = (await res.json()) as { rules?: AutomationRule[] };
+      setRules(Array.isArray(json.rules) ? json.rules : []);
+    } catch {
+      setRulesFailed(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { void loadRules(); }, [loadRules]);
 
   /** Read the canonical { error: { code, message } } envelope off a failed response. */
   async function failureMessage(res: Response, fallback: string): Promise<string> {
@@ -560,6 +590,10 @@ export function AutomationHub() {
             <div className="space-y-3">
               {loading ? (
                 <div className="text-sm text-[var(--rb-fg-4)] py-4 text-center">Loading rules…</div>
+              ) : rulesFailed ? (
+                <div className="rounded-2xl border border-[var(--rb-border-1)] bg-surface">
+                  <LoadErrorState subject="your automation rules" onRetry={() => void loadRules()} />
+                </div>
               ) : rules.length === 0 ? (
                 <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-[var(--rb-border-1)] bg-surface py-16 text-center">
                   <Workflow className="size-12 text-[var(--rb-fg-4)]" strokeWidth={1.5} />

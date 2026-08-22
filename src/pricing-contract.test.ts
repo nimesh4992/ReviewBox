@@ -10,10 +10,12 @@ import { join } from "node:path";
  * That sentence is already written above `FEATURE_MATRIX` in
  * `src/app/pricing/page.tsx`, along with a list of seven rows deleted for
  * promising things the product could not keep. **Nothing enforced it.** The
- * proof is the row this file currently has to except: *"Topic clustering
- * across your reviews — Pro ✅"*, shipped on the live pricing page while there
- * is no clustering anywhere in the codebase (no `issues` table, no engine —
- * see `docs/ISSUE_INTELLIGENCE.md` §2).
+ * proof was the row this file had to except when it was written: *"Topic
+ * clustering across your reviews — Pro ✅"*, shipped on the live pricing page
+ * while there was no clustering anywhere in the codebase (no `issues` table,
+ * no engine — see `docs/ISSUE_INTELLIGENCE.md` §2). It was reworded to *"Topic
+ * breakdown"* on 2026-08-22 and `KNOWN_UNBACKED` is now empty — which is the
+ * state this file exists to keep.
  *
  * A pricing page is a contract. A rule that only exists in a comment is a
  * rule that will be broken by the next person who adds a row in a hurry.
@@ -78,6 +80,13 @@ const EVIDENCE: Record<string, readonly string[]> = {
   "Rating spike alerts": ["src/lib/email/send-rating-spike-alert.ts"],
   "Release health tracking": ["src/lib/release-versions.ts"],
   "ASO keyword ideas mined from your reviews": ["src/app/api/aso/suggest/route.ts"],
+  // Reworded from "Topic clustering across your reviews" on 2026-08-22. The
+  // route groups every review by issue tag and reports each one's count, share,
+  // 7-day trend and top reviews — a breakdown, which ships. Clustering means
+  // discovering the groups from the text, which needs the `issues` table and an
+  // engine that does not exist (docs/ISSUE_INTELLIGENCE.md §2). If II1 ships,
+  // the row may go back to "clustering" and this comment can go.
+  "Topic breakdown across your reviews": ["src/app/api/sentiment/overview/route.ts"],
 
   // Working together
   "Automation rules": ["src/app/api/automations/rules/route.ts"],
@@ -94,27 +103,19 @@ const EVIDENCE: Record<string, readonly string[]> = {
  * cannot outlive its fix.
  */
 /*
- * READY-TO-APPLY FOLLOW-UP — do not apply until the pricing page is reworded.
+ * Empty, and that is the point.
  *
- * The moment "Topic clustering across your reviews" becomes "Topic breakdown
- * across your reviews" on the pricing page, two tests here go red on purpose.
- * The whole fix is:
+ * It held exactly one entry until 2026-08-22: *"Topic clustering across your
+ * reviews — Pro ✅"*, live on the pricing page while no clustering existed
+ * anywhere in the codebase. The founder reworded it to **"Topic breakdown
+ * across your reviews"**, which `/api/sentiment/overview` delivers today, and
+ * the entry was deleted rather than left as a comment — the test below fails
+ * if a fixed row lingers here.
  *
- *   1. add to EVIDENCE above:
- *        "Topic breakdown across your reviews": ["src/app/api/sentiment/overview/route.ts"],
- *   2. empty KNOWN_UNBACKED below to `{}`
- *   3. change the last assertion in this file to `.toEqual([])`
- *
- * Written out here so that applying a one-word pricing fix cannot leave anyone
- * stuck on a red pipeline they did not expect and cannot read.
+ * Adding an entry is a deliberate act. Each one is a promise a customer can pay
+ * for and not receive, so write why it is here and what closes it.
  */
-const KNOWN_UNBACKED: Record<string, string> = {
-  "Topic clustering across your reviews":
-    "No clustering exists — no `issues` table, no engine (docs/ISSUE_INTELLIGENCE.md §2). " +
-    "Fix is either the one-word rewording to 'Topic breakdown across your reviews' " +
-    "(which /api/sentiment/overview does deliver today) or shipping II1. " +
-    "D009 §9 reserves pricing-page edits to the founder, so no agent may apply either.",
-};
+const KNOWN_UNBACKED: Record<string, string> = {};
 
 describe("the pricing feature matrix was actually parsed", () => {
   it("finds the matrix and a plausible number of rows", () => {
@@ -160,6 +161,30 @@ describe("every pricing row is something a customer can do today", () => {
   });
 });
 
+describe("the page's prose makes the same promise as its matrix", () => {
+  it("claims topic clustering nowhere, matrix row or body copy", () => {
+    // The matrix parser only sees `label:` strings. The paragraph above the
+    // table made the identical claim in lowercase prose and would have survived
+    // the row being fixed — so this reads the whole file.
+    //
+    // Deliberately narrow: `cluster` on its own still appears in the comment
+    // listing rows deleted for overclaiming ("Crash cluster detection"), and
+    // that history is worth keeping.
+    const offenders = source
+      .split("\n")
+      .map((line, i) => [i + 1, line] as const)
+      .filter(([, line]) => /topic[\s-]*cluster/i.test(line))
+      .map(([n, line]) => `src/app/pricing/page.tsx:${n}  ${line.trim()}`);
+
+    expect(
+      offenders,
+      "The pricing page says the product clusters topics. It groups reviews by " +
+        "a fixed issue-tag vocabulary — a breakdown, not clustering. Reword, or " +
+        "ship II1 first (docs/ISSUE_INTELLIGENCE.md §2).\n\n" + offenders.join("\n"),
+    ).toEqual([]);
+  });
+});
+
 describe("the bookkeeping cannot rot", () => {
   it("keeps no evidence for rows that are no longer sold", () => {
     const orphaned = Object.keys(EVIDENCE).filter((label) => !labels.includes(label));
@@ -181,8 +206,10 @@ describe("the bookkeeping cannot rot", () => {
     ).toEqual([]);
   });
 
-  it("holds exactly one known-unbacked row, and it is the clustering one", () => {
-    // A second entry must be a deliberate edit to this line, not a quiet append.
-    expect(Object.keys(KNOWN_UNBACKED)).toEqual(["Topic clustering across your reviews"]);
+  it("holds no known-unbacked row at all", () => {
+    // Every entry must be a deliberate edit to this line, not a quiet append.
+    // The moment this list is non-empty, the pricing page is promising
+    // something the product cannot do, and someone chose to ship it that way.
+    expect(Object.keys(KNOWN_UNBACKED)).toEqual([]);
   });
 });

@@ -31,6 +31,11 @@ const GUARDED_FILES = [
   "src/features/sentiment/components/sentiment-screen.tsx",
   "src/app/api/sentiment/analyze/route.ts",
   "src/hooks/use-sentiment-analysis.ts",
+  // Added 2026-08-22. Not a mock in practice: `alert-preferences.tsx` seeds its
+  // useState with this array, so its copy is what Settings → Alerts renders on
+  // first paint, and what it keeps if the API returns nothing. The weekly-digest
+  // row promised "top clusters"; the digest reports counts per issue tag.
+  "src/features/settings/data/mock-alerts.ts",
 ] as const;
 
 describe("no shipped surface claims clustering while there is none", () => {

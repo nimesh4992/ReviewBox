@@ -220,10 +220,62 @@ The platform limit is settled and verified: Google's API has no way to request o
 **Why it matters beyond depth:** it is the exact wrong-layer mistake this codebase keeps making — an in-house limit read as an upstream one. The customer-facing copy in `/help/review-history` says so explicitly rather than hiding behind "the stores only give us ~200", so shipping this also settles a promise already in public.
 **Careful:** deeper paging on first connect competes with `maxDuration` on the same routes as W5's app-create retry. Budget it; don't just raise the number.
 
-### [!] W5A · Decide the review-volume limit before Stripe goes live · HUMAN-REQUIRED
+### [!] W5A · The review-volume limit is a HARD STOP in production, and nobody decided it · HUMAN-REQUIRED
+
+> **⚠️ Rewritten 2026-08-22. The text below the line is the original and its premise is
+> false.** `checkReviewLimit()` no longer has zero call sites — commit `fc53682` wired
+> it into `syncWorkspaceApps()` (`src/services/review-sync.ts:838`) as **Option A**, the
+> option `docs/adr/009-review-volume-limit.md` says, verbatim, *"Do not do this."*
+> The ADR is still marked `Status: Proposed — needs a founder decision`, and the guard
+> test that existed to keep the decision visible was inverted to assert the wiring.
+
+**What runs today.** Over the calendar-month row count, `syncWorkspaceApps()` returns
+before touching any provider — every app in the workspace, every scheduled run, until
+the 1st. The count is on `reviews.created_at`, so a **first import** can spend the whole
+month's allowance at once: a Starter customer (5,000) connecting a 5,000-review app is
+over the line on day one.
+
+**And it is silent.** The cron path pushes the message into `summary.errors` and
+discards it. No email, no banner, no `last_sync_error` — the app row still reads healthy
+with its old `last_synced_at`. Only a manual "Sync now" surfaces it, as a 402. That is
+the outcome ADR 009 predicted in the sentence recommending against it.
+
+**Two public pages promise a warning that does not exist** — see QT1.
+
+**The decision is now which of three**, not whether to enforce:
+(1) keep the stop and build the 80% notification + a visible banner; (2) revert to the
+ADR's Option B soft cap; (3) drop the claim. Full comparison:
+`docs/LAUNCH_READINESS_2026-08-22.md` §3.3. Until one is chosen the live behaviour
+contradicts a written ADR and two public pages. D009: founder's call, not mine.
+
+<details>
+<summary>Original entry, 2026-08-17 (premise now false — kept for the record)</summary>
+
 **Added 2026-08-17 by Wave 5 (audit finding M-6). Blocked on a founder decision — see `docs/adr/009-review-volume-limit.md`.**
 `PLAN_LIMITS.reviewsPerMonth` is advertised on `/pricing` and Billing and enforced nowhere: `checkReviewLimit()` is fully implemented and has zero call sites. Three options are written up in the ADR; the recommendation is **B — soft cap** (never stop ingesting; show an upgrade banner over the limit). D009 puts this call with the founder, not with me.
 **Why it can't wait for M2:** once a paid plan exists to compare against, the gap between what the pricing page promises and what the product does stops being tidiness.
+
+</details>
+
+### [ ] QT1 · The 80% quota warning is promised on two pages and does not exist · ICE ~72 (9×8÷1)
+
+**Found 2026-08-22 while reading W5A against the code.** `/pricing` says *"We'll notify
+you when you hit 80% of your quota"* and `/faq` says *"We notify you at 80% of your
+review quota."* Grepping `src/` for any threshold check, email or banner returns **only
+those two sentences.**
+
+Paired with W5A's hard stop, the sequence a customer gets is: no warning → sync stops
+→ no notification → reviews stop appearing for up to a month, with the app still
+showing healthy.
+
+`/faq` also says *"AI drafts similarly pause after the **daily** limit resets at
+midnight UTC."* `lib/plans.ts`'s header says in capitals that drafts are metered **per
+MONTH, not per day**, and explains why.
+
+**Done when:** either the notification exists (a threshold check on the same count
+`checkReviewLimit()` uses, an email, and a banner that persists while over), or the
+sentences are removed. **Blocked on W5A** — building an 80% warning for a cap that is
+about to be replaced is wasted work.
 
 ### [x] W6A · Apply migration 030 · DONE 2026-08-17 (founder ran)
 Verified by query: `workspace_invites_one_pending_idx` exists, and the pre-check found zero duplicate pending pairs, so nothing was skipped. The partial unique index now expresses the rule migration 006's comment only claimed: `unique (workspace_id, email, accepted_at)` fires for *accepted* invites and never for pending ones, because Postgres treats every NULL as distinct and `accepted_at` is NULL for exactly the case the rule was written for.
@@ -256,6 +308,20 @@ Verified by query, not assumed:
 **Added 2026-08-16. Asked twice, unanswered.** **Effort:** 30 min once decided.
 **Done when:** either the current behaviour is confirmed and documented in `decisions.md`, or reviews get a `deleted_at` and a restore window.
 **Why now:** deleting an app permanently deletes its reviews (D015 sanctions it). That is defensible, but it must be a decision on the record before a paying customer does it by accident — after the fact there is nothing to restore, and the store only returns ~90 days on re-add.
+
+**2026-08-22 — the behaviour is now read and documented; the policy is still yours.**
+`DELETE /api/apps/[id]` soft-deletes the app row (`deleted_at`) and **hard-deletes its
+reviews** (line 152). No export first, no restore window, immediate. Reconnecting does
+not undo it — Play serves roughly the last week. **Deleting the whole workspace has a
+30-day grace period**, so the more destructive of the two actions had the weaker warning.
+
+Fixed in the same session, **copy only**: the confirm now says it is permanent, that
+reconnecting will not bring the reviews back, and to export first. Locked by
+`src/destructive-copy-contract.test.ts`, which also asserts the route still does what
+the warning claims — so the copy cannot become scarier than the truth either.
+
+**Still open:** whether reviews should get their own `deleted_at` and a restore window,
+which is roughly the shape the workspace grace period already has.
 
 ### [x] AU3 · `ai_usage` is read everywhere, written nowhere — SHIPPED 2026-08-16 (PR #89)
 `recordAiUsage()` (`src/lib/ai-usage.ts`) is called from every tier of
@@ -328,7 +394,41 @@ comparison is per version *name* — what the customer sees on their listing, an
 accurate, but coarser than "this release" implies (`docs/specs/release-regression.md`
 known gap 5).
 
-### [ ] AU5 · The `res.ok` load paths AU4 did not reach · ICE ~35 (7×8÷1.6)
+### [x] AU5 · The `res.ok` load paths AU4 did not reach · SHIPPED 2026-08-22
+
+*Eleven load paths fixed, each read individually. **Two were data-loss paths, not merely
+misleading:** Workspace defaults rendered an empty support email and brand voice under
+an amber "Without this, AI uses a generic voice" hint, and Save posts what is in the box
+— so a customer who believed the hint overwrote their real brand voice. Alert
+preferences seeds its `useState` from `mock-alerts.ts`, so a failed read left a fixture
+file on screen looking like saved settings with Save live beneath it. Both now return
+the failure state **before** the form, and the contract test asserts that ordering
+specifically.*
+
+*The other nine misled without destroying: "you have no teammates" (React Query cached
+the error envelope as data, so `isError` could never fire), "Slack is not connected" —
+so reconnect, over a working webhook, "No automation rules yet · Create first rule",
+"No runs yet" on the panel whose job is answering why a rule did not fire, an empty
+template dropdown that silently changes which rule gets saved, a "service account isn't
+configured" claim during a blip, an eternal "Loading…", and the onboarding progress
+poll's first tick.*
+
+***The 35 catch() sites were classified, not swept.*** *Most are class A — the correct
+defensive shape (`await res.json().catch(() => null)` while parsing an **error** body,
+`defer.ts`, cache writes, the self-heal sync kick). Two are documented deliberate
+degrades and were left: `use-tag-labels` (a tag under its default name is fine; a tag
+rendered as nothing is not — it gained a `throw` only so `retry: 1` stops being dead
+code) and onboarding's Google Play step, whose copy already covers both causes. Full
+table: `docs/LAUNCH_READINESS_2026-08-22.md` §5.*
+
+*`src/au5-load-error-contract.test.ts` — 27 tests, 6 mutations applied and 6 caught. Its
+tree-wide sweep for `fetch(...).then(r => r.json())` has an **empty allowlist**, so
+there is currently no unguarded client load path anywhere in `src/`.*
+
+<details>
+<summary>Original entry (kept for the record)</summary>
+
+### AU5 · The `res.ok` load paths AU4 did not reach · ICE ~35 (7×8÷1.6)
 
 **Found 2026-08-22 while re-scoping M6 in `docs/PATH_TO_9.md`** — AU4 was cited as
 open in a stale handoff line, and checking that claim turned up its unfinished half.
@@ -362,6 +462,81 @@ comment** — not to fix all 35.
 
 **Not to be bolted onto PR #150:** these are behaviour changes on settings and
 onboarding surfaces, each needing its own test-plan line. Own branch, after #150.
+
+</details>
+
+### [ ] CP1 · Four public pages sell auto-publish on a plan that does not exist · ICE ~63 (9×7÷1)
+
+**Found 2026-08-22.** Two independent falsehoods in one sentence, repeated four times.
+
+*The Team plan* was removed from `PLAN_PRICING` and from Stripe.
+`marketing-claims-contract.test.ts` asserts two marketing pages never say "Team plan" —
+it does not cover these four:
+
+| Where | String |
+|---|---|
+| `src/app/terms/page.tsx:87` | **"Team — $199/month"** — a price for a nonexistent product, in the Terms of Service |
+| `src/app/faq/page.tsx:74` | "on the Team plan, you can configure auto-publish rules" |
+| `src/app/help/ai-replies/page.tsx:136` | "On the **Team plan**, you can configure auto-publish rules" |
+| `src/app/help/automation/page.tsx:41,172,180` | "Auto-publish (Team plan)" · "Team plan subscription" |
+
+*Auto-publish* does not exist either. `SELECTABLE_AUTOMATION_ACTIONS` is
+`ai_reply, template_reply, apply_tag, escalate, report_spam`;
+`automation-actions.test.ts:59` asserts `auto_reply` is **deliberately excluded**, and
+`sync-lock.ts`'s header explains why it cannot just be added — the lock fails open when
+Redis is unreachable, and publishing to a live listing needs an answer for that. The
+pricing page already deleted the row for this reason.
+
+The homepage — *"nothing reaches the store until a human clicks Post"* — is the one
+that matches the code.
+
+**HUMAN-REQUIRED for the Terms line (D009 §9).** The three help/FAQ strings are ordinary
+copy but are the same sentence, so fix them as one approved wording pass. Proposed
+wording and the reasoning: `docs/LAUNCH_READINESS_2026-08-22.md` §2.3. Extend
+`marketing-claims-contract.test.ts` to cover `/terms`, `/faq` and `/help/**` in the same
+PR, or this comes back.
+
+### [ ] CP2 · `/faq` and `/help/ai-replies` list five tones; the product has four · ICE ~35 (7×5÷1)
+
+**Found 2026-08-22.** `reply-composer.ts` is the engine and it has
+**professional · empathetic · casual · direct**. The Reply Kit style cards match. The
+homepage says "four tones" and names them correctly.
+
+`/faq` and `/help/ai-replies` list **Professional · Friendly · Empathetic · Brief ·
+Custom**. Only two of those five exist. The help page also describes Custom as a persona
+"up to 200 characters"; the real field is `brand_voice`, capped at **500**, and it is a
+separate setting rather than a tone.
+
+Two smaller things to fold in: onboarding's brand-voice step offers `friendly`, which is
+not an engine tone (`composeReply()` silently falls back to `professional`), and
+`types/review.ts:228` declares a fifth value `enthusiastic` that the composer's own type
+does not have and nothing renders.
+
+**Done when:** every surface names the same four, and a contract test reads the tone list
+out of `reply-composer.ts` rather than trusting the copy.
+
+### [ ] SP1 · Two public legal pages name different sets of sub-processors · ICE ~56 (8×7÷1) — HUMAN-REQUIRED
+
+**Found 2026-08-22.** `/sub-processors` lists **ten**. `/dpa` §4 lists **eight**,
+omitting **Vercel** and **Sentry** — in the same paragraph that says *"The authoritative
+list is the /sub-processors page."*
+
+Three further items, each needing a human:
+
+1. **Slack.** After the 2026-08-22 remediation it no longer receives a reviewer's name
+   or review text — only app name, rating, our issue tags, version, date and a link. It
+   is on neither page. Whether that still requires disclosure is a legal call, not a
+   technical one.
+2. **Vercel's row** describes hosting and CDN. `<Analytics />` and `<SpeedInsights />`
+   are mounted in `src/app/layout.tsx:117-118`, so it also receives visitor analytics
+   and performance telemetry.
+3. **Two unverifiable assertions already published:** `/sub-processors` says *"each is
+   bound by a data processing agreement with us"*, and `/dpa` §4 says *"Groq (AI
+   inference, **no data retention**)"*. Both are contractual facts about vendors and
+   neither can be verified from this repository.
+
+Full inventory with purpose, data and production status:
+`docs/LAUNCH_READINESS_2026-08-22.md` §7.
 
 ### [x] AU4 · Finish the swallowed-error sweep · SHIPPED 2026-08-17
 *ASO (both panels), Sentiment, Competitors and both Reply Kit tabs now separate "failed to load" from "no data", via a shared `LoadErrorState` (`src/components/load-error-state.tsx`) with a retry.*

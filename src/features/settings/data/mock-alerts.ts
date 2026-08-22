@@ -31,7 +31,7 @@ export const mockAlertPreferences: AlertPreference[] = [
     type: "weekly_digest",
     label: "Weekly digest",
     description:
-      "Weekly rating trends, sentiment shifts, top clusters, and reply performance.",
+      "Weekly rating trends, sentiment shifts, top issue tags, and reply performance.",
     enabled: true,
     channels: { email: true, slack: false },
     scheduleTime: "09:00",

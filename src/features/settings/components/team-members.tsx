@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { avatarInitials } from "@/utils/format";
 import { avatarColorVar } from "@/lib/avatar-color";
+import { LoadErrorState } from "@/components/load-error-state";
 
 interface Member {
   clerk_user_id: string;
@@ -71,15 +72,48 @@ export function TeamMembers() {
   const [err, setErr]     = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
 
-  const { data: membersData } = useQuery<{ members: Member[] }>({
+  /**
+   * `res.json()` is not a success check.
+   *
+   * These routes answer a 500 with a JSON error envelope, so the promise
+   * RESOLVES and React Query caches the envelope **as data**. `data.members`
+   * is then undefined, `?? []` makes it an empty array, the members block is
+   * hidden by its own `length > 0` guard, and the screen reads "you are the
+   * only person here" — on an admin page, about who has access. The invite
+   * mutation twenty lines below has always checked `res.ok`; only the reads
+   * did not. That asymmetry is the same one AU4 found in Reply Kit.
+   *
+   * Throwing is what makes React Query's `isError` reachable at all.
+   */
+  const {
+    data: membersData,
+    isError: membersFailed,
+    isFetching: membersFetching,
+    refetch: refetchMembers,
+  } = useQuery<{ members: Member[] }>({
     queryKey: ["team-members"],
-    queryFn: () => fetch("/api/team/members").then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch("/api/team/members");
+      if (!r.ok) throw new Error(`team members load failed: ${r.status}`);
+      return r.json();
+    },
   });
 
-  const { data: invitesData } = useQuery<{ invites: Invite[] }>({
+  const {
+    data: invitesData,
+    isError: invitesFailed,
+    isFetching: invitesFetching,
+    refetch: refetchInvites,
+  } = useQuery<{ invites: Invite[] }>({
     queryKey: ["team-invites"],
-    queryFn: () => fetch("/api/team/invites").then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch("/api/team/invites");
+      if (!r.ok) throw new Error(`team invites load failed: ${r.status}`);
+      return r.json();
+    },
   });
+
+  const loadFailed = membersFailed || invitesFailed;
 
   const invite = useMutation({
     mutationFn: async () => {
@@ -115,8 +149,25 @@ export function TeamMembers() {
         <h2 className="text-[14px] font-semibold text-fg-1">Team members</h2>
       </div>
 
+      {/* A failed read is shown as a failure. Rendering the invite form below it
+          is deliberate — inviting someone still works when the roster read is
+          down, and hiding the whole card would take that away for no reason. */}
+      {loadFailed && (
+        <div className="mb-4 rounded-lg border border-[var(--rb-border-1)]">
+          <LoadErrorState
+            subject={membersFailed ? "your team" : "your pending invites"}
+            onRetry={() => {
+              if (membersFailed) void refetchMembers();
+              if (invitesFailed) void refetchInvites();
+            }}
+            retrying={membersFetching || invitesFetching}
+            compact
+          />
+        </div>
+      )}
+
       {/* Current members */}
-      {members.length > 0 && (
+      {!loadFailed && members.length > 0 && (
         <div className="mb-4 space-y-1">
           {members.map((m) => {
             const { primary, secondary } = memberLabel(m);
@@ -158,7 +209,7 @@ export function TeamMembers() {
       )}
 
       {/* Pending invites */}
-      {invites.length > 0 && (
+      {!loadFailed && invites.length > 0 && (
         <div className="mb-4">
           <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wide text-fg-3">Pending invites</p>
           <div className="space-y-1">

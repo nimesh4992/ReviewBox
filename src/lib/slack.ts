@@ -195,16 +195,43 @@ export function newIncident(params: {
   };
 }
 
+/**
+ * Urgent-review alert — **metadata only, by design**.
+ *
+ * This payload deliberately carries no reviewer name and no review text. An
+ * Incoming Webhook posts into a Slack channel, which is a third party we do
+ * not control the retention of, and `/dpa` classifies review content and
+ * author handles as personal data. Everything a responder needs in order to
+ * decide *whether to open ReviewBox* is metadata; everything that identifies
+ * or quotes the reviewer lives behind the link.
+ *
+ * The signature enforces it: `author` and `text` are not parameters, so a
+ * future caller cannot reintroduce them without editing this contract on
+ * purpose. `src/slack-privacy-contract.test.ts` fails the build if they
+ * reappear in any payload builder.
+ */
 export function urgentReview(params: {
-  author: string;
   rating: number;
-  text: string;
   appName: string;
   reviewUrl: string;
+  issueTags?: readonly string[] | null;
+  appVersion?: string | null;
+  createdAt?: string | null;
 }): SlackPayload {
-  const { author, rating, text, appName, reviewUrl } = params;
+  const { rating, appName, reviewUrl, issueTags, appVersion, createdAt } = params;
   const stars = "★".repeat(rating) + "☆".repeat(5 - rating);
-  const snippet = text.length > 120 ? text.slice(0, 120) + "…" : text;
+
+  // Tags are our own fixed classification vocabulary (crash, billing, login,
+  // …), not text lifted from the review, so they carry no reviewer content.
+  const tags = (issueTags ?? []).filter((t) => typeof t === "string" && t.length > 0);
+
+  const facts = [
+    `*Rating*\n${stars}`,
+    tags.length ? `*Tagged*\n${tags.join(", ")}` : null,
+    appVersion ? `*Version*\nv${appVersion}` : null,
+    createdAt ? `*Posted*\n${formatUtcDay(createdAt)}` : null,
+  ].filter((f): f is string => f !== null);
+
   return {
     text: `🔴 Urgent review on ${appName}: ${stars}`,
     blocks: [
@@ -212,16 +239,30 @@ export function urgentReview(params: {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `🔴 *Urgent review* — ${appName}\n${stars} · ${author}\n_"${snippet}"_`,
+          text: `🔴 *Urgent review* — ${appName}\n${stars}${tags.length ? ` · ${tags.join(", ")}` : ""}`,
         },
+      },
+      {
+        type: "section",
+        fields: facts.map((text) => ({ type: "mrkdwn", text })),
       },
       {
         type: "section",
         text: {
           type: "mrkdwn",
-          text: `<${reviewUrl}|Reply in ReviewBox →>`,
+          text: `<${reviewUrl}|Read it and reply in ReviewBox →>`,
         },
       },
     ],
   };
+}
+
+/**
+ * `2026-08-22` from an ISO timestamp. Day precision, UTC, no time-of-day —
+ * enough to tell a fresh alert from a replayed one without narrowing the
+ * posting window enough to help identify who wrote it.
+ */
+function formatUtcDay(iso: string): string {
+  const d = new Date(iso);
+  return Number.isNaN(d.getTime()) ? "" : d.toISOString().slice(0, 10);
 }

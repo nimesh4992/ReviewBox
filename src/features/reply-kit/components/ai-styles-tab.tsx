@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Check } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { mockAIStyles } from "../data/mock-reply-kit";
@@ -63,16 +63,30 @@ function StyleCard({
 export function AIStylesTab() {
   const [selectedId, setSelectedId] = useState("professional");
   const [saved, setSaved] = useState(false);
+  const [loadFailed, setLoadFailed] = useState(false);
 
-  // Load persisted default tone on mount
-  useEffect(() => {
-    fetch("/api/settings/workspace")
-      .then((r) => r.json())
-      .then((d: { defaultTone?: string }) => {
-        if (d.defaultTone) setSelectedId(d.defaultTone);
-      })
-      .catch(() => undefined); // silently fall back to default
+  /**
+   * A failed read used to leave "Professional" highlighted, which is a claim
+   * about the workspace's saved setting and not a neutral default. A team whose
+   * tone is Empathetic would have been told, silently, that it was Professional.
+   *
+   * Not a full `LoadErrorState`: the picker still works and clicking a card
+   * still saves. What was missing is the customer knowing the highlight is a
+   * guess, so the notice says exactly that and offers a retry.
+   */
+  const loadDefaultTone = useCallback(async () => {
+    setLoadFailed(false);
+    try {
+      const res = await fetch("/api/settings/workspace");
+      if (!res.ok) throw new Error(`default tone load failed: ${res.status}`);
+      const d = (await res.json()) as { defaultTone?: string };
+      if (d.defaultTone) setSelectedId(d.defaultTone);
+    } catch {
+      setLoadFailed(true);
+    }
   }, []);
+
+  useEffect(() => { void loadDefaultTone(); }, [loadDefaultTone]);
 
   async function handleSelect(id: string) {
     setSelectedId(id);
@@ -106,6 +120,24 @@ export function AIStylesTab() {
           </span>
         )}
       </div>
+
+      {loadFailed && (
+        <div
+          role="alert"
+          className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 rounded-lg border border-[var(--rb-amber-500)]/25 bg-[var(--rb-amber-500)]/10 px-3 py-2 text-xs text-fg-2"
+        >
+          <span>
+            We couldn&rsquo;t load your saved style, so the highlight below is a
+            default rather than your choice. Picking one still saves.
+          </span>
+          <button
+            onClick={() => void loadDefaultTone()}
+            className="font-semibold text-[#0A84FF] hover:underline"
+          >
+            Try again
+          </button>
+        </div>
+      )}
 
       {/* Style cards grid */}
       <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">

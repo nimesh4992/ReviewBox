@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { Hash, Mail } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { apiErrorMessage } from "@/lib/api-error-message";
 import { cn } from "@/lib/utils";
+import { LoadErrorState } from "@/components/load-error-state";
 import type { AlertPreference, AlertType } from "@/types/review";
 import { mockAlertPreferences } from "@/features/settings/data/mock-alerts";
 
@@ -36,36 +37,65 @@ function ScheduleBadge({ pref }: { pref: AlertPreference }) {
 
 export function AlertPreferences() {
   const [prefs, setPrefs] = useState<AlertPreference[]>(mockAlertPreferences);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [savedAt, setSavedAt] = useState<number | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch("/api/settings/alerts")
-      .then((r) => r.ok ? r.json() : null)
-      .then((data: { preferences: unknown[] } | null) => {
-        if (!Array.isArray(data?.preferences) || data.preferences.length === 0) return;
-        // Map DB snake_case rows → AlertPreference, filling any null columns with safe defaults
-        const mapped: AlertPreference[] = data.preferences.map((row) => {
-          const r = row as Record<string, unknown>;
-          const channels = (r.channels && typeof r.channels === "object" && !Array.isArray(r.channels))
-            ? r.channels as AlertPreference["channels"]
-            : { email: true, slack: false };
-          return {
-            type:               (r.type              as AlertPreference["type"]) ?? "urgent_review",
-            label:              (r.label             as string) ?? "",
-            description:        (r.description       as string) ?? "",
-            enabled:            (r.enabled           as boolean) ?? false,
-            channels,
-            scheduleTime:       (r.scheduleTime ?? r.schedule_time)       as string | undefined,
-            scheduleDayOfWeek:  (r.scheduleDayOfWeek ?? r.schedule_day_of_week)  as number | undefined,
-            scheduleDayOfMonth: (r.scheduleDayOfMonth ?? r.schedule_day_of_month) as number | undefined,
-          };
-        });
-        setPrefs(mapped);
-      })
-      .catch(() => null);
+  /**
+   * `mockAlertPreferences` is the seed for this component's state, which makes
+   * a failed read the most expensive kind of silent failure in the settings
+   * area: the screen renders **the defaults from a fixture file** as though
+   * they were the customer's saved choices.
+   *
+   * The old code checked `res.ok` — and then did nothing with the answer. Both
+   * the failure path and the "no rows yet" path `return`ed, leaving the seed on
+   * screen. Two states that must not look alike:
+   *
+   *   • **no rows yet** — a real workspace that has never opened this page.
+   *     Showing the defaults is correct; they are what the backend will apply.
+   *   • **the read failed** — we do not know what they chose. Showing defaults
+   *     invites them to press Save, which writes the fixture over whatever they
+   *     actually had.
+   *
+   * So the second now renders a failure with a retry, and Save is unreachable
+   * until the read succeeds.
+   */
+  const loadPreferences = useCallback(async () => {
+    setLoading(true);
+    setLoadFailed(false);
+    try {
+      const res = await fetch("/api/settings/alerts");
+      if (!res.ok) throw new Error(`alert preferences load failed: ${res.status}`);
+      const data = (await res.json()) as { preferences?: unknown[] };
+      if (!Array.isArray(data?.preferences) || data.preferences.length === 0) return;
+      // Map DB snake_case rows → AlertPreference, filling any null columns with safe defaults
+      const mapped: AlertPreference[] = data.preferences.map((row) => {
+        const r = row as Record<string, unknown>;
+        const channels = (r.channels && typeof r.channels === "object" && !Array.isArray(r.channels))
+          ? r.channels as AlertPreference["channels"]
+          : { email: true, slack: false };
+        return {
+          type:               (r.type              as AlertPreference["type"]) ?? "urgent_review",
+          label:              (r.label             as string) ?? "",
+          description:        (r.description       as string) ?? "",
+          enabled:            (r.enabled           as boolean) ?? false,
+          channels,
+          scheduleTime:       (r.scheduleTime ?? r.schedule_time)       as string | undefined,
+          scheduleDayOfWeek:  (r.scheduleDayOfWeek ?? r.schedule_day_of_week)  as number | undefined,
+          scheduleDayOfMonth: (r.scheduleDayOfMonth ?? r.schedule_day_of_month) as number | undefined,
+        };
+      });
+      setPrefs(mapped);
+    } catch {
+      setLoadFailed(true);
+    } finally {
+      setLoading(false);
+    }
   }, []);
+
+  useEffect(() => { void loadPreferences(); }, [loadPreferences]);
 
   async function savePreferences() {
     setSaving(true);
@@ -135,6 +165,19 @@ export function AlertPreferences() {
           </p>
         </div>
       </div>
+
+      {/* The read failed, so what is in `prefs` is the fixture seed, not the
+          customer's choices. Render the failure instead — and note that Save is
+          gone with it, which is the half that prevents data loss. */}
+      {loadFailed ? (
+        <LoadErrorState
+          subject="your alert preferences"
+          onRetry={() => void loadPreferences()}
+          retrying={loading}
+          compact
+        />
+      ) : (
+      <>
 
       {/* Success toast */}
       {savedAt !== null && (
@@ -251,10 +294,13 @@ export function AlertPreferences() {
 
       {/* Save button */}
       <div className="flex items-center justify-end border-t border-[var(--rb-border-1)] px-5 py-4">
-        <Button onClick={savePreferences} disabled={saving} size="sm">
+        <Button onClick={savePreferences} disabled={saving || loading} size="sm">
           {saving ? "Saving…" : "Save preferences"}
         </Button>
       </div>
+
+      </>
+      )}
     </div>
   );
 }

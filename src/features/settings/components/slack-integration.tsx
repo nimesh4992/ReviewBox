@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { useSearchParams } from "next/navigation";
 import { CheckCircle2, CircleAlert, Loader2, ExternalLink, Siren, Trash2, TrendingDown } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { LoadErrorState } from "@/components/load-error-state";
 
 // When NEXT_PUBLIC_SLACK_CLIENT_ID is not set, the existing paste-URL
 // fallback is rendered — no change for workspaces that already have a
@@ -24,6 +25,8 @@ export function SlackIntegration() {
   const [statusLoading,setStatusLoading]= useState(OAUTH_ENABLED);
   const [disconnecting,setDisconnecting]= useState(false);
   const [toast,        setToast]        = useState<{ type: "success"|"error"; msg: string } | null>(null);
+  /** The status/settings READ failed — distinct from "you have not connected Slack". */
+  const [loadFailed,   setLoadFailed]   = useState(false);
 
   // ── Paste-URL mode state ─────────────────────────────────────────────────────
   const [webhookUrl,  setWebhookUrl]  = useState("");
@@ -39,29 +42,61 @@ export function SlackIntegration() {
     setTimeout(() => setToast(null), 4000);
   }
 
-  // Load connection status on mount
-  useEffect(() => {
+  /**
+   * "We could not ask" is not "you are not connected".
+   *
+   * Both branches parsed the response without checking `res.ok`, and both
+   * routes answer a failure with a JSON error envelope — so `res.json()`
+   * resolved, `connected`/`slackWebhookConfigured` came back undefined, and the
+   * card rendered its *disconnected* state. On the OAuth branch the old
+   * `.catch()` asserted `connected: false` outright, which is the same claim
+   * made deliberately.
+   *
+   * The cost is not cosmetic. A customer shown "not connected" reconnects: they
+   * re-run OAuth, or paste a fresh webhook URL over a working one. Either is
+   * work caused by a transient 500, and the second silently replaces a live
+   * integration.
+   */
+  const loadConnection = useCallback(async () => {
+    setLoadFailed(false);
     if (OAUTH_ENABLED) {
-      fetch("/api/settings/slack/status")
-        .then((r) => r.json())
-        .then((d) => setStatus(d as SlackStatus))
-        .catch(() => setStatus({ connected: false, channelName: null, teamName: null }))
-        .finally(() => setStatusLoading(false));
-    } else {
-      // Paste-URL mode: load saved webhook from workspace settings
-      fetch("/api/settings/workspace")
-        .then((r) => r.json())
-        .then((d: { slackWebhookConfigured?: boolean; slackWebhookHint?: string | null }) => {
-          // The saved URL is deliberately not returned by the API — it is a
-          // bearer secret. We show that one is configured and a tail hint;
-          // changing it requires pasting a new URL in full.
-          setSaved(d.slackWebhookConfigured ? (d.slackWebhookHint ?? "configured") : null);
-          setWebhookUrl("");
-        })
-        .catch(() => undefined)
-        .finally(() => setLoading(false));
+      setStatusLoading(true);
+      try {
+        const res = await fetch("/api/settings/slack/status");
+        if (!res.ok) throw new Error(`slack status failed: ${res.status}`);
+        setStatus((await res.json()) as SlackStatus);
+      } catch {
+        setStatus(null);
+        setLoadFailed(true);
+      } finally {
+        setStatusLoading(false);
+      }
+      return;
+    }
+
+    // Paste-URL mode: load saved webhook from workspace settings
+    setLoading(true);
+    try {
+      const res = await fetch("/api/settings/workspace");
+      if (!res.ok) throw new Error(`workspace settings failed: ${res.status}`);
+      const d = (await res.json()) as {
+        slackWebhookConfigured?: boolean;
+        slackWebhookHint?: string | null;
+      };
+      // The saved URL is deliberately not returned by the API — it is a
+      // bearer secret. We show that one is configured and a tail hint;
+      // changing it requires pasting a new URL in full.
+      setSaved(d.slackWebhookConfigured ? (d.slackWebhookHint ?? "configured") : null);
+      setWebhookUrl("");
+    } catch {
+      setSaved(null);
+      setLoadFailed(true);
+    } finally {
+      setLoading(false);
     }
   }, []);
+
+  useEffect(() => { void loadConnection(); }, [loadConnection]);
 
   // Handle ?slack=connected and ?slack=error query params on first render
   useEffect(() => {
@@ -69,12 +104,7 @@ export function SlackIntegration() {
     const reason     = searchParams.get("reason");
     if (slackParam === "connected") {
       showToast("success", "Slack connected successfully.");
-      if (OAUTH_ENABLED) {
-        fetch("/api/settings/slack/status")
-          .then((r) => r.json())
-          .then((d) => setStatus(d as SlackStatus))
-          .catch(() => undefined);
-      }
+      if (OAUTH_ENABLED) void loadConnection();
     } else if (slackParam === "error") {
       const msg =
         reason === "csrf"         ? "Connection failed: security check failed. Please try again." :
@@ -210,8 +240,17 @@ export function SlackIntegration() {
       {/* Body */}
       <div className="px-5 py-4 space-y-4">
 
-        {/* ── OAuth mode ──────────────────────────────────────────── */}
-        {OAUTH_ENABLED ? (
+        {/* The read failed. Showing neither the "connect" flow nor a
+            "connected" badge is the point — we do not know which is true, and
+            guessing wrong costs the customer a working integration. */}
+        {loadFailed ? (
+          <LoadErrorState
+            subject="your Slack connection"
+            onRetry={() => void loadConnection()}
+            retrying={OAUTH_ENABLED ? statusLoading : loading}
+            compact
+          />
+        ) : OAUTH_ENABLED ? (
           statusLoading ? (
             <div className="flex items-center gap-2 text-[13px] text-fg-3">
               <Loader2 size={13} className="animate-spin" />
