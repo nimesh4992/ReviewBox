@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
-import { globSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
@@ -33,8 +32,24 @@ import { join } from "node:path";
 
 const API_DIR = join(process.cwd(), "src", "app", "api");
 
-function sourceFiles(): string[] {
-  return globSync("**/*.ts", { cwd: API_DIR }).map((f) => join(API_DIR, f));
+/**
+ * Every `.ts` under the API directory.
+ *
+ * Hand-rolled rather than `fs.globSync`, which lands in **Node 22** while CI
+ * pins **Node 20** (`NODE_VERSION` in `.github/workflows/ci.yml`). The first
+ * version of this file used it, passed locally on Node 22, and failed CI with
+ * `TypeError: globSync is not a function` — a check that could never have gone
+ * green there. `readdirSync` with `withFileTypes` has worked since Node 10 and
+ * needs no dependency.
+ */
+function sourceFiles(dir: string = API_DIR): string[] {
+  const found: string[] = [];
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name);
+    if (entry.isDirectory()) found.push(...sourceFiles(full));
+    else if (entry.name.endsWith(".ts")) found.push(full);
+  }
+  return found;
 }
 
 /**
