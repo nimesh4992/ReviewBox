@@ -562,12 +562,17 @@ async function upsertAndFinalize(
   const urgentNew = unrepliedReviews.filter((r) => r.priority === "urgent");
   await Promise.allSettled(
     urgentNew.slice(0, 3).map((r) =>
+      // Metadata only — no `author`, no `text`. Slack is an undisclosed
+      // third party for review content; the responder opens ReviewBox to
+      // read it. `urgentReview()`'s signature no longer accepts either
+      // field, so this cannot silently regress.
       notifyUrgentReview(app.workspace_id, r.id, {
-        author:    r.author,
-        rating:    r.rating,
-        text:      r.text,
-        appName:   app.name,
-        reviewUrl: `${APP_URL}/reviews`,
+        rating:     r.rating,
+        appName:    app.name,
+        issueTags:  r.issueTags,
+        appVersion: r.appVersion,
+        createdAt:  r.createdAt,
+        reviewUrl:  `${APP_URL}/reviews`,
       }),
     ),
   );

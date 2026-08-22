@@ -56,9 +56,7 @@ describe("newIncident payload", () => {
 describe("urgentReview payload", () => {
   it("renders star rating visually", () => {
     const p = urgentReview({
-      author: "Jane",
       rating: 2,
-      text: "App keeps crashing",
       appName: "Acme",
       reviewUrl: "https://example.com",
     });
@@ -66,28 +64,47 @@ describe("urgentReview payload", () => {
     expect(JSON.stringify(p.blocks)).toContain("★★☆☆☆");
   });
 
-  it("truncates long review text to 120 chars + ellipsis", () => {
-    const longText = "a".repeat(200);
+  it("carries the issue tags, version and posting day when they are known", () => {
     const p = urgentReview({
-      author: "Jane",
       rating: 1,
-      text: longText,
+      appName: "Acme",
+      issueTags: ["billing"],
+      appVersion: "1.4.1",
+      createdAt: "2026-08-22T09:15:00.000Z",
+      reviewUrl: "https://example.com",
+    });
+    const blockJson = JSON.stringify(p.blocks);
+    expect(blockJson).toContain("billing");
+    expect(blockJson).toContain("1.4.1");
+    expect(blockJson).toContain("2026-08-22");
+  });
+
+  it("omits the fields it has no value for rather than printing blanks", () => {
+    const p = urgentReview({
+      rating: 1,
       appName: "Acme",
       reviewUrl: "https://example.com",
     });
     const blockJson = JSON.stringify(p.blocks);
-    expect(blockJson).toContain("…");
-    expect(blockJson).not.toContain("a".repeat(200));
+    expect(blockJson).not.toContain("Version");
+    expect(blockJson).not.toContain("Tagged");
+    expect(blockJson).not.toContain("Posted");
+    expect(blockJson).toContain("Rating");
   });
 
-  it("preserves short text verbatim", () => {
+  it("survives an unparseable timestamp without emitting Invalid Date", () => {
     const p = urgentReview({
-      author: "Jane",
       rating: 1,
-      text: "Short complaint",
       appName: "Acme",
+      createdAt: "not-a-date",
       reviewUrl: "https://example.com",
     });
-    expect(JSON.stringify(p.blocks)).toContain("Short complaint");
+    expect(JSON.stringify(p.blocks)).not.toContain("Invalid Date");
+  });
+
+  it("always links back to ReviewBox, since the text is deliberately not here", () => {
+    const url = "https://app.tryreviewbox.com/reviews";
+    const p = urgentReview({ rating: 1, appName: "Acme", reviewUrl: url });
+    expect(JSON.stringify(p.blocks)).toContain(url);
   });
 });
