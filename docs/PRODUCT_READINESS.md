@@ -34,9 +34,9 @@ splitting the difference. Where they agreed, the row is marked *agreed* and move
 | Per-review analysis (sentiment, priority, escalation, reply) | 9 | 4 | **5** | Real and walked: `rules-engine.ts`, Gemini ambiguous-sentiment, 3-tier reply. Half the engine — **per-review is shipped, aggregate does not exist** |
 | Issue identity / clustering / scoring | 9 | 3 | **3** | Identity rule ratified (ADR 011 §3); harness built (`src/lib/eval/`); **no engine, no `issues` table** — 0 grep hits in `supabase/` and `src/`. Bake-off gate **CLOSED** (ADR §10.3) |
 | Architecture & backend | 8.5 | 8.5 | **8.5** | *Agreed.* RLS, tenant-isolation tests, sync lock with Lua CAS release, 62 routes authenticated |
-| Data ingestion / regional + language handling | 8 | — | **7** | Ingestion fixed and pinned (P0-2 storefront, P1-2 language detector). **Multilingual *understanding* is untested** — corpus is 194 en / 6 hinglish / 0 native-script |
-| Testing / verification | 8.5 | 8.5 | **8** | 886 tests / 81 files, CI now genuinely runs, contract tests are mutation-verified. Docked 0.5: **e2e executes zero specs in CI** (BUG-037) |
-| Product UX / dashboard | 7 | — | **7** | *Agreed.* Design system real; `--rb-fg-4`, raw `gray-*` debt outstanding |
+| Data ingestion / regional + language handling | 8 | — | **6** | ▼ 2026-08-22. Ingestion is fixed and pinned (P0-2 storefront, P1-2 language detector), but two fidelity defects surfaced from real data: Play version **names are reused and non-monotonic** and we store no version code (**RV1**), and one app's reviews are **split across two `apps` rows** (§9.1 of `PATH_TO_9.md`). Multilingual *understanding* still untested — 0 native-script in the corpus |
+| Testing / verification | 8.5 | 8.5 | **8.5** | ▲ 2026-08-22. 975 tests / 85 files; two new contract suites, both mutation-verified (5/5 and 4/4 caught), plus a pricing contract that fails if any sold row has no code behind it. Still docked for **e2e executing zero specs in CI** (BUG-037) |
+| Product UX / dashboard | 7 | — | **6.5** | ▼ 2026-08-22. Two honesty defects visible on real screens: Sentiment shows **"Positive share 0%" beside "41% five-star"**, and **four** places claim clustering that does not exist (§9.2, §9.3). Design-system debt unchanged |
 | Store coverage (Google Play + App Store) | 5 | 8 | **8** | Both stores sync **and** post replies; SPINE 8/8 walked 2026-08-19. The 5 scored a 17-platform target that is not this product — see §2 |
 | Billing / packaging | 5 | 5 | **5** | *Agreed.* Stripe gated off by decision (D013), keys unset, W5A open. Quota enforcement wired 2026-08-21 (P0-3) |
 | Customer acquisition | 3 | — | **3** | *Agreed.* Marketing site + SEO plan exist; no channel has produced a signup |
@@ -53,6 +53,11 @@ splitting the difference. Where they agreed, the row is marked *agreed* and move
 | Commercial readiness | 5 | **4** |
 | Market validation | 2 | **1** |
 | **Overall market readiness** | **7** | **5.5** |
+
+> **Re-scored 2026-08-22 03:00 UTC.** Three rows moved and the rollups did not:
+> testing ▲, ingestion ▼, UX ▼. II0 shipped but **was not raised**, because §4's rule
+> says a row moves when a human exercises the thing or a gate flips — not when a
+> suite goes green. That is the rule working, not the plan stalling.
 
 **On the arithmetic.** "Overall market readiness" cannot exceed its binding constraint.
 With validation at 1 and commerce at 4, a 7 can only be reached by averaging the rows
