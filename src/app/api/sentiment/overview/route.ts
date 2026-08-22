@@ -134,14 +134,41 @@ export async function GET(req: Request): Promise<NextResponse> {
     const base = (): any =>
       sb.from("reviews").select("*").eq("workspace_id", workspaceId).in("app_id", scopedAppIds);
 
+    // A COUNT query must be built straight off .from(), never chained onto the
+    // helper above.
+    //
+    // There are two `select` overloads and they are not interchangeable.
+    // `PostgrestQueryBuilder.select(columns, { count, head })` — the one you get
+    // from `.from()` — is the only one that accepts options.
+    // `PostgrestTransformBuilder.select(columns?)`, which is what you get once a
+    // select has already been applied, takes **columns only** and silently drops
+    // a second argument.
+    //
+    // So `base().select("id", { count: "exact", head: true })` compiled, ran, and
+    // returned rows with `count === null` — and `count ?? 0` then rendered that
+    // unknown as a confident **"Positive share 0%"**, on a page simultaneously
+    // reporting 41% five-star reviews. Measured against the database on
+    // 2026-08-22: 64 reviews in the window, 32 of them positive. The true figure
+    // was 50%.
+    //
+    // `base()` is typed `any` for the reason in the comment above it, and that
+    // cast is what let this through: correctly typed, passing two arguments to a
+    // one-argument method is a compile error.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const countBase = (): any =>
+      sb
+        .from("reviews")
+        .select("id", { count: "exact", head: true })
+        .eq("workspace_id", workspaceId)
+        .in("app_id", scopedAppIds);
+
     // ── 1. KPI metrics (current + previous period) ───────────────────────────
     const [ratingRows, positiveCount, repliedRows, prevRatingRows, prevPositiveCount] =
       await Promise.all([
         base()
           .select("rating")
           .gte("store_created_at", windowStart.toISOString()),
-        base()
-          .select("id", { count: "exact", head: true })
+        countBase()
           .eq("sentiment", "positive")
           .gte("store_created_at", windowStart.toISOString()),
         base()
@@ -154,8 +181,7 @@ export async function GET(req: Request): Promise<NextResponse> {
           .select("rating")
           .gte("store_created_at", prevWindowStart.toISOString())
           .lt("store_created_at", prevWindowEnd.toISOString()),
-        base()
-          .select("id", { count: "exact", head: true })
+        countBase()
           .eq("sentiment", "positive")
           .gte("store_created_at", prevWindowStart.toISOString())
           .lt("store_created_at", prevWindowEnd.toISOString()),

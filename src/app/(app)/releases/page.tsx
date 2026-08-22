@@ -32,7 +32,22 @@ export default async function ReleasesPage() {
       // two apps' "2.1.0" into one fabricated row.
       const liveApps = (await getLiveApps(sb, workspaceId)) ?? [];
       multiApp = liveApps.length > 1;
-      const appNames = new Map(liveApps.map((a) => [a.id, a.name]));
+      // Two apps can legitimately share a name — the same product on both
+      // stores. "Mumbai One" is live twice in one real workspace: Google Play
+      // (223 reviews) and App Store (118). Labelling both rows "Mumbai One"
+      // made the release table look duplicated and gave the reader no way to
+      // tell which was which, which is exactly the confusion that reads as a
+      // data bug. Disambiguate by store, and only when it is actually needed.
+      const nameCounts = new Map<string, number>();
+      for (const a of liveApps) nameCounts.set(a.name, (nameCounts.get(a.name) ?? 0) + 1);
+      const storeLabel = (platform: string) =>
+        platform === "app_store" ? "App Store" : "Google Play";
+      const appNames = new Map(
+        liveApps.map((a) => [
+          a.id,
+          (nameCounts.get(a.name) ?? 0) > 1 ? `${a.name} · ${storeLabel(a.platform)}` : a.name,
+        ]),
+      );
 
       if (liveApps.length) {
         const { data } = await sb

@@ -19,6 +19,15 @@ import { isMissingColumnError } from "@/lib/db-errors";
 export interface LiveApp {
   id: string;
   name: string;
+  /**
+   * Which store. Present since migration 001 and NOT NULL, so it is safe to
+   * select unconditionally — unlike the `deleted_at` column below.
+   *
+   * Needed because two live apps can legitimately share a display name: the
+   * same product on both stores. Without it, a list that shows names alone
+   * renders them as indistinguishable duplicates.
+   */
+  platform: "google_play" | "app_store";
 }
 
 /**
@@ -37,13 +46,16 @@ export async function getLiveApps(
 ): Promise<LiveApp[] | null> {
   const full = await sb
     .from("apps")
-    .select("id, name")
+    .select("id, name, platform")
     .eq("workspace_id", workspaceId)
     .is("deleted_at", null);
   if (!full.error) return (full.data ?? []) as LiveApp[];
 
   if (isMissingColumnError(full.error)) {
-    const retry = await sb.from("apps").select("id, name").eq("workspace_id", workspaceId);
+    const retry = await sb
+      .from("apps")
+      .select("id, name, platform")
+      .eq("workspace_id", workspaceId);
     if (!retry.error) return (retry.data ?? []) as LiveApp[];
   }
 
