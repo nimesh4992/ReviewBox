@@ -298,6 +298,30 @@ Verified by query, not assumed:
 **Done when:** every `.insert(` / `.update(` whose payload contains a column from migration 012 or later either goes through `writeWithOptionalColumns()` or is confirmed to need no fallback, with a test for each.
 **Why now:** this class took onboarding down for **every** signup and nothing in the repo could see it. PostgREST answers `PGRST204` (not `42703`) when a write names a column missing from its schema cache, so every fallback written against 42703 alone is unreachable on the write path. `db-errors.ts` and `writeWithOptionalColumns()` now exist; onboarding, `/api/apps` and the sync status write are converted. Everything else is still latent — it just hasn't met a database missing that particular column yet.
 
+### [!] GP1 · Verify the Play service account still has access · HUMAN-REQUIRED
+
+**Rescued 2026-08-22 from PR #149 before it was closed** — this was the only place
+it was written down, and #149's `docs/today.md` was two days stale in every other
+respect.
+
+**What was observed, 2026-08-21:** Google Play sync returned
+`The caller does not have permission` for `com.metroconnect3.app`, at 15:00:35 that
+day and 08:01:06 the day before — so it **predated** that session's three merges and
+was not caused by them. A sync that fetches nothing makes every downstream feature
+look broken while the route still answers 200.
+
+**What has changed since:** `classifySyncError()` now maps a 403/permission failure
+to `needs_play_console_access` and writes a remedy into `last_sync_error` — *"Google
+Play Console hasn't authorized ReviewBox yet… invite the service account with
+View+Reply permissions."* So it is no longer silent at the app level.
+
+**What is still unverified, and is the actual item:** whether the permission was ever
+granted. That is a Play Console fact, not a code fact, and nothing in this repository
+can answer it. Likely also blocks one-click reply posting on Android.
+
+**Done when:** Play Console → Users and permissions shows the service account with
+View + Reply on that app, and one sync run stores at least one review from it.
+
 ### [ ] LT2 · Founder: Clerk dev keys scoped to Preview · ICE 60 (6×10÷1) — HUMAN-REQUIRED
 **Added 2026-08-16.** **Effort:** ~10 min (founder, Vercel env vars).
 **Done when:** preview deployments can be signed into, so a fix can be verified before it reaches production.
