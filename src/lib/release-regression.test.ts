@@ -206,11 +206,16 @@ describe("compareReleases — inputs", () => {
 });
 
 describe("findPreviousVersion", () => {
+  const row = (appId: string, version: string, reviewCount: number, firstSeen: string): VersionRow => ({
+    appId, appName: appId.toUpperCase(), version, reviewCount,
+    avgRating: 3, ratingDelta: null, firstSeen,
+  });
+
   const versions: VersionRow[] = [
     // newest-first, exactly as deriveVersions() returns
-    { appId: "a", appName: "A", version: "1.5", reviewCount: 9, avgRating: 3, ratingDelta: null, firstSeen: "2026-08-10" },
-    { appId: "b", appName: "B", version: "2.1.0", reviewCount: 9, avgRating: 4, ratingDelta: null, firstSeen: "2026-08-09" },
-    { appId: "a", appName: "A", version: "1.4", reviewCount: 9, avgRating: 4, ratingDelta: null, firstSeen: "2026-08-01" },
+    row("a", "1.5", 40, "2026-08-10"),
+    row("b", "2.1.0", 40, "2026-08-09"),
+    row("a", "1.4", 40, "2026-08-01"),
   ];
 
   it("steps to the previous release of the SAME app, not the previous row", () => {
@@ -225,5 +230,39 @@ describe("findPreviousVersion", () => {
 
   it("returns null when the version does not belong to the app", () => {
     expect(findPreviousVersion(versions, "b", "1.5")).toBeNull();
+  });
+
+  it("skips a straggler release too small to be a baseline", () => {
+    // Mumbai One's real shape: v1.3.1 first appears ELEVEN DAYS AFTER v1.4,
+    // because one user on an old build reviewed late. Taking the immediately
+    // preceding row makes a 1-review phantom the baseline for v1.4.1 and the
+    // comparison then refuses itself, while v1.4's 75 reviews sit one row back.
+    const real: VersionRow[] = [
+      row("a", "1.4.1", 49, "2026-05-07"),
+      row("a", "1.3.1", 1, "2026-03-31"),
+      row("a", "1.4", 75, "2026-03-20"),
+    ];
+
+    expect(findPreviousVersion(real, "a", "1.4.1")?.version).toBe("1.4");
+  });
+
+  it("still returns the straggler when the caller asks for raw adjacency", () => {
+    const real: VersionRow[] = [
+      row("a", "1.4.1", 49, "2026-05-07"),
+      row("a", "1.3.1", 1, "2026-03-31"),
+      row("a", "1.4", 75, "2026-03-20"),
+    ];
+
+    expect(findPreviousVersion(real, "a", "1.4.1", 0)?.version).toBe("1.3.1");
+  });
+
+  it("returns null when every earlier release is too small", () => {
+    const thin: VersionRow[] = [
+      row("a", "1.5", 40, "2026-07-02"),
+      row("a", "1.4", 2, "2026-05-01"),
+      row("a", "1.3", 1, "2026-03-01"),
+    ];
+
+    expect(findPreviousVersion(thin, "a", "1.5")).toBeNull();
   });
 });

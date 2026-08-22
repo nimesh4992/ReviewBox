@@ -121,6 +121,7 @@ watch. A row may not claim a gate is green — only §2's table may, and only af
 | 2026-08-21 19:46 | M1 · `src/lib/release-regression.ts` + 18 unit tests | `vitest` 18/18; **5 mutations applied, all 5 caught** (drop normalisation, drop tag floor, swap old/new, drop version floor, trust array adjacency) | — |
 | 2026-08-21 19:52 | M1 · "What changed vs vX" card on `/releases/[version]`, workspace tag labels, `issue_tags_override` honoured, 024-missing fallback | `tsc` clean · `vitest` **965/965 in 84 files** · `lint` 0 errors (13 pre-existing warnings) · `next build` | **AC-6: open a real app's release and name the biggest mover.** Nothing here proves that |
 | 2026-08-21 19:58 | Spec `docs/specs/release-regression.md`; backlog II0 marked *implemented, not walked* | — | — |
+| 2026-08-22 02:2x | **M1 fix** · `findPreviousVersion` skipped straggler baselines — found in Mumbai One's real release table, not by any test | 21/21; mutation-checked by reverting to raw adjacency (2 fail). Filed 3 further findings from the same screenshots — see §9 | Founder: the duplicate-app question in §9 |
 | 2026-08-21 20:58 | **M2** · `src/pricing-contract.test.ts` — every pricing row must name the code that makes it true | 7/7 green; **4 mutations applied, 4 caught** (add an unbacked row, reword the excepted row, delete an implementation, empty the matrix). Pricing page left byte-identical to HEAD | Apply the §7 diff — founder-only (D009 §9) |
 | 2026-08-21 19:57 | PR **#150** opened as draft from base `ddf9e41` | CI **6 of 6 green** on head `d74a7a5` — counted, not "nothing red". Note: *E2E (advisory)* passed in 43s while executing **zero specs** (BUG-037) and is not evidence of anything | Merge is the founder's call while the bake-off is live — see §6.5 |
 
@@ -284,4 +285,82 @@ customer-facing settings and onboarding surfaces, each needing its own line in a
 test plan. #150 is complete and green as a unit, and its merge decision is
 already what blocks R1. A separate branch, after #150 lands, keeps both
 reviewable. **Tracked as AU5 in `docs/backlog.md`.**
+
+---
+
+## 9. What Mumbai One's real screens showed — 2026-08-22
+
+Two screenshots (Sentiment and Releases, `Mumbai One`, Google Play) produced four
+findings in ten minutes. **Three of them were invisible to 975 passing tests**,
+which is the point `docs/SPINE.md` has been making all along.
+
+### 9.1 · Every recent version appears TWICE — two `apps` rows for one app
+
+The release table lists `1.5` (57 reviews) *and* `1.5` (6), `1.4.1` (49) *and*
+`1.4.1` (3), `1.4` (75) *and* `1.4` (10).
+
+`deriveVersions()` keys its buckets on `` `${app_id}|${version}` ``, so identical
+version **and** identical display name can only mean **two different `app_id`s
+both named "Mumbai One"**. Confirmed by the table itself: *two* rows show `—` in
+"vs previous" (`1.4`/75 and `1.0`/21), and that dash marks the oldest release of a
+chain. Two chains = two apps. The APP column only renders at all when the
+workspace has more than one live app.
+
+**Consequence:** the app's reviews are split across two records, so every per-app
+number — rating, counts, deltas, and II0's comparison — is computed on a fraction
+of the data. **This is the highest-priority finding on this page and it is a data
+question, not a code one.**
+
+> **Founder:** Settings → Apps. Is there one "Mumbai One" or two? If two, which
+> is the real one (the chain running 1.0 → 1.5 with 280 reviews looks like it),
+> and may the other be disconnected? An agent must not delete an app record.
+
+### 9.2 · "Positive share 0%" beside "41% five-star", on the same screen
+
+`positiveShare` counts rows where `sentiment = 'positive'` over the same window
+and app scope that returned 64 reviews, so the scoping is not at fault. And
+`scoreSentiment()` gives a 5★ review with no text a score of exactly 1.0 →
+`positive`. Both facts together leave one explanation: **`sentiment` is NULL on
+these rows** — they were never enriched, or were synced before enrichment ran.
+
+Two things to fix, and they are different:
+1. The data — a backfill pass over rows with `sentiment IS NULL`.
+2. The display — `positiveCount.count ?? 0` turns *"the count failed"* into a
+   confident **0%**. That is AU5's class at the API layer, and it is why this
+   renders as a fact rather than as "—". **Added to AU5.**
+
+### 9.3 · Four places claim clustering that does not exist
+
+| Where | String |
+|---|---|
+| `sentiment-screen.tsx:684` | **"Topics · auto-clustered"** — it is counts of the 8 regex tags |
+| `sentiment-screen.tsx:704` | **"Re-cluster with AI"** |
+| `sentiment-screen.tsx:417` | **"AI Re-cluster results"** |
+| `/pricing` feature matrix | **"Topic clustering across your reviews"** (§7) |
+
+What the button actually does is honest one line lower, in its own subtitle:
+*"N reviews re-classified · rules engine + Gemini"*. It re-runs **sentiment
+classification** on recent negative reviews. It does not cluster anything, and it
+does not change the topics table above it.
+
+The pricing row is founder-only (D009 §9). **The three in-product strings are
+not** — they are ordinary UI copy, and fixing them is a one-line-each change that
+makes the product describe itself accurately. Queued, not applied: it is a
+separate concern from II0 and belongs in the same branch as §7's rewording so the
+founder sees all four together.
+
+### 9.4 · The straggler baseline — FIXED in this PR
+
+v1.3.1's first review lands **31 Mar 2026, eleven days after v1.4's**, because one
+user on an old build reviewed late. Releases are ordered by first-review-seen, so
+`findPreviousVersion` would have handed v1.4.1 a **1-review** baseline and the card
+would then have refused itself as "not enough reviews" — while v1.4's 75 reviews
+sat one row further back.
+
+Fixed: the baseline search now steps back to the nearest release clearing
+`MIN_VERSION_REVIEWS`. Locked by AC-7 in `docs/specs/release-regression.md` and
+mutation-checked by reverting to raw adjacency.
+
+**No unit test would ever have found this.** Every fixture anyone would invent has
+versions in tidy chronological order. Real users do not.
 

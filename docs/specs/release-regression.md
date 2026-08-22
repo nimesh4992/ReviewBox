@@ -54,6 +54,16 @@ release
 **Then** the card explains which, in a sentence naming the counts — never an
 empty state that reads as "nothing is wrong".
 
+### AC-7 — A straggler release cannot become the baseline
+**Given** v1.3.1's first review arrives 31 Mar, eleven days *after* v1.4's
+**When** the comparison for v1.4.1 picks its baseline
+**Then** it skips the 1-review v1.3.1 and compares against v1.4.
+*Verified by:* `release-regression.test.ts` → "skips a straggler release too small
+to be a baseline"; mutation-checked by reverting to raw adjacency (2 tests fail).
+*Found in Mumbai One's real release table on 2026-08-22 — releases are ordered by
+first review seen, not by version number, and one late reviewer on an old build is
+enough to insert a phantom previous release.*
+
 ### AC-6 — A founder can name the biggest mover in under 30 seconds *(the gate)*
 **Given** a real app with at least two releases and ≥10 reviews each
 **When** the founder opens `/releases/<version>?appId=…`
@@ -71,6 +81,7 @@ without doing arithmetic.
 | `MIN_VERSION_REVIEWS = 10`, `MIN_TAG_REVIEWS = 3` | Product-policy floors, not significance tests. Same rule as ADR 011 §10.1: weak evidence is published, never decisive |
 | New tags get their own direction | Division by zero is not a product statement |
 | `findPreviousVersion` chains within one app id | Version numbers are unique only within an app — the bug `release-versions.ts` exists to prevent |
+| …and skips baselines below `MIN_VERSION_REVIEWS` | AC-7. Ordering is by first-review-seen, so a late reviewer on an old build inserts a phantom previous release |
 | Human tag overrides win | `effectiveTags()`; an empty override means "none apply", not "no opinion" |
 | Row cap disclosed in the footer | An undisclosed sample makes a percentage mean something other than what it reads as |
 

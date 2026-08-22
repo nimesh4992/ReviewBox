@@ -267,19 +267,41 @@ export function compareReleases(
 }
 
 /**
- * The release immediately before `version`, within the same app.
+ * The most recent release before `version` that can actually anchor a
+ * comparison, within the same app.
  *
  * `deriveVersions()` returns newest-first across the whole workspace, so this
  * filters to one app before stepping — never trusting array adjacency, which is
  * exactly the bug that fused two products' releases together.
+ *
+ * ── Why it skips, instead of taking the immediately-preceding row ────────────
+ *
+ * Releases are ordered by **first review seen**, not by version number, and a
+ * straggler breaks that assumption. Mumbai One's real data has v1.3.1 first
+ * appearing on 31 Mar 2026 — eleven days AFTER v1.4 — because one user on an old
+ * build reviewed late. Taking the immediately-preceding row would make a
+ * one-review phantom the baseline for v1.4.1, and the whole comparison would
+ * then refuse itself as "not enough reviews" while the real answer (v1.4, 75
+ * reviews) sat one row further back.
+ *
+ * So: step back to the nearest release that clears `minReviews`. The card names
+ * the version it settled on, so a skipped straggler is visible rather than
+ * silently folded in.
+ *
+ * @param minReviews Reviews the baseline must have. Pass 0 for raw adjacency.
  */
 export function findPreviousVersion(
   versions: readonly VersionRow[],
   appId: string,
   version: string,
+  minReviews: number = MIN_VERSION_REVIEWS,
 ): VersionRow | null {
   const ownVersions = versions.filter((v) => v.appId === appId);
   const index = ownVersions.findIndex((v) => v.version === version);
   if (index === -1) return null;
-  return ownVersions[index + 1] ?? null; // newest-first, so +1 is older
+  // newest-first, so walk forward = walk back in time
+  for (let i = index + 1; i < ownVersions.length; i++) {
+    if (ownVersions[i].reviewCount >= minReviews) return ownVersions[i];
+  }
+  return null;
 }
