@@ -160,7 +160,7 @@ const FEATURE_MATRIX = [
     rows: [
       { label: "Automatic sentiment tagging", starter: true, pro: true, enterprise: true },
       { label: "Issue tags: crashes, billing, login, performance", starter: true, pro: true, enterprise: true },
-      { label: "Topic clustering across your reviews", starter: false, pro: true, enterprise: true },
+      { label: "Topic breakdown across your reviews", starter: false, pro: true, enterprise: true },
       { label: "Rating spike alerts", starter: true, pro: true, enterprise: true },
       { label: "Release health tracking", starter: false, pro: true, enterprise: true },
       // Deliberately "ideas", not "tracking". We mine keyword phrases out of
@@ -275,7 +275,7 @@ export default function PricingPage() {
             center
             eyebrow="Compare plans"
             title="Everything in the box"
-            body="Every plan syncs both stores, drafts AI replies in your brand voice, and publishes with one click. Pro adds the intelligence and collaboration layer — topic clustering, release health, Slack alerts, and multiple teammates."
+            body="Every plan syncs both stores, drafts AI replies in your brand voice, and publishes with one click. Pro adds the intelligence and collaboration layer — topic breakdown, release health, Slack alerts, and multiple teammates."
           />
 
           {/* The table scrolls inside its own container so the page body never
