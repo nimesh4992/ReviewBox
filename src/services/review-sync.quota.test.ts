@@ -1,21 +1,30 @@
 /**
- * Runtime proof that the monthly review quota gates the sync pipeline.
+ * Runtime proof that the monthly review quota does NOT gate the sync pipeline.
  *
- * Why this file exists: the quota's only other coverage is
- * `plan-enforcement.test.ts`, which greps `src/` for the string
- * "checkReviewLimit" and asserts it appears somewhere. That proves an import
- * exists, not that a workspace over its limit actually stops fetching — the
- * call could sit after the provider calls, or its result could be ignored, and
- * the grep would still pass.
+ * **This file used to assert the exact opposite, and that is why it is worth
+ * reading before changing anything here.** Its previous version proved that
+ * "an over-limit workspace reaches NO provider, on every run" — ADR 009's
+ * Option A, the option that ADR says in writing not to build. It was added
+ * alongside the gate itself, so the behaviour arrived already defended.
  *
- * Moving from a daily cron to a sub-daily one (P1-1) multiplies the number of
- * times this gate is asked per day, so what matters is:
+ * What that produced for a customer: over the calendar-month count, every app
+ * in the workspace stopped syncing on every scheduled run until the 1st. The
+ * cron path pushed the message into `summary.errors` and discarded it, so
+ * there was no email, no banner and no `last_sync_error` — the app row still
+ * read healthy while their reviews silently stopped arriving.
  *
- *   1. an over-limit workspace reaches NO provider, on every run, and
- *   2. an under-limit workspace still does.
+ * Founder decision 2026-08-22: **Option B, soft cap.** Ingestion never stops;
+ * usage is reported by `getReviewUsage()` and shown as a banner. So the
+ * property under test inverts:
  *
- * Both are asserted below against the real `syncWorkspace()` with only the
- * module boundaries (database, stores, notifications) mocked.
+ *   1. an over-limit workspace still reaches the provider, on every run,
+ *   2. an under-limit workspace does too, and
+ *   3. nothing in the summary reads as a quota failure.
+ *
+ * Asserted against the real `syncWorkspace()` with only the module boundaries
+ * (database, stores, notifications) mocked. `plan-enforcement.test.ts` holds
+ * the shape half — that the gating function is gone from the tree — and
+ * neither half is sufficient alone.
  */
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
@@ -121,57 +130,51 @@ const GOOGLE_PLAY_APP = {
   store_country: "in",
 };
 
-describe("monthly review quota gates the sync pipeline (runtime)", () => {
+describe("the monthly review quota does not gate the sync pipeline (runtime)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     queriedTables = [];
     tableResults = {};
   });
 
-  it("halts before any provider call when the workspace is at its monthly limit", async () => {
+  it("still reaches the provider when the workspace is at its monthly limit", async () => {
     tableResults = {
       apps: { data: [GOOGLE_PLAY_APP], error: null },
       workspaces: { data: { plan: "free" }, error: null },
-      // checkReviewLimit's count — exactly at the free plan's ceiling.
+      // Exactly at the free plan's ceiling — the case that used to stop it.
       reviews: { count: PLAN_LIMITS.free.reviewsPerMonth, data: [], error: null },
     };
 
     const { syncWorkspace } = await import("@/services/review-sync");
     const summary = await syncWorkspace("ws-1");
 
-    expect(summary.errors.join(" ")).toMatch(/Monthly review limit reached/i);
-    expect(summary.appsProcessed).toBe(0);
-    expect(summary.reviewsUpserted).toBe(0);
-
-    // The point of the gate: zero outbound store traffic.
-    expect(bootstrapReviews).not.toHaveBeenCalled();
-    expect(fetchGooglePlayReviews).not.toHaveBeenCalled();
-    expect(fetchAppMetadata).not.toHaveBeenCalled();
-    expect(findAppAcrossStorefronts).not.toHaveBeenCalled();
+    // The whole point of the soft cap: the reviews still arrive.
+    expect(bootstrapReviews).toHaveBeenCalled();
+    expect(summary.errors.join(" ")).not.toMatch(/limit/i);
+    expect(summary.errors.join(" ")).not.toMatch(/quota/i);
   });
 
-  it("stays closed on every repeated scheduled run while the quota is exhausted", async () => {
+  it("stays open on every repeated scheduled run while far over the allowance", async () => {
     tableResults = {
       apps: { data: [GOOGLE_PLAY_APP], error: null },
       workspaces: { data: { plan: "starter" }, error: null },
-      reviews: { count: PLAN_LIMITS.starter.reviewsPerMonth + 500, data: [], error: null },
+      reviews: { count: PLAN_LIMITS.starter.reviewsPerMonth * 10, data: [], error: null },
     };
 
     const { syncWorkspace } = await import("@/services/review-sync");
 
-    // One full day of the 3-hourly cron.
+    // One full day of the 3-hourly cron. Ten times over the allowance is not
+    // a hypothetical: the count is on rows STORED this month, so a single
+    // first import of a large back catalogue lands there on day one.
     for (let run = 0; run < 8; run++) {
       const summary = await syncWorkspace("ws-1");
-      expect(summary.errors.join(" ")).toMatch(/Monthly review limit reached/i);
+      expect(summary.errors.join(" ")).not.toMatch(/limit|quota/i);
     }
 
-    expect(bootstrapReviews).not.toHaveBeenCalled();
-    expect(fetchGooglePlayReviews).not.toHaveBeenCalled();
+    expect(bootstrapReviews).toHaveBeenCalled();
   });
 
-  it("does not let several apps in one workspace each spend the workspace allowance", async () => {
-    // Three apps, one workspace, already over the shared limit. The gate is
-    // per-WORKSPACE, so none of the three may fetch.
+  it("does not stop any app in a multi-app workspace that is over the shared count", async () => {
     tableResults = {
       apps: {
         data: [
@@ -188,11 +191,11 @@ describe("monthly review quota gates the sync pipeline (runtime)", () => {
     const { syncWorkspace } = await import("@/services/review-sync");
     const summary = await syncWorkspace("ws-1");
 
-    expect(summary.errors.join(" ")).toMatch(/Monthly review limit reached/i);
-    expect(bootstrapReviews).not.toHaveBeenCalled();
+    expect(summary.errors.join(" ")).not.toMatch(/limit|quota/i);
+    expect(bootstrapReviews).toHaveBeenCalled();
   });
 
-  it("lets an under-limit workspace through to the provider", async () => {
+  it("an under-limit workspace is unaffected", async () => {
     tableResults = {
       apps: { data: [GOOGLE_PLAY_APP], error: null },
       workspaces: { data: { plan: "free" }, error: null },
@@ -202,26 +205,27 @@ describe("monthly review quota gates the sync pipeline (runtime)", () => {
     const { syncWorkspace } = await import("@/services/review-sync");
     await syncWorkspace("ws-1");
 
-    // Proves the previous assertions come from the quota gate and not from a
-    // mock that blocks the provider unconditionally.
+    // Guards the assertions above against a mock that lets everything through
+    // unconditionally: this case has to pass for the same reason, not a
+    // different one.
     expect(bootstrapReviews).toHaveBeenCalled();
-    expect(queriedTables).toContain("workspaces");
   });
 
-  it("resolves the plan from the workspace row, not a hardcoded tier", async () => {
-    // A `pro` workspace with 4,000 reviews is under its 50,000 ceiling but well
-    // over the free plan's 1,000. Reading the wrong plan would stop a paying
-    // customer's sync — the failure mode a source-grep test cannot see.
+  it("a database failure on the review count cannot stop a sync", async () => {
+    // The old gate called checkReviewLimit(), which THREW on a query error;
+    // the caller caught it and continued, but only because someone remembered
+    // to. Under the soft cap there is nothing on this path to throw at all —
+    // asserted here so a reintroduced read cannot quietly become load-bearing.
     tableResults = {
       apps: { data: [GOOGLE_PLAY_APP], error: null },
-      workspaces: { data: { plan: "pro" }, error: null },
-      reviews: { count: 4_000, data: [], error: null },
+      workspaces: { data: { plan: "free" }, error: null },
+      reviews: { count: null, data: [], error: { message: "connection reset" } },
     };
 
     const { syncWorkspace } = await import("@/services/review-sync");
     const summary = await syncWorkspace("ws-1");
 
-    expect(summary.errors.join(" ")).not.toMatch(/Monthly review limit reached/i);
     expect(bootstrapReviews).toHaveBeenCalled();
+    expect(summary.errors.join(" ")).not.toMatch(/limit|quota/i);
   });
 });

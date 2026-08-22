@@ -42,34 +42,86 @@ export async function canAddApp(
 }
 
 /**
- * Returns an error string if the workspace has exceeded its monthly review
- * limit, or null if within limit.
+ * How much of the plan's monthly review allowance a workspace has used.
+ *
+ * **This is a report, not a gate — deliberately, and the naming carries that.**
+ *
+ * Its predecessor was `checkReviewLimit()`, which returned *an error string*,
+ * and `syncWorkspaceApps()` returned early on it. That is ADR 009's Option A,
+ * the option the ADR says in writing not to build: over the line, the whole
+ * workspace stopped syncing on every scheduled run until the 1st, with no
+ * email, no banner and no `last_sync_error` — the app row still read healthy
+ * while reviews silently stopped arriving for up to a month.
+ *
+ * Founder decision 2026-08-22: **Option B, soft cap.** Nothing is ever
+ * withheld; the customer is told and asked. So this function cannot refuse
+ * anything — there is no error to return, and a caller that wanted to gate on
+ * it would have to write the comparison itself, in the open, on purpose.
+ *
+ * **Fails open, and says so.** If the count cannot be read, `unknown` is true
+ * and `over` is false. A banner must render nothing in that case rather than
+ * assert a number: this is the AU5 lesson — a failed read that renders as a
+ * confident figure is worse than one that renders as nothing.
  */
-export async function checkReviewLimit(
+export interface ReviewUsage {
+  /** Reviews first stored this calendar month. */
+  used: number;
+  /** The plan's monthly allowance. */
+  limit: number;
+  /** Past the allowance. Informational only — ingestion continues regardless. */
+  over: boolean;
+  /** Whole-number percent of the allowance used. Can exceed 100. */
+  percentUsed: number;
+  /** The count could not be read. Callers must not claim a usage state. */
+  unknown: boolean;
+}
+
+/**
+ * The share of the allowance at which the customer is told.
+ *
+ * 80% is not an arbitrary choice — it is the number already promised on
+ * `/pricing` and `/faq` ("We'll notify you when you hit 80% of your quota"),
+ * which until now nothing in the codebase implemented. Changing it here
+ * silently makes those two sentences false again, so `src/lib/plans.test.ts`
+ * is the wrong place to look for permission: change the pages first.
+ */
+export const REVIEW_USAGE_NOTICE_PERCENT = 80;
+
+export async function getReviewUsage(
   workspaceId: string,
   plan: string,
-): Promise<string | null> {
-  const sb = getServiceClient();
-
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
-
-  const { count, error } = await sb
-    .from("reviews")
-    .select("id", { count: "exact", head: true })
-    .eq("workspace_id", workspaceId)
-    .gte("created_at", startOfMonth);
-
-  if (error) throw new Error(`checkReviewLimit: ${error.message}`);
-
+): Promise<ReviewUsage> {
   const resolved = resolvePlan(plan);
   const limit = PLAN_LIMITS[resolved].reviewsPerMonth;
 
-  if ((count ?? 0) >= limit) {
-    return `Monthly review limit reached (${limit.toLocaleString()} reviews). Upgrade your plan to sync more reviews.`;
-  }
+  try {
+    const sb = getServiceClient();
+    const now = new Date();
+    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).toISOString();
 
-  return null;
+    const { count, error } = await sb
+      .from("reviews")
+      .select("id", { count: "exact", head: true })
+      .eq("workspace_id", workspaceId)
+      .gte("created_at", startOfMonth);
+
+    if (error) {
+      console.error("[plan] review usage count failed:", error);
+      return { used: 0, limit, over: false, percentUsed: 0, unknown: true };
+    }
+
+    const used = count ?? 0;
+    return {
+      used,
+      limit,
+      over: used >= limit,
+      percentUsed: limit > 0 ? Math.floor((used / limit) * 100) : 0,
+      unknown: false,
+    };
+  } catch (err) {
+    console.error("[plan] review usage count threw:", err);
+    return { used: 0, limit, over: false, percentUsed: 0, unknown: true };
+  }
 }
 
 /**

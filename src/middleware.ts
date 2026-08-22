@@ -128,6 +128,14 @@ const isAppRoute = createRouteMatcher([
   "/api/team(.*)",
   "/api/stripe/checkout(.*)",
   "/api/stripe/portal(.*)",
+  // `/billing(.*)` above matches the PAGE, not `/api/billing/...` — the two
+  // Stripe routes beside this line are listed individually for the same
+  // reason. `/api/billing/usage` (the soft-cap banner's read) landed in
+  // neither matcher, which on the prod app host 307s a fetch to /dashboard:
+  // 200 OK, `res.ok` true, HTML body, `res.json()` throws, and the banner
+  // silently never appears. Sixth instance of this exact class — now guarded
+  // for every route by `src/middleware.api-coverage-contract.test.ts`.
+  "/api/billing(.*)",
   "/api/gdpr(.*)",
   "/api/sentiment(.*)",
   "/api/aso(.*)",

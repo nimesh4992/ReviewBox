@@ -76,7 +76,7 @@ vi.mock("@/lib/supabase-server", () => ({
   }),
 }));
 
-import { canAddApp, canPublishReply, checkReviewLimit } from "./plan-enforcement";
+import { canAddApp, canPublishReply, getReviewUsage } from "./plan-enforcement";
 import { PLAN_LIMITS } from "./plans";
 
 beforeEach(() => {
@@ -174,21 +174,68 @@ describe("canPublishReply", () => {
   });
 });
 
-describe("checkReviewLimit", () => {
-  it("returns null while under the limit", async () => {
+/**
+ * This block has now been written three ways, and the history is the point.
+ *
+ *   v1  asserted `checkReviewLimit()` had NO callers — a placeholder holding
+ *       ADR 009's decision open so it could not be forgotten.
+ *   v2  was inverted to assert it DID have one, when commit fc53682 wired it
+ *       into the sync as Option A — the option the ADR says not to build. The
+ *       test that existed to keep a decision visible was quietly repurposed
+ *       into cover for making it without asking.
+ *   v3  (here) asserts the soft cap: usage is reported, nothing is gated, and
+ *       the sync contains no early return on volume.
+ *
+ * A grep-for-a-string test is weak on its own — it proves an import exists,
+ * not what happens at runtime. `src/services/review-sync.quota.test.ts` is the
+ * runtime half; this is the shape half, and neither is sufficient alone.
+ */
+describe("getReviewUsage — reports, never gates", () => {
+  it("reports usage under the limit", async () => {
     reviewsResult = { count: 10, error: null };
-    await expect(checkReviewLimit("ws_1", "starter")).resolves.toBeNull();
+    const usage = await getReviewUsage("ws_1", "starter");
+    expect(usage.over).toBe(false);
+    expect(usage.used).toBe(10);
+    expect(usage.limit).toBe(PLAN_LIMITS.starter.reviewsPerMonth);
+    expect(usage.unknown).toBe(false);
   });
 
-  it("returns an actionable message at the limit", async () => {
+  it("marks over-limit without producing anything a caller can refuse on", async () => {
     reviewsResult = { count: PLAN_LIMITS.starter.reviewsPerMonth, error: null };
-    const msg = await checkReviewLimit("ws_1", "starter");
-    expect(msg).toMatch(/limit reached/i);
-    expect(msg).toMatch(/upgrade/i);
+    const usage = await getReviewUsage("ws_1", "starter");
+    expect(usage.over).toBe(true);
+    // No message, no error, no throw. The old signature returned a string
+    // precisely so a caller could `return` on it; this one cannot.
+    expect(typeof usage).toBe("object");
+    expect(usage).not.toHaveProperty("error");
+    expect(usage).not.toHaveProperty("message");
   });
 
-  it("is wired into the sync pipeline", async () => {
-    // Assert checkReviewLimit is called in the sync pipeline (services/review-sync.ts and/or api/sync/reviews)
+  it("computes a percentage that can exceed 100", async () => {
+    reviewsResult = { count: PLAN_LIMITS.starter.reviewsPerMonth * 2, error: null };
+    const usage = await getReviewUsage("ws_1", "starter");
+    expect(usage.percentUsed).toBe(200);
+  });
+
+  it("fails open and says so when the count cannot be read", async () => {
+    reviewsResult = { count: null, error: { message: "connection reset" } };
+    const usage = await getReviewUsage("ws_1", "starter");
+    expect(usage.unknown).toBe(true);
+    expect(usage.over).toBe(false);
+    expect(usage.percentUsed).toBe(0);
+  });
+
+  it("resolves an unknown plan to free rather than throwing", async () => {
+    reviewsResult = { count: 0, error: null };
+    const usage = await getReviewUsage("ws_1", "not-a-plan");
+    expect(usage.limit).toBe(PLAN_LIMITS.free.reviewsPerMonth);
+  });
+});
+
+describe("nothing gates the sync on review volume", () => {
+  it("the old gating function is gone from the codebase entirely", async () => {
+    // Not "has no callers" — GONE. A name that returns an error string invites
+    // someone to return early on it, which is exactly what happened once.
     const { readFileSync, readdirSync, statSync } = await import("node:fs");
     const { join } = await import("node:path");
     const hits: string[] = [];
@@ -197,11 +244,34 @@ describe("checkReviewLimit", () => {
         const full = join(dir, e);
         if (statSync(full).isDirectory()) walk(full);
         else if (/\.tsx?$/.test(e) && !e.endsWith(".test.ts")) {
-          if (readFileSync(full, "utf8").includes("checkReviewLimit")) hits.push(full.replace(/\\/g, "/"));
+          // Comments stripped first. `plan-enforcement.ts` explains in prose
+          // what the old function was and why it went, and the first version
+          // of this scanner duly reported that explanation as a violation —
+          // the same self-inflicted false positive `supabase-count-contract`
+          // and `pricing-contract` each hit before it.
+          const code = readFileSync(full, "utf8")
+            .replace(/\/\*[\s\S]*?\*\//g, " ")
+            .replace(/\/\/[^\n]*/g, " ");
+          if (code.includes("checkReviewLimit")) hits.push(full.replace(/\\/g, "/"));
         }
       }
     };
     walk(join(process.cwd(), "src"));
-    expect(hits.filter((h) => !h.endsWith("plan-enforcement.ts")).length).toBeGreaterThan(0);
+    expect(
+      hits,
+      "checkReviewLimit() returned an error string and the sync returned early " +
+        "on it — ADR 009 Option A, which the ADR says not to build. It was " +
+        "replaced by getReviewUsage(). If it is back, so is the silent stop.",
+    ).toEqual([]);
+  });
+
+  it("the sync pipeline contains no early return on usage", async () => {
+    const { readFileSync } = await import("node:fs");
+    const { join } = await import("node:path");
+    const src = readFileSync(join(process.cwd(), "src/services/review-sync.ts"), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, " ")
+      .replace(/\/\/[^\n]*/g, " ");
+    expect(src).not.toContain("getReviewUsage");
+    expect(src).not.toMatch(/Monthly review limit reached/);
   });
 });

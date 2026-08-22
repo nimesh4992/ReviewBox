@@ -220,62 +220,61 @@ The platform limit is settled and verified: Google's API has no way to request o
 **Why it matters beyond depth:** it is the exact wrong-layer mistake this codebase keeps making — an in-house limit read as an upstream one. The customer-facing copy in `/help/review-history` says so explicitly rather than hiding behind "the stores only give us ~200", so shipping this also settles a promise already in public.
 **Careful:** deeper paging on first connect competes with `maxDuration` on the same routes as W5's app-create retry. Budget it; don't just raise the number.
 
-### [!] W5A · The review-volume limit is a HARD STOP in production, and nobody decided it · HUMAN-REQUIRED
+### [x] W5A · Review-volume limit — DECIDED and SHIPPED 2026-08-22 (ADR 009 Option B, soft cap)
 
-> **⚠️ Rewritten 2026-08-22. The text below the line is the original and its premise is
-> false.** `checkReviewLimit()` no longer has zero call sites — commit `fc53682` wired
-> it into `syncWorkspaceApps()` (`src/services/review-sync.ts:838`) as **Option A**, the
-> option `docs/adr/009-review-volume-limit.md` says, verbatim, *"Do not do this."*
-> The ADR is still marked `Status: Proposed — needs a founder decision`, and the guard
-> test that existed to keep the decision visible was inverted to assert the wiring.
+**Founder decision 2026-08-22: Option B.** Ingestion never stops; the customer
+is told and asked. `docs/adr/009-review-volume-limit.md` is now `ACCEPTED` and
+carries the full record, including the detour it corrects.
 
-**What runs today.** Over the calendar-month row count, `syncWorkspaceApps()` returns
-before touching any provider — every app in the workspace, every scheduled run, until
-the 1st. The count is on `reviews.created_at`, so a **first import** can spend the whole
-month's allowance at once: a Starter customer (5,000) connecting a 5,000-review app is
-over the line on day one.
+What shipped:
+- `checkReviewLimit()` **deleted**, not just unwired. It returned an error
+  string, which is an invitation to `return` early on it — and someone did.
+  `getReviewUsage()` replaces it and returns a report with no error in it.
+- The early return is gone from `syncWorkspaceApps()`, with the reasoning left
+  as a comment at the line it occupied.
+- `GET /api/billing/usage` + `<ReviewQuotaBanner />` on the dashboard, at
+  **≥80%** and again when over.
+- `/api/sync/reviews` no longer answers 402 `REVIEW_LIMIT_REACHED`.
 
-**And it is silent.** The cron path pushes the message into `summary.errors` and
-discards it. No email, no banner, no `last_sync_error` — the app row still reads healthy
-with its old `last_synced_at`. Only a manual "Sync now" surfaces it, as a 402. That is
-the outcome ADR 009 predicted in the sentence recommending against it.
+**The guards assert an absence, deliberately.** `plan-enforcement.test.ts`
+fails if the name `checkReviewLimit` returns anywhere in `src/`, or if the sync
+so much as imports the usage report; `review-sync.quota.test.ts` — which
+previously proved the hard stop at runtime — now proves an over-limit workspace
+still reaches the provider on every run. Three mutations applied, three caught;
+reintroducing the gate fails six tests.
 
-**Two public pages promise a warning that does not exist** — see QT1.
+**Between 2026-08-17 and 2026-08-22 Option A was live** — the option the ADR
+says not to build — shipped by commit `fc53682` while the ADR still read
+`Proposed`. The safety test that existed to keep the decision visible had been
+inverted to assert the wiring. The counter-rule is in the ADR: an ADR whose
+status is `Proposed` is not a menu.
 
-**The decision is now which of three**, not whether to enforce:
-(1) keep the stop and build the 80% notification + a visible banner; (2) revert to the
-ADR's Option B soft cap; (3) drop the claim. Full comparison:
-`docs/LAUNCH_READINESS_2026-08-22.md` §3.3. Until one is chosen the live behaviour
-contradicts a written ADR and two public pages. D009: founder's call, not mine.
+### [~] QT1 · The 80% quota notice — banner SHIPPED 2026-08-22, email and copy still open · ICE ~40 (8×5÷1)
 
-<details>
-<summary>Original entry, 2026-08-17 (premise now false — kept for the record)</summary>
+**Found 2026-08-22 while reading W5A against the code.** `/pricing` said *"We'll
+notify you when you hit 80% of your quota"* and `/faq` said the same. Grepping
+`src/` for any threshold check, email or banner returned **only those two
+sentences.**
 
-**Added 2026-08-17 by Wave 5 (audit finding M-6). Blocked on a founder decision — see `docs/adr/009-review-volume-limit.md`.**
-`PLAN_LIMITS.reviewsPerMonth` is advertised on `/pricing` and Billing and enforced nowhere: `checkReviewLimit()` is fully implemented and has zero call sites. Three options are written up in the ADR; the recommendation is **B — soft cap** (never stop ingesting; show an upgrade banner over the limit). D009 puts this call with the founder, not with me.
-**Why it can't wait for M2:** once a paid plan exists to compare against, the gap between what the pricing page promises and what the product does stops being tidiness.
+**✅ The banner half shipped with W5A.** `<ReviewQuotaBanner />` renders on the
+dashboard at ≥80% of the monthly review allowance, and again, differently, when
+over. The 80% figure lives in `REVIEW_USAGE_NOTICE_PERCENT` with a comment
+saying it is a promise being kept rather than a tuning knob.
 
-</details>
+**🔲 Two halves remain, and both need a human.**
 
-### [ ] QT1 · The 80% quota warning is promised on two pages and does not exist · ICE ~72 (9×8÷1)
-
-**Found 2026-08-22 while reading W5A against the code.** `/pricing` says *"We'll notify
-you when you hit 80% of your quota"* and `/faq` says *"We notify you at 80% of your
-review quota."* Grepping `src/` for any threshold check, email or banner returns **only
-those two sentences.**
-
-Paired with W5A's hard stop, the sequence a customer gets is: no warning → sync stops
-→ no notification → reviews stop appearing for up to a month, with the app still
-showing healthy.
-
-`/faq` also says *"AI drafts similarly pause after the **daily** limit resets at
-midnight UTC."* `lib/plans.ts`'s header says in capitals that drafts are metered **per
-MONTH, not per day**, and explains why.
-
-**Done when:** either the notification exists (a threshold check on the same count
-`checkReviewLimit()` uses, an email, and a banner that persists while over), or the
-sentences are removed. **Blocked on W5A** — building an 80% warning for a cap that is
-about to be replaced is wasted work.
+1. **The pricing and FAQ copy is now an understatement.** Both pages still say
+   *"new reviews will pause syncing until you upgrade or the next cycle
+   resets."* Under the soft cap nothing pauses. No legal exposure — the customer
+   gets more than promised — but it is wrong, and D009 §9 reserves pricing-page
+   edits. `/faq` additionally says *"AI drafts similarly pause after the **daily**
+   limit resets at midnight UTC"*; `lib/plans.ts` says in capitals that drafts
+   are metered **per MONTH**, and explains why. Drafted wording:
+   `docs/LAUNCH_READINESS_2026-08-22.md`.
+2. **The email.** ADR 009's Option B reads "surface a banner … and, if it
+   persists, an email." The banner ships; the email needs a dedup key and a
+   cadence that does not collide with the weekly digest and the unreplied
+   nudge. Filed rather than guessed at.
 
 ### [x] W6A · Apply migration 030 · DONE 2026-08-17 (founder ran)
 Verified by query: `workspace_invites_one_pending_idx` exists, and the pre-check found zero duplicate pending pairs, so nothing was skipped. The partial unique index now expresses the rule migration 006's comment only claimed: `unique (workspace_id, email, accepted_at)` fires for *accepted* invites and never for pending ones, because Postgres treats every NULL as distinct and `accepted_at` is NULL for exactly the case the rule was written for.

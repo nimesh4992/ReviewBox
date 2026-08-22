@@ -11,7 +11,7 @@
 
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildEnrichedRow } from "@/lib/review-mapper";
-import { checkReviewLimit } from "@/lib/plan-enforcement";
+import { getReviewUsage } from "@/lib/plan-enforcement";
 import { PLAN_LIMITS } from "@/lib/plans";
 
 // Mock Supabase module boundary for plan limit tests
@@ -68,18 +68,35 @@ describe("Customer Spine E2E Automated Contract", () => {
     });
   });
 
-  describe("3. Monthly Plan Quota Enforcement (P0-3)", () => {
-    it("allows sync when review count is below plan limit", async () => {
+  // Renamed from "Monthly Plan Quota Enforcement (P0-3)". Nothing is enforced
+  // any more: ADR 009 Option B (founder decision 2026-08-22) makes the monthly
+  // review count a REPORT. The old pair of tests asserted that reaching the
+  // limit produced an error string the sync returned early on — the behaviour
+  // this step of the spine now exists to prove is absent.
+  describe("3. Monthly Plan Quota Reporting (soft cap, ADR 009 B)", () => {
+    it("reports usage below the plan limit without flagging it", async () => {
       reviewsResult = { count: 10, error: null };
-      const err = await checkReviewLimit("ws-mumbai", "free");
-      expect(err).toBeNull();
+      const usage = await getReviewUsage("ws-mumbai", "free");
+      expect(usage.over).toBe(false);
+      expect(usage.used).toBe(10);
+      expect(usage.unknown).toBe(false);
     });
 
-    it("blocks sync with error when monthly review count reaches plan limit", async () => {
+    it("flags being over the limit — and still refuses to withhold anything", async () => {
       reviewsResult = { count: PLAN_LIMITS.free.reviewsPerMonth, error: null };
-      const err = await checkReviewLimit("ws-mumbai", "free");
-      expect(err).not.toBeNull();
-      expect(err).toMatch(/limit reached/i);
+      const usage = await getReviewUsage("ws-mumbai", "free");
+      expect(usage.over).toBe(true);
+      expect(usage.percentUsed).toBeGreaterThanOrEqual(100);
+      // The point of the rename: there is no error to return early on. A
+      // caller wanting to gate would have to write the comparison itself.
+      expect(Object.keys(usage)).not.toContain("error");
+    });
+
+    it("fails open when the count cannot be read", async () => {
+      reviewsResult = { count: null, error: { message: "boom" } };
+      const usage = await getReviewUsage("ws-mumbai", "free");
+      expect(usage.unknown).toBe(true);
+      expect(usage.over).toBe(false);
     });
   });
 
