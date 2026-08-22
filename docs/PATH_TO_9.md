@@ -294,7 +294,43 @@ Two screenshots (Sentiment and Releases, `Mumbai One`, Google Play) produced fou
 findings in ten minutes. **Three of them were invisible to 975 passing tests**,
 which is the point `docs/SPINE.md` has been making all along.
 
-### 9.1 · Every recent version appears TWICE — two `apps` rows for one app
+### 9.1 · ~~Every recent version appears TWICE — two `apps` rows for one app~~
+### 9.1 · CORRECTED 2026-08-22 — two apps, two STORES, one name
+
+> **The diagnosis below was wrong, and it was written confidently.** Supabase
+> access arrived after it and settled the question in one query. Recording the
+> correction in place, per §13 of `ISSUE_INTELLIGENCE.md`: the original text is
+> struck through, not deleted.
+
+**What is actually true.** The workspace *"AT WORK"* holds two live apps that are
+both named **"Mumbai One"**:
+
+| app id | store | reviews | oldest review |
+|---|---|---|---|
+| `fce9cce9…` | **Google Play** (`com.mmrda`) | 223 | 2026-03-20 |
+| `81159e15…` | **App Store** (`com.mmrda.metro`) | 118 | 2025-10-09 |
+
+That is the same product on both stores — **entirely legitimate, nothing to
+delete.** The release table showed no store, so two different apps rendered as
+indistinguishable rows and read as duplicated data. It also explains the version
+history: releases 1.0–1.3 date from Oct/Nov 2025, before Play has any reviews at
+all, because those rows are the App Store app's.
+
+`apps` carries `unique (workspace_id, platform, store_id)`, so a true duplicate
+inside one workspace is impossible — a fact that was available in the schema all
+along and would have falsified the original diagnosis without any database
+access. **The other Play "Mumbai One" (`199bc6c6…`, 225 reviews) is in a
+different workspace** (*"Mumbai One"*, the golden-set one), which is ordinary
+multi-tenancy.
+
+**Fixed:** the release table now appends the store to the name — *"Mumbai One ·
+Google Play"* — but only when two live apps actually share a name. `LiveApp`
+gained `platform` to make that possible.
+
+<details>
+<summary>The original, incorrect diagnosis (kept for the record)</summary>
+
+
 
 The release table lists `1.5` (57 reviews) *and* `1.5` (6), `1.4.1` (49) *and*
 `1.4.1` (3), `1.4` (75) *and* `1.4` (10).
@@ -315,7 +351,38 @@ question, not a code one.**
 > is the real one (the chain running 1.0 → 1.5 with 280 reviews looks like it),
 > and may the other be disconnected? An agent must not delete an app record.
 
-### 9.2 · "Positive share 0%" beside "41% five-star", on the same screen
+</details>
+
+### 9.2 · "Positive share 0%" beside "41% five-star" — CAUSE FOUND, and it was not the data
+
+> **Corrected 2026-08-22.** The reasoning below concluded `sentiment` must be
+> NULL. **It is not: 0 of 770 rows are null.** The symptom was real, the
+> diagnosis was wrong, and the true cause is worse — a query that silently
+> returned nothing and was rendered as a fact.
+
+**What is actually true.** supabase-js has two `select` methods.
+`PostgrestQueryBuilder.select(columns, { count, head })` — from `.from()` —
+accepts options. `PostgrestTransformBuilder.select(columns?)` — what you get once
+a select has been applied — **takes columns only and silently drops a second
+argument.**
+
+`/api/sentiment/overview` built its positive count by chaining onto a `base()`
+helper that had already called `.select("*")`. So the options vanished, `count`
+came back `null`, and `count ?? 0` turned that unknown into a confident **0%**.
+
+Measured against the database the same day: **64 reviews in the window, 32
+positive — the true figure is 50%.**
+
+TypeScript could not catch it: `base()` is cast to `any` (deliberately, so
+`.eq()` stays available), and an `any` swallows the arity error that would
+otherwise have failed compilation on line one. Guarded now by
+`src/supabase-count-contract.test.ts`, which scans every API route for the
+antipattern — with comments stripped first, because the first version of the
+scanner reported its own explanatory header.
+
+<details>
+<summary>The original, incorrect diagnosis (kept for the record)</summary>
+
 
 `positiveShare` counts rows where `sentiment = 'positive'` over the same window
 and app scope that returned 64 reviews, so the scoping is not at fault. And
@@ -328,6 +395,8 @@ Two things to fix, and they are different:
 2. The display — `positiveCount.count ?? 0` turns *"the count failed"* into a
    confident **0%**. That is AU5's class at the API layer, and it is why this
    renders as a fact rather than as "—". **Added to AU5.**
+
+</details>
 
 ### 9.3 · Four places claim clustering that does not exist
 
