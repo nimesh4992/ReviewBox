@@ -1004,11 +1004,19 @@ function Step5Ready({
         setProgress(d);
       } catch { /* non-fatal */ }
     }, 3000);
-    // Immediate first poll
-    void fetch("/api/onboarding/progress")
-      .then((r) => r.json() as Promise<OnboardingProgress>)
-      .then(setProgress)
-      .catch(() => null);
+    // Immediate first poll. The interval above already refuses a non-2xx; this
+    // one did not, so a 500 on the very first tick was parsed as progress and
+    // every field came back undefined. Harmless in effect — the launch gate
+    // falls back to the 10s timer, and the next tick 3s later overwrites it —
+    // but it is the same shape as the bugs AU5 exists to remove, and the guard
+    // is one line.
+    void (async () => {
+      try {
+        const res = await fetch("/api/onboarding/progress");
+        if (!res.ok) return;
+        setProgress((await res.json()) as OnboardingProgress);
+      } catch { /* the 3s interval will try again */ }
+    })();
     return () => { if (pollRef.current) clearInterval(pollRef.current); };
   }, []);
 

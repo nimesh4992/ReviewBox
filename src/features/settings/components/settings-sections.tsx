@@ -1,10 +1,13 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { LoadErrorState } from "@/components/load-error-state";
+import { Skeleton } from "@/components/ui/skeleton";
 
 type SaveState = "idle" | "saving" | "saved" | "error";
+type LoadState = "loading" | "ready" | "error";
 
 function saveButtonLabel(state: SaveState, idleLabel: string): string {
   if (state === "saving") return "Saving…";
@@ -16,19 +19,67 @@ function saveButtonLabel(state: SaveState, idleLabel: string): string {
 export function WorkspaceDefaults() {
   const [supportEmail, setSupportEmail] = useState("");
   const [brandVoice,   setBrandVoice]   = useState("");
+  const [load,      setLoad]      = useState<LoadState>("loading");
   const [emailSave, setEmailSave] = useState<SaveState>("idle");
   const [voiceSave, setVoiceSave] = useState<SaveState>("idle");
 
-  // Load current values on mount
-  useEffect(() => {
-    fetch("/api/settings/workspace")
-      .then((r) => r.json())
-      .then((d: { supportEmail?: string; brandVoice?: string }) => {
-        setSupportEmail(d.supportEmail ?? "");
-        setBrandVoice(d.brandVoice ?? "");
-      })
-      .catch(() => undefined);
+  /**
+   * A failed load must not render as an empty form.
+   *
+   * `/api/settings/workspace` answers a 500 with a JSON error envelope, so
+   * `res.json()` RESOLVES and the old `.catch()` never ran. Both fields were
+   * set to `""` and the screen said, in effect, "you have never configured a
+   * support email or a brand voice" — with the amber "Without this, AI uses a
+   * generic voice" hint underneath to make the lie persuasive.
+   *
+   * The display bug was the smaller half. Save sends whatever is in the box,
+   * so a customer who typed into that empty field would have **overwritten
+   * their real brand voice with the guess they made after being told they had
+   * none**. That is why this renders a failure and no form at all, rather than
+   * a form with a warning: there is nothing safe to type into.
+   */
+  const loadSettings = useCallback(async () => {
+    setLoad("loading");
+    try {
+      const res = await fetch("/api/settings/workspace");
+      if (!res.ok) throw new Error(`settings load failed: ${res.status}`);
+      const d = (await res.json()) as { supportEmail?: string; brandVoice?: string };
+      setSupportEmail(d.supportEmail ?? "");
+      setBrandVoice(d.brandVoice ?? "");
+      setLoad("ready");
+    } catch {
+      setLoad("error");
+    }
   }, []);
+
+  useEffect(() => { void loadSettings(); }, [loadSettings]);
+
+  if (load === "loading") {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-xl border border-[var(--rb-border-1)] bg-surface p-4 shadow-[var(--rb-shadow-xs)]">
+          <Skeleton className="h-4 w-36" />
+          <Skeleton className="mt-3 h-8 w-full" />
+        </div>
+        <div className="rounded-xl border border-[var(--rb-border-1)] bg-surface p-4 shadow-[var(--rb-shadow-xs)]">
+          <Skeleton className="h-4 w-28" />
+          <Skeleton className="mt-3 h-20 w-full" />
+        </div>
+      </div>
+    );
+  }
+
+  if (load === "error") {
+    return (
+      <div className="rounded-xl border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">
+        <LoadErrorState
+          subject="your workspace defaults"
+          onRetry={() => void loadSettings()}
+          compact
+        />
+      </div>
+    );
+  }
 
   // Each card saves only its own field — saving the support email must not
   // touch the brand voice, and vice versa.

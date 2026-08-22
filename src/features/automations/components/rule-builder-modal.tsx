@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Plus, X } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -234,11 +234,16 @@ function TemplateReplyConfig({
   value,
   templates,
   loading,
+  failed,
+  onRetry,
   onChange,
 }: {
   value: string;
   templates: TemplateSummary[];
   loading: boolean;
+  /** The template list FAILED to load — not the same as having no templates. */
+  failed: boolean;
+  onRetry: () => void;
   onChange: (v: string) => void;
 }) {
   const selectClass =
@@ -259,9 +264,21 @@ function TemplateReplyConfig({
           </option>
         ))}
       </select>
-      <p className="text-[11px] text-fg-3">
-        {loading ? "Loading templates…" : "Leave blank to auto-select by rating."}
-      </p>
+      {failed ? (
+        // A dropdown with one option reads as "you have no templates". The rule
+        // would then be saved to auto-match by rating — a different rule from
+        // the one the customer came here to build.
+        <p role="alert" className="text-[11px] text-[var(--rb-amber-600)]">
+          We couldn&rsquo;t load your templates, so none are listed here.{" "}
+          <button type="button" onClick={onRetry} className="font-semibold text-[#0A84FF] hover:underline">
+            Try again
+          </button>
+        </p>
+      ) : (
+        <p className="text-[11px] text-fg-3">
+          {loading ? "Loading templates…" : "Leave blank to auto-select by rating."}
+        </p>
+      )}
     </div>
   );
 }
@@ -300,6 +317,7 @@ export function RuleBuilderModal({
   // Template list for template_reply picker
   const [templates, setTemplates]     = useState<TemplateSummary[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
+  const [templatesFailed, setTemplatesFailed]   = useState(false);
 
   // Populate from initialRule when it changes (edit mode)
   useEffect(() => {
@@ -324,17 +342,29 @@ export function RuleBuilderModal({
     }
   }, [initialRule]);
 
-  // Load templates when action switches to template_reply
-  useEffect(() => {
-    if (action === "template_reply" && templates.length === 0 && !loadingTemplates) {
-      setLoadingTemplates(true);
-      fetch("/api/reply-kit/templates")
-        .then((r) => r.json())
-        .then((d: { templates: TemplateSummary[] }) => setTemplates(d.templates ?? []))
-        .catch(() => undefined)
-        .finally(() => setLoadingTemplates(false));
+  const loadTemplates = useCallback(async () => {
+    setLoadingTemplates(true);
+    setTemplatesFailed(false);
+    try {
+      const res = await fetch("/api/reply-kit/templates");
+      if (!res.ok) throw new Error(`templates load failed: ${res.status}`);
+      const d = (await res.json()) as { templates?: TemplateSummary[] };
+      setTemplates(d.templates ?? []);
+    } catch {
+      setTemplatesFailed(true);
+    } finally {
+      setLoadingTemplates(false);
     }
-  }, [action, templates.length, loadingTemplates]);
+  }, []);
+
+  // Load templates when action switches to template_reply.
+  // `templatesFailed` is in the guard so a failed attempt does not retry on
+  // every render — the customer retries with the button.
+  useEffect(() => {
+    if (action === "template_reply" && templates.length === 0 && !loadingTemplates && !templatesFailed) {
+      void loadTemplates();
+    }
+  }, [action, templates.length, loadingTemplates, templatesFailed, loadTemplates]);
 
   function reset() {
     setName("");
@@ -480,6 +510,8 @@ export function RuleBuilderModal({
                 value={actionConfig}
                 templates={templates}
                 loading={loadingTemplates}
+                failed={templatesFailed}
+                onRetry={() => void loadTemplates()}
                 onChange={setActionConfig}
               />
             )}

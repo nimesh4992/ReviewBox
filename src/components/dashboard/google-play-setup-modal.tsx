@@ -26,7 +26,14 @@ interface VerifyResult {
 }
 
 /** "missing" = server has no GOOGLE_CLIENT_EMAIL, or the fetch failed. */
-type EmailState = "loading" | "ready" | "missing";
+/**
+ * `missing` = the server has no GOOGLE_CLIENT_EMAIL configured — a real,
+ * actionable fact. `error` = we could not ask. They were the same state until
+ * 2026-08-22, so a transient 500 told the customer their vendor had not
+ * finished setting the product up, and pointed them at support for a problem
+ * that would clear on a refresh.
+ */
+type EmailState = "loading" | "ready" | "missing" | "error";
 
 interface Props {
   open: boolean;
@@ -191,6 +198,14 @@ function InviteTab({
                 <Loader2 className="size-3.5 animate-spin" />
                 Loading service account email…
               </div>
+            ) : emailState === "error" ? (
+              <div className="flex min-w-0 items-start gap-2 text-[12px] text-[var(--rb-amber-600)]">
+                <TriangleAlert className="mt-0.5 size-3.5 shrink-0" />
+                <span className="min-w-0">
+                  We couldn&rsquo;t load the service account address just now. Nothing
+                  is wrong with your setup — close this and open it again.
+                </span>
+              </div>
             ) : (
               // Never leave an empty box with a dead Copy button: if the server
               // has no GOOGLE_CLIENT_EMAIL configured, say so and give a way out.
@@ -321,17 +336,19 @@ export function GooglePlaySetupModal({ open, onClose, app }: Props) {
   useEffect(() => {
     if (!open || email) return;
     setEmailState("loading");
-    fetch("/api/google-play/service-account")
-      .then((r) => r.json())
-      .then((d: { email: string | null }) => {
+    void (async () => {
+      try {
+        const res = await fetch("/api/google-play/service-account");
+        if (!res.ok) throw new Error(`service account load failed: ${res.status}`);
+        const d = (await res.json()) as { email?: string | null };
         const value = d.email?.trim() ? d.email.trim() : null;
         setEmail(value);
         setEmailState(value ? "ready" : "missing");
-      })
-      .catch(() => {
+      } catch {
         setEmail(null);
-        setEmailState("missing");
-      });
+        setEmailState("error");
+      }
+    })();
   }, [open, email]);
 
   async function handleVerify() {

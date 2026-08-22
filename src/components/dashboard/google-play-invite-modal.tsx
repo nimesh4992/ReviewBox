@@ -19,6 +19,7 @@ interface Props {
 export function GooglePlayInviteModal({ hasGooglePlayApp }: Props) {
   const [open, setOpen] = useState(false);
   const [email, setEmail] = useState<string | null>(null);
+  const [emailFailed, setEmailFailed] = useState(false);
   const [copied, setCopied] = useState(false);
 
   // Determine whether to show on mount (client-only: reads localStorage).
@@ -29,13 +30,29 @@ export function GooglePlayInviteModal({ hasGooglePlayApp }: Props) {
     setOpen(true);
   }, [hasGooglePlayApp]);
 
-  // Fetch the service account email once the modal opens.
+  /**
+   * Fetch the service account email once the modal opens.
+   *
+   * The failure path used to leave `email` null, and null renders the
+   * "Loading…" placeholder — so a 500 produced a spinner that never resolved,
+   * in a modal whose entire purpose is to hand the customer one string to copy.
+   * `emailFailed` separates "still fetching" from "we could not fetch".
+   */
   useEffect(() => {
     if (!open) return;
-    fetch("/api/google-play/service-account")
-      .then((r) => r.json())
-      .then((d: { email: string | null }) => setEmail(d.email))
-      .catch(() => setEmail(null));
+    let cancelled = false;
+    void (async () => {
+      setEmailFailed(false);
+      try {
+        const res = await fetch("/api/google-play/service-account");
+        if (!res.ok) throw new Error(`service account load failed: ${res.status}`);
+        const d = (await res.json()) as { email?: string | null };
+        if (!cancelled) setEmail(d.email ?? null);
+      } catch {
+        if (!cancelled) { setEmail(null); setEmailFailed(true); }
+      }
+    })();
+    return () => { cancelled = true; };
   }, [open]);
 
   function dismiss() {
@@ -89,6 +106,10 @@ export function GooglePlayInviteModal({ hasGooglePlayApp }: Props) {
                     )}
                   </button>
                 </>
+              ) : emailFailed ? (
+                <span className="text-sm text-[var(--rb-amber-600)]">
+                  Couldn&rsquo;t load the address — close this and open it again.
+                </span>
               ) : (
                 <span className="text-sm text-fg-3">Loading…</span>
               )}

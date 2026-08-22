@@ -16,12 +16,24 @@ export interface TagDefinition {
  * Cached for the session: names change roughly never, and every review card
  * needs them, so refetching per render would be pure waste. A failure resolves
  * to the defaults rather than an error state — a tag rendered under its default
- * name is fine, a tag rendered as nothing is not.
+ * name is fine, a tag rendered as nothing is not. **That fallback is the
+ * deliberate design and is kept**; this hook is the one place in AU5's sweep
+ * where rendering an error would be worse than degrading.
+ *
+ * What was wrong is narrower. `res.json()` resolves on a 500 (the routes answer
+ * with a JSON error envelope), so the query never entered its error state — and
+ * `retry: 1` below, sitting there looking like resilience, could never fire.
+ * Throwing makes the retry real. The default-name fallback is unchanged,
+ * because `query.data` is undefined on a genuine error either way.
  */
 export function useTagLabels() {
   const query = useQuery<{ tags: TagDefinition[] }>({
     queryKey: ["tag-labels"],
-    queryFn: () => fetch("/api/tags").then((r) => r.json()),
+    queryFn: async () => {
+      const r = await fetch("/api/tags");
+      if (!r.ok) throw new Error(`tag labels load failed: ${r.status}`);
+      return r.json();
+    },
     staleTime: 5 * 60_000,
     retry: 1,
   });
