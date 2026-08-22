@@ -7,6 +7,17 @@ import { ReleaseActions } from "@/features/releases/components/release-actions";
 import { getServiceClient, getWorkspaceId } from "@/lib/supabase-server";
 import { getLiveApps } from "@/lib/live-apps";
 import { cn } from "@/lib/utils";
+import { isMissingColumnError } from "@/lib/db-errors";
+import {
+  compareReleases,
+  findPreviousVersion,
+  type ReleaseComparison,
+  type TaggedReviewRow,
+} from "@/lib/release-regression";
+import { deriveVersions, type ReleaseReviewRow } from "@/lib/release-versions";
+import { ReleaseRegressionCard } from "@/features/releases/components/release-regression-card";
+import { readTagLabels } from "@/services/tag-label-service";
+import type { TagLabelMap } from "@/lib/tag-labels";
 
 export const dynamic = "force-dynamic";
 
@@ -97,6 +108,62 @@ function deriveStats(version: string, rows: DbReview[]): ReleaseStats {
   };
 }
 
+// ── Release-over-release comparison (II0) ─────────────────────────────────────
+
+/**
+ * Cap on rows read for the comparison. Matches the releases list. If a version
+ * ever exceeds it the card SAYS the comparison is based on the most recent
+ * 5,000 reviews — an undisclosed sample is how a percentage stops meaning what
+ * a customer reads it to mean.
+ */
+const REGRESSION_ROW_CAP = 5000;
+
+type ComparisonRow = ReleaseReviewRow & TaggedReviewRow;
+
+/**
+ * Read one app's reviews and compare this version against the one before it.
+ *
+ * Scoped to a single app id: version numbers are unique only within an app, and
+ * `findPreviousVersion` chains within the app rather than trusting adjacency.
+ */
+async function buildComparison(
+  sb: ReturnType<typeof getServiceClient>,
+  workspaceId: string,
+  appId: string,
+  version: string,
+): Promise<{ comparison: ReleaseComparison; truncated: boolean } | null> {
+  const read = (columns: string) =>
+    sb
+      .from("reviews")
+      .select(columns)
+      .eq("workspace_id", workspaceId)
+      .eq("app_id", appId)
+      .order("store_created_at", { ascending: false })
+      .limit(REGRESSION_ROW_CAP);
+
+  const BASE = "app_id,app_version,rating,store_created_at,issue_tags";
+  // `issue_tags_override` arrives with migration 024; naming a column that does
+  // not exist fails the whole select, so it is asked for once and dropped.
+  let { data, error } = await read(`${BASE},issue_tags_override`);
+  if (isMissingColumnError(error)) ({ data, error } = await read(BASE));
+  if (error || !data) return null;
+
+  const rows = data as unknown as ComparisonRow[];
+  const versions = deriveVersions(rows);
+  const previous = findPreviousVersion(versions, appId, version);
+  const forVersion = (v: string) => rows.filter((r) => r.app_version?.trim() === v);
+
+  return {
+    comparison: compareReleases(
+      version,
+      forVersion(version),
+      previous?.version ?? null,
+      previous ? forVersion(previous.version) : [],
+    ),
+    truncated: rows.length >= REGRESSION_ROW_CAP,
+  };
+}
+
 // ── Styling ───────────────────────────────────────────────────────────────────
 
 const STATUS_CONFIG: Record<DerivedStatus, { badge: string; bar: string; label: string }> = {
@@ -172,6 +239,9 @@ export default async function ReleaseDetailPage({ params, searchParams }: Releas
   let stats: ReleaseStats = deriveStats(version, []);
   let hasData = false;
   let appName = "";
+  let comparison: ReleaseComparison | null = null;
+  let comparisonTruncated = false;
+  let tagLabels: TagLabelMap = {};
 
   if (userId) {
     const workspaceId = await getWorkspaceId(userId);
@@ -224,6 +294,21 @@ export default async function ReleaseDetailPage({ params, searchParams }: Releas
         if (rows.length > 0) {
           stats = deriveStats(version, rows as DbReview[]);
           hasData = true;
+        }
+
+        // "What changed vs the previous release" needs the OTHER version's
+        // reviews too, so it is its own read rather than a slice of the list
+        // above (which is capped at 100 and ordered for display).
+        if (resolvedApp && rows.length > 0) {
+          const [result, labels] = await Promise.all([
+            buildComparison(sb, workspaceId, resolvedApp.id, version),
+            readTagLabels(workspaceId),
+          ]);
+          if (result) {
+            comparison = result.comparison;
+            comparisonTruncated = result.truncated;
+          }
+          tagLabels = labels;
         }
       } else {
         appName = selected?.name ?? (liveApps.length === 1 ? liveApps[0].name : "");
@@ -286,6 +371,15 @@ export default async function ReleaseDetailPage({ params, searchParams }: Releas
             negative={stats.positiveShare < 40 && stats.positiveShare > 0}
           />
         </div>
+
+        {/* What changed vs the previous release (II0) */}
+        {comparison && (
+          <ReleaseRegressionCard
+            comparison={comparison}
+            labels={tagLabels}
+            truncated={comparisonTruncated}
+          />
+        )}
 
         {/* Rating distribution */}
         {hasData && (

@@ -1,280 +1,124 @@
-# Today — 2026-08-19 (SPINE 8/8, and the target is now written down)
+# Today — 2026-08-21 (the scorecard got reconciled, and R1 started moving)
 
-> Two things happened today. The morning: **SPINE reached 8/8** and the feature
-> freeze lifted (below). The evening: **the target for what comes next was
-> assessed against the code and documented** — read this part first, because it
-> changes what the next session should start on.
-
----
-
-## The Issue Intelligence target — documented, and it moved the estimate
-
-**New: `docs/ISSUE_INTELLIGENCE.md` is the target. `docs/decisions.md` D023 holds the
-constraints.** Both are in the every-session reading list in `CLAUDE.md` now.
-
-The founder asked how far the code is from the product discussed in the II1–II11
-critique. Answered by reading the codebase rather than the product surface, and the
-number moved a long way:
-
-| | |
-|---|---|
-| Earlier, screenshot-based estimate | ~70–75% of the differentiated product |
-| **Code-level assessment** | **~25–30%** |
-
-**Not** "the product is 25% built" — the Collect/Display/Reply infrastructure is
-substantial and the UI is ~8/10. The differentiating intelligence layer is what does
-not exist. As a differentiated product: **~6/10 today**, ~8.5–9/10 after II1–II11.
-
-**The bottleneck, in one sentence:** there is no `issues` table, no `issue_id` on
-`reviews`, and nothing that groups reviews. Six of the eight gaps read or write
-through that missing entity, which is why no amount of UI work moves them.
-
-### Three documented claims turned out to be false in the code
-
-Each was being planned against. All three are now corrected at source in `CLAUDE.md`
-and `docs/backlog.md`:
-
-1. **`@xenova/transformers` is not installed and never was** — not in `package.json`,
-   absent from `src/`. "Sentiment already runs local topic clustering" was false;
-   `/sentiment`'s "topics" are counts of **8 hardcoded English regexes**.
-   **II1 is green-field, and the $0 clustering assumption is unproven.**
-2. **`reviews.embedding vector(384)`** + ivfflat index have existed since migration
-   001 and are **never read or written**. Real groundwork, no pipeline.
-3. **"Incidents already does spike-detection"** — half true. `review-sync.ts`
-   emails/Slacks a spike; it does **not** create an incident. Only a human does.
-
-### What the next session should start on
-
-**Not II1's implementation.** Per D023:
-
-1. **II0a — the II1 ADR, architecture only.** The keystone. 13 questions, ≥3
-   approaches evaluated, recommendation for an India-first SaaS
-   (`docs/ISSUE_INTELLIGENCE.md` §7). The framing is *"what constitutes the identity
-   of an issue?"*, not *"how do I generate a nice AI summary?"*. **No II1 code until
-   this exists.**
-2. **II0 — Phase 0 release-regression** on today's `issue_tags[]`
-   ("Payment +375% 🔴 in v1.5 vs v1.4"). Small vertical slice, ships the story
-   without waiting for clustering. Can run in parallel with the ADR.
-
-### ✅ Founder ratified — D025. The gate is set; next artefact is the bake-off result
-
-| Ask | Decision |
-|---|---|
-| Identity rule | **Ratified**, wording preserved + "issue equivalence, not implementation equivalence" |
-| Golden set (~2h) | **Yes** — the highest-value use of that time right now |
-| Bake-off first | **Yes, hard gate.** No implementation until ADR §10 has numbers |
-| Gemini key | **Deliberately not decided** — the rule is now stated in ADR §12 instead of assumed |
-
-**Two things came out of this that were not in the original ADR:**
-
-**1. "When uncertain, separate rather than merge" is now ratified policy.** A false split
-costs a click and self-corrects; a false merge presents three unrelated engineering problems
-as one confident *"Payment failures · 47 reviews · Critical"* and sends the customer to spend
-their week on the wrong thing. The bake-off weights false merges heaviest.
-
-**2. The provider question had a better answer than expected.** Reading the repo rather than
-assuming: the **cost rule** (the one rule + D009 #10) is about paid vendors — Groq and Gemini
-both pass. The **data rule** isn't a sentence anywhere; it is the public `/sub-processors`
-page, which D009 #9 reserves to you. Both providers are already disclosed, so **no option
-crosses a new boundary** — but **neither disclosed purpose covers issue clustering**, so the
-recommended Groq option needs a purpose-line update exactly as much as Gemini would.
-→ Bake-off is **not** blocked (public store reviews, author names stripped at export).
-→ **Shipping the engine to customers is**, on one founder-written sentence.
-
-**Golden set schema is now six fields, not one** — theme, issue_id, issue_title,
-is_actionable, severity, language_bucket — because *"did we discover the right Issues?"* and
-*"did we classify this review correctly?"* are different evaluation problems, and the product
-claim rests on the harder one.
-
-### The epic has a build plan, and Task 1 is done — ADR 011 is written
-
-**`docs/II_DELIVERY_PLAN.md`** — how this gets built solidly, not just what gets built. Eight
-stages, each with a gate that must be green before the next starts. Every mechanism in it closes a
-*specific* failure this repo has already suffered (green tests defending a SQL-level bug, docs
-claiming a system that didn't exist, a check that was green while running nothing, `country: "us"`,
-six merge corruptions). Its centrepiece is §3: **you cannot unit-test "did it cluster correctly"**,
-so quality is measured by a labelled golden set scored per language bucket — not by an assertion.
-
-**`docs/adr/011-issue-identity-and-clustering.md`** — the keystone, **Proposed, awaiting your
-ratification.** The four decisions:
-
-1. **Identity rule — the most important sentence:** *two reviews belong to the same Issue if the
-   same code change would resolve both.* So "UPI payment failed" and "payment deducted but no
-   ticket" are **separate Issues under one Payments theme**. This rule is what makes the golden set
-   labellable consistently by two different people.
-2. **Many-to-many `issues` + `issue_reviews`** — because "app crashes AND payment failed" is one
-   review describing two problems, and a foreign key would force us to silently drop one.
-   `reviews` is not altered, so rollback is "drop two tables".
-3. **Incremental assignment, not batch re-clustering** — batch breaks `first_detected_at`, which is
-   a customer-facing claim, and reshuffles the list for no visible reason.
-4. **Recommends LLM assignment (Groq — already wired, free tier) over local or hosted embeddings**,
-   on multilingual grounds. The assumed "$0 forever" local path fails exactly where we need it:
-   multilingual encoders are trained on native-script Hindi, and **Latin-script Hinglish is
-   out-of-distribution**. Backfill scale is handled by a funnel — pre-group cheaply, ask the LLM
-   once per distinct problem, not once per review.
-
-**The ADR deliberately does not ratify itself.** Every multilingual claim in it is a prediction, so
-§9 defines a bake-off: score all three approaches on the same ~200 labelled reviews, record the
-numbers in §10, *then* decide. If all three score badly on Hinglish, that is the most valuable
-outcome — found in week one instead of week six, with release-regression (II0/II4) still shippable
-without any clustering at all.
-
-### What we need from you
-
-| # | Ask | Why it blocks |
-|---|---|---|
-| 1 | **Ratify the identity rule** (ADR §3) | A product judgement an agent genuinely cannot make |
-| 2 | **~2 hours to label the golden set** (II0b) | The only founder-blocking input; nothing downstream is trustworthy without it |
-| 3 | Confirm the bake-off runs before implementation | Converts the ±3 week risk into a scheduled experiment |
-| 4 | If the bake-off picks hosted embeddings: does the already-configured Gemini key stay inside the one rule? | Decides whether Stage 3 stalls on policy |
-
-### The ICP contradiction is resolved — D024
-
-Three documents described three different customers, and the epic could not scope its UI or its
-pricing tier until one won. **`docs/PRODUCT_CONTEXT.md` wins; D011 and D017 are superseded**
-(both marked in place, log stays append-only).
-
-Decided on evidence, not preference — every superseded claim is contradicted by something already
-shipped: D011 still carries its own uncarried-out instruction *"[FOUNDER: edit this paragraph
-today]"*; D017's **$200–500/mo** is contradicted by the live **$49 / $129** in `plans.ts` and on the
-pricing page; "English-first" is the assumption behind the `country: "us"` bug and is contradicted
-by CM1 sitting top of NOW; and "technical indie dev" is contradicted by the search-by-name and
-Draft Mode onboarding we actually built.
-
-**Consequence for the epic:** it does *not* re-target the product. Our buyer is the support,
-product and engineering team all at once — which is why the Issue layer helps them. So `owner` is a
-label not a Jira integration, **II9 stays P2**, and Issue Intelligence ships in **Pro**, no new tier.
-
-> ⚠️ **One founder-only item.** The pricing page's feature matrix says *"Topic clustering across
-> your reviews — Pro ✅"* and there is no clustering. The comment above that matrix states the rule
-> it breaks: a row "must be something a customer can do today. A pricing page is a contract."
-> Reword it, or ship II1 and make it true. **D009 reserves pricing-page edits to you.**
-
-### How long the epic takes — estimated against measured throughput
-
-`docs/ISSUE_INTELLIGENCE.md` §12. Short version: **~8–12 weeks for all of II1–II11**, **~3 weeks to
-the point where the pitch changes**, at the current near-daily cadence (PRs #78–#135 merged in four
-days). Evenings-and-weekends cadence multiplies by ~3. Agent build time is only 10–15 sessions —
-the calendar is set by your decisions, manual migrations, walked verification, and in two cases the
-customer's own release cycle: **II6/II10 are built in days but cannot be *proven* for 4–8 weeks
-after a real fix ships.** Largest variance is multilingual clustering quality (±3 weeks), which is
-empirical and only answerable by running it on the fixture app.
-
-### Three constraints that are now decisions, not opinions
-
-- **Multilingual is P0 architectural**, not a side note. India-first ICP, review text
-  code-switches mid-sentence ("payment कट गया but ticket nahi aaya"). The engine must
-  work on semantic similarity, not keywords.
-- **Choose the embedding model first, then adapt the schema.** The dormant
-  `vector(384)` column is groundwork, not a constraint.
-- **The launch claim is "daily feedback intelligence."** ~~Vercel Hobby caps cron at
-  daily, so "up 184% in the last 6 hours" is *physically undetectable* today.~~
-  **Premise false, corrected 2026-08-21:** the project is on Vercel **Pro**, and
-  sync now runs **every 3 hours** (P1-1). A 6-hour window is detectable. The
-  claim cap still stands until the founder restates it — widening a marketing
-  claim is not an agent's call. Build no UI and make no claim beyond what the
-  founder has approved.
-
-**On ice per D023:** competitor review scraping, advanced segmentation, enterprise BI,
-Jira/Linear. **And the standing instruction:** don't spend the next week polishing the
-dashboard — build the engine that makes it worth opening.
+> Two things happened. **The readiness question was settled against evidence**
+> (`docs/PRODUCT_READINESS.md`), and **the first thing that reads across reviews
+> instead of listing them was built** — II0, "what changed in this release".
+>
+> Previous session's handoff (SPINE 8/8, the II epic target, D024/D025) is not
+> repeated here: it is in `docs/ISSUE_INTELLIGENCE.md`, `docs/decisions.md` and
+> `docs/II_DELIVERY_PLAN.md`, all still current.
 
 ---
 
-# Earlier today — SPINE 8/8 — the launch gate is clear
+## 1. Two assessments disagreed by six points. They are now one number.
 
-**State of master:** `a1b57b2`. `tsc` clean, **649 unit tests in 63 files**,
-lint 0 errors, CI green on the merge commit.
+A ChatGPT assessment and a Claude code-level assessment of the same repo, on the
+same day, scored the analysis engine **9/10 and 4/10**. `docs/PRODUCT_READINESS.md`
+reconciles every row against evidence and replaces both.
 
-**The founder walked all eight SPINE steps against a real app on production and
-reported every one working.** That is the first completed walk in the eleven
-weeks since `docs/SPINE.md` was written, and it is the only evidence this
-repository holds that the product actually works. Every ✅ in `CLAUDE.md` means
-"compiles and unit tests pass" — a different and much weaker claim.
+| | ChatGPT | **Reconciled** |
+|---|---:|---:|
+| Engineering readiness | 8.5 | **8** |
+| Product readiness | 7 | **6** |
+| Commercial readiness | 5 | **4** |
+| Market validation | 2 | **1** |
+| **Overall market readiness** | **7** | **5.5** |
 
-No agent verified any of this. None could: the walk needs a human, a real app,
-and a real store listing.
+**The row that moved most, and why it matters:** *issue identity / clustering*
+scored 9 on the strength of a passing test suite. What is tested is the
+**measuring instrument** — `src/lib/eval/`, the golden-set exporter, the scorer.
+There is no engine for it to score: still zero `issues` rows, zero
+`issue_reviews`, and `reviews.embedding` referenced **0 times** in `src/`. This
+is the repo's oldest failure shape (green means verified) and it inflated the
+one row the whole differentiation story rests on.
 
----
+**The strategic half of the ChatGPT assessment is adopted, with one correction.**
+Its Phase 1/3 described Yelp, Google Business Profile, Trustpilot, franchises,
+multi-location agencies — **local-business reputation management**, which is a
+different product with a different buyer. ReviewBox is app-store review ops for
+mobile teams (D024). The validation experiment it proposes is the right next
+move; run it against **mobile app teams**, not local SMBs.
 
-## What 8/8 means for the plan
-
-| | |
-|---|---|
-| **Feature freeze** | **Lifted.** `docs/SPINE.md` froze new feature work until 8/8. That condition is met. |
-| **Next epic** | **Issue Intelligence (II1–II11)**, per D022, which sequenced SPINE ahead of it. Startable now, in ICE order. |
-| **Launch** | Still a founder call. 8/8 clears the gate; it does not pull the trigger. |
-
-The two defects that would have produced a false ❌ on steps 7 and 8 were fixed
-the same morning in **#131** and are locked by
-`src/spine-draft-mode-contract.test.ts` (7 mutation-verified tests), so the walk
-met a product that had just been repaired rather than one that happened to work.
-
----
-
-## ⚠️ The one thing 8/8 does not yet cover — step 8 overnight
-
-Step 8 is defined as "status persists after page reload", and that passed. What a
-single-day walk cannot establish is that a replied review is **still replied after
-the next sync**. A review that reads `replied` tonight and `needs_reply` tomorrow
-is the failure that erased people's work before.
-
-The code defends it: `review-sync.ts` refuses a blanket upsert precisely because
-`reply_status` and `reply_text` are user-owned, and the promote-to-replied update
-is filtered `.eq("reply_status", "needs_reply")`. Asserted in
-`docs/specs/review-sync.md`. **That is a code guarantee, not a walked one** —
-exactly the distinction this whole file exists to keep.
-
-**Action:** after the 08:00 UTC daily sync, re-open the review that was marked
-replied and confirm it still reads replied. If it flipped back, SPINE step 8
-drops to ❌ and nothing else matters until it is fixed.
+**"9/10 product readiness" now has a definition that can be failed** —
+`docs/PRODUCT_READINESS.md` §3, gates R1–R5. Today: R1 ❌ R2 ❌ R3 ❌ R4 🟡 R5 🟡.
 
 ---
 
-## Founder actions still open (none block the epic)
+## 2. What shipped — II0, on `claude/review-issue-schema-kn2ayd`
 
-| # | Action | Why |
-|---|---|---|
-| 1 | **Step 8 overnight re-check** (above) | The only unverified part of the core loop. |
-| 2 | **Disclose Slack on `/sub-processors`** | The page lists ten processors and omits Slack, while `src/lib/slack.ts:198` sends a reviewer's name and a 120-char review snippet there. Third-party personal data to an undeclared processor. **D009 point 9 forbids an agent editing legal pages** — only the founder can close this. The only open item with real legal exposure. |
-| 3 | **Decide W5A** — the review-volume limit | ADR waiting at `docs/adr/009-review-volume-limit.md`. Gates Stripe going live. |
-| 4 | **`ADMIN_CLERK_USER_ID`** in Vercel production | `requireAdminUser()` is fail-closed, so `/api/admin/probe/stores` 403s without it. |
-| 5 | Stripe test keys (**N6**) | Agent verifies checkout → webhook → Supabase once keys exist. |
-| 6 | **LT2 / LT3** | Clerk preview keys; whether app deletion is recoverable. |
+**`src/lib/release-regression.ts`** — per-tag complaint movement between adjacent
+releases of the same app, plus a "What changed vs v1.4" card on
+`/releases/[version]`.
+
+```
+v1.5 vs v1.4 · 150 reviews now · 50 in v1.4
+  ⚠ Probable regression: Payment
+  Payment    +375%   8 → 38 per 100     Regression
+  Scanner    +140%   5 → 12 per 100     Regression
+  Login      New in this release        Watch
+  Crash      too few to judge           —
+```
+
+Four ways this could have lied to a customer, and what stops each: rates not raw
+counts (a bigger release is not a worse one); a small-n floor (1 → 2 reviews is
+not "+100%"); `new` instead of dividing by zero; and previous-version chaining
+**within one app id**, because version numbers are unique only within an app.
+
+**Verified:** `tsc` clean · **965/965 tests in 84 files** · lint 0 errors ·
+`next build` · and the new suite was **mutation-tested — 5 mutations applied,
+5 caught**. Spec: `docs/specs/release-regression.md`.
+
+**Not verified, and it is the only thing that counts:** AC-6 — *a founder opens
+a real app's release and names the biggest mover in under 30 seconds*. The
+backlog box stays unchecked until that happens.
 
 ---
 
-## Open code work
+## 3. The plan to 9/10 — `docs/PATH_TO_9.md`
 
-No open PRs. Carried: **AU4** (swallowed-error sweep), **AS2** (finish the
-interrupted audit round), **R2/R3** (role enforcement — R2 gates selling a Team
-plan), **CM1** (multi-language), **CM2**, **CM4**, **DS2/DS4**, **LT1** (the
-PGRST204 sweep).
+Ordered by five rules, each of which this repo has already paid for ignoring.
+Two worth knowing:
 
-`auto_reply` stays out of `SELECTABLE_AUTOMATION_ACTIONS`. AS1's sync lock
-**fails open** when Redis is unreachable, and publishing un-reviewed model output
-to a live public listing needs an answer for "what happens when Redis is down" —
-a lock alone is not that answer. 8/8 does not change this.
+- **Truth before polish.** R2 is one false pricing row — *"Topic clustering
+  across your reviews — Pro ✅"* when there is no clustering. Running the
+  user test on a page that overclaims turns three testers into three people who
+  learned the product lies. **So R2 precedes R3.**
+- **Prove the thesis before building the primitive.** II0 (1 session, no schema)
+  before II1 (3–5 sessions, blocked gate). If the II0 view does not make a
+  founder lean forward, II1 will not either.
+
+Milestones: **M1** II0 *(built, awaiting walk)* → **M2** truthful-surface sweep →
+**M3** three non-founder walks → **M4/M5** the Issues primitive and its screens
+(blocked) → **M6** silent-failure sweep → **M7** multilingual proof.
+
+§6 is a **bake-off protocol for Codex and Cursor**: same base commit, same brief
+pasted verbatim, and a 100-point rubric where **20 points are verification
+honesty** and any D009 breach caps the score at 50. Claude's own row is
+deliberately blank — an agent may not score itself.
 
 ---
 
-## A flaky test, unidentified
+## 4. What we need from you
 
-While verifying this change the unit suite failed **once** — `1 failed | 648
-passed` — on a run that took 14s against a normal 6s, i.e. under load. Four
-subsequent runs were 649/649 clean. The failing test's name was not captured
-before the output rolled, so it is not yet known which one it is.
+| # | Ask | Blocks | Why only you |
+|---|---|---|---|
+| 1 | **Walk AC-6** — open a real app's release, name the biggest mover | M1 → R1 | No agent can do this; it is the entire definition of done |
+| 2 | **Reword the pricing matrix row** *"Topic clustering"* → *"Topic breakdown"*, or hold it until II1 ships | M2 → R2 | D009 §9 reserves pricing pages. The diff is one word |
+| 3 | **Decide the corpus question** (ADR 011 §10.3) — how a genuinely multilingual golden set is obtained | M4, M7 | Methodology + product call, not a patch to the dataset |
+| 4 | Stripe test keys · **W5A** (`docs/adr/009-review-volume-limit.md`) | R6 | Money. D009 |
+| 5 | Carried: `ADMIN_CLERK_USER_ID` in Vercel prod · **Slack on `/sub-processors`** | admin probe; legal exposure | Unchanged from 2026-08-19 |
 
-Recording it rather than dismissing it: a suite that fails one run in five and
-passes on retry is exactly how a green check stops meaning anything, which is
-this repository's oldest and most expensive habit. If it recurs, capture the
-name (`npx vitest run --reporter=verbose`) before rerunning.
+---
 
-## Note for the next session
+## 5. Notes for the next session
 
-Two claims made confidently from code inspection this session turned out to be
-wrong, both corrected the same day: that the e2e check was "a real signal" (it
-still executes zero specs), and that two composer fixes existed in no branch
-(they were on `claude/spine-draft-mode-fixes`, merged as #131). The second came
-from running `git branch -r` in a clone holding 3 of 80+ refs. **Run
-`git fetch origin --prune` before concluding anything about what exists.**
+- **The II0 tag ceiling is real and must not be oversold.** The eight tags are
+  English regexes, so a Hinglish payment complaint may carry no tag and move no
+  bar. Describe this feature as "how these tags moved", never as "what your
+  users are complaining about". That sentence is the difference between a true
+  claim and the pricing-page problem in §4.2.
+- **The release detail page's own review list is capped at 100 rows** (it always
+  was). The comparison runs its own query up to 5,000 and discloses truncation.
+  The page's "Reviews" stat still reads from the capped slice — pre-existing,
+  logged here rather than fixed inside an unrelated PR.
+- `npm ci` was needed in this session: the clone arrives without `node_modules`.

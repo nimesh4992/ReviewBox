@@ -405,7 +405,7 @@ function CriticalReviewsList({
   );
 }
 
-// ── AI re-cluster results panel ───────────────────────────────────────────────
+// ── AI sentiment re-check panel ───────────────────────────────────────────────
 
 function AiResultsPanel({ results }: { results: AnalysisResult[] }) {
   return (
@@ -414,7 +414,7 @@ function AiResultsPanel({ results }: { results: AnalysisResult[] }) {
         <Sparkles className="size-4 text-[#0A84FF]" strokeWidth={1.5} />
         <div>
           <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">
-            AI Re-cluster results
+            AI sentiment re-check
           </div>
           <div className="mt-0.5 text-[12px] text-fg-3">
             {results.length} reviews re-classified · rules engine + Gemini
@@ -484,8 +484,8 @@ export function SentimentScreen() {
   // lands in the React Query key automatically.
   const { reviews: workspaceReviews } = useReviewQueue(appId ? { appId } : {});
 
-  // Fetch real reviews for Re-cluster button (critical + negative, first page)
-  const { reviews: reclusterReviews } = useReviewQueue(
+  // Fetch real reviews for the sentiment re-check button (critical + negative, first page)
+  const { reviews: recheckReviews } = useReviewQueue(
     appId ? { sentiment: "critical", appId } : { sentiment: "critical" },
   );
 
@@ -493,7 +493,7 @@ export function SentimentScreen() {
   const trendPos = overview?.trend.positive ?? [];
   const trendNeg = overview?.trend.negative ?? [];
   const hasChartData = trendPos.length >= 2;
-  const canRecluster = workspaceReviews.length > 0;
+  const canRecheck = workspaceReviews.length > 0;
 
   // KPI deltas
   const ratingDelta = fmtDelta(overview?.avgRating ?? null, overview?.avgRatingPrev ?? null);
@@ -506,9 +506,9 @@ export function SentimentScreen() {
   // Topics share bar: scale relative to the highest-count topic
   const maxShare = topics.length > 0 ? Math.max(...topics.map((t) => t.share)) : 1;
 
-  function handleRecluster() {
-    if (!reclusterReviews.length) return;
-    analyze(reclusterReviews, { onSuccess: setAiResults });
+  function handleRecheck() {
+    if (!recheckReviews.length) return;
+    analyze(recheckReviews, { onSuccess: setAiResults });
   }
 
   return (
@@ -681,7 +681,7 @@ export function SentimentScreen() {
       <div className="overflow-hidden rounded-[14px] border border-[var(--rb-border-1)] bg-surface shadow-[var(--rb-shadow-xs)]">
         <div className="flex items-center border-b border-[var(--rb-border-1)] px-5 py-4">
           <div>
-            <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">Topics · auto-clustered</div>
+            <div className="text-[14px] font-semibold tracking-[-0.01em] text-fg-1">Topics · by issue tag</div>
             <div className="mt-0.5 text-[12px] text-fg-3">
               {isLoading
                 ? "Loading…"
@@ -691,9 +691,9 @@ export function SentimentScreen() {
             </div>
           </div>
           <button
-            onClick={handleRecluster}
-            disabled={isPending || !canRecluster}
-            title={canRecluster ? "Run AI sentiment clustering on recent reviews" : "Sync reviews first"}
+            onClick={handleRecheck}
+            disabled={isPending || !canRecheck}
+            title={canRecheck ? "Re-check sentiment on recent reviews with AI" : "Sync reviews first"}
             className="ml-auto flex h-7 items-center gap-1.5 rounded-[7px] border border-[var(--rb-border-2)] bg-surface px-3 text-[12px] font-semibold text-fg-1 transition-colors hover:bg-[var(--rb-bg-hover)] disabled:opacity-50"
           >
             {isPending ? (
@@ -701,7 +701,7 @@ export function SentimentScreen() {
             ) : (
               <Sparkles className="size-3 text-[#0A84FF]" />
             )}
-            {isPending ? "Analysing…" : "Re-cluster with AI"}
+            {isPending ? "Analysing…" : "Re-check sentiment with AI"}
           </button>
         </div>
 
@@ -710,7 +710,7 @@ export function SentimentScreen() {
             was indistinguishable from a mis-click. */}
         {analyzeError && (
           <div role="alert" className="mt-2 text-[12px] text-[var(--rb-red-500)]">
-            Couldn&apos;t re-cluster — {analyzeError.message}
+            Couldn&apos;t re-check sentiment — {analyzeError.message}
           </div>
         )}
 
@@ -843,7 +843,7 @@ export function SentimentScreen() {
         />
       </div>
 
-      {/* AI re-cluster results */}
+      {/* AI sentiment re-check results */}
       {aiResults && aiResults.length > 0 && (
         <AiResultsPanel results={aiResults} />
       )}
