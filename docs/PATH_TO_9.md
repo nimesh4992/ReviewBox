@@ -364,3 +364,61 @@ mutation-checked by reverting to raw adjacency.
 **No unit test would ever have found this.** Every fixture anyone would invent has
 versions in tidy chronological order. Real users do not.
 
+### 9.5 · Play Console, 2026-08-22 — version NAMES are reused and non-monotonic
+
+Four Play Console screenshots, and the app-bundle list is the one that matters:
+
+| Version code | Version name | Uploaded | Install base |
+|---|---|---|---|
+| 59 | **1.5** | Jun 17 2026 | 306K |
+| 51 | **1.4.1** | May 1 2026 | 24.1K |
+| 50 | **1.4.1** | Apr 23 2026 | ≤100 |
+| 49 | **1.5** | Apr 2 2026 | ≤100 |
+| 48 | **1.4.1** | Mar 20 2026 | ≤100 |
+
+Two facts, both consequential:
+
+1. **One version name spans several builds.** "1.4.1" is *three* uploads over six
+   weeks; "1.5" is *two*, three months apart.
+2. **The names go backwards.** 1.5 shipped 2 Apr, then 1.4.1 shipped 23 Apr and
+   1 May, then 1.5 again on 17 Jun.
+
+**We store the name and only the name.** `reviews.app_version text` (migration
+001), written from `appVersion` in `src/lib/review-mapper.ts:65`. There is no
+version-code column anywhere in the schema or the codebase — grep returns zero
+hits for `version_code`.
+
+**What this does to II0:** "What changed vs 1.4.1" compares against a bucket that
+merges three separate builds, and "1.5" merges April's build with June's. That is
+not wrong the way a bug is wrong — it is exactly what a customer sees on their own
+store listing — but it is coarser than the phrase "this release" implies, and it
+must not be described as a per-build comparison.
+
+**What it vindicates:** ordering releases by *first review seen* rather than by
+version number. Semver ordering would have put 1.4.1 before 1.5 for this app, and
+been wrong. The straggler fix in §9.4 was the right shape for the wrong reason —
+the real cause is that this app's version names are not ordered at all.
+
+**Fix, not applied:** store Play's `versionCode` alongside the name and bucket on
+it. That needs a migration, so it is the founder's to run. Filed as **RV1**.
+
+### 9.6 · The number that makes the II1 case, from the same screenshots
+
+| From Play Console | From ReviewBox |
+|---|---|
+| 295K release installs · 349K app installs | 64 reviews in 30 days |
+| Crash rate **0.05%** · ANR **0.23%** | **41% one-star** |
+| 84.6% of the install base already on 1.5 | Billing = 32.8% of tagged reviews, falling |
+
+**The app is technically healthy and its users are not.** Stability is not the
+problem, so no crash dashboard on earth would find what is wrong here — and a
+star rating alone does not say either. Whatever is driving 41% one-star is a
+*product* complaint sitting in the review text.
+
+That gap is the entire argument for the Issue layer, stated in someone's real
+numbers rather than in a pitch. Worth keeping for the launch narrative.
+
+**Also confirmed at source:** the production release lists **"1 of 177"**
+countries. The region-locked-fixture premise that `docs/PRODUCT_CONTEXT.md` was
+written around is not an assumption — it is what the Console says.
+

@@ -267,6 +267,27 @@ mixed them could not. Automation drafts are attributed to the rule rather than
 a user, since a rule can burn far more quota than a person clicking Generate.
 Written via `after()`, not a detached promise, which Vercel would cut off.
 
+### [ ] RV1 · Store Play's versionCode, and bucket releases on it · ICE ~24 (6×8÷2)
+
+**Found 2026-08-22 in Mumbai One's Play Console**, not in our data — our data
+cannot show it. Play version *names* are reused and non-monotonic for this app:
+code 59 and code 49 are both named **"1.5"** (three months apart), and codes 48,
+50 and 51 are all **"1.4.1"** (six weeks). 1.5 also shipped *before* 1.4.1.
+
+We store `reviews.app_version` (the name) and nothing else — no `version_code`
+column exists anywhere. So `/releases` and II0 bucket several distinct builds
+into one row and call it a release.
+
+**Done when:** the Play review's `versionCode` is stored beside the name, the
+release list buckets on `(app_id, version_code)` where present, and the UI still
+*labels* rows with the human version name. Falls back to name-only for App Store
+reviews and for rows synced before the migration.
+
+**Needs a migration → founder runs it (D009).** Until then, II0's comparison is
+per version *name*, which is what the customer sees on their listing — accurate,
+but coarser than "this release" implies. Recorded in
+`docs/specs/release-regression.md` known gaps.
+
 ### [ ] AU5 · The `res.ok` load paths AU4 did not reach · ICE ~35 (7×8÷1.6)
 
 **Found 2026-08-22 while re-scoping M6 in `docs/PATH_TO_9.md`** — AU4 was cited as

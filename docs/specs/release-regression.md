@@ -95,3 +95,8 @@ without doing arithmetic.
 3. **No alerting.** Seeing this requires opening the page (II7).
 4. The release detail page's own review list is capped at 100 rows; the
    comparison reads its own, larger query rather than that slice.
+5. **A "version" here is a version NAME, not a build.** Mumbai One's Play Console
+   shows three separate uploads named `1.4.1` and two named `1.5`, so a comparison
+   can merge builds shipped weeks apart. We store no version code (backlog **RV1**).
+   Describe this as a comparison between *versions as the store labels them* —
+   never as a per-build comparison.
