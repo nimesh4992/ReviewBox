@@ -109,3 +109,49 @@ describe("buildEnrichedRow — field mapping", () => {
     expect(low.rating).toBe(1);
   });
 });
+
+describe("buildEnrichedRow — version code (RV1)", () => {
+  function withVersionCode(versionCode?: number | null) {
+    return buildEnrichedRow(
+      "app-1", "ws-1", "ext-1", "google_play", "Asha", 3,
+      "fine", "1.4.1", null, "IN", "2026-08-17T00:00:00.000Z",
+      false, null,
+      ...(versionCode === undefined ? [] : [versionCode]),
+    );
+  }
+
+  it("stores the build the reviewer was actually running", () => {
+    // The whole point of RV1: "1.4.1" was three different builds. The NAME
+    // cannot tell them apart; the code can.
+    expect(withVersionCode(51).version_code).toBe(51);
+    expect(withVersionCode(48).version_code).toBe(48);
+  });
+
+  it("defaults to null for callers that have no version code", () => {
+    // App Store Connect has no equivalent field, and the public Play scrape
+    // exposes only a version name. Both call the 13-argument form.
+    expect(withVersionCode().version_code).toBeNull();
+  });
+
+  it("treats an absent code as null, not as an error", () => {
+    // Google documents appVersionCode as "may be absent".
+    expect(withVersionCode(null).version_code).toBeNull();
+  });
+
+  it("refuses a non-integer rather than failing the whole batch", () => {
+    // The column is `integer`. One NaN or float in a batch upsert rejects
+    // EVERY review in that batch, not just the bad row.
+    expect(withVersionCode(Number.NaN).version_code).toBeNull();
+    expect(withVersionCode(51.5).version_code).toBeNull();
+    expect(withVersionCode(Number.POSITIVE_INFINITY).version_code).toBeNull();
+  });
+
+  it("keeps the version name alongside it — the code does not replace it", () => {
+    // Readers must still fall back to app_version: rows synced before
+    // migration 031, and every App Store review, will never have a code.
+    const row = withVersionCode(59);
+    expect(row.app_version).toBe("1.4.1");
+    expect(row.version_code).toBe(59);
+  });
+});
+

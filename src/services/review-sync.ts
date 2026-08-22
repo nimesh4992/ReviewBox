@@ -271,6 +271,10 @@ async function syncGooglePlayApp(app: DbApp, summary: SyncSummary, isFirstSync: 
         at,
         !!dc,
         dc?.text ?? null,
+        // The Publisher API is the only source that carries this. The public
+        // scrape exposes a version name only, and App Store Connect has no
+        // equivalent at all.
+        uc?.appVersionCode ?? null,
       );
     });
 
@@ -426,9 +430,31 @@ async function upsertAndFinalize(
   if (newRows.length) {
     // ignoreDuplicates guards the race where a concurrent sync inserted the
     // same review between our lookup and this write — it must not clobber.
-    const { error } = await sb
-      .from("reviews")
-      .upsert(newRows, { onConflict: "app_id,external_id", ignoreDuplicates: true });
+    const upsertRows = (rowsToWrite: typeof newRows) =>
+      sb
+        .from("reviews")
+        .upsert(rowsToWrite, { onConflict: "app_id,external_id", ignoreDuplicates: true });
+
+    let { error } = await upsertRows(newRows);
+
+    // `version_code` arrives with migration 031. Naming a column the database
+    // does not have fails the ENTIRE batch, which would stop review sync dead
+    // for any environment that has not run it yet — the worst possible failure
+    // for the one feature the product cannot work without.
+    //
+    // `writeWithOptionalColumns` handles this for single-row writes; this is a
+    // batch, so the same idea applied by hand: shed the column from every row
+    // and write again. Note the error code is PGRST204 on the write path, not
+    // 42703 — `isMissingColumnError` knows about both, which is why it is used
+    // rather than a direct comparison.
+    if (isMissingColumnError(error)) {
+      const withoutVersionCode = newRows.map((row) => {
+        const rest: Record<string, unknown> = { ...row };
+        delete rest.version_code;
+        return rest;
+      });
+      ({ error } = await upsertRows(withoutVersionCode as typeof newRows));
+    }
 
     if (error) {
       const msg = `app ${app.id}: ${error.message}`;

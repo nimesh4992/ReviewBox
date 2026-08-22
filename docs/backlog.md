@@ -283,10 +283,23 @@ release list buckets on `(app_id, version_code)` where present, and the UI still
 *labels* rows with the human version name. Falls back to name-only for App Store
 reviews and for rows synced before the migration.
 
-**Needs a migration → founder runs it (D009).** Until then, II0's comparison is
-per version *name*, which is what the customer sees on their listing — accurate,
-but coarser than "this release" implies. Recorded in
-`docs/specs/release-regression.md` known gaps.
+**Status 2026-08-22 — half shipped.**
+- ✅ Migration 031 applied to production and verified (column `integer`, nullable,
+  `reviews_app_version_code_idx` present, 770 rows, 0 populated — as expected).
+- ✅ The sync now writes it: `buildEnrichedRow` takes a trailing optional
+  `versionCode`, the Publisher API path passes `uc.appVersionCode`, and the batch
+  upsert sheds the column if a database has not run 031.
+- 🔲 **Bucketing still keys on the version NAME**, and must for now: not one of
+  the 770 existing rows has a code, and Play does not serve history far enough
+  back to backfill them. Switching the release list over today would put every
+  historical review in one nameless bucket.
+
+**The remaining half is a judgement call about when, not how.** Once enough
+reviews carry a code, group on `(app_id, coalesce(version_code::text,
+app_version))` and keep labelling rows with the human name. Until then II0's
+comparison is per version *name* — what the customer sees on their listing, and
+accurate, but coarser than "this release" implies (`docs/specs/release-regression.md`
+known gap 5).
 
 ### [ ] AU5 · The `res.ok` load paths AU4 did not reach · ICE ~35 (7×8÷1.6)
 

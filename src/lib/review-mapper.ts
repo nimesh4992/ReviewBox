@@ -20,6 +20,24 @@ export function buildEnrichedRow(
   storeCreatedAt: string,
   hasDevReply: boolean,
   devReplyText: string | null,
+  /**
+   * Google Play's integer `appVersionCode` — the BUILD the reviewer was running.
+   *
+   * Appended rather than placed beside `appVersion`, where it belongs
+   * logically, because inserting a parameter into a thirteen-argument
+   * positional signature silently shifts six call-site arguments. Optional so
+   * the two callers that can never have one — App Store Connect, and the public
+   * Play scrape, which exposes only a version *name* — need no change.
+   *
+   * Why it matters: version NAMES are reused and non-monotonic. Mumbai One
+   * shipped three separate builds called "1.4.1" over six weeks, and "1.5"
+   * twice three months apart — with 1.5 landing BEFORE 1.4.1. Grouping releases
+   * by name therefore merges distinct builds (backlog RV1).
+   *
+   * `appVersionCode` is documented "may be absent", so null is ordinary, not a
+   * failure — see the column comment in migration 031.
+   */
+  versionCode: number | null = null,
 ) {
   // Guard against NaN/undefined/0: Math.max(1, NaN) === NaN, which would write
   // a NaN rating into the DB. A non-finite or out-of-range rating falls back to
@@ -63,6 +81,9 @@ export function buildEnrichedRow(
     rating:            clampedRating,
     body,
     app_version:       appVersion,
+    // Non-integers cannot reach an `integer` column: a NaN or a float would
+    // fail the whole batch insert, taking every other review in it down too.
+    version_code:      Number.isInteger(versionCode) ? versionCode : null,
     device,
     // `country` is char(2). App Store Connect sends alpha-3 territories
     // ("IND"), which raise 22001 and fail the entire insert batch — one
