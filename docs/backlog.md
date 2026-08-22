@@ -267,6 +267,41 @@ mixed them could not. Automation drafts are attributed to the rule rather than
 a user, since a rule can burn far more quota than a person clicking Generate.
 Written via `after()`, not a detached promise, which Vercel would cut off.
 
+### [ ] AU5 · The `res.ok` load paths AU4 did not reach · ICE ~35 (7×8÷1.6)
+
+**Found 2026-08-22 while re-scoping M6 in `docs/PATH_TO_9.md`** — AU4 was cited as
+open in a stale handoff line, and checking that claim turned up its unfinished half.
+
+**The defect class is AU4's own, verbatim:** a 500 returns a JSON error envelope, so
+`res.json()` **resolves**, `.catch` is unreachable for every HTTP failure, and the
+screen renders the error as the customer's data.
+
+**Done when:** every client load path either checks `res.ok` before parsing or
+renders `LoadErrorState`, and inducing a 500 on each surface shows a failure with a
+retry — never an empty form. Contract-tested and mutation-verified like AU4's twelve.
+
+Verified by reading the code, not by grep:
+- `settings-sections.tsx:24` — support email + brand voice render **empty**; a failed
+  load presented as "you never set these"
+- `team-members.tsx:76,81` — React Query caches the error envelope **as data**, so its
+  error state never fires: "you have no teammates". The mutation ten lines below
+  *does* check `res.ok` — the same asymmetry AU4 found in Reply Kit, which is why
+  this survived review twice
+- `slack-integration.tsx:45,52` — "no webhook configured" when the call failed
+
+Unread, same pattern, need triage: `ai-styles-tab.tsx:69`,
+`automation-hub.tsx:220`, `rule-builder-modal.tsx:331`,
+`google-play-setup-modal.tsx:324`, `google-play-invite-modal.tsx:35`,
+`onboarding/page.tsx:1008`.
+
+Also standing: **35** `catch(console.error)`-style swallow sites across 27 files and
+**1** empty catch. Many are legitimately best-effort (analytics, cache writes). The
+work is to separate those from the ones a customer would notice **and say which in a
+comment** — not to fix all 35.
+
+**Not to be bolted onto PR #150:** these are behaviour changes on settings and
+onboarding surfaces, each needing its own test-plan line. Own branch, after #150.
+
 ### [x] AU4 · Finish the swallowed-error sweep · SHIPPED 2026-08-17
 *ASO (both panels), Sentiment, Competitors and both Reply Kit tabs now separate "failed to load" from "no data", via a shared `LoadErrorState` (`src/components/load-error-state.tsx`) with a retry.*
 

@@ -52,7 +52,7 @@ Serial lane = agent work, in order. Parallel lanes = founder-blocked, any time.
 | **M3** | **Non-founder walk ×3** | **R3** | 2 of 3 outsiders sign up unaided and name their app's top problem. Recorded verbatim, including what they said out loud | queued (needs M1+M2) |
 | **M4** | **Issues primitive (II1)** — schema, dark engine, backfill | R1 | Migration applied; admin probe shows sane clusters for the fixture app after a real sync; cross-tenant test proves isolation | **blocked** — ADR §10 gate CLOSED |
 | **M5** | **Issues list + detail + impact score (II2/II3)** | R1 | Founder walks the Issues spine (`docs/II_DELIVERY_PLAN.md` §6) end to end | blocked on M4 |
-| **M6** | **Silent-failure sweep (AU4) + alert honesty** | **R5** | Every swallowed error either surfaces or is justified in a comment naming why; one induced failure per surface shows a next action | queued |
+| **M6** | **Unguarded `.json()` load paths (AU5)** | **R5** | Every client load path either checks `res.ok` or renders `LoadErrorState`; inducing a 500 on each shows a failure, never an empty form | queued — **scoped 2026-08-22, see §8** |
 | **M7** | **Multilingual proof** | **R4** | A non-English, region-locked app's reviews are analysed — not dropped — and the count matches its listing | blocked on corpus (lane B) |
 
 ### Parallel lanes (founder-only)
@@ -242,4 +242,46 @@ Two tests go red **on purpose**, and the whole fix is written at the top of
 `KNOWN_UNBACKED` in `src/pricing-contract.test.ts`: add one EVIDENCE line, empty
 the exception object, change one assertion to `[]`. Say the word and I will push
 it the moment you apply the diff — or apply it yourself, it is three lines.
+
+---
+
+## 8. M6 re-scoped — AU4 is finished; this is what actually remains
+
+**Correction, 2026-08-22.** M6 originally read *"Silent-failure sweep (AU4)"*. **AU4
+shipped on 2026-08-17** — `src/components/load-error-state.tsx` plus 12 green
+contract tests in `src/load-error-contract.test.ts`. The claim came from the
+2026-08-19 handoff's "Carried: AU4" line, which was stale, and it was written into
+this plan and into `docs/PRODUCT_READINESS.md` R5 without being checked against
+the backlog. **A plan built on finished work is worse than no plan**, so it is
+corrected here rather than quietly edited away.
+
+What AU4 fixed was the *load paths on ASO, Sentiment, Competitors and Reply Kit*.
+The defect class it named is still present elsewhere, and it is this:
+
+> A 500 from these routes returns a JSON **error envelope**, so `res.json()`
+> **resolves**. The promise never rejects, `.catch` is unreachable for every HTTP
+> failure, and the screen renders the error as if it were the customer's data.
+
+Measured on `1aead59`, verified by reading each site, not by grep alone:
+
+| Site | What the customer sees when the call 500s |
+|---|---|
+| `src/features/settings/components/settings-sections.tsx:24` | Support email and brand voice render **empty** — a failed load presented as "you never set these" |
+| `src/features/settings/components/team-members.tsx:76,81` | React Query caches the error envelope **as data**, so its error state never fires: "you have no teammates." The mutation ten lines below *does* check `res.ok` — the same asymmetry AU4 found in Reply Kit |
+| `src/features/settings/components/slack-integration.tsx:45,52` | "No webhook configured" when the call simply failed |
+| `src/features/reply-kit/components/ai-styles-tab.tsx:69` | unread |
+| `src/features/automations/components/{automation-hub:220,rule-builder-modal:331}` | unread |
+| `src/components/dashboard/{google-play-setup-modal:324,google-play-invite-modal:35}` | unread |
+| `src/app/onboarding/page.tsx:1008` | unread |
+
+Also standing, un-triaged: **35** `catch(console.error)` / `catch(() => …)`
+swallow sites across 27 files, and **1** empty catch block. Many are legitimately
+best-effort (analytics, cache writes) — the work is to separate those from the
+ones a customer would notice, and to say which in a comment, not to fix all 35.
+
+**Why this is not being bolted onto PR #150.** These are behaviour changes on
+customer-facing settings and onboarding surfaces, each needing its own line in a
+test plan. #150 is complete and green as a unit, and its merge decision is
+already what blocks R1. A separate branch, after #150 lands, keeps both
+reviewable. **Tracked as AU5 in `docs/backlog.md`.**
 

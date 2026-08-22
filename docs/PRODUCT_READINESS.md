@@ -99,7 +99,7 @@ R1–R5 are green**; R6 is commercial readiness and is tracked separately.
 | **R2** | **Every shipped claim is true** | Each pricing-matrix row maps to a shipped route a customer can exercise today | ❌ *"Topic clustering across your reviews — Pro ✅"* and there is no clustering |
 | **R3** | **A stranger reaches value unaided** | 2 of 3 non-founder testers sign up and name their top problem without help | ❌ never attempted |
 | **R4** | **The numbers are right off-US, off-English** | A region-locked, non-English app shows counts matching its listing, and its reviews are analysed not dropped | 🟡 ingestion fixed; analysis unproven (0 native-script in corpus) |
-| **R5** | **Nothing fails silently** | No spinner that never resolves, no success on a no-op, every failure names a next action | 🟡 audited repeatedly; AU4 swallowed-error sweep still open |
+| **R5** | **Nothing fails silently** | No spinner that never resolves, no success on a no-op, every failure names a next action | 🟡 AU4 shipped 2026-08-17 (`LoadErrorState`, 12 contract tests). **12 client load paths still parse `.json()` without checking `res.ok`**, so a 500 renders as empty data — verified 2026-08-22, tracked as AU5 |
 | **R6** | **Money can be taken** *(commercial, not product)* | Stripe live, W5A decided, one real checkout completes | ❌ keys unset by decision |
 
 **R1 is the only one that needs a new engine. R2 is a sentence of copy. R3 needs three
