@@ -62,7 +62,27 @@ It was re-run capturing output to a file before being believed.
 
 ## 2. What the code does that the plan says it does not
 
-### 2.1 · P0 — the review-volume cap is a hard stop, shipped, and nobody decided it
+### 2.1 · ~~P0 — the review-volume cap is a hard stop~~ — RESOLVED the same day
+
+> **Decided and fixed 2026-08-22, after this section was written.** The founder
+> chose **ADR 009 Option B, the soft cap**, and it shipped: `checkReviewLimit()`
+> is deleted, the early return is gone from `syncWorkspaceApps()`, and
+> `GET /api/billing/usage` + `<ReviewQuotaBanner />` tell the customer at ≥80%
+> and again when over — which also makes the 80% sentence on `/pricing` and
+> `/faq` true for the first time. ADR 009 is now `ACCEPTED` and carries the
+> record. **The analysis below is left standing unedited**, because the finding
+> is worth more than the fix: nothing in this repository could have detected it,
+> and the counter-rule it produced ("an ADR whose status is `Proposed` is not a
+> menu") only makes sense next to what went wrong.
+>
+> **Two things it leaves open**, both tracked as QT1: the `/pricing` and `/faq`
+> sentence *"new reviews will pause syncing"* is now an understatement and needs
+> a founder edit (D009 §9), and Option B's email is not built.
+
+<details>
+<summary>The finding as written, before the decision</summary>
+
+#### P0 — the review-volume cap is a hard stop, shipped, and nobody decided it
 
 **ADR 009 lists three options. Option A is "Enforce at sync time — hard stop", and the
 ADR's own text under it reads, verbatim: "Do not do this."** It recommends **B**, a soft
@@ -119,6 +139,8 @@ metered **per MONTH, not per day**, with the reasoning written out.
 
 **Not changed here.** Reverting a live gate is a billing change (D009), and so is
 rewording `/pricing`. Both are the founder's. §3.3 states the choice.
+
+</details>
 
 ### 2.2 · The Team plan was removed from pricing and survives in four places
 
@@ -272,9 +294,15 @@ Not "should we enforce?" but:
 | Honesty | Pages become true | Pages need the "pause" sentence removed | Loses a Starter↔Pro differentiator right before Stripe |
 | Risk | A silent stop remains one bug away | None to the customer | Commercial |
 
-**Until one is chosen, the live behaviour contradicts a written ADR and two public
-pages.** My recommendation is unchanged from ADR 009's: **B**, with the pause removed
-and a banner added — but this is D009 territory and I have implemented none of it.
+**RESOLVED 2026-08-22 — the founder chose B.** The pause is removed and the banner is
+added, exactly as the middle column describes. `checkReviewLimit()` is deleted rather
+than unwired, so a future gate has to be written in the open; the guards assert the
+*absence* of a gate, because that is the thing that regressed. Three mutations applied,
+three caught — reintroducing the stop fails six tests.
+
+**What column two says still costs something, and does:** the pricing sentence *"new
+reviews will pause syncing"* is now an understatement and needs the founder's edit
+(D009 §9), and Option B's email is filed rather than built. Both are **QT1**.
 
 ### 3.4 · LT3 — asked three times; here is the answer the code gives
 
@@ -521,7 +549,8 @@ terms · PostHog's actual instance region.
 | Topic clustering | ✅ **fixed this session** | now "Topic breakdown"; `/api/sentiment/overview` delivers it |
 | Pricing: Starter $49, Pro $129, annual $39/$99 | ✅ | one source, `lib/plans.ts`; annual figures are **derived**, never typed |
 | Team $199 | ⚠️ | in Terms only; the plan does not exist |
-| Quota: 80% notification | ⚠️ **unimplemented** | §2.1 |
+| Quota: 80% notification | ✅ **now true** — shipped 2026-08-22 as `<ReviewQuotaBanner />` at `REVIEW_USAGE_NOTICE_PERCENT` | §2.1 |
+| Quota: "new reviews will pause syncing" | ⚠️ **now an understatement** — nothing pauses under the soft cap. Founder edit, QT1 | §3.3 |
 | Quota: AI drafts reset daily | ⚠️ | `plans.ts` — metered monthly, deliberately |
 | Refunds: non-refundable, duplicate charges excepted | ✅ **consistent** across `/refund-policy`, `/pricing` FAQ, `/faq` | **no 30-day or money-back claim exists anywhere in `src/`** |
 | 14-day trial, no card | ✅ | `TRIAL_DAYS = 14` |

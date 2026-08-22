@@ -24,6 +24,7 @@ import { useIncidents } from "@/hooks/use-incidents";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { TrialBanner } from "@/components/dashboard/trial-banner";
+import { ReviewQuotaBanner } from "@/components/dashboard/review-quota-banner";
 import { UpgradeToast } from "@/components/dashboard/upgrade-toast";
 import { EmptyWorkspaceWelcome } from "@/components/dashboard/empty-workspace-welcome";
 import { GooglePlaySetupModal } from "@/components/dashboard/google-play-setup-modal";
@@ -381,6 +382,7 @@ export default function DashboardPage() {
         <UpgradeToast />
       </Suspense>
       <TrialBanner />
+      <ReviewQuotaBanner />
 
       {/* ── Page header ── */}
       <header className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">

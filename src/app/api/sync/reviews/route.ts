@@ -80,14 +80,12 @@ async function handler(req: NextRequest): Promise<NextResponse> {
   // ── Worker mode ────────────────────────────────────────────────────────────
   if (workspaceId) {
     try {
+      // No 402 here any more. A sync used to answer "REVIEW_LIMIT_REACHED"
+      // because the pipeline refused to run over the monthly count; under the
+      // soft cap (ADR 009 Option B, founder decision 2026-08-22) it always
+      // runs. Over-allowance is reported by `GET /api/billing/usage` and shown
+      // as a banner — it is not a failed request.
       const summary = await syncWorkspace(workspaceId);
-      const quotaErr = summary.errors.find((e) => e.includes("Monthly review limit reached"));
-      if (quotaErr) {
-        return NextResponse.json(
-          { error: "REVIEW_LIMIT_REACHED", message: quotaErr, ...summary, workspaceId },
-          { status: 402 },
-        );
-      }
       return NextResponse.json({ ...summary, workspaceId });
     } catch (err) {
       // Logged in full below, but NOT returned. Every other route funnels

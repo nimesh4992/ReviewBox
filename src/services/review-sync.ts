@@ -28,7 +28,6 @@ import { findAppAcrossStorefronts, fetchAppMetadata } from "@/services/store-sea
 import { DEFAULT_STOREFRONT as DEFAULT_SYNC_STOREFRONT, normalizeStorefront } from "@/lib/storefronts";
 import { buildEnrichedRow } from "@/lib/review-mapper";
 import { bootstrapReviews } from "@/services/bootstrap-reviews";
-import { checkReviewLimit } from "@/lib/plan-enforcement";
 import { planSyncWrites, mergeReviewRows, isGpPermissionError } from "@/lib/sync-writes";
 import { buildMetadataUpdate, needsStorefrontReprobe } from "@/lib/app-metadata";
 import { isMissingColumnError, writeWithOptionalColumns } from "@/lib/db-errors";
@@ -827,24 +826,26 @@ async function syncWorkspaceApps(workspaceId: string): Promise<SyncSummary> {
 
   const allApps = await loadWorkspaceApps(workspaceId, summary);
 
-  // Enforce plan's monthly review limit before ingesting additional reviews.
-  const { data: wsData } = await sb
-    .from("workspaces")
-    .select("plan")
-    .eq("id", workspaceId)
-    .maybeSingle();
-
-  const plan = (wsData?.plan as string | null) ?? "trial";
-  const quotaMsg = await checkReviewLimit(workspaceId, plan).catch((err) => {
-    console.warn(`[sync] checkReviewLimit failed for ${workspaceId}:`, err);
-    return null;
-  });
-
-  if (quotaMsg) {
-    console.warn(`[sync] workspace ${workspaceId} quota reached: ${quotaMsg}`);
-    summary.errors.push(quotaMsg);
-    return summary;
-  }
+  // NO QUOTA GATE HERE, AND THAT IS THE DESIGN.
+  //
+  // Until 2026-08-22 this is where the sync stopped: over the plan's monthly
+  // review count, `syncWorkspaceApps()` returned before touching any provider —
+  // every app, every scheduled run, until the 1st of the month. Nothing told
+  // the customer. The cron path pushed the message into `summary.errors` and
+  // discarded it, so there was no email, no banner and no `last_sync_error`;
+  // the app row still read healthy while their reviews silently stopped
+  // arriving. `docs/adr/009-review-volume-limit.md` calls that Option A and
+  // says, of it, "Do not do this."
+  //
+  // Founder decision 2026-08-22: **Option B, soft cap.** Review ingestion is
+  // the product, and a customer who has a good month must not lose sight of
+  // the 1★ reviews they bought the tool to catch. Usage is reported by
+  // `getReviewUsage()` and surfaced as a banner from `/api/billing/usage`;
+  // nothing here withholds anything.
+  //
+  // If a future change needs to gate on volume, it has to write the comparison
+  // in the open — `getReviewUsage()` returns no error to return early on.
+  // `src/services/review-sync.quota.test.ts` fails if a gate reappears.
 
   // Apps without a store identifier can't sync — there's nothing to scrape.
   // This happens when onboarding's manual-entry path was used with just an
