@@ -301,13 +301,32 @@ weakest, and fails §5's multilingual bar outright.
 ## 8. Multilingual is P0, not a side constraint
 
 Our ICP is India-first (`docs/PRODUCT_CONTEXT.md`). The current tagging system is
-**English-only regex**. Real review text looks like:
+**English-only regex**.
 
-> "payment कट गया but ticket nahi aaya"
+> **This section used to argue from an invented sentence — "payment कट गया but
+> ticket nahi aaya". It no longer has to.** On 2026-08-22 the fixture app's own
+> reviews were read against the live database. Three real reviews, all describing
+> the same "money taken, ticket not issued" bug:
+
+| Review (verbatim, Mumbai One) | Tagged | Sentiment |
+|---|---|---|
+| "har time ticket nikal te waqt account se **payment** cut hota fir **transaction** fail" | `billing` | critical |
+| "isase **mera paisa kat gya ticket aaya nhi**" | **none** | critical |
+| "kabhi kabhi **paise cut jaate Hain Magar ticket nahin aati hai**" | **none** | ⚠️ **positive** |
+
+The first is tagged only because *payment* and *transaction* are English
+loanwords that happen to match an English pattern. The second is the invented
+example above, almost word for word, arriving in real life — and invisible.
+
+**The third is worse than invisible.** It is five stars, so it is untagged *and*
+scored `positive`: a user reporting the flagship bug is counted in the positive
+share the customer reads as a health metric. That is not a coverage gap, it is a
+wrong number.
 
 Across English, Hindi, Gujarati, Marathi, Hinglish, transliterated Hindi and
 code-switching within a single sentence. **A keyword system misses the
-relationship entirely.**
+relationship entirely** — now demonstrated rather than predicted. Full working:
+`docs/PATH_TO_9.md` §10.
 
 Therefore the issue engine must operate on **semantic similarity, not keyword
 matching** — which is exactly what makes the embedding decision in §7 the

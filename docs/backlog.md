@@ -267,6 +267,33 @@ mixed them could not. Automation drafts are attributed to the rule rather than
 a user, since a rule can burn far more quota than a person clicking Generate.
 Written via `after()`, not a detached promise, which Vercel would cut off.
 
+### [ ] ML1 · A 5-star bug report is counted as a happy customer · ICE ~28 (7×8÷2)
+
+**Demonstrated 2026-08-22 against the live database**, not predicted. A Mumbai
+One review reading *"kabhi kabhi paise cut jaate Hain Magar ticket nahin aati
+hai"* — "sometimes money is deducted but the ticket doesn't come" — carries
+**no issue tags** and is scored **`positive`**, so it counts toward the
+**36% positive share** on the Sentiment page.
+
+Two independent causes, and both must be fixed or the number stays wrong:
+
+1. **The tags are English regexes.** Hinglish is caught only when an English
+   loanword happens to appear (*payment*, *transaction*). This is II1's job.
+2. **`scoreSentiment()` is 70% rating.** With no recognised keywords the score
+   collapses to `rating / 5`, so any 5★ review is `positive` regardless of what
+   it says. That is fine for a rating-only review and wrong for this one.
+
+**Done when:** a review whose text reports a problem is not scored `positive`
+on the strength of its star rating alone — and the positive share on Sentiment
+can be defended review by review.
+
+**Do not "fix" this by weighting text higher across the board.** The 70/30 split
+is what makes rating-only reviews (a large share of Play traffic, with no text
+at all) score sensibly. The defect is that an unrecognised *language* is
+indistinguishable from an unrecognised *sentiment* — which is the same root as
+P1-2's "an undetermined language is not English". Worked example and the
+n-limits: `docs/PATH_TO_9.md` §10.
+
 ### [ ] RV1 · Store Play's versionCode, and bucket releases on it · ICE ~24 (6×8÷2)
 
 **Found 2026-08-22 in Mumbai One's Play Console**, not in our data — our data

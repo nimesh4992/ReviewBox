@@ -491,3 +491,98 @@ numbers rather than in a pitch. Worth keeping for the launch narrative.
 countries. The region-locked-fixture premise that `docs/PRODUCT_CONTEXT.md` was
 written around is not an assumption — it is what the Console says.
 
+---
+
+## 10. The first real product finding — 2026-08-22
+
+**The first time this product's own data was read to answer a product question,
+rather than to test the product.** The founder asked whether the
+"payment taken, ticket not issued" complaints concentrate on one release. They
+do, the answer is more interesting than yes, and the investigation turned up a
+defect in ReviewBox itself that no test would have found.
+
+**All figures below are from the live database** (app `199bc6c6…`, the *Mumbai
+One* workspace's Google Play app, 225 reviews with text).
+
+### 10.1 · One bug improving, and a second one that is new
+
+Complaints matching "money debited **and** ticket not issued", per 100 reviews
+of each version:
+
+| Version | Reviews | Matches | Per 100 |
+|---|---:|---:|---:|
+| **1.4.1** | 50 | 12 | **24.0** |
+| 1.5 | 57 | 9 | 15.8 |
+| 1.4 | 76 | 11 | 14.5 |
+
+Reading the text of all 21 from 1.4.1 and 1.5 side by side, **the core failure is
+identical** — the same sentence four months apart, and one 1.5 reviewer dates it
+themselves: *"Issue is going on since more than 3 months still not rectified."*
+One bug, improving, not two bugs.
+
+**But the refund behaviour changed, and that is a different failure:**
+
+| | 1.4.1 (May–Jul) | 1.5 (Jul–Aug) |
+|---|---|---|
+| Refunds | *never arrive* — "never refunds my failed payments"; "did not even get all the refunds, they gave some and ignored the rest" | *claimed but not credited* — "app keeps showing **Refunded**, but the money has never been credited back"; "app status shows the amount has been refunded… told to wait 5–7 working days" |
+| Failure UX | "**no message or pop up** after the failed attempt, just a blank screen and then redirection to the Home screen" | absent from the 1.5 set — apparently fixed |
+
+So the booking bug is receding, the blank-screen UX is gone, and a **new
+refund-reporting problem** has appeared: the app reports money returned that has
+not moved. Different fix, different owner, and it would be invisible to anyone
+reading only the rate.
+
+**Two caveats on the version split, both real.** Version buckets are not clean
+time periods — reviews tagged `1.4` were still arriving on 19 Aug — so by
+calendar month the same measure roughly halves (Jul 17.9 → Aug 8.2), which is
+the more encouraging read. And **"1.4.1" is three separate builds** (RV1), so
+24.0 is an average across all three.
+
+### 10.2 · The defect this turned up in ReviewBox
+
+Pulling those reviews surfaced one in Hinglish, which led somewhere worse. Three
+reviews, all describing the *same* bug:
+
+| Review | Tagged | Sentiment |
+|---|---|---|
+| "har time ticket nikal te waqt account se **payment** cut hota fir **transaction** fail" | `billing` | critical |
+| "isase **mera paisa kat gya ticket aaya nhi**" | **none** | critical |
+| "kabhi kabhi **paise cut jaate Hain Magar ticket nahin aati hai**" | **none** | ⚠️ **positive** |
+
+The first is tagged only because *payment* and *transaction* are English
+loanwords that happen to match an English regex. The second is almost exactly
+the phrasing `docs/ISSUE_INTELLIGENCE.md` §8 uses as its hypothetical example —
+and the product cannot see it.
+
+**The third is the defect.** It is five stars, so it is untagged *and* scored
+`positive`, which means **a user reporting the flagship bug is counted in the
+36% positive share** on the Sentiment page. Not a coverage gap — a measurement
+error, in a number the customer reads as a health metric.
+
+### 10.3 · What can and cannot be claimed from this
+
+**Can:** the mechanism fails, demonstrated by three named reviews anyone can
+re-read. English-only regexes catch Hinglish only by loanword accident.
+
+**Cannot:** a miss rate. Only **6 of 225** reviews carry romanised-Hindi markers.
+Six cannot support a rate — the same `MIN_SLICE_REVIEWS` rule this plan enforces
+on the bake-off (ADR 011 §10.1), applied to its own author.
+
+**Confirmed independently, and it matters for the corpus decision:** 6/225 ≈
+**2.7%** Hinglish and exactly **one** Devanagari review in the entire app. The
+golden set counted 6/200 from a completely separate sample. Two independent
+counts agree, so **waiting for more Mumbai One data will not make the corpus
+multilingual** — §9's conclusion, now measured twice rather than argued once.
+
+### 10.4 · What this changes
+
+- **The II1 case no longer needs a hypothetical.** `ISSUE_INTELLIGENCE.md` §8
+  argued multilingual-is-P0 from an invented sentence. It can now cite three real
+  reviews from the fixture app, one of which is being counted as a happy
+  customer.
+- **The positive-share number has a known, demonstrated failure mode.** Recorded
+  in `docs/specs/` rather than left as folklore.
+- **AC-6 has a better test case.** Open v1.4.1 and v1.5 and see whether the
+  release view surfaces what four hours of SQL surfaced here. If it does not,
+  that is the gap II0 was built to close, measured against a real question.
+
