@@ -38,7 +38,7 @@ splitting the difference. Where they agreed, the row is marked *agreed* and move
 | Testing / verification | 8.5 | 8.5 | **8.5** | ▲ 2026-08-22. 975 tests / 85 files; two new contract suites, both mutation-verified (5/5 and 4/4 caught), plus a pricing contract that fails if any sold row has no code behind it. Still docked for **e2e executing zero specs in CI** (BUG-037) |
 | Product UX / dashboard | 7 | — | **6.5** | ▼ 2026-08-22. Two honesty defects visible on real screens: Sentiment shows **"Positive share 0%" beside "41% five-star"**, and **four** places claim clustering that does not exist (§9.2, §9.3). Design-system debt unchanged |
 | Store coverage (Google Play + App Store) | 5 | 8 | **8** | Both stores sync **and** post replies; SPINE 8/8 walked 2026-08-19. The 5 scored a 17-platform target that is not this product — see §2 |
-| Billing / packaging | 5 | 5 | **5** | *Agreed.* Stripe gated off by decision (D013), keys unset, W5A open. Quota enforcement wired 2026-08-21 (P0-3) |
+| Billing / packaging | 5 | 5 | **5** | ◆ 2026-08-22, evidence changed, **score unchanged**. W5A is decided (ADR 009 → `ACCEPTED`, Option B) and the quota is now a soft cap that reports instead of withholding. That removes a defect; it does not add the ability to take money. Stripe still gated off by decision (D013), keys unset → the row is still 5 |
 | Customer acquisition | 3 | — | **3** | *Agreed.* Marketing site + SEO plan exist; no channel has produced a signup |
 | Positioning / ICP clarity | 6 | — | **8** | **Raised.** D024 ratified one ICP and superseded D011 + D017. Internally this is decided and documented — what is unproven is whether the market agrees, which is the row below, not this one |
 | Production deployment / ops | 7 | — | **7** | *Agreed.* Vercel Pro, git integration ships master, Sentry + PostHog live. No deploy gate in CI; status page not live |
@@ -101,14 +101,51 @@ R1–R5 are green**; R6 is commercial readiness and is tracked separately.
 | # | Gate | Green when | Today |
 |---|---|---|---|
 | **R1** | **It says what to fix first** | The product names the top problems and what changed, not a list of reviews a human must read | ❌ ranked list of reviews only |
-| **R2** | **Every shipped claim is true** | Each pricing-matrix row maps to a shipped route a customer can exercise today | ❌ *"Topic clustering across your reviews — Pro ✅"* and there is no clustering |
+| **R2** | **Every shipped claim is true** | Each pricing-matrix row maps to a shipped route a customer can exercise today | 🟡 **the stated condition is met; the gate's own title is not.** The clustering row is reworded, `KNOWN_UNBACKED` is empty, and `pricing-contract.test.ts` fails if any sold row loses its code. But searching for *claims* rather than *rows* found more: **$199/month for a Team plan that does not exist, in the Terms of Service**, auto-publish sold on four pages for a feature `automation-actions.test.ts` asserts is deliberately absent, and a five-tone list for a four-tone engine (**CP1**, **CP2**). The gate as written can be green while its title is false — that is a defect in the gate, and it stays 🟡 until CP1/CP2 close |
 | **R3** | **A stranger reaches value unaided** | 2 of 3 non-founder testers sign up and name their top problem without help | ❌ never attempted |
 | **R4** | **The numbers are right off-US, off-English** | A region-locked, non-English app shows counts matching its listing, and its reviews are analysed not dropped | 🟡 ingestion fixed; analysis unproven (0 native-script in corpus) |
-| **R5** | **Nothing fails silently** | No spinner that never resolves, no success on a no-op, every failure names a next action | 🟡 AU4 shipped 2026-08-17 (`LoadErrorState`, 12 contract tests). **12 client load paths still parse `.json()` without checking `res.ok`**, so a 500 renders as empty data — verified 2026-08-22, tracked as AU5 |
-| **R6** | **Money can be taken** *(commercial, not product)* | Stripe live, W5A decided, one real checkout completes | ❌ keys unset by decision |
+| **R5** | **Nothing fails silently** | No spinner that never resolves, no success on a no-op, every failure names a next action | 🟡 **the code condition is met and enforced; nobody has watched it.** AU5 shipped 2026-08-22: eleven load paths, two of which were data-loss (an empty brand-voice form you could save over your real one; a fixture file rendered as your saved alert settings). The eternal spinner is gone. `au5-load-error-contract.test.ts` sweeps the tree for `fetch(...).then(r => r.json())` and **its allowlist is empty**. Per §4 this cannot be green on a suite: it needs someone to induce a 500 on each surface and look |
+| **R6** | **Money can be taken** *(commercial, not product)* | Stripe live, W5A decided, one real checkout completes | ❌ **W5A is now decided** (2026-08-22, ADR 009 Option B, shipped). Stripe keys still unset by decision — one of three conditions met |
 
 **R1 is the only one that needs a new engine. R2 is a sentence of copy. R3 needs three
 people.** That ordering is the whole plan — see `docs/PATH_TO_9.md`.
+
+> **R2 turned out not to be a sentence of copy.** It was a sentence of copy *plus*
+> three more untrue claims that nobody had looked for, because the gate was written
+> against the pricing matrix and the matrix was not where the worst one lived. The
+> lesson generalises: **a gate phrased as a test of one artefact will be satisfied by
+> fixing that artefact**, whatever its title says.
+
+---
+
+## 3.1 · Re-score, 2026-08-22 (afternoon) — three PRs merged and deployed
+
+`ee67c0d` (#153) · `bac7323` (#154) · `d6f85b8` (#155), all `READY` on production,
+verified at Vercel rather than inferred from a green merge.
+
+**What moved, and what deliberately did not:**
+
+| Row / gate | Change | Why |
+|---|---|---|
+| Billing / packaging **5** | evidence rewritten, **score held** | W5A decided and the harmful gate removed. Removing a defect is not the same as gaining the ability to charge |
+| **R2** ❌ → 🟡 | partial | Its stated condition is met and now test-enforced; its title is not (CP1/CP2) |
+| **R5** 🟡 → 🟡 | evidence rewritten, **state held** | AU5's eleven sites are fixed and the sweep is clean, but §4 forbids flipping a gate on a passing suite |
+| **R6** ❌ → ❌ | one of three conditions met | W5A decided; Stripe keys still unset |
+| Product UX **6.5** | **held** | Both defects it was lowered for are fixed (clustering copy in #150/#154, "Positive share 0%" in #151) — but neither was fixed by a human exercising the screen, so §4 does not permit raising it. It moves when someone walks it |
+| Testing **8.5** | **held** | 1,040 tests in 91 files, four new mutation-verified contract suites. A suite going green is explicitly not grounds to raise a row |
+| Everything else | untouched | No artefact changed |
+
+**Rollups do not move.** Overall market readiness stays **5.5**: it is bound by
+validation at 1 and commerce at 4, and neither was touched. A day of removing defects
+does not create a customer.
+
+**One new defect class was closed rather than scored.** Writing #155 reintroduced the
+middleware-matcher gap it had just fixed elsewhere — `/api/billing/usage` landed in
+neither matcher, which on the production host serves HTML to a `fetch()` with
+`res.ok === true`. Seventh instance on record.
+`src/middleware.api-coverage-contract.test.ts` now checks every API route, allowlist
+empty. That belongs in the architecture row's evidence eventually; it is noted here
+rather than scored, because nothing has yet been observed working because of it.
 
 ---
 

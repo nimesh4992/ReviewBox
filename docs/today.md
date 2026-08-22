@@ -24,6 +24,29 @@ really do say those things, the deployment is stale** — which is its own findi
 
 ---
 
+## 1.5 · Resolved the same day: W5A, and all three PRs are live
+
+Founder decided **ADR 009 Option B (soft cap)** and it shipped. Three merges, three
+production deploys, all verified `READY` at Vercel rather than inferred:
+
+| PR | Merge | Deploy |
+|---|---|---|
+| #153 · first real product finding, ML1 | `ee67c0d` | READY |
+| #154 · Slack privacy, R2, AU5, LT3 | `bac7323` | READY |
+| #155 · W5A soft cap | `d6f85b8` | READY, aliased to production |
+
+`checkReviewLimit()` is **deleted, not unwired** — it returned an error string, which
+is an invitation to return early on it, and someone accepted. `getReviewUsage()`
+returns a report with no error in it. The banner at ≥80% also makes the
+*"we'll notify you at 80% of your quota"* sentence true for the first time.
+
+**Writing that fix reintroduced the bug class the same session had just removed.**
+`/api/billing/usage` landed in neither middleware matcher, which on the production
+host answers a `fetch()` with HTML and `res.ok === true`. Seventh instance on record.
+Now guarded for every API route by `src/middleware.api-coverage-contract.test.ts`,
+allowlist empty. Read that as the session's main lesson: the guard rails that were
+added today were added *because the author walked into the trap while building them*.
+
 ## 2. The finding
 
 **`syncWorkspaceApps()` stops the entire workspace's sync when the calendar-month review
